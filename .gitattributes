@@ -1,0 +1,121 @@
+# Auto-detect text files and perform LF normalization
+# Ensure consistent line endings for all text files
+# This is handled by text=auto below
+* text=auto
+
+# Source code
+*.rs text diff=rust
+*.ts text diff=typescript
+*.tsx text diff=typescript
+*.js text diff=javascript
+*.jsx text diff=javascript
+*.svelte text diff=html
+*.html text diff=html
+*.css text diff=css
+*.scss text diff=css
+*.json text
+*.toml text
+*.yaml text
+*.yml text
+*.xml text
+
+# Build configuration files
+*.config.js text
+*.config.ts text
+vite.config.ts text
+tsconfig.json text
+Cargo.toml text
+Cargo.lock text
+
+# Shell scripts (preserve execute permissions)
+*.sh text eol=lf
+*.bash text eol=lf
+*.zsh text eol=lf
+*.fish text eol=lf
+
+# Batch scripts (Windows)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Markdown and documentation
+*.md text diff=markdown
+*.txt text
+*.rst text
+*.adoc text
+
+# Git files
+.gitattributes text
+.gitignore text
+.gitmodules text
+
+# License and readme files
+LICENSE text
+README* text
+
+# Database files
+*.sql text
+*.db binary
+*.sqlite binary
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text diff=html
+*.webp binary
+*.bmp binary
+
+# Fonts
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.eot binary
+
+# Audio/Video
+*.mp3 binary
+*.mp4 binary
+*.wav binary
+*.avi binary
+*.mov binary
+*.webm binary
+
+# Archives
+*.zip binary
+*.tar.gz binary
+*.tgz binary
+*.rar binary
+*.7z binary
+
+# Tauri specific
+*.msi binary
+*.dmg binary
+*.app binary
+*.deb binary
+*.rpm binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+
+# Package manager files
+Cargo.lock text
+pnpm-lock.yaml text
+
+# Environment files
+.env* text
+*.env text
+
+# Rust specific
+*.profdata binary
+*.profraw binary
+
+# Svelte specific
+*.svelte text diff=html
+
+# Vite specific
+*.mjs text
+*.cjs text
