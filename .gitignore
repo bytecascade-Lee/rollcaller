@@ -1,0 +1,47 @@
+### RustRover ###
+/.idea/
+*.iml
+*.iws
+*.ipr
+
+### VS Code ###
+/.vscode/
+
+### Windows ###
+desktop.ini
+
+### MacOS ###
+.DS_Store
+
+### Frontend ###
+/frontend/node_modules/
+/frontend/build/
+/frontend/.svelte-kit/
+/frontend/.pnpm-store/
+.pnpm-debug.log
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+### Backend ###
+/backend/target/
+/backend/gen/schemas/
+/backend/tauri.conf.json5.local
+**/*.rs.bk
+*.profdata
+*.profraw
+*.pdb
+
+### Develop Data ###
+/data
+
+### Environment and Secrets ###
+/env/
+.env
+.env.*
+!.env.example
+
+### Logs and Temporary Files ###
+**/*.log
+**/*.logs
+**/*.tmp
+**/*.temp
