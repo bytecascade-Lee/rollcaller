@@ -3433,6 +3433,7 @@ dependencies = [
  "hex",
  "jiff",
  "parking_lot",
+ "rand",
  "rbatis",
  "rbdc-sqlite",
  "rbs",

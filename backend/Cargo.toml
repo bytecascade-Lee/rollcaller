@@ -19,6 +19,7 @@ directories = "6.0"
 hex = "0.4"
 jiff = "0.2"
 parking_lot = "0.12"
+rand = "0.10"
 rbatis = {version = "4.8", features = ["debug_mode"] }
 rbs = "4.8"
 rbdc-sqlite = { version = "4.9", features = ["sqlite-bundled"] }
@@ -36,6 +37,7 @@ tracing-core = "0.1.36"
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["fmt", "json"] }
 ts-rs = "12.0"
+
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2.4"
