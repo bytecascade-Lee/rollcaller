@@ -5,7 +5,7 @@ use anyhow::Result;
 
 pub async fn init() -> Result<()> {
     migrate(
-        database().await?.clone().as_ref(),
+        &*database().await?,
         app_paths::resources_dir()
             .join("database/migrations")
             .as_path(),
