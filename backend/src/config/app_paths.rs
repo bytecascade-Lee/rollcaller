@@ -20,6 +20,7 @@ pub enum AppMode {
 }
 
 /// 路径结构体
+#[derive(Debug)]
 struct AppPaths {
     mode: AppMode,
     config_dir: PathBuf,
@@ -27,6 +28,7 @@ struct AppPaths {
     cache_dir: PathBuf,
     temp_dir: PathBuf,
     logs_dir: PathBuf,
+    webview_dir: PathBuf,
     resources_dir: PathBuf,
 }
 
@@ -43,6 +45,7 @@ static PATHS: LazyLock<AppPaths> = LazyLock::new(|| {
         cache_dir: base_dir.join("cache"),
         temp_dir: base_dir.join("temp"),
         logs_dir: base_dir.join("logs"),
+        webview_dir: base_dir.join("cache/webview2"),
         resources_dir: detect_resources_dir(mode),
     }
 });
@@ -156,6 +159,11 @@ pub fn logs_dir() -> &'static Path {
 /// 获取临时文件目录
 pub fn temp_dir() -> &'static Path {
     &PATHS.temp_dir
+}
+
+/// 获取webview目录
+pub fn webview_dir() -> &'static Path {
+    &PATHS.webview_dir
 }
 
 /// 获取资源文件根目录
