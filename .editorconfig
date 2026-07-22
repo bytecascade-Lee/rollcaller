@@ -1,0 +1,21 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+### Frontend files' indentation is 2 spaces ###
+[*.{html,svelte,vue,js,ts,jsx,tsx,cjs,mjs}]
+indent_size = 2
+
+### The line break character for Windows platform files is 'CRLF' ###
+[.{bat,cmd,ps1}]
+end_of_line = crlf
+
+### Markdown files remain unchanged ###
+[*.md]
+trim_trailing_whitespace = false
