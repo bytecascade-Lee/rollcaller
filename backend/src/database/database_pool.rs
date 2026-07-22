@@ -2,7 +2,9 @@ use crate::config::app_paths;
 use parking_lot::RwLock;
 use rbatis::RBatis;
 use rbdc_sqlite::SqliteDriver;
+use std::fs::File;
 use std::sync::{Arc, LazyLock};
+use tracing::info;
 
 /// 数据库连接池单例
 static DATABASE_POOL: LazyLock<DatabasePool> = LazyLock::new(|| DatabasePool {
@@ -51,8 +53,19 @@ impl DatabasePool {
     /// 如果数据库文件不存在，SQLite 会自动创建。
     async fn create_pool() -> anyhow::Result<RBatis> {
         let rb = RBatis::new();
-        let db_path = app_paths::data_dir()
-            .join("sqlite.db")
+        #[cfg(debug_assertions)]
+        let db_path = app_paths::data_dir().join("sqlite-develop.db");
+        #[cfg(not(debug_assertions))]
+        let path_buf = app_paths::data_dir().join("sqlite.db");
+        match File::create_new(&db_path) {
+            Ok(_) => {
+                info!("数据库文件 {:#?} 已存在，无需创建", db_path);
+            }
+            Err(_) => {
+                info!("数据库文件 {:#?} 已存在，无需创建", db_path);
+            }
+        }
+        let db_path = db_path
             .to_str()
             .expect("数据库路径转换失败")
             .to_string();
