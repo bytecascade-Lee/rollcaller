@@ -27,6 +27,11 @@ pub fn temp_dir() -> String {
 }
 
 #[tauri::command]
+pub fn webview_dir() -> String {
+    app_paths::webview_dir().to_str().unwrap().to_string()
+}
+
+#[tauri::command]
 pub fn resources_dir() -> String {
     app_paths::resources_dir().to_str().unwrap().to_string()
 }
