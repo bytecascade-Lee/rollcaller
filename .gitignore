@@ -45,3 +45,6 @@ vite.config.ts.timestamp-*
 **/*.logs
 **/*.tmp
 **/*.temp
+
+### Cargo Local Environment Configuration File ###
+/.cargo/config.toml
