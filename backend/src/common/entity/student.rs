@@ -5,7 +5,7 @@ use ts_rs::TS;
 
 /// Student实体
 ///
-/// 仅含自增主键 + 业务字段，用于 INSERT / UPDATE
+/// 仅含自增主键 + 业务字段，用于 INSERT
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, Hash, PartialEq)]
 pub struct Student {
     /// INSERT 时传 None 由 SQLite 自增
@@ -57,4 +57,3 @@ pub struct StudentTable {
 
 crud!(Student {}, "students");
 crud!(StudentTable {}, "students");
-
