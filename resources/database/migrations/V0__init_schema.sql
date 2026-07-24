@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS records
     student_id        INTEGER           NOT NULL,
     attendance_status INTEGER           NOT NULL,
     remark            TEXT    DEFAULT NULL,
-    roll_call_at      INTEGER           NOT NULL,
+    rollcall_at       INTEGER           NOT NULL,
     session_id        TEXT              NOT NULL,
     created_at        INTEGER DEFAULT (CAST(UNIXEPOCH('subsec') * 1000 AS INTEGER)),
     updated_at        INTEGER DEFAULT (CAST(UNIXEPOCH('subsec') * 1000 AS INTEGER)),
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS records
 -- 创建索引
 CREATE INDEX IF NOT EXISTS idx_student_no ON students (student_no COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS idx_student_name ON students (name COLLATE NOCASE);
-CREATE INDEX IF NOT EXISTS idx_roll_call_at ON records (roll_call_at DESC);
+CREATE INDEX IF NOT EXISTS idx_roll_call_at ON records (rollcall_at DESC);
 CREATE INDEX IF NOT EXISTS idx_session_id ON records (session_id COLLATE NOCASE);
 
 -- 创建触发器
