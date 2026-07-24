@@ -364,3 +364,11 @@ pub async fn delete(rb: &RBatis, ids: Vec<i64>) -> anyhow::Result<()> {
     student_repo::delete(&mut tx, ids).await?;
     Ok(())
 }
+
+/// 恢复学生
+pub async fn restore(rb: &RBatis, ids: Vec<i64>) -> anyhow::Result<()> {
+    let mut tx = rb.acquire_begin().await?;
+    tx.auto_commit();
+    student_repo::delete(&mut tx, ids).await?;
+    Ok(())
+}
