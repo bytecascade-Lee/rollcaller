@@ -63,9 +63,9 @@ pub async fn create(
     let all_matched = StudentTable::select_by_map(&mut tx, value! {"student_no": &student_no}).await?;
     let length = all_matched.len();
     if length > 1 {
-        panic!("学号 {} 有多余一条记录！", length)
+        return Err(anyhow!("学号 {} 有多余一条记录！", length));
     }
-    let matched_student = all_matched.get(0);
+    let matched_student = all_matched.into_iter().next();
     // 3. 解包 Option
     match matched_student {
         //* 3.1 存在该学号的学生
@@ -83,7 +83,7 @@ pub async fn create(
                 tx.commit().await?;
                 //~ 此处的查询可不必，只需要将exist的is_deleted设为false，deleted_at设为None即可
                 let vec = StudentTable::select_by_map(rb, value! {"id": exist.id}).await?;
-                return Ok(StudentSingleCreateResult::Restore(vec.get(0).unwrap().clone()));
+                return Ok(StudentSingleCreateResult::Restore(vec.into_iter().next().unwrap()));
             }
             //* 已删除但其他字段不同
             match decision {
@@ -95,7 +95,7 @@ pub async fn create(
                         tx.commit().await?;
                         //~ 此处的查询可不必，只需要将exist的name设为新值即可
                         let vec = StudentTable::select_by_map(rb, value! {"id": exist.id}).await?;
-                        Ok(StudentSingleCreateResult::Override(vec.get(0).unwrap().clone()))
+                        Ok(StudentSingleCreateResult::Override(vec.into_iter().next().unwrap()))
                     } else {
                         //* 3.1.4 用户禁止覆写
                         tx.rollback().await?;
@@ -120,7 +120,7 @@ pub async fn create(
             tx.commit().await?;
             let inserted_id = result.last_insert_id.as_i64().unwrap();
             let vec = StudentTable::select_by_map(rb, value! {"id": inserted_id}).await?;
-            Ok(StudentSingleCreateResult::Insert(vec.get(0).unwrap().clone()))
+            Ok(StudentSingleCreateResult::Insert(vec.into_iter().next().unwrap()))
         }
     }
 }
@@ -268,8 +268,6 @@ pub async fn batch_create(
         }
     }
 
-    let mut result = Vec::new();
-
     // 如果有冲突，直接返回
     if !conflicts.is_empty() {
         tx.rollback().await?;
@@ -319,12 +317,14 @@ pub async fn batch_create(
     // 提交事务
     tx.commit().await?;
 
-    let mut inserted_students_table = StudentTable::select_by_map(rb, value! {"student_no": inserted_student_nos}).await?;
-    let mut restored_students_table = StudentTable::select_by_map(rb, value! {"id": restored_ids}).await?;
-    let mut override_students_table = StudentTable::select_by_map(rb, value! {"id": override_ids}).await?;
-    result.append(&mut inserted_students_table);
-    result.append(&mut restored_students_table);
-    result.append(&mut override_students_table);
+    let inserted_students = StudentTable::select_by_map(rb, value! {"student_no": inserted_student_nos}).await?;
+    let restored_students = StudentTable::select_by_map(rb, value! {"id": restored_ids}).await?;
+    let override_students = StudentTable::select_by_map(rb, value! {"id": override_ids}).await?;
+
+    let mut result = Vec::with_capacity(inserted_students.len() + restored_students.len() + override_students.len());
+    result.extend(inserted_students);
+    result.extend(restored_students);
+    result.extend(override_students);
 
     Ok(StudentBatchCreateResult::Upsert(result))
 }
@@ -347,7 +347,7 @@ pub async fn get_by_student_nos(rb: &dyn Executor, student_nos: Vec<String>) -> 
 /// 更新学生
 pub async fn update(rb: &RBatis, student: Student) -> anyhow::Result<StudentSingleUpdate> {
     if student.id == None {
-        anyhow!("id不能为空");
+        return Err(anyhow!("id不能为空"));
     }
     let mut tx = rb.acquire_begin().await?;
     let existing = StudentTable::select_by_map(&mut tx, value! {"student_no": student.student_no}).await?;
