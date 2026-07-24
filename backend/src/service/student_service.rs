@@ -350,7 +350,7 @@ pub async fn update(rb: &RBatis, student: Student) -> anyhow::Result<StudentSing
         return Err(anyhow!("id不能为空"));
     }
     let mut tx = rb.acquire_begin().await?;
-    let existing = StudentTable::select_by_map(&mut tx, value! {"student_no": student.student_no}).await?;
+    let existing = StudentTable::select_by_map(&mut tx, value! {"student_no": &student.student_no}).await?;
     if existing.len() > 0 {
         return Ok(StudentSingleUpdate::Conflict(existing.into_iter().next().unwrap()));
     }
