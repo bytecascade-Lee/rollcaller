@@ -1,6 +1,6 @@
 use crate::common::entity::student::Student;
 use crate::common::entity::student::StudentTable;
-use crate::common::enums::student::{StudentBatchCreateResult, StudentSingleCreateResult};
+use crate::common::enums::student::{StudentBatchCreateResult, StudentSingleCreateResult, StudentSingleUpdate};
 use crate::repo::student_repo;
 use anyhow::anyhow;
 use rbatis::executor::Executor;
@@ -345,16 +345,26 @@ pub async fn get_by_student_nos(rb: &dyn Executor, student_nos: Vec<String>) -> 
 }
 
 /// 更新学生
-pub async fn update(rb: &dyn Executor, student: Student) -> anyhow::Result<StudentTable> {
+pub async fn update(rb: &RBatis, student: Student) -> anyhow::Result<StudentSingleUpdate> {
     if student.id == None {
         anyhow!("id不能为空");
     }
-    Student::update_by_map(rb, &student, value! {"id": student.id}).await?;
-    Ok(StudentTable::select_by_map(rb, value! {"id": student.id})
-        .await?
-        .get(0)
-        .unwrap()
-        .clone())
+    let mut tx = rb.acquire_begin().await?;
+    let existing = StudentTable::select_by_map(&mut tx, value! {"student_no": student.student_no}).await?;
+    if existing.len() > 0 {
+        return Ok(StudentSingleUpdate::Conflict(existing.into_iter().next().unwrap()));
+    }
+
+    // 此处的id必定不为None
+    Student::update_by_map(&mut tx, &student, value! {"id": student.id}).await?;
+    tx.commit().await?;
+    Ok(StudentSingleUpdate::Update(
+        StudentTable::select_by_map(rb, value! {"id": student.id})
+            .await?
+            .into_iter()
+            .next()
+            .unwrap(),
+    ))
 }
 
 /// 删除学生
