@@ -101,3 +101,8 @@ pub enum StudentBatchCreateResult {
     Conflict(Vec<StudentTable>),
 }
 
+pub enum StudentSingleUpdate {
+    Update(StudentTable),
+    Conflict(StudentTable),
+}
+
