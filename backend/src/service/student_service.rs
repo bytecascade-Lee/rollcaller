@@ -206,7 +206,7 @@ pub async fn batch_create(
     //? 可能存在的bug：学号的首位包含空白字符
 
     // 准备工作：提取学号
-    let student_nos: Vec<String> = students.iter().map(|s| s.student_no.trim().clone()).collect();
+    let student_nos: Vec<String> = students.iter().map(|s| s.student_no.clone()).collect();
 
     // 检查学号是否有重复的
     let mut sorted = student_nos.clone();
@@ -231,7 +231,7 @@ pub async fn batch_create(
     let mut tx = rb.acquire_begin().await?;
 
     // 查询所有与给定学号相同的学生
-    let existing = StudentTable::select_by_map(&mut tx, value! {"student_no": student_nos}).await?;
+    let existing = StudentTable::select_by_map(&mut tx, value! {"student_no": &student_nos}).await?;
 
     // 如果没有冲突，直接全部插入
     if existing.is_empty() {
@@ -282,7 +282,7 @@ pub async fn batch_create(
         match decisions.get(&st.student_no) {
             None => require_decide.push(st),
             Some(decision) => {
-                if decision {
+                if *decision {
                     to_override.push((student, st));
                 } else {
                     // 丢弃该值
@@ -304,7 +304,7 @@ pub async fn batch_create(
     // 执行恢复操作
     let restored_ids: Vec<i64> = to_restore.iter().map(|s| s.id).collect();
     if !to_restore.is_empty() {
-        student_repo::restore(&mut tx, restored_ids).await?;
+        student_repo::restore(&mut tx, restored_ids.clone()).await?;
     }
 
     // 执行覆写事务
@@ -313,7 +313,7 @@ pub async fn batch_create(
         for (s, st) in to_override {
             student_repo::update_name(&mut tx, st.id, &*s.name).await?;
         }
-        student_repo::restore(&mut tx, override_ids).await?;
+        student_repo::restore(&mut tx, override_ids.clone()).await?;
     }
 
     // 提交事务
