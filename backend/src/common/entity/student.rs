@@ -6,7 +6,8 @@ use ts_rs::TS;
 /// Student实体
 ///
 /// 仅含自增主键 + 业务字段，用于 INSERT
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, Hash, PartialEq, TS)]
+#[ts(export)]
 pub struct Student {
     /// INSERT 时传 None 由 SQLite 自增
     /// UPDATE 时传 Some(id)
@@ -28,7 +29,8 @@ impl Student {
 /// Student表
 ///
 /// 包含全部字段，用于 SELECT 返回给前端
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct StudentTable {
     pub id: i64,
     pub student_no: String,
