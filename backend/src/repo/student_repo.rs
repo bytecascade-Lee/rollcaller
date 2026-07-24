@@ -26,12 +26,12 @@ pub async fn update_name(tx: &mut RBatisTxExecutor, id: i64, name: &str) -> Resu
     impled!()
 }
 
-#[py_sql("UPDATE students SET is_deleted = 1 WHERE ids IN ${ids.sql()}")]
+#[py_sql("UPDATE students SET is_deleted = 1 WHERE id IN ${ids.sql()}")]
 pub async fn delete(tx: &mut RBatisTxExecutor, ids: Vec<i64>) -> Result<ExecResult, Error> {
     impled!()
 }
 
-#[py_sql("UPDATE students SET is_deleted = 0 WHERE ids IN ${ids.sql()}")]
+#[py_sql("UPDATE students SET is_deleted = 0 WHERE id IN ${ids.sql()}")]
 pub async fn restore(tx: &mut RBatisTxExecutor, ids: Vec<i64>) -> Result<ExecResult, Error> {
     impled!()
 }
