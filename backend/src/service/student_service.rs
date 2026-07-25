@@ -235,7 +235,7 @@ pub async fn batch_create(
 
     // 如果没有冲突，直接全部插入
     if existing.is_empty() {
-        let _ = student_repo::insert(&mut tx, students).await?;
+        Student::insert_batch(&mut tx, &*students, students.len() as u64).await?;
         tx.commit().await?;
         let inserted_students = StudentTable::select_by_map(rb, value! {"student_no": student_nos}).await?;
         return Ok(StudentBatchCreateResult::Insert(inserted_students));
