@@ -39,9 +39,12 @@ static INSTANCE: LazyLock<AppConfig> = LazyLock::new(|| {
     let user_config_path = super::app_paths::config_dir().join(USER_CONFIG_FILENAME);
     let user_config = load_user_config(&user_config_path);
 
-    let mut keys: Vec<String> = default_config.keys().cloned().collect();
-    keys.sort(); // 按字母顺序排序（区分大小写）
-    write_keys_to_file(&keys).expect("构建 config-keys.temp文件失败");
+    #[cfg(debug_assertions)]
+    {
+        let mut keys: Vec<String> = default_config.keys().cloned().collect();
+        keys.sort(); // 按字母顺序排序（区分大小写）
+        write_keys_to_file(&keys).expect("构建 config-keys.temp文件失败");
+    }
 
     AppConfig {
         inner: RwLock::new(Inner {
