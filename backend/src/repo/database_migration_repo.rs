@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS migration_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     version INTEGER NOT NULL UNIQUE,
     description TEXT NOT NULL,
+    content TEXT NOT NULL,
     checksum TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'RUNNING_IN_TX',
     executed_at INTEGER,
@@ -46,11 +47,12 @@ pub async fn get_existing_history(rb: &RBatis) -> Result<Vec<MigrationRecord>, r
 }
 
 /// 插入 RUNNING 记录
-#[py_sql("INSERT INTO migration_history (version, description, checksum) VALUES (#{version}, #{description}, #{checksum})")]
+#[py_sql("INSERT INTO migration_history (version, description, content, checksum) VALUES (#{version}, #{description}, #{content}, #{checksum})")]
 pub async fn insert_new_history(
     tx: &mut RBatisTxExecutor,
     version: i64,
     description: &str,
+    content: &str,
     checksum: &str,
 ) -> Result<ExecResult, rbs::Error> {
     impled!()
@@ -67,11 +69,11 @@ pub async fn update_success_status(
 }
 
 /// 更新失败记录
-#[py_sql("UPDATE migration_history SET status = 'FAILED', remark = #{message} WHERE version = #{version}")]
+#[py_sql("UPDATE migration_history SET status = 'FAILED', remark = #{remark} WHERE version = #{version}")]
 pub async fn update_failed_status(
     tx: &mut RBatisTxExecutor,
     version: i64,
-    message: &str,
+    remark: &str,
 ) -> Result<ExecResult, rbs::Error> {
     impled!()
 }
