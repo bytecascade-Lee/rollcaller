@@ -21,6 +21,7 @@ pub async fn run() {
     tauri::Builder::default()
         .setup(|app| create_window(app))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             crate::cmd::app_paths::data_dir,
             crate::cmd::app_paths::config_dir,
@@ -37,6 +38,8 @@ pub async fn run() {
             crate::cmd::student::delete_students,
             crate::cmd::record::list_all_records,
             crate::cmd::rollcall::roll_call_pick,
+            crate::cmd::import::preview_excel,
+            crate::cmd::import::import_excel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
