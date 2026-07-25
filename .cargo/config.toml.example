@@ -1,3 +1,4 @@
 # The. cargo/config. toml file must contain the following content:
 [env]
+DEVELOP_DATABASE_FILENAME = ""
 TS_RS_EXPORT_DIR = { value = "./frontend/src/lib/types", relative = true }
