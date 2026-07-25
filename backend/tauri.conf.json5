@@ -1,5 +1,5 @@
 {
-    $schema: "https://schema.tauri.app/config/2",
+    $schema: "../docs/schema/tauri-config-schema.json",
     productName: "rollcaller",
     version: "0.1.0-alpha.1",
     identifier: "com.serene.client.rollcaller",
@@ -23,6 +23,12 @@
             "icons/128x128@2x.png",
             "icons/icon.icns",
             "icons/icon.ico"
-        ]
+        ],
+        resources: {
+            "../resources/config/": "config/",
+            "../resources/database/": "database/"
+        }
+
+
     }
 }
