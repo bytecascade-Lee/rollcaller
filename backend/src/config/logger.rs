@@ -1,10 +1,12 @@
 use crate::config::app_paths as AppPaths;
 use tracing::metadata::LevelFilter;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
+#[cfg(not(debug_assertions))]
+use tracing_core::Event;
 use tracing_log::LogTracer;
-use tracing_subscriber::{
-    fmt::format, fmt::layer, fmt::time::FormatTime, layer::SubscriberExt, Layer,
-};
+#[cfg(not(debug_assertions))]
+use tracing_subscriber::layer::Filter;
+use tracing_subscriber::{fmt::format, fmt::layer, fmt::time::FormatTime, layer::SubscriberExt, Layer};
 
 /// 自定义时间格式：Unix 毫秒时间戳
 struct UnixTimestampMs;
@@ -22,19 +24,11 @@ impl FormatTime for UnixTimestampMs {
 
 #[cfg(not(debug_assertions))]
 impl<S> Filter<S> for TelemetryFilter {
-    fn enabled(
-        &self,
-        metadata: &tracing_core::Metadata<'_>,
-        _: &tracing_subscriber::layer::Context<'_, S>,
-    ) -> bool {
+    fn enabled(&self, metadata: &tracing_core::Metadata<'_>, _: &tracing_subscriber::layer::Context<'_, S>) -> bool {
         metadata.level() >= &tracing::Level::ERROR
     }
 
-    fn event_enabled(
-        &self,
-        _event: &Event<'_>,
-        _: &tracing_subscriber::layer::Context<'_, S>,
-    ) -> bool {
+    fn event_enabled(&self, _event: &Event<'_>, _: &tracing_subscriber::layer::Context<'_, S>) -> bool {
         false
     }
 }
@@ -80,8 +74,8 @@ pub fn build() -> impl tracing::Subscriber {
     // JSON 层
     #[cfg(not(debug_assertions))]
     let json_layer = {
-        let json_log_dir = AppPaths::logs_dir().join("telemetry").as_path();
-        let _ = std::fs::create_dir_all(json_log_dir);
+        let json_log_dir = AppPaths::logs_dir().join("telemetry");
+        let _ = std::fs::create_dir_all(&json_log_dir);
 
         layer()
             .json()
@@ -96,15 +90,13 @@ pub fn build() -> impl tracing::Subscriber {
                 RollingFileAppender::builder()
                     .filename_suffix("jsonl")
                     .rotation(Rotation::DAILY)
-                    .build(json_log_dir)
+                    .build(&json_log_dir)
                     .expect("Failed to initialize rolling file appender."),
             )
             .with_filter(TelemetryFilter)
     };
 
-    let subscriber = tracing_subscriber::registry()
-        .with(console_layer)
-        .with(file_layer);
+    let subscriber = tracing_subscriber::registry().with(console_layer).with(file_layer);
 
     #[cfg(not(debug_assertions))]
     let subscriber = subscriber.with(json_layer);
@@ -114,8 +106,7 @@ pub fn build() -> impl tracing::Subscriber {
 
 pub fn init() {
     let subscriber = build();
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("Failed to set up global log subscriber.");
+    tracing::subscriber::set_global_default(subscriber).expect("Failed to set up global log subscriber.");
 
     LogTracer::init().expect("Failed to bridge log to tracing.");
 }
