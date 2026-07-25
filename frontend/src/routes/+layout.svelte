@@ -30,18 +30,13 @@
     </nav>
   </aside>
   <main class="content">
-    {#each ["rollcall", "records", "students"] as panel}
-      <div class="card-panel" class:active={currentPage === panel}
-           style="display: {currentPage === panel ? 'flex' : 'none'}">
-        {#if panel === "rollcall"}
-          <RollcallPage/>
-        {:else if panel === "records"}
-          <RecordHistoryPage/>
-        {:else}
-          <StudentPage/>
-        {/if}
-      </div>
-    {/each}
+    {#if currentPage === "rollcall"}
+      <RollcallPage />
+    {:else if currentPage === "students"}
+      <StudentPage />
+    {:else if currentPage === "records"}
+      <RecordHistoryPage />
+    {/if}
   </main>
 </div>
 

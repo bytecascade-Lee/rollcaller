@@ -1,5 +1,3 @@
 <script>
-  import StudentPage from "$components/StudentPage.svelte";
+  // Page content is managed by +layout.svelte
 </script>
-
-<StudentPage />
