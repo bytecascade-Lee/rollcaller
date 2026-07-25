@@ -81,6 +81,7 @@ pub async fn migrate(rb: &RBatis, migration_dir: &Path) -> anyhow::Result<()> {
                     &mut tx,
                     file.version,
                     &file.description,
+                    &file.content,
                     &file.checksum,
                 )
                 .await?;
