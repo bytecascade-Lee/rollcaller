@@ -1,4 +1,5 @@
 use crate::common::entity::record::RollcallRecord;
+use rbatis::rbatis_codegen::IntoSql;
 use rbatis::{py_sql, RBatisTxExecutor};
 
 #[py_sql(
