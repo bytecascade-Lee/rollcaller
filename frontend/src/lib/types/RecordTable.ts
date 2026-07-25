@@ -5,4 +5,4 @@
  *
  * 包含全部字段，用于 SELECT 返回给前端
  */
-export type RecordTable = { id: bigint, student_id: bigint, attendance_status: bigint, remark: string | null, roll_call_at: number, session_id: string, created_at: number, updated_at: number, is_deleted: number, deleted_at: number | null, };
+export type RecordTable = { id: bigint, student_id: bigint, attendance_status: bigint, remark: string | null, rollcall_at: number, session_id: string, created_at: number, updated_at: number, is_deleted: number, deleted_at: number | null, };
