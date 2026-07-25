@@ -18,7 +18,7 @@ pub struct Record {
     #[serde(deserialize_with = "crate::util::serde_utils::deserialize_timestamp_from_millisecond_i64")]
     #[serde(serialize_with = "crate::util::serde_utils::serialize_timestamp_to_millisecond_i64")]
     #[ts(type = "number")]
-    pub roll_call_at: jiff::Timestamp,
+    pub rollcall_at: jiff::Timestamp,
     pub session_id: String,
 }
 
@@ -29,7 +29,7 @@ impl Record {
             student_id,
             attendance_status: 1,
             remark: Some("develop-test".to_string()),
-            roll_call_at: jiff::Timestamp::now(),
+            rollcall_at: jiff::Timestamp::now(),
             session_id: session_id.to_string(),
         }
     }
@@ -49,7 +49,7 @@ pub struct RecordTable {
     #[serde(deserialize_with = "crate::util::serde_utils::deserialize_timestamp_from_millisecond_i64")]
     #[serde(serialize_with = "crate::util::serde_utils::serialize_timestamp_to_millisecond_i64")]
     #[ts(type = "number")]
-    pub roll_call_at: jiff::Timestamp,
+    pub rollcall_at: jiff::Timestamp,
 
     pub session_id: String,
 
