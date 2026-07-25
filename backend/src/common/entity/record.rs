@@ -22,6 +22,19 @@ pub struct Record {
     pub session_id: String,
 }
 
+impl Record {
+    pub fn new(student_id: i64, session_id: &str) -> Self {
+        Self {
+            id: None,
+            student_id,
+            attendance_status: 1,
+            remark: Some("develop-test".to_string()),
+            roll_call_at: jiff::Timestamp::now(),
+            session_id: session_id.to_string(),
+        }
+    }
+}
+
 /// Record表
 ///
 /// 包含全部字段，用于 SELECT 返回给前端
