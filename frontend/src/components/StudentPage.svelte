@@ -1,7 +1,7 @@
 <script>
 
   import {invoke} from "@tauri-apps/api/core";
-
+  import {open} from "@tauri-apps/plugin-dialog";
 
   /** @type {import('$lib/types').StudentTable[]} */
   let students = $state([]);
@@ -9,9 +9,10 @@
   let searchQuery = $state("");
   let loading = $state(false);
 
+  let dialog = $state(null);  // 控制对话框显示：'add' | 'edit' | 'delete' | 'export' | 'import' | null
+
   // Dialog state
-  /** @type {'add'|'edit'|'delete'|'export'|null} */
-  let dialog = $state(null);
+  /** @type {'add'|'edit'|'delete'|'export'|'import'|null} */
   let editTarget = $state(null); // Student being edited
 
   // ── Add-dialog inline state ──────────────────
@@ -225,12 +226,83 @@
     alert("导出功能待 Rust 端实现");
   }
 
+  // ── 导入 ────────────────────────────────────────
 
+  let importStep = $state("format");   // 'format' | 'preview'
+  /** @type {import('$lib/types').ImportPreviewData | null} */
+  let importPreview = $state(null);
+  let importFilePath = $state("");
+  let headerRows = $state(1);
+  let studentNoCol = $state(0);
+  let nameCol = $state(1);
+
+  function openImportMenu() {
+    importStep = "format";
+    importPreview = null;
+    importFilePath = "";
+    dialog = "import";
+  }
+
+  async function doSelectExcel() {
+    const selected = await open({
+      multiple: false,
+      filters: [{name: "Excel", extensions: ["xlsx", "xls"]}],
+    });
+    if (!selected) return;
+    importFilePath = selected;
+
+    try {
+      loading = true;
+      const preview = await invoke("preview_excel", {filePath: selected});
+      importPreview = preview;
+      headerRows = 1;
+      studentNoCol = 0;
+      nameCol = 1;
+      importStep = "preview";
+    } catch (e) {
+      alert("预览失败：" + e);
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function doConfirmImport() {
+    if (!importFilePath) return;
+    try {
+      loading = true;
+      const result = await invoke("import_excel", {
+        filePath: importFilePath,
+        headerRows,
+        columnMapping: {student_no: studentNoCol, name: nameCol},
+        decisions: {},
+      });
+      dialog = null;
+
+      if (result.type === "Insert") {
+        students = await invoke("list_all_students");
+        alert(`成功导入 ${result.data.length} 名学生`);
+      } else if (result.type === "Upsert") {
+        students = await invoke("list_all_students");
+        alert(`成功导入 ${result.data.length} 名学生（含恢复/覆写）`);
+      } else if (result.type === "DuplicateInput") {
+        alert(`导入数据中存在重复学号：${result.data.join("、")}`);
+      } else if (result.type === "DecisionRequired") {
+        alert("部分学号存在已删除记录且姓名不同，请先处理冲突（后续版本支持交互式处理）");
+      } else if (result.type === "Conflict") {
+        alert("部分学号已存在活跃记录，无法导入");
+      }
+    } catch (e) {
+      alert("导入失败：" + e);
+    } finally {
+      loading = false;
+    }
+  }
   // 初始加载
   $effect(() => {
     loadStudents();
   });
 </script>
+
 
 <div class="page">
   <!-- ─── Toolbar ─────────────────────────────── -->
@@ -239,7 +311,7 @@
       <button onclick={openAddDialog}>+ 添加</button>
       <button onclick={confirmDelete} disabled={selectedCount === 0}>－ 删除</button>
       <button onclick={() => openEditDialog()} disabled={selectedCount !== 1}>✎ 修改</button>
-      <button onclick={confirmExport}>↑ 导入</button>
+      <button onclick={openImportMenu}>↑ 导入</button>
       <button onclick={confirmExport}>↓ 导出</button>
       <button onclick={loadStudents} class="refresh">↻ 刷新</button>
     </div>
@@ -287,7 +359,6 @@
     {/if}
   </div>
 </div>
-
 <!-- ─── Dialogs ─────────────────────────────────── -->
 {#if dialog === "add"}
   <div class="overlay">
@@ -402,6 +473,68 @@
         <button onclick={() => doExport("selected")}>导出选中</button>
         <button onclick={() => doExport("all")}>导出全部</button>
       </div>
+    </div>
+  </div>
+{/if}
+
+
+{#if dialog === "import"}
+  <div class="overlay" onclick={() => dialog = null}>
+    <div class="dialog" onclick={(e) => e.stopPropagation()}>
+      {#if importStep === "format"}
+        <h3>选择导入格式</h3>
+        <div class="import-options">
+          <button class="import-option" onclick={doSelectExcel}>📊 Excel</button>
+<!--          <button class="import-option" onclick={() => { dialog = null; alert("CSV 导入待实现"); }}>📄 CSV</button>-->
+<!--          <button class="import-option" onclick={() => { dialog = null; alert("TXT 导入待实现"); }}>📃 TXT</button>-->
+        </div>
+        <div class="dialog-actions">
+          <button class="btn-secondary" onclick={() => dialog = null}>取消</button>
+        </div>
+      {:else if importStep === "preview" && importPreview}
+        <h3>导入预览 — 配置列映射</h3>
+
+        <!-- 预览数据表格 -->
+        <div class="preview-table-wrap">
+          <table class="preview-table">
+            <thead>
+            <tr>
+              {#each importPreview.rows[0] as _, colIdx}
+                <th>{#if colIdx === studentNoCol}<span class="col-tag-no">学号</span>{/if}{#if colIdx === nameCol}<span class="col-tag-name">姓名</span>{/if}</th>
+              {/each}
+            </tr>
+            </thead>
+            <tbody>
+            {#each importPreview.rows as row}
+              <tr>
+                {#each row as cell}
+                  <td>{cell}</td>
+                {/each}
+              </tr>
+            {/each}
+            </tbody>
+          </table>
+        </div>
+        <p class="preview-info">共 {importPreview.total_rows} 行 × {importPreview.total_columns} 列（显示前 {importPreview.rows.length} 行）</p>
+
+        <!-- 配置 -->
+        <div class="config-grid">
+          <label>表头行数
+            <input type="number" min="0" max={importPreview.total_rows - 1} bind:value={headerRows}/>
+          </label>
+          <label>学号列索引 (0‑based)
+            <input type="number" min="0" max={importPreview.total_columns - 1} bind:value={studentNoCol}/>
+          </label>
+          <label>姓名列索引 (0‑based)
+            <input type="number" min="0" max={importPreview.total_columns - 1} bind:value={nameCol}/>
+          </label>
+        </div>
+
+        <div class="dialog-actions">
+          <button class="btn-secondary" onclick={() => importStep = "format"}>返回</button>
+          <button onclick={doConfirmImport}>导入</button>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
@@ -661,5 +794,104 @@
   .diff-table th {
     background: #f5d0d0;
     font-weight: 600;
+  }
+
+  /* ─── Import options ─────────────────────── */
+  .import-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 12px 0;
+  }
+
+  .import-option {
+    padding: 10px 16px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fafafa;
+    cursor: pointer;
+    font-size: 15px;
+    text-align: center;
+    transition: background 0.15s;
+  }
+
+  .import-option:hover {
+    background: #e8f4fd;
+    border-color: #90caf9;
+  }
+
+  /* ─── Import preview ─────────────────────── */
+  .preview-table-wrap {
+    max-height: 180px;
+    overflow: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin: 8px 0;
+  }
+
+  .preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .preview-table th,
+  .preview-table td {
+    padding: 4px 8px;
+    border: 1px solid #eee;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .preview-table th {
+    background: #f5f5f5;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+  }
+
+  .col-tag-no {
+    background: #e3f2fd;
+    color: #1565c0;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+
+  .col-tag-name {
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+
+  .preview-info {
+    margin: 4px 0 8px;
+    font-size: 12px;
+    color: #888;
+  }
+
+  .config-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 8px 0;
+  }
+
+  .config-grid label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #555;
+  }
+
+  .config-grid input[type="number"] {
+    width: 60px;
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
   }
 </style>
