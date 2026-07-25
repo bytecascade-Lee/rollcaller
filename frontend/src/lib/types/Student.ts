@@ -5,10 +5,9 @@
  *
  * 仅含自增主键 + 业务字段，用于 INSERT
  */
-export type Student = {
-  /**
-   * INSERT 时传 None 由 SQLite 自增
-   * UPDATE 时传 Some(id)
-   */
-  id: bigint | null, student_no: string, name: string,
-};
+export type Student = { 
+/**
+ * INSERT 时传 None 由 SQLite 自增
+ * UPDATE 时传 Some(id)
+ */
+id: bigint | null, student_no: string, name: string, };
