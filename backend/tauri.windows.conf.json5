@@ -1,0 +1,21 @@
+{
+    $schema: "../docs/schema/tauri-config-schema.json",
+    bundle: {
+        active: true,
+        targets: [
+            "nsis"
+        ],
+        windows: {
+            nsis: {
+                installMode: "both",
+                languages: [
+                    "SimpChinese",
+                    "TradChinese",
+                    "English",
+                ],
+                startMenuFolder: "Rollcaller",
+                displayLanguageSelector: true
+            }
+        },
+    },
+}
