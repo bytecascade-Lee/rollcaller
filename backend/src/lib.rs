@@ -36,6 +36,7 @@ pub async fn run() {
             crate::cmd::student::update_student,
             crate::cmd::student::delete_students,
             crate::cmd::record::list_all_records,
+            crate::cmd::rollcall::roll_call_pick,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
