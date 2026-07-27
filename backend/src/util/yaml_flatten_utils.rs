@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+use tracing::warn;
 
 /// 扁平化配置
 #[derive(Debug, Clone)]
@@ -42,23 +43,27 @@ pub fn flatten_from_value(
     value: &Value,
     config: &FlattenConfig,
 ) -> anyhow::Result<HashMap<String, Value>> {
-    let mut result = HashMap::new();
 
     match value {
+        Value::Null => {
+            warn!("配置文件为空");
+            Ok(HashMap::new())
+        }
         Value::Mapping(map) => {
+            let mut result = HashMap::new();
             for (key, val) in map {
                 let key_str = key
                     .as_str()
                     .ok_or_else(|| anyhow!("Map 键必须是字符串类型"))?;
                 flatten_node(key_str, val, config, &mut result)?;
             }
+            Ok(result)
         }
         _ => {
-            return Err(anyhow!("YAML 根必须是 Map 类型，当前类型: {:?}", value));
+            Err(anyhow!("YAML 根必须是 Map 类型，当前类型: {:?}", value))
         }
     }
 
-    Ok(result)
 }
 
 /// 递归扁平化节点
