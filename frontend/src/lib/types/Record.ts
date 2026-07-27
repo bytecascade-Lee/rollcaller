@@ -5,4 +5,4 @@
  *
  * 仅含自增主键 + 业务字段，用于 INSERT
  */
-export type Record = { id: bigint | null, student_id: bigint, attendance_status: bigint, remark: string | null, rollcall_at: number, session_id: string, };
+export type Record = { id: bigint | null, student_id: bigint, attendance_status: number, remark: string | null, rollcall_at: number, session_id: string, };
