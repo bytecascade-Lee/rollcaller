@@ -97,7 +97,7 @@ fn flush_to_file(inner: &mut Inner, config_path: &PathBuf) -> anyhow::Result<()>
 
 #[cfg(debug_assertions)]
 fn write_keys_to_file(keys: &[String]) -> anyhow::Result<PathBuf> {
-    let file_path = app_paths::temp_dir().join("config-keys.temp");
+    let file_path = app_paths::resources_dir().join("develop/config-keys");
 
     // 确保父目录存在
     if let Some(parent) = file_path.parent() {
