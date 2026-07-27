@@ -12,7 +12,7 @@ use ts_rs::TS;
 pub struct Record {
     pub id: Option<i64>,
     pub student_id: i64,
-    pub attendance_status: i64,
+    pub attendance_status: i8,
     pub remark: Option<String>,
 
     #[serde(deserialize_with = "crate::util::serde_utils::deserialize_timestamp_from_millisecond_i64")]
@@ -43,7 +43,7 @@ impl Record {
 pub struct RecordTable {
     pub id: i64,
     pub student_id: i64,
-    pub attendance_status: i64,
+    pub attendance_status: i8,
     pub remark: Option<String>,
 
     #[serde(deserialize_with = "crate::util::serde_utils::deserialize_timestamp_from_millisecond_i64")]
@@ -81,7 +81,7 @@ pub struct RollcallRecord {
     pub student_id: i64,
     pub student_no: String,
     pub name: String,
-    pub attendance_status: i64,
+    pub attendance_status: i8,
     pub remark: Option<String>,
 
     #[serde(deserialize_with = "crate::util::serde_utils::deserialize_timestamp_from_millisecond_i64")]
