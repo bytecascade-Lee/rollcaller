@@ -4,15 +4,15 @@
 // See: https://v2.tauri.app/start/frontend/sveltekit/ for more info
 import adapter from "@sveltejs/adapter-static";
 import {vitePreprocess} from "@sveltejs/vite-plugin-svelte";
+import type {Config} from "@sveltejs/kit";
 
-/** @type {import('@sveltejs/kit').Config} */
-const config = {
-    preprocess: vitePreprocess(),
-    kit: {
-        adapter: adapter({
-            fallback: "index.html",
-        }),
-    },
+const config: Config = {
+  preprocess: vitePreprocess(),
+  kit: {
+    adapter: adapter({
+      fallback: "index.html",
+    }),
+  },
 };
 
 export default config;
