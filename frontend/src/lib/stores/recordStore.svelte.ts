@@ -2,8 +2,7 @@ import {invoke} from "@tauri-apps/api/core";
 import type {RollcallRecord} from "$lib/types/RollcallRecord";
 
 export let records = $state<RollcallRecord[]>([]);
-export let selected = $state<Set<bigint>>(new Set());
-export let boundaryPoint: bigint;
+export let boundaryPoint = 0n;
 export let isLoading = $state(false);
 
 export async function load() {
@@ -20,28 +19,15 @@ export async function load() {
   }
 }
 
-export function select(id: bigint) {
-  if (selected.has(id)) {
-    let set = new Set(selected);
-    set.delete(id)
-    selected = set;
+export function upsert(record: RollcallRecord) {
+  const index = records.findIndex((s) => s.id === record.id);
+  if (index >= 0) {
+    records = [...records.slice(0, index), record, ...records.slice(index + 1)];
   } else {
-    selected = new Set([...selected, id]);
+    records = [...records, record];
   }
 }
 
-export function selectAll() {
-  if (selected.size == records.length) {
-    selected = new Set<bigint>();
-  } else {
-    let set = new Set<bigint>();
-    for (let record of records) {
-      set.add(record.id);
-    }
-    selected = set;
-  }
-}
-
-export function add(record: RollcallRecord) {
-  records = [record, ...records]
+export function remove(ids: bigint[]) {
+  records = records.filter((s) => !ids.includes(s.id));
 }
