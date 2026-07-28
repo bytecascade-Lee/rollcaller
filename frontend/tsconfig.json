@@ -13,10 +13,12 @@
         "paths": {
             "$assets/*": ["./src/assets/*"],
             "$components/*": ["./src/components/*"],
-            "$lib/*": ["./src/lib/*"],
+            "$constants/*": ["./src/lib/constant/*"],
             "$pages/*": ["./src/pages/*"],
+            "$static/*": ["./src/static/*"],
+            "$stores/*": ["./src/lib/stores/*"],
             "$styles/*": ["./src/styles/*"],
-            "static/*": ["./src/static/*"]
+            "$types/*": ["./src/lib/types/*"],
         }
     }
     // Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
