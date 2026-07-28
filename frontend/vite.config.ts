@@ -12,12 +12,13 @@ export default defineConfig(async () => ({
     alias: {
       "$asserts": path.resolve(__dirname, "./src/asserts"),
       "$components": path.resolve(__dirname, "./src/components"),
-      "$constants": path.resolve(__dirname, "./src/lib/stores"),
+      "$constants": path.resolve(__dirname, "./src/lib/constants"),
       "$pages": path.resolve(__dirname, "./src/pages"),
       "$static": path.resolve(__dirname, "./src/static"),
       "$stores": path.resolve(__dirname, "./src/lib/stores"),
       "$styles": path.resolve(__dirname, "./src/styles"),
       "$types": path.resolve(__dirname, "./src/lib/types"),
+      "$utils": path.resolve(__dirname, "./src/lib/utils"),
     }
   },
 
