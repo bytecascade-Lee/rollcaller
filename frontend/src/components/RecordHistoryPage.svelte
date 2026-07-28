@@ -1,11 +1,12 @@
 <script lang="ts">
 
-  import {isLoading, load, records, select, selectAll, selected} from "$stores/recordStore.svelte";
+  import {isLoading, load, records} from "$stores/recordStore.svelte";
   import {format} from "$utils/DataTimeUtils";
   import type {RollcallRecord} from "$types/RollcallRecord";
   import {FileUp, RotateCw} from "@o7/icon/lucide";
   import {statusText} from "$constants/AttendanceStatus";
 
+  let selected = $state<Set<bigint>>(new Set());
   let searchQuery = $state("");
 
   let display = $derived.by<RollcallRecord[]>(() => {
@@ -25,6 +26,28 @@
   $effect(() => {
     load()
   });
+
+  export function select(id: bigint) {
+    if (selected.has(id)) {
+      let set = new Set(selected);
+      set.delete(id)
+      selected = set;
+    } else {
+      selected = new Set([...selected, id]);
+    }
+  }
+
+  export function selectAll() {
+    if (selected.size == records.length) {
+      selected = new Set<bigint>();
+    } else {
+      let set = new Set<bigint>();
+      for (let record of records) {
+        set.add(record.id);
+      }
+      selected = set;
+    }
+  }
 
 </script>
 
