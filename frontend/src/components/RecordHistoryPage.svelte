@@ -1,10 +1,10 @@
 <script lang="ts">
 
-  import {isLoading, load, records, select, selectAll, selected} from "$lib/stores/recordStore.svelte";
-  import {format} from "$lib/utils/DataTimeUtils";
-  import type {RollcallRecord} from "$lib/types/RollcallRecord";
+  import {isLoading, load, records, select, selectAll, selected} from "$stores/recordStore.svelte";
+  import {format} from "$utils/DataTimeUtils";
+  import type {RollcallRecord} from "$types/RollcallRecord";
   import {FileUp, RotateCw} from "@o7/icon/lucide";
-  import {statusText} from "$lib/constants/AttendanceStatus";
+  import {statusText} from "$constants/AttendanceStatus";
 
   let searchQuery = $state("");
 
