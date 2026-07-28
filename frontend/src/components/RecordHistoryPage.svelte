@@ -4,7 +4,7 @@
   import {format} from "$lib/utils/DataTimeUtils";
   import type {RollcallRecord} from "$lib/types/RollcallRecord";
   import {FileUp, RotateCw} from "@o7/icon/lucide";
-  import {statusText} from "$lib/types/AttendanceStatus";
+  import {statusText} from "$lib/constants/AttendanceStatus";
 
   let searchQuery = $state("");
 
