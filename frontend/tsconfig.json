@@ -13,7 +13,7 @@
         "paths": {
             "$assets/*": ["./src/assets/*"],
             "$components/*": ["./src/components/*"],
-            "$constants/*": ["./src/lib/constant/*"],
+            "$constants/*": ["./src/lib/constants/*"],
             "$pages/*": ["./src/pages/*"],
             "$static/*": ["./src/static/*"],
             "$stores/*": ["./src/lib/stores/*"],
