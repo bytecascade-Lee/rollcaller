@@ -1,15 +1,12 @@
 <script lang="ts">
 
   import {isLoading, load, records, select, selectAll, selected} from "$lib/stores/recordStore.svelte";
-  import {fmtTime} from "$lib/utils/DataTimeUtils";
+  import {format} from "$lib/utils/DataTimeUtils";
   import type {RollcallRecord} from "$lib/types/RollcallRecord";
+  import {FileUp, RotateCw} from "@o7/icon/lucide";
+  import {statusText} from "$lib/types/AttendanceStatus";
 
   let searchQuery = $state("");
-  const STATUS_MAP = {0: "缺勤", 1: "出勤", 2: "迟到", 3: "早退", 4: "请假",};
-
-  function statusText(code: number) {
-    return STATUS_MAP[code as keyof typeof STATUS_MAP] ?? `未知(${code})`;
-  }
 
   let display = $derived.by<RollcallRecord[]>(() => {
     if (!searchQuery.trim()) return records;
@@ -18,7 +15,7 @@
       return (
         r.student_no.toLowerCase().includes(q) ||
         r.name.toLowerCase().includes(q) ||
-        fmtTime(r.rollcall_at).toLowerCase().includes(q)
+        format(r.rollcall_at).toLowerCase().includes(q)
       );
     });
   });
@@ -34,14 +31,23 @@
 <div>
   <div>
     <div>
-      <button onclick={() => alert("selected")} disabled={selected.size == 0}>⇧ 导出选中</button>
-      <button onclick={() => alert("all")}>⇧ 导出全部</button>
-      <button onclick={load}>↻ 刷新</button>
+      <button onclick={() => alert("selected")} disabled={selected.size == 0}>
+        <FileUp/>
+        导出选中
+      </button>
+      <button onclick={() => alert("all")}>
+        <FileUp/>
+        导出全部
+      </button>
+      <button onclick={load}>
+        <RotateCw/>
+        刷新
+      </button>
     </div>
     <div class="toolbar-search">
       <input
         type="search"
-        placeholder="🔍 搜索学号、姓名和时间"
+        placeholder="🔍 搜索姓名、学号和点名时间"
         bind:value={searchQuery}
       />
     </div>
@@ -89,7 +95,7 @@
             <td>{record.student_no}</td>
             <td>{statusText(record.attendance_status)}</td>
             <td>{record.remark}</td>
-            <td>{fmtTime(record.rollcall_at)}</td>
+            <td>{format(record.rollcall_at)}</td>
             <td>{record.session_id}</td>
           </tr>
         {/each}
