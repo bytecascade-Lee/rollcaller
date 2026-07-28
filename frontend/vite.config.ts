@@ -1,20 +1,20 @@
-// @ts-nocheck
 import {defineConfig} from "vite";
 import {sveltekit} from "@sveltejs/kit/vite";
 import path from "node:path";
+import {o7Icon} from "@o7/icon/vite";
 
-// @ts-expect-error process is a Node.js global
-const host = process.env.TAURI_DEV_HOST;
+const host: string | undefined = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [sveltekit()],
-
+  plugins: [await sveltekit(), o7Icon()],
   resolve: {
     alias: {
       "$asserts": path.resolve(__dirname, "./src/asserts"),
       "$components": path.resolve(__dirname, "./src/components"),
-      "$lib": path.resolve(__dirname, "./src/lib"),
+      "$stores": path.resolve(__dirname, "./src/lib/stores"),
+      "constants": path.resolve(__dirname, "./src/lib/stores"),
+      "$types": path.resolve(__dirname, "./src/lib/types"),
       "$pages": path.resolve(__dirname, "./src/pages"),
       "$styles": path.resolve(__dirname, "./src/styles"),
       "$static": path.resolve(__dirname, "./src/static"),
@@ -30,15 +30,12 @@ export default defineConfig(async () => ({
     port: 14650,
     strictPort: true,
     host: host || false,
-    hmr: host
-      ? {
-        protocol: "ws",
-        host,
-        port: 14651,
-      }
-      : undefined,
+    hmr: host ? {
+      protocol: "ws",
+      host,
+      port: 14651,
+    } : undefined,
     watch: {
-      // 3. tell Vite to ignore watching `backend`
       ignored: ["**/backend/**"],
     },
   },
