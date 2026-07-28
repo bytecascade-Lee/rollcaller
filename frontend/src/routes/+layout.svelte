@@ -1,10 +1,11 @@
-<script>
-  import StudentPage from "$components/StudentPage.svelte";
-  import RollcallPage from "$components/RollcallPage.svelte";
-  import RecordHistoryPage from "$components/RecordHistoryPage.svelte";
+  <script>
+    import "../styles/components.css";
+    import StudentPage from "$components/StudentPage.svelte";
+    import RollcallPage from "$components/RollcallPage.svelte";
+    import RecordHistoryPage from "$pages/RecordHistoryPage.svelte";
 
-  let currentPage = $state("rollcall");
-</script>
+    let currentPage = $state("rollcall");
+  </script>
 
 <div class="shell">
   <aside class="sidebar">
