@@ -1,33 +1,59 @@
-import {invoke} from "@tauri-apps/api/core";
-import type {RollcallRecord} from "$lib/types/RollcallRecord";
+import { invoke } from "@tauri-apps/api/core";
+import type { RollcallRecord } from "$types/RollcallRecord";
 
-export let records = $state<RollcallRecord[]>([]);
-export let boundaryPoint = 0n;
-export let isLoading = $state(false);
+class RecordStore {
+    #records = $state<RollcallRecord[]>([]);
+    #boundaryPoint = $state<bigint>(0n);
+    #isLoading = $state<boolean>(false);
 
-export async function load() {
-  isLoading = true;
-  try {
-    records = await invoke<RollcallRecord[]>("list_all_records");
-  } finally {
-    isLoading = false;
-    for (let record of records) {
-      if (boundaryPoint < record.id) {
-        boundaryPoint = record.id;
-      }
+    get records() {
+        return this.#records;
     }
-  }
+
+    get boundaryPoint() {
+        return this.#boundaryPoint;
+    }
+
+    get isLoading() {
+        return this.#isLoading;
+    }
+
+    async load() {
+        this.#isLoading = true;
+        try {
+            await invoke<RollcallRecord[]>("list_all_records").then((result) => {
+                this.#records = result;
+            });
+
+            if (this.#boundaryPoint != 0n) return;
+            let maxId = 0n;
+            for (const record of this.#records) {
+                if (maxId < record.id) {
+                    maxId = record.id;
+                }
+            }
+            this.#boundaryPoint = maxId;
+        } finally {
+            this.#isLoading = false;
+        }
+    }
+
+    upsert(record: RollcallRecord) {
+        const index = this.#records.findIndex((s) => s.id === record.id);
+        if (index >= 0) {
+            this.#records = [
+                ...this.#records.slice(0, index),
+                record,
+                ...this.#records.slice(index + 1)
+            ];
+        } else {
+            this.#records = [...this.#records, record];
+        }
+    }
+
+    remove(ids: bigint[]) {
+        this.#records = this.#records.filter((s) => !ids.includes(s.id));
+    }
 }
 
-export function upsert(record: RollcallRecord) {
-  const index = records.findIndex((s) => s.id === record.id);
-  if (index >= 0) {
-    records = [...records.slice(0, index), record, ...records.slice(index + 1)];
-  } else {
-    records = [...records, record];
-  }
-}
-
-export function remove(ids: bigint[]) {
-  records = records.filter((s) => !ids.includes(s.id));
-}
+export const recordStore = new RecordStore();
