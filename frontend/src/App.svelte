@@ -1,29 +1,29 @@
-  <script>
-    import "../styles/components.css";
-    import StudentPage from "$components/StudentPage.svelte";
-    import RollcallPage from "$components/RollcallPage.svelte";
-    import RecordHistoryPage from "$pages/RecordHistoryPage.svelte";
+<script lang="ts">
+  import "$styles/components.css";
+  import RollcallPage from "$components/RollcallPage.svelte";
+  import RecordHistoryPage from "$pages/RecordHistoryPage.svelte";
+  import StudentManagementPage from "$pages/StudentManagementPage.svelte";
 
-    let currentPage = $state("rollcall");
-  </script>
+  let currentPage: 'rollcall' | 'students' | 'records' = $state("rollcall");
+</script>
 
 <div class="shell">
   <aside class="sidebar">
     <div class="logo">RollCaller</div>
     <nav>
-      <button class="nav-item" class:active={currentPage === "rollcall"} onclick={() => currentPage = "rollcall"}>
+      <button class="nav-item" class:active={currentPage == "rollcall"} onclick={() => currentPage = "rollcall"}>
         🎲 自动点名
       </button>
       <button
         class="nav-item"
-        class:active={currentPage === "records"}
+        class:active={currentPage == "records"}
         onclick={() => currentPage = "records"}
       >
         📋 历史记录
       </button>
       <button
         class="nav-item"
-        class:active={currentPage === "students"}
+        class:active={currentPage == "students"}
         onclick={() => currentPage = "students"}
       >
         👤 学生管理
@@ -31,12 +31,12 @@
     </nav>
   </aside>
   <main class="content">
-    {#if currentPage === "rollcall"}
+    {#if currentPage == "rollcall"}
       <RollcallPage />
-    {:else if currentPage === "students"}
-      <StudentPage />
-    {:else if currentPage === "records"}
+    {:else if currentPage == "records"}
       <RecordHistoryPage />
+    {:else if currentPage == "students"}
+      <StudentManagementPage />
     {/if}
   </main>
 </div>
@@ -46,6 +46,7 @@
     display: flex;
     height: 100vh;
     width: 100vw;
+    overflow: hidden;
   }
 
   .sidebar {
@@ -104,17 +105,6 @@
     flex-direction: column;
     background: #fff;
     position: relative;
-  }
-
-  .card-panel {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
     overflow: hidden;
-    min-height: 0;
-  }
-
-  .card-panel[style*="display: none"] {
-    /* 不占空间，但组件保持挂载 */
   }
 </style>
