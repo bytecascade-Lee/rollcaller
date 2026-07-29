@@ -15,8 +15,7 @@ desktop.ini
 
 ### Frontend ###
 /frontend/node_modules/
-/frontend/build/
-/frontend/.svelte-kit/
+/frontend/dist/
 /frontend/.pnpm-store/
 .pnpm-debug.log
 vite.config.js.timestamp-*
