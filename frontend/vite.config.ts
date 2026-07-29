@@ -1,19 +1,19 @@
 import {defineConfig} from "vite";
-import {sveltekit} from "@sveltejs/kit/vite";
+import {svelte} from "@sveltejs/vite-plugin-svelte"
 import path from "node:path";
-import {o7Icon} from "@o7/icon/vite";
 
 const host: string | undefined = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [await sveltekit(), o7Icon()],
+  plugins: [svelte()],
   resolve: {
     alias: {
       "$asserts": path.resolve(__dirname, "./src/asserts"),
       "$components": path.resolve(__dirname, "./src/components"),
       "$constants": path.resolve(__dirname, "./src/lib/constants"),
       "$pages": path.resolve(__dirname, "./src/pages"),
+      "$services": path.resolve(__dirname, "./src/lib/services"),
       "$static": path.resolve(__dirname, "./src/static"),
       "$stores": path.resolve(__dirname, "./src/lib/stores"),
       "$styles": path.resolve(__dirname, "./src/styles"),
