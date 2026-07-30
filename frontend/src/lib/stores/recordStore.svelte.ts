@@ -21,9 +21,7 @@ class RecordStore {
     async load() {
         this.#isLoading = true;
         try {
-            await invoke<RollcallRecord[]>("list_all_records").then((result) => {
-                this.#records = result;
-            });
+            this.#records = await invoke<RollcallRecord[]>("list_all_records");
 
             if (this.#boundaryPoint != 0n) return;
             let maxId = 0n;
@@ -33,6 +31,8 @@ class RecordStore {
                 }
             }
             this.#boundaryPoint = maxId;
+        } catch (e) {
+          alert(e);
         } finally {
             this.#isLoading = false;
         }
