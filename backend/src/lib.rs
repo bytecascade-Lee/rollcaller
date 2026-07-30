@@ -49,7 +49,7 @@ pub async fn run() {
 fn init(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     WebviewWindowBuilder::new(app, "main", Default::default())
         .data_directory(app_paths::webview_dir().to_path_buf())
-        .inner_size(850.0, 700.0)
+        .inner_size(900.0, 700.0)
         .auto_resize()
         .build()
         .expect("error while creating window");
