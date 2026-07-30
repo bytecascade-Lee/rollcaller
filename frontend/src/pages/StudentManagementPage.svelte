@@ -47,9 +47,6 @@
     }
   }
 
-  $effect(() => {
-    studentStore.load()
-  })
 </script>
 
 <div class="page">
