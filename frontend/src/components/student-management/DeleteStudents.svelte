@@ -1,7 +1,7 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
   import {invoke} from "@tauri-apps/api/core";
-  import {studentManagementDialogController} from "$services/studentManagementDialogController";
+  import {studentManagementDialogController} from "$controllers/studentManagementDialogController";
 
   let { selected = $bindable() } = $props<{ selected: Set<bigint> }>();
   let isVisible = $state(false);
