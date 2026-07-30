@@ -33,22 +33,22 @@ User action → Svelte component → invoke("command_name", args)
 
 ## Key Directories
 
-| Path | Purpose |
-|------|---------|
-| `backend/src/cmd/` | Tauri command handlers (student, record, rollcall, import, app_paths) |
-| `backend/src/service/` | Business logic |
-| `backend/src/repo/` | SQL via `#[py_sql]` macros |
-| `backend/src/common/entity/` | Rust structs with `#[ts(export)]` for type generation |
-| `backend/src/common/enums/` | Result enums for complex operations |
-| `backend/src/database/` | DB pool singleton + migration bootstrap |
-| `backend/src/config/` | App paths, YAML config, logger |
-| `backend/src/util/` | Serde helpers, YAML flatten, time utils |
-| `backend/capabilities/` | Tauri permission model |
-| `backend/resources/` | Bundled configs, DB migrations |
-| `frontend/src/components/` | Svelte 5 page components |
-| `frontend/src/routes/` | SvelteKit SPA shell (+layout.svelte) |
-| `frontend/src/lib/types/` | Auto-generated TS types from Rust (`ts-rs`) |
-| `frontend/src/lib/constants/` | Auto-generated config constants |
+| Path                          | Purpose                                                               |
+|-------------------------------|-----------------------------------------------------------------------|
+| `backend/src/cmd/`            | Tauri command handlers (student, record, rollcall, import, app_paths) |
+| `backend/src/service/`        | Business logic                                                        |
+| `backend/src/repo/`           | SQL via `#[py_sql]` macros                                            |
+| `backend/src/common/entity/`  | Rust structs with `#[ts(export)]` for type generation                 |
+| `backend/src/common/enums/`   | Result enums for complex operations                                   |
+| `backend/src/database/`       | DB pool singleton + migration bootstrap                               |
+| `backend/src/config/`         | App paths, YAML config, logger                                        |
+| `backend/src/util/`           | Serde helpers, YAML flatten, time utils                               |
+| `backend/capabilities/`       | Tauri permission model                                                |
+| `backend/resources/`          | Bundled configs, DB migrations                                        |
+| `frontend/src/components/`    | Svelte 5 page components                                              |
+| `frontend/src/routes/`        | SvelteKit SPA shell (+layout.svelte)                                  |
+| `frontend/src/lib/types/`     | Auto-generated TS types from Rust (`ts-rs`)                           |
+| `frontend/src/lib/constants/` | Auto-generated config constants                                       |
 
 ---
 
@@ -112,25 +112,25 @@ cd ./backend && cargo tauri build
 
 ## Important Files
 
-| File | Role |
-|------|------|
-| `backend/src/main.rs` + `lib.rs` | App entry + Tauri bootstrap |
-| `backend/src/database/database_pool.rs` | DB connection singleton |
-| `backend/src/common/entity/student.rs` | Student + StudentTable |
-| `backend/src/common/entity/record.rs` | Record + RecordTable + RollcallRecord |
-| `backend/src/common/enums/student.rs` | Create/update result enums |
-| `backend/src/service/student_service.rs` | Core student CRUD + conflict logic |
-| `backend/src/service/rollcall_service.rs` | Random pick + save |
-| `backend/src/service/import_service.rs` | Excel import (calamine) |
-| `backend/src/repo/student_repo.rs` | py_sql for update/delete/restore |
-| `backend/src/repo/record_repo.rs` | py_sql JOIN queries |
-| `backend/src/cmd/import.rs` | preview_excel + import_excel commands |
-| `backend/capabilities/default.json` | Tauri permissions |
-| `backend/resources/database/migrations/V0__init_schema.sql` | Initial schema |
-| `frontend/src/routes/+layout.svelte` | SPA shell with sidebar nav |
-| `frontend/src/components/StudentPage.svelte` | Student CRUD + import wizard |
-| `frontend/src/components/RollcallPage.svelte` | Rollcall state machine |
-| `frontend/src/components/RecordHistoryPage.svelte` | Past records table |
+| File                                                        | Role                                  |
+|-------------------------------------------------------------|---------------------------------------|
+| `backend/src/main.rs` + `lib.rs`                            | App entry + Tauri bootstrap           |
+| `backend/src/database/database_pool.rs`                     | DB connection singleton               |
+| `backend/src/common/entity/student.rs`                      | Student + StudentTable                |
+| `backend/src/common/entity/record.rs`                       | Record + RecordTable + RollcallRecord |
+| `backend/src/common/enums/student.rs`                       | Create/update result enums            |
+| `backend/src/service/student_service.rs`                    | Core student CRUD + conflict logic    |
+| `backend/src/service/rollcall_service.rs`                   | Random pick + save                    |
+| `backend/src/service/import_service.rs`                     | Excel import (calamine)               |
+| `backend/src/repo/student_repo.rs`                          | py_sql for update/delete/restore      |
+| `backend/src/repo/record_repo.rs`                           | py_sql JOIN queries                   |
+| `backend/src/cmd/import.rs`                                 | preview_excel + import_excel commands |
+| `backend/capabilities/default.json`                         | Tauri permissions                     |
+| `backend/resources/database/migrations/V0__init_schema.sql` | Initial schema                        |
+| `frontend/src/routes/+layout.svelte`                        | SPA shell with sidebar nav            |
+| `frontend/src/pages/StudentManagementPage.svelte`           | Student CRUD + import wizard          |
+| `frontend/src/pages/RollcallPage.svelte`                    | Rollcall state machine                |
+| `frontend/src/pages/RecordHistoryPage.svelte`               | Past records table                    |
 
 ---
 
