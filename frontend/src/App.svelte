@@ -1,6 +1,6 @@
 <script lang="ts">
   import "$styles/components.css";
-  import RollcallPage from "$components/RollcallPage.svelte";
+  import RollcallPage from "$pages/RollcallPage.svelte";
   import RecordHistoryPage from "$pages/RecordHistoryPage.svelte";
   import StudentManagementPage from "$pages/StudentManagementPage.svelte";
 
