@@ -4,7 +4,7 @@
   import type {StudentSingleCreateResult} from "$types/StudentSingleCreateResult";
   import {format} from "$utils/DataTimeUtils";
   import {invoke} from "@tauri-apps/api/core";
-  import {studentManagementDialogController} from "$services/studentManagementDialogController";
+  import {studentManagementDialogController} from "$controllers/studentManagementDialogController";
 
   let newStudent = $state<Student>({
     id: null,
