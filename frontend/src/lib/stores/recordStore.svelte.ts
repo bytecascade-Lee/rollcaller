@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
-import type { RollcallRecord } from "$types/RollcallRecord";
+import {invoke} from "@tauri-apps/api/core";
+import type {RollcallRecord} from "$types/RollcallRecord";
 
 class RecordStore {
     #records = $state<RollcallRecord[]>([]);
@@ -39,7 +39,7 @@ class RecordStore {
     }
 
     upsert(record: RollcallRecord) {
-        const index = this.#records.findIndex((s) => s.id === record.id);
+        const index = this.#records.findIndex((s) => s.id == record.id);
         if (index >= 0) {
             this.#records = [
                 ...this.#records.slice(0, index),
@@ -47,7 +47,7 @@ class RecordStore {
                 ...this.#records.slice(index + 1)
             ];
         } else {
-            this.#records = [...this.#records, record];
+            this.#records = [record, ...this.#records];
         }
     }
 
