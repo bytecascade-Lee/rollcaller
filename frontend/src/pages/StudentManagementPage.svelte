@@ -2,6 +2,8 @@
   import {studentStore} from "$stores/studentStore.svelte";
   import {format} from "$utils/DataTimeUtils";
   import SingleCreateStudent from "$components/student-management/SingleCreateStudent.svelte";
+  import DeleteStudents from "$components/student-management/DeleteStudents.svelte";
+  import ImportStudents from "$components/student-management/ImportStudents.svelte";
   import {
     ArrowClockwiseIcon,
     FileArrowDownIcon,
@@ -53,27 +55,39 @@
 <div class="page">
   <div class="toolbar">
     <div class="toolbar-button">
-      <button onclick={() => studentManagementDialogController.open("SingleCreate")}>
+      <button
+        disabled={studentStore.isLoading}
+        onclick={() => studentManagementDialogController.open("SingleCreate")}>
         <PlusIcon/>
         添加
       </button>
-      <button onclick={() => studentManagementDialogController.open("Edit")}>
+      <button
+        disabled={selected.size != 1}
+        onclick={() => studentManagementDialogController.open("Edit")}>
         <PencilIcon/>
         修改
       </button>
-      <button onclick={() => (alert("删除"))}>
+      <button
+        disabled={selected.size == 0}
+        onclick={() => studentManagementDialogController.open("Delete")}>
         <MinusIcon/>
         删除
       </button>
-      <button onclick={() => (alert("导入"))}>
+      <button
+        disabled={studentStore.isLoading}
+        onclick={() => studentManagementDialogController.open("Import")}>
         <FileArrowUpIcon/>
         导入
       </button>
-      <button onclick={() => (alert("导出"))}>
+      <button
+        disabled={studentStore.isLoading}
+        onclick={() => (alert("导出"))}>
         <FileArrowDownIcon/>
         导出
       </button>
-      <button onclick={() => studentStore.load()}>
+      <button
+        disabled={studentStore.isLoading}
+        onclick={() => studentStore.load()}>
         <ArrowClockwiseIcon/>
         刷新
       </button>
@@ -82,6 +96,7 @@
       <MagnifyingGlassIcon/>
       <input
         type="search"
+        disabled={studentStore.isLoading}
         placeholder="🔍 搜索学号或姓名"
         bind:value={searchQuery}/>
     </div>
@@ -134,4 +149,6 @@
 </div>
 
 <SingleCreateStudent/>
-<EditStudent bind:selceted={selected}/>
+<EditStudent bind:selected={selected}/>
+<DeleteStudents bind:selected={selected}/>
+<ImportStudents/>
