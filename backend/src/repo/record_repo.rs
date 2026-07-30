@@ -21,8 +21,6 @@ WHERE
     AND st.is_deleted = 0
 ORDER BY
     rc.rollcall_at DESC
-LIMIT
-    100
 "
 )]
 pub async fn select_all(tx: &mut RBatisTxExecutor) -> Result<Vec<RollcallRecord>, rbatis::Error> {
