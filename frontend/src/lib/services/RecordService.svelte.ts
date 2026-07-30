@@ -1,7 +1,13 @@
 import {RollcallRecord} from "$types/RollcallRecord";
 import type {RecordGroupMetaData} from "$types/RecordGroupMetaData";
 
-export const COLORS = ['#7be5d5', '#b86dff', '#d8d1d1', '#d5b136'];
+export const COLORS = [
+  "#e94f4f",
+  '#eea700',
+  '#45c06e',
+  '#00adcf',
+  '#c442de'
+];
 
 export function group(records: RollcallRecord[]){
   let result: RecordGroupMetaData[] = [];
