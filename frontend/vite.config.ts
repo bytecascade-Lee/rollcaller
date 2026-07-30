@@ -12,6 +12,7 @@ export default defineConfig(async () => ({
       "$asserts": path.resolve(__dirname, "./src/asserts"),
       "$components": path.resolve(__dirname, "./src/components"),
       "$constants": path.resolve(__dirname, "./src/lib/constants"),
+      "$controllers": path.resolve(__dirname, "./src/lib/controllers"),
       "$pages": path.resolve(__dirname, "./src/pages"),
       "$services": path.resolve(__dirname, "./src/lib/services"),
       "$static": path.resolve(__dirname, "./src/static"),
