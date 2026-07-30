@@ -352,6 +352,7 @@ pub async fn update(rb: &RBatis, student: Student) -> anyhow::Result<StudentSing
     let mut tx = rb.acquire_begin().await?;
     let existing = StudentTable::select_by_map(&mut tx, value! {"student_no": &student.student_no}).await?;
     if existing.len() > 0 {
+        tx.rollback().await?;
         return Ok(StudentSingleUpdate::Conflict(existing.into_iter().next().unwrap()));
     }
 
@@ -370,15 +371,15 @@ pub async fn update(rb: &RBatis, student: Student) -> anyhow::Result<StudentSing
 /// 删除学生
 pub async fn delete(rb: &RBatis, ids: Vec<i64>) -> anyhow::Result<()> {
     let mut tx = rb.acquire_begin().await?;
-    tx.auto_commit();
     student_repo::delete(&mut tx, ids).await?;
+    tx.commit().await?;
     Ok(())
 }
 
 /// 恢复学生
 pub async fn restore(rb: &RBatis, ids: Vec<i64>) -> anyhow::Result<()> {
     let mut tx = rb.acquire_begin().await?;
-    tx.auto_commit();
-    student_repo::delete(&mut tx, ids).await?;
+    student_repo::restore(&mut tx, ids).await?;
+    tx.commit().await?;
     Ok(())
 }
