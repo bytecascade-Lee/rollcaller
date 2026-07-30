@@ -2,6 +2,7 @@ use crate::config::{app_config, app_paths, logger};
 use crate::database::database_bootstrap;
 use tauri::WebviewWindowBuilder;
 
+mod bootstrap;
 mod cmd;
 mod common;
 mod config;
@@ -19,7 +20,7 @@ pub async fn run() {
     database_bootstrap::init().await.expect("Failed to run database migrations.");
 
     tauri::Builder::default()
-        .setup(|app| create_window(app))
+        .setup(|app| init(app))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
@@ -45,7 +46,7 @@ pub async fn run() {
         .expect("error while running tauri application");
 }
 
-fn create_window(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+fn init(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     WebviewWindowBuilder::new(app, "main", Default::default())
         .data_directory(app_paths::webview_dir().to_path_buf())
         .inner_size(850.0, 700.0)
