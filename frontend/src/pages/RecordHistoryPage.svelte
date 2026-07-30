@@ -27,10 +27,6 @@
 
   let displaySelectedCount = $derived(display.filter(r => selected.has(r.id)).length)
 
-  $effect(() => {
-    recordStore.load()
-  });
-
   export function select(id: bigint) {
     if (selected.has(id)) {
       let set = new Set(selected);
