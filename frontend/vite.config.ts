@@ -21,6 +21,9 @@ export default defineConfig(async () => ({
       "$utils": path.resolve(__dirname, "./src/lib/utils"),
     }
   },
+  optimizeDeps: {
+    include: ["phosphor-svelte"]
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
