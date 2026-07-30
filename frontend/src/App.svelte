@@ -4,6 +4,8 @@
   import RecordHistoryPage from "$pages/RecordHistoryPage.svelte";
   import StudentManagementPage from "$pages/StudentManagementPage.svelte";
 
+  import {ClockCounterClockwiseIcon, UsersIcon} from "phosphor-svelte";
+
   let currentPage: 'rollcall' | 'students' | 'records' = $state("rollcall");
 </script>
 
@@ -11,33 +13,42 @@
   <aside class="sidebar">
     <div class="logo">RollCaller</div>
     <nav>
-      <button class="nav-item" class:active={currentPage == "rollcall"} onclick={() => currentPage = "rollcall"}>
-        🎲 自动点名
+      <button
+        class="nav-item"
+        class:active={currentPage == "rollcall"}
+        onclick={() => currentPage = "rollcall"}
+      >
+        🎲
       </button>
       <button
         class="nav-item"
         class:active={currentPage == "records"}
         onclick={() => currentPage = "records"}
       >
-        📋 历史记录
+        <ClockCounterClockwiseIcon/>
       </button>
       <button
         class="nav-item"
         class:active={currentPage == "students"}
         onclick={() => currentPage = "students"}
       >
-        👤 学生管理
+        <UsersIcon/>
       </button>
     </nav>
   </aside>
+
   <main class="content">
-    {#if currentPage == "rollcall"}
-      <RollcallPage />
-    {:else if currentPage == "records"}
-      <RecordHistoryPage />
-    {:else if currentPage == "students"}
-      <StudentManagementPage />
-    {/if}
+    <div class="page-container">
+      <div class="page" class:active={currentPage == "rollcall"}>
+        <RollcallPage/>
+      </div>
+      <div class="page" class:active={currentPage == "records"}>
+        <RecordHistoryPage/>
+      </div>
+      <div class="page" class:active={currentPage == "students"}>
+        <StudentManagementPage/>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -47,55 +58,65 @@
     height: 100vh;
     width: 100vw;
     overflow: hidden;
+    background: #f5f0eb;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
 
   .sidebar {
-    width: 120px;
+    width: 100px;
     flex-shrink: 0;
-    background: #2c3e50;
-    color: #ecf0f1;
+    background: #ffffff;
+    color: #4a4a4a;
     display: flex;
     flex-direction: column;
     padding: 0;
+    border-right: 1px solid #e8e0d8;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
   }
 
   .logo {
-    padding: 16px 12px 10px;
-    font-size: 15px;
+    padding: 15px 16px 14px;
+    font-size: 14px;
     font-weight: 700;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: #8b7355;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #f0ebe5;
+    background: #faf8f6;
   }
 
   nav {
-    padding: 6px;
+    padding: 12px 8px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
   }
 
   .nav-item {
     display: block;
     width: 100%;
-    padding: 8px 10px;
+    padding: 10px 12px;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
     background: transparent;
-    color: #bdc3c7;
+    color: #6b5e4e;
     cursor: pointer;
     text-align: left;
-    font-size: 13px;
-    transition: background 0.15s, color 0.15s;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    font-weight: 500;
   }
 
   .nav-item:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
+    background: #f5f0eb;
+    color: #5a4a3a;
+    transform: translateX(2px);
   }
 
   .nav-item.active {
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
+    background: #f0e8df;
+    color: #7a5a3a;
     font-weight: 600;
+    box-shadow: inset 3px 0 0 #c4a88a;
   }
 
   .content {
@@ -103,8 +124,56 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    background: #fff;
+    background: #faf8f6;
     position: relative;
     overflow: hidden;
+  }
+
+  .page-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .page {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    padding: 24px 32px;
+
+    /* 切换动画 */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0s 0.25s;
+    pointer-events: none;
+    background: #faf8f6;
+  }
+
+  .page.active {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.25s ease, visibility 0s 0s;
+    pointer-events: auto;
+    z-index: 1;
+  }
+
+  .page::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .page::-webkit-scrollbar-track {
+    background: #f5f0eb;
+  }
+
+  .page::-webkit-scrollbar-thumb {
+    background: #d5c8b8;
+    border-radius: 3px;
+  }
+
+  .page::-webkit-scrollbar-thumb:hover {
+    background: #c4b4a0;
   }
 </style>
