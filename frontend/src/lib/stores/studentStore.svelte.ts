@@ -17,6 +17,8 @@ class StudentStore {
     this.#isLoading = true;
     try {
       this.#students = await invoke<StudentTable[]>("list_all_students");
+    } catch (e) {
+      alert(e)
     } finally {
       this.#isLoading = false;
     }
