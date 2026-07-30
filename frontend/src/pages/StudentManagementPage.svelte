@@ -11,6 +11,8 @@
     PencilIcon,
     PlusIcon
   } from "phosphor-svelte";
+  import {studentManagementDialogController} from "$services/studentManagementDialogController";
+  import EditStudent from "$components/student-management/EditStudent.svelte";
 
   let selected = $state<Set<bigint>>(new Set())
   let searchQuery = $state("")
@@ -20,9 +22,6 @@
       student.student_no.toLowerCase().includes(searchQuery)
     ));
   let displaySelectedCount = $derived(display.filter(student => selected.has(student.id)).length)
-
-  let singleCreateDialog = $state<SingleCreateStudent>()
-
 
   function select(id: bigint) {
     if (selected.has(id)) {
@@ -54,11 +53,11 @@
 <div class="page">
   <div class="toolbar">
     <div class="toolbar-button">
-      <button onclick={() => singleCreateDialog?.open()}>
+      <button onclick={() => studentManagementDialogController.open("SingleCreate")}>
         <PlusIcon/>
         添加
       </button>
-      <button onclick={() => (alert("修改"))}>
+      <button onclick={() => studentManagementDialogController.open("Edit")}>
         <PencilIcon/>
         修改
       </button>
@@ -134,4 +133,5 @@
 
 </div>
 
-<SingleCreateStudent bind:this={singleCreateDialog}/>
+<SingleCreateStudent/>
+<EditStudent bind:selceted={selected}/>
