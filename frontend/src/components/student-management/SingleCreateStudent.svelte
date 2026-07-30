@@ -48,12 +48,12 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="overlay" onclick={closeOnOutside ? () => isVisible = false : undefined}>
-    <div class="dialog" onclick={(e) => e.stopPropagation}>
+    <div class="dialog" onclick={(e) => e.stopPropagation()}>
       <h3>添加学生</h3>
       <label>学号<input
         type="text"
         bind:value={newStudent.student_no}
-        placeholder="如 2026001"
+        placeholder="如 1097260001"
       /></label>
       <label>姓名<input
         type="text"
