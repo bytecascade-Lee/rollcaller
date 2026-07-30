@@ -4,7 +4,7 @@
   import type { StudentBatchCreateResult } from "$types/StudentBatchCreateResult";
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
-  import {studentManagementDialogController} from "$services/studentManagementDialogController";
+  import {studentManagementDialogController} from "$controllers/studentManagementDialogController";
 
   let previewData = $state<ImportPreviewData>({
     rows: [[]],
