@@ -8,6 +8,7 @@
         "skipLibCheck": true,
         "sourceMap": true,
         "strict": true,
+        "target": "es2022",
         "module": "preserve",
     "moduleResolution": "bundler",
         "paths": {
