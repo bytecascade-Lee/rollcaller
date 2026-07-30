@@ -16,7 +16,7 @@
             "$components/*": ["./src/components/*"],
             "$constants/*": ["./src/lib/constants/*"],
             "$pages/*": ["./src/pages/*"],
-            "$services/*": ["./src/lin/services/*"],
+            "$services/*": ["./src/lib/services/*"],
             "$static/*": ["./src/static/*"],
             "$stores/*": ["./src/lib/stores/*"],
             "$styles/*": ["./src/styles/*"],
