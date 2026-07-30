@@ -13,7 +13,7 @@
     PencilIcon,
     PlusIcon
   } from "phosphor-svelte";
-  import {studentManagementDialogController} from "$services/studentManagementDialogController";
+  import {studentManagementDialogController} from "$controllers/studentManagementDialogController";
   import EditStudent from "$components/student-management/EditStudent.svelte";
 
   let selected = $state<Set<bigint>>(new Set())
