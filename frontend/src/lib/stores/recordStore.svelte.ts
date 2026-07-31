@@ -1,5 +1,5 @@
-import {invoke} from "@tauri-apps/api/core";
 import type {RollcallRecord} from "$types/RollcallRecord";
+import {RecordCommand} from "$commands";
 
 class RecordStore {
     #records = $state<RollcallRecord[]>([]);
@@ -21,7 +21,7 @@ class RecordStore {
     async load() {
         this.#isLoading = true;
         try {
-            this.#records = await invoke<RollcallRecord[]>("list_all_records");
+            this.#records = await RecordCommand.list();
 
             if (this.#boundaryPoint != 0n) return;
             let maxId = 0n;
