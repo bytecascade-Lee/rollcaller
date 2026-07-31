@@ -51,11 +51,7 @@ use tracing::{debug, error, warn};
 /// # 事务
 ///
 /// 函数内部开启数据库事务，根据操作结果自动提交或回滚。
-pub async fn create(
-    rb: &RBatis,
-    student: Student,
-    decision: Option<bool>,
-) -> anyhow::Result<StudentSingleCreateResult> {
+pub async fn create(rb: &RBatis, student: Student, decision: Option<bool>) -> anyhow::Result<StudentSingleCreateResult> {
     // 1. 开启事务，锁库
     let mut tx = rb.acquire_begin().await?;
     // 2. 查询所有与给定学号相同的学生（理论上长度为1）
@@ -346,26 +342,25 @@ pub async fn get_by_student_nos(rb: &dyn Executor, student_nos: Vec<String>) -> 
 
 /// 更新学生
 pub async fn update(rb: &RBatis, student: Student) -> anyhow::Result<StudentSingleUpdate> {
-    if student.id == None {
-        return Err(anyhow!("id不能为空"));
-    }
+    let id = student.id.ok_or_else(|| anyhow!("学号[{}]对应的id为空!", student.student_no))?;
     let mut tx = rb.acquire_begin().await?;
     let existing = StudentTable::select_by_map(&mut tx, value! {"student_no": &student.student_no}).await?;
-    if existing.len() > 0 {
+    // UNIQUE的限制，导致Vec长度不会大于1
+    if let Some(conflict) = existing.into_iter().next().filter(|matched| matched.id != id) {
+        // 存在且id不同，表示有不同的id占用了该学号
         tx.rollback().await?;
-        return Ok(StudentSingleUpdate::Conflict(existing.into_iter().next().unwrap()));
+        Ok(StudentSingleUpdate::Conflict(conflict))
+    } else {
+        Student::update_by_map(&mut tx, &student, value! {"id": id}).await?;
+        tx.commit().await?;
+        Ok(StudentSingleUpdate::Update(
+            StudentTable::select_by_map(rb, value! {"id": id})
+                .await?
+                .into_iter()
+                .next()
+                .unwrap(),
+        ))
     }
-
-    // 此处的id必定不为None
-    Student::update_by_map(&mut tx, &student, value! {"id": student.id}).await?;
-    tx.commit().await?;
-    Ok(StudentSingleUpdate::Update(
-        StudentTable::select_by_map(rb, value! {"id": student.id})
-            .await?
-            .into_iter()
-            .next()
-            .unwrap(),
-    ))
 }
 
 /// 删除学生
