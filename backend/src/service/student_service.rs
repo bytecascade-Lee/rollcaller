@@ -111,11 +111,17 @@ pub async fn create(rb: &RBatis, student: Student, decision: Option<bool>) -> an
 
         //* 3.2 不存在该学号的学生
         None => {
-            // 插入时自动忽略 id
-            // 插入后自动回填 id
-            Student::insert(&mut tx, &student).await?;
+            // 插入时自动忽略 id，新 id 通过 ExecResult.last_insert_id 获取（insert 不回填自增 id）
+            // Deepseek v4 flash official-version
+            // omp --resume 019fb824-b9cc-7000-8f16-4d2222d66cbc
+            // 2026年7月31日21:10(Asia/Shanghai)
+            let result = Student::insert(&mut tx, &student).await?;
+            let id = result
+                .last_insert_id
+                .as_i64()
+                .ok_or_else(|| anyhow!("插入失败"))?;
             tx.commit().await?;
-            let vec = StudentTable::select_by_map(rb, value! {"id": student.id.unwrap()}).await?;
+            let vec = StudentTable::select_by_map(rb, value! {"id": id}).await?;
             Ok(StudentSingleCreateResult::Insert(vec.into_iter().next().unwrap()))
         }
     }
