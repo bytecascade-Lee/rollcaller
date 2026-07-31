@@ -28,13 +28,9 @@ pub async fn student_single_create(student: Student, overwrite: Option<bool>) ->
 ///
 /// 若新学号与另一活跃学生冲突，返回错误。
 #[tauri::command]
-pub async fn student_single_update(student: Student) -> Result<StudentTable, String> {
+pub async fn student_single_update(student: Student) -> Result<StudentSingleUpdate, String> {
     let rb = database_pool::database().await.map_err(|e| e.to_string())?;
-    match student_service::update(&*rb, student).await {
-        Ok(StudentSingleUpdate::Update(s)) => Ok(s),
-        Ok(StudentSingleUpdate::Conflict(s)) => Err(format!("学号「{}」已被使用", s.student_no)),
-        Err(e) => Err(e.to_string()),
-    }
+    student_service::update(&*rb, student).await.map_err(|e| e.to_string())
 }
 
 /// 删除学生（软删除）
