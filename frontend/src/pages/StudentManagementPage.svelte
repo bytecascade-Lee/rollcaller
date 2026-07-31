@@ -95,7 +95,7 @@
       <input
         type="search"
         disabled={studentStore.isLoading}
-        placeholder="🔍 搜索学号或姓名"
+        placeholder="搜索学号或姓名"
         bind:value={searchQuery}/>
     </div>
   </div>
