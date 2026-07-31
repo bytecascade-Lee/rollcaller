@@ -12,12 +12,15 @@ pub async fn list_all(rb: &RBatis) -> anyhow::Result<Vec<RollcallRecord>> {
 }
 
 pub async fn create(rb: &RBatis, record: Record) -> anyhow::Result<RollcallRecord> {
-    Record::insert(rb, &record).await?;
+    let result = Record::insert(rb, &record).await?;
+    let id = result
+        .last_insert_id
+        .as_i64()
+        .ok_or_else(|| anyhow!("插入失败"))?;
     let mut tx = rb.acquire_begin().await?;
-    let id = record.id.ok_or_else(|| anyhow!("插入失败"))?;
     let records = record_repo::select_by_ids(&mut tx, vec![id]).await?;
     tx.commit().await?;
-    Ok(records.into_iter().next().ok_or_else(|| anyhow!("通过id[{}]查询失败", id))?)
+    Ok(records.into_iter().next().ok_or_else(|| anyhow!("通过id[{id}]查询失败"))?)
 }
 
 pub async fn update(
