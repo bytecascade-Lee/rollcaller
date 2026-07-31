@@ -1,22 +1,19 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import {invoke} from "@tauri-apps/api/core";
   import {studentManagementDialogController} from "$controllers/studentManagementDialogController";
+  import {StudentCommand} from "$commands";
 
-  let { selected = $bindable() } = $props<{ selected: Set<bigint> }>();
+  let {selected = $bindable()} = $props<{ selected: Set<bigint> }>();
   let isVisible = $state(false);
   let closeOnOutside = true;
 
   async function del() {
     try {
       let ids = Array.from<bigint>(selected);
-      await invoke("delete_students", {
-        ids: ids,
-      }).then(() => {
-        studentStore.remove(ids);
-        selected = new Set();
-        isVisible = false;
-      });
+      await StudentCommand.remove(ids);
+      studentStore.remove(ids);
+      selected.clear();
+      isVisible = false;
     } catch (e) {
       alert(String(e));
     }
