@@ -10,6 +10,7 @@ export default defineConfig(async () => ({
   resolve: {
     alias: {
       "$asserts": path.resolve(__dirname, "./src/asserts"),
+      "$commands": path.resolve(__dirname, "./src/lib/commands"),
       "$components": path.resolve(__dirname, "./src/components"),
       "$constants": path.resolve(__dirname, "./src/lib/constants"),
       "$controllers": path.resolve(__dirname, "./src/lib/controllers"),
