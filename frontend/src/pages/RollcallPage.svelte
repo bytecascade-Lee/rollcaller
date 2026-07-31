@@ -1,157 +1,20 @@
 <script lang="ts">
 
-  import {invoke} from "@tauri-apps/api/core";
   import {studentStore} from "$stores/studentStore.svelte"
   import {recordStore} from "$stores/recordStore.svelte"
+  import {rollcallEngine} from "$services/RollcallEngine.svelte";
   import {RollcallPhase} from "$types/RollcallPhase";
   import {format} from "$utils/DataTimeUtils";
-  import {uuid} from "$utils/UuidUtils";
-  import type {RollcallRecord} from "$types/RollcallRecord";
-  import {statusText} from "$constants/AttendanceStatus";
   import {COLORS, group} from "$services/RecordService.svelte";
-  import type {RecordGroupMetaData} from "$types/RecordGroupMetaData";
+  import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
+  import {RollcallRecord} from "$types/RollcallRecord";
+  import {RecordGroupMetaData} from "$types/RecordGroupMetaData";
 
-  let sessionId = $state("");
-  let totalTimes = $state(1);
-  let completedTimes = $state(0);
-
-  let phase = $state(RollcallPhase.Idle);
-  let currentName = $state("等待点名");
-
-  let display = $derived<RollcallRecord[]>(recordStore.records.filter(record => record.id > recordStore.boundaryPoint).reverse())
-  let groupInfo = $derived<RecordGroupMetaData[]>(group(display))
-
-  let animTimer: number | null = $state(0);
-
-  let autoGo = $state(false);
-
-  let isRolling = $state(false);
-
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-  function startAnim() {
-    if (animTimer) clearInterval(animTimer);
-    animTimer = setInterval(() => {
-      if (studentStore.students.length > 0) {
-        const idx = Math.floor(Math.random() * studentStore.students.length);
-        currentName = studentStore.students[idx].name;
-      }
-    }, 80);
-  }
-
-  function stopAnim() {
-    if (animTimer) {
-      clearInterval(animTimer);
-      animTimer = null;
-    }
-  }
-
-  async function runAutoCycle() {
-    autoGo = true;
-    const studentIds = studentStore.students.map((s) => s.id);
-
-    while (autoGo && completedTimes < totalTimes) {
-      // 阶段1：动画滚动
-      phase = RollcallPhase.Animating;
-      startAnim();
-      await sleep(1000);
-      if (!autoGo) break;
-
-      // 阶段2：选人并写入 DB
-      stopAnim();
-      let record;
-      try {
-        record = await invoke<RollcallRecord>("roll_call_pick", {
-          studentIds,
-          sessionId,
-        });
-      } catch (e) {
-        stopAnim();
-        autoGo = false;
-        phase = RollcallPhase.Idle;
-        currentName = "等待点名";
-        alert("点名失败：" + e);
-        return;
-      }
-      if (!autoGo) break;
-
-      currentName = record.name;
-      completedTimes++;
-      recordStore.upsert(record)
-      phase = RollcallPhase.Showing;
-
-      if (completedTimes >= totalTimes) break;
-
-      // 阶段3：短暂展示
-      await sleep(1000);
-      if (!autoGo) break;
-    }
-
-    // 循环结束
-    stopAnim();
-    if (completedTimes >= totalTimes) {
-      phase = RollcallPhase.Idle;
-      isRolling = false;
-      autoGo = false;
-    }
-    // autoGo == false 时由 toggle 处理
-  }
-
-  // ── Toggle 按钮 ─────────────────────────────
-
-  async function toggle() {
-    if (!isRolling) {
-      // ── 开始点名 ──
-      if (studentStore.students.length === 0) {
-        alert("没有可点名的学生，请先添加学生");
-        return;
-      }
-      sessionId = uuid();
-      completedTimes = 0;
-      currentName = "";
-      isRolling = true;
-
-      if (totalTimes === 1) {
-        // 单次：启动动画，等待用户再次点击停止
-        phase = RollcallPhase.Animating;
-        startAnim();
-      } else {
-        // 连续：自动循环
-        runAutoCycle();
-      }
-    } else {
-      // ── 停止点名 ──
-      if (totalTimes === 1) {
-        // 单次：选人 → 写入 DB → 显示
-        stopAnim();
-        const studentIds = studentStore.students.map((s) => s.id);
-        try {
-          const record = await invoke<RollcallRecord>("roll_call_pick", {
-            studentIds,
-            sessionId,
-          });
-          currentName = record.name;
-          completedTimes = 1;
-          recordStore.upsert(record)
-          isRolling = false;
-          phase = RollcallPhase.Idle;
-        } catch (e) {
-          stopAnim();
-          isRolling = false;
-          phase = RollcallPhase.Idle;
-          currentName = "等待点名";
-          alert("点名失败：" + e);
-        }
-      } else {
-        // 连续：中途停止
-        stopAnim();
-        autoGo = false;
-        currentName = "等待点名";
-        isRolling = false;
-        phase = RollcallPhase.Idle;
-      }
-    }
-  }
+  const engine = rollcallEngine;
+  let display = $derived<RollcallRecord[]>(
+    recordStore.records.filter((r) => r.id > recordStore.boundaryPoint).reverse()
+  );
+  let groupInfo = $derived<RecordGroupMetaData[]>(group(display));
 
   $effect(() => {
     studentStore.load();
@@ -163,10 +26,10 @@
   <div class="result-area">
     <div
       class="result-name"
-      class:animating={phase == RollcallPhase.Animating}
-      class:has-result={phase != RollcallPhase.Animating && currentName !== "" && currentName !== "等待点名"}
+      class:animating={engine.phase == RollcallPhase.Animating}
+      class:has-result={engine.phase != RollcallPhase.Animating && engine.currentName !== "" && engine.currentName !== "等待点名"}
     >
-      {currentName || "等待点名"}
+      {engine.currentName || "等待点名"}
     </div>
   </div>
 
@@ -177,8 +40,9 @@
         type="number"
         min="1"
         max={studentStore.students.length || 1}
-        bind:value={totalTimes}
-        disabled={isRolling}
+        value={engine.totalTimes}
+        oninput={(e) => engine.updateTotalTimes(Number(e.currentTarget.value))}
+        disabled={engine.isRolling}
       />
     </div>
 
@@ -189,17 +53,17 @@
 
     <div class="control-item">
       <label>已完成</label>
-      <span class="stat-value">{completedTimes}/{totalTimes}</span>
+      <span class="stat-value">{engine.completedTimes}/{engine.totalTimes}</span>
     </div>
 
     <div class="control-item">
       <button
         class="btn toggle-btn"
-        class:start={!isRolling}
-        class:stop={isRolling}
-        onclick={toggle}
+        class:start={!engine.isRolling}
+        class:stop={engine.isRolling}
+        onclick={() => engine.toggle()}
       >
-        {isRolling ? "停止点名" : "开始点名"}
+        {engine.isRolling ? "停止点名" : "开始点名"}
       </button>
     </div>
   </div>
@@ -234,7 +98,7 @@
               <td>{index + 1}</td>
               <td>{record.name}</td>
               <td>{record.student_no}</td>
-              <td>{statusText(record.attendance_status)}</td>
+              <td><AttendanceStatusBadge code={record.attendance_status}/></td>
               <td>{record.remark}</td>
               <td>{format(record.rollcall_at)}</td>
             </tr>
