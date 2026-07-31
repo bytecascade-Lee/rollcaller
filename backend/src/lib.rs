@@ -37,6 +37,7 @@ pub async fn run() {
             crate::cmd::student::student_single_create,
             crate::cmd::student::student_single_update,
             crate::cmd::student::student_batch_delete,
+            crate::cmd::student::student_batch_restore,
             crate::cmd::record::record_list,
             crate::cmd::record::record_batch_update_attendance_status,
             crate::cmd::record::record_batch_update_remark,
