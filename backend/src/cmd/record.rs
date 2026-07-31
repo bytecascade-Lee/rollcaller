@@ -1,4 +1,4 @@
-use crate::common::entity::record::RollcallRecord;
+use crate::common::entity::record::{Record, RollcallRecord};
 use crate::database::database_pool;
 use crate::service::record_service;
 
@@ -7,6 +7,12 @@ use crate::service::record_service;
 pub async fn record_list() -> Result<Vec<RollcallRecord>, String> {
     let rb = database_pool::database().await.map_err(|e| e.to_string())?;
     record_service::list_all(&*rb).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn record_single_create(record: Record) -> Result<RollcallRecord, String> {
+    let rb = database_pool::database().await.map_err(|e| e.to_string())?;
+    record_service::create(&rb, record).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
