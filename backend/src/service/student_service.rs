@@ -53,14 +53,13 @@ use tracing::{debug, error, warn};
 /// 函数内部开启数据库事务，根据操作结果自动提交或回滚。
 pub async fn create(
     rb: &RBatis,
-    student_no: String,
-    name: String,
+    student: Student,
     decision: Option<bool>,
 ) -> anyhow::Result<StudentSingleCreateResult> {
     // 1. 开启事务，锁库
     let mut tx = rb.acquire_begin().await?;
     // 2. 查询所有与给定学号相同的学生（理论上长度为1）
-    let all_matched = StudentTable::select_by_map(&mut tx, value! {"student_no": &student_no}).await?;
+    let all_matched = StudentTable::select_by_map(&mut tx, value! {"student_no": &student.student_no}).await?;
     let length = all_matched.len();
     if length > 1 {
         return Err(anyhow!("学号 {} 有多余一条记录！", length));
@@ -78,7 +77,7 @@ pub async fn create(
             }
             //* 3.1.2 已删除且其他字段相同
             // 执行恢复
-            if exist.name == name {
+            if exist.name == student.name {
                 student_repo::restore(&mut tx, vec![exist.id]).await?;
                 tx.commit().await?;
                 //~ 此处的查询可不必，只需要将exist的is_deleted设为false，deleted_at设为None即可
@@ -90,7 +89,7 @@ pub async fn create(
                 Some(decision) => {
                     if decision {
                         //* 3.1.3 用户同意覆写
-                        student_repo::update_name(&mut tx, exist.id, &name).await?;
+                        student_repo::update_name(&mut tx, exist.id, &student.name).await?;
                         student_repo::restore(&mut tx, vec![exist.id]).await?;
                         tx.commit().await?;
                         //~ 此处的查询可不必，只需要将exist的name设为新值即可
@@ -105,8 +104,8 @@ pub async fn create(
                 //* 3.1.5 未明确传递是否覆写
                 None => {
                     warn!(
-                        "The student:[{}] already exists, but we don't know if we want to cover TA.",
-                        student_no
+                        "The student:[student_no: {}, name: {}] already exists, but we don't know if we want to cover TA.",
+                        student.student_no, student.name
                     );
                     tx.rollback().await?;
                     Ok(StudentSingleCreateResult::Conflict(exist.clone()))
@@ -116,10 +115,11 @@ pub async fn create(
 
         //* 3.2 不存在该学号的学生
         None => {
-            let result = Student::insert(&mut tx, &Student::new(&student_no, &name)).await?;
+            // 插入时自动忽略 id
+            // 插入后自动回填 id
+            Student::insert(&mut tx, &student).await?;
             tx.commit().await?;
-            let inserted_id = result.last_insert_id.as_i64().unwrap();
-            let vec = StudentTable::select_by_map(rb, value! {"id": inserted_id}).await?;
+            let vec = StudentTable::select_by_map(rb, value! {"id": student.id.unwrap()}).await?;
             Ok(StudentSingleCreateResult::Insert(vec.into_iter().next().unwrap()))
         }
     }
