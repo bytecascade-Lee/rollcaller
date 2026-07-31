@@ -6,7 +6,7 @@
 
 
   let {selected = $bindable()}: { selected: Set<bigint> } = $props();
-  let value = selected.values().next().value;
+  let value = $derived(selected.values().next().value);
   let editing = $derived(studentStore.get(value ? value : -1n))
 
   let isVisible = $state(false);
@@ -15,15 +15,14 @@
   async function edit() {
     if (!editing || !editing.name.trim() || !editing.student_no.trim()) return;
     try {
-      await invoke<StudentTable>("update_student", {
+      let student = await invoke<StudentTable>("student_single_update", {
         student: {
           id: editing.id,
           student_no: editing.student_no.trim(),
           name: editing.name.trim(),
         }
-      }).then((result) => {
-        studentStore.upsert(result);
       });
+      studentStore.upsert(student);
     } catch (e) {
       alert(String(e));
     }
@@ -48,27 +47,28 @@
         <div>
           <button onclick={() => isVisible = false}>确定</button>
         </div>
-      {:else if editing != null}
-        <h3>修改学生</h3>
-        <label>
-          学号
-          <input type="text" bind:value={editing.student_no}/>
-        </label>
-        <label>
-          姓名
-          <input type="text" bind:value={editing.name}/>
-        </label>
-        <div class="dialog-actions">
-          <button class="btn-secondary" onclick={() => isVisible = false}>取消</button>
-          <button onclick={edit}>保存</button>
-        </div>
-      {:else}
+      {:else if editing == null}
         <h3>待编辑的对象为Null，失败！</h3>
         <div>当前选中id：{Array.from(selected)}</div>
         <div>当前查找的id：{value ? value : "undefined"}</div>
         <div>当前获取到的编辑对象：{editing}</div>
         <div>
           <button onclick={() => isVisible = false}>确定</button>
+        </div>
+      {:else}
+        <!-- 此处无需bind，否则会直接修改表格数据，应该等到写入库中后再修改 -->
+        <h3>修改学生</h3>
+        <label>
+          学号
+          <input type="text" value={editing.student_no}/>
+        </label>
+        <label>
+          姓名
+          <input type="text" value={editing.name}/>
+        </label>
+        <div class="dialog-actions">
+          <button class="btn-secondary" onclick={() => isVisible = false}>取消</button>
+          <button onclick={edit}>保存</button>
         </div>
       {/if}
     </div>
