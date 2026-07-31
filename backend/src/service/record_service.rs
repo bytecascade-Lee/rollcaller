@@ -26,6 +26,7 @@ pub async fn update(
     }
     tx.commit().await?;
     let mut select_tx = rb.acquire_begin().await?;
+    let records = record_repo::select_by_ids(&mut select_tx, ids).await?;
     select_tx.commit().await?;
-    Ok(record_repo::select_by_ids(&mut select_tx, ids).await?)
+    Ok(records)
 }
