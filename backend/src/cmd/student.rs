@@ -43,3 +43,11 @@ pub async fn student_batch_delete(ids: Vec<i64>) -> Result<(), String> {
     let rb = database_pool::database().await.map_err(|e| e.to_string())?;
     student_service::delete(&*rb, ids).await.map_err(|e| e.to_string())
 }
+
+/// 恢复学生
+#[tauri::command]
+pub async fn student_batch_restore(ids: Vec<i64>) -> Result<(), String> {
+    let rb = database_pool::database().await.map_err(|e| e.to_string())?;
+    //~ 恢复后不必再次查询，直接修改 is_deleted 为 0、deleted_at 为 None 即可
+    student_service::restore(&*rb, ids).await.map_err(|e| e.to_string())
+}
