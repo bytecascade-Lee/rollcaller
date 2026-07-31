@@ -17,9 +17,9 @@ pub async fn student_list() -> Result<Vec<StudentTable>, String> {
 /// - `ActiveExists` → 前端展示学号被占用的学生信息
 /// - `Conflict` → 前端展示已删除记录与新记录的差异
 #[tauri::command]
-pub async fn student_single_create(student_no: String, name: String, overwrite: Option<bool>) -> Result<StudentSingleCreateResult, String> {
+pub async fn student_single_create(student: Student, overwrite: Option<bool>) -> Result<StudentSingleCreateResult, String> {
     let rb = database_pool::database().await.map_err(|e| e.to_string())?;
-    student_service::create(&*rb, student_no, name, overwrite)
+    student_service::create(&*rb, student, overwrite)
         .await
         .map_err(|e| e.to_string())
 }
