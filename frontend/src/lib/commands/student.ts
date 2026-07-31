@@ -2,6 +2,7 @@ import {invoke} from "@tauri-apps/api/core";
 import type {StudentSingleCreateResult} from "$types/StudentSingleCreateResult";
 import {Student} from "$types/Student";
 import type {StudentTable} from "$types/StudentTable";
+import {StudentSingleUpdate} from "$types/StudentSingleUpdate";
 
 export async function list() {
   return await invoke<StudentTable[]>("student_list");
@@ -15,7 +16,7 @@ export async function create(student: Student, override: boolean | null) {
 }
 
 export async function update(student: Student) {
-  return await invoke<StudentTable>("student_single_update", {
+  return await invoke<StudentSingleUpdate>("student_single_update", {
     student: student
   })
 }
