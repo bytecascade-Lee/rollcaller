@@ -39,10 +39,11 @@ pub async fn run() {
             crate::cmd::student::student_batch_delete,
             crate::cmd::student::student_batch_restore,
             crate::cmd::record::record_list,
+            crate::cmd::record::record_single_create,
             crate::cmd::record::record_batch_update,
             crate::cmd::record::record_batch_update_attendance_status,
             crate::cmd::record::record_batch_update_remark,
-            crate::cmd::rollcall::roll_call_pick,
+            crate::cmd::rollcall::pick,
             crate::cmd::import::preview_excel,
             crate::cmd::import::import_excel,
         ])
