@@ -11,6 +11,7 @@
     MagnifyingGlassIcon,
     MinusIcon,
     PencilIcon,
+    PencilSimpleIcon,
     PlusIcon
   } from "phosphor-svelte";
   import {studentManagementDialogController} from "$controllers/studentManagementDialogController";
@@ -116,8 +117,14 @@
               onchange={selectAll}/>
           </th>
           <th>序号</th>
-          <th>姓名</th>
-          <th>学号</th>
+          <th>
+            <PencilSimpleIcon/>
+            姓名
+          </th>
+          <th>
+            <PencilSimpleIcon/>
+            学号
+          </th>
           <th>创建时间</th>
           <th>最后更新时间</th>
         </tr>
