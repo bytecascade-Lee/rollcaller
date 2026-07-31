@@ -1,9 +1,16 @@
 import {invoke} from "@tauri-apps/api/core";
 import {RollcallRecord} from "$types/RollcallRecord";
+import {Record} from "$types/Record";
 
 
 export async function list() {
   return await invoke<RollcallRecord[]>("record_list");
+}
+
+export async function create(record: Record) {
+  return await invoke<RollcallRecord>("record_single_create", {
+    record: record
+  })
 }
 
 export async function update(ids: bigint[], attendance_status: number, remark: string) {
