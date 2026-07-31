@@ -1,5 +1,5 @@
-import {invoke} from "@tauri-apps/api/core";
 import type {StudentTable} from "$types/StudentTable";
+import {StudentCommand} from "$commands";
 
 class StudentStore {
   #students = $state<StudentTable[]>([]);
@@ -16,7 +16,7 @@ class StudentStore {
   async load() {
     this.#isLoading = true;
     try {
-      this.#students = await invoke<StudentTable[]>("list_all_students");
+      this.#students = await StudentCommand.list();
     } catch (e) {
       alert(e)
     } finally {
