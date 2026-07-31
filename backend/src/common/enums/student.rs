@@ -101,6 +101,9 @@ pub enum StudentBatchCreateResult {
     Conflict(Vec<StudentTable>),
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone, TS)]
+#[serde(tag = "type", content = "data")]
+#[ts(export)]
 pub enum StudentSingleUpdate {
     Update(StudentTable),
     Conflict(StudentTable),
