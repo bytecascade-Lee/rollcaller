@@ -3,13 +3,15 @@
   import {recordStore} from "$stores/recordStore.svelte";
   import {format} from "$utils/DataTimeUtils";
   import type {RollcallRecord} from "$types/RollcallRecord";
-  import {statusText} from "$constants/AttendanceStatus";
   import type {RecordGroupMetaData} from "$types/RecordGroupMetaData"
   import {ArrowClockwiseIcon, FileArrowDownIcon, MagnifyingGlassIcon, PencilIcon, PencilSimpleIcon} from "phosphor-svelte"
   import {COLORS, group} from "$services/RecordService.svelte";
+  import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
+  import EditRecord from "$components/record-history/EditRecord.svelte";
 
   let selected = $state<Set<bigint>>(new Set());
   let searchQuery = $state("");
+  let editRecord = $state<{open: (anchor: HTMLElement) => void}>();
 
   let display = $derived.by<RollcallRecord[]>(() => {
     if (!searchQuery.trim()) return recordStore.records;
@@ -18,14 +20,13 @@
       return (
         r.student_no.toLowerCase().includes(q) ||
         r.name.toLowerCase().includes(q) ||
-        r.remark.toLowerCase().includes(q) ||
+        r.remark?.toLowerCase().includes(q) ||
         format(r.rollcall_at).toLowerCase().includes(q)
       );
     });
   });
 
   let groupInfo = $derived<RecordGroupMetaData[]>(group(display));
-
   let displaySelectedCount = $derived(display.filter(r => selected.has(r.id)).length)
 
   export function select(id: bigint) {
@@ -56,7 +57,8 @@
   <div class="toolbar">
     <div class="toolbar-button">
       <button
-        disabled={selected.size == 0}>
+        disabled={selected.size == 0}
+        onclick={(e) => editRecord?.open(e.currentTarget)}>
         <PencilIcon/>
         修改
       </button>
@@ -129,7 +131,7 @@
             <td>{index + 1}</td>
             <td>{record.name}</td>
             <td>{record.student_no}</td>
-            <td>{statusText(record.attendance_status)}</td>
+            <td><AttendanceStatusBadge code={record.attendance_status}/></td>
             <td>{record.remark}</td>
             <td>{format(record.rollcall_at)}</td>
           </tr>
@@ -139,3 +141,5 @@
     </div>
   {/if}
 </div>
+
+<EditRecord bind:this={editRecord} bind:selected={selected}/>
