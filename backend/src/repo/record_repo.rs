@@ -52,16 +52,12 @@ pub async fn select_by_ids(tx: &mut RBatisTxExecutor, ids: Vec<i64>) -> Result<V
     impled!()
 }
 
-#[py_sql("UPDATE records SET attendance_status = #{attendance_status} WHERE id IN ${ids.sql()}")]
-pub async fn update_attendance_status(
+#[py_sql("UPDATE records SET attendance_status = #{attendance_status}, remark = #{remark} WHERE id IN ${ids.sql()}")]
+pub async fn update(
     tx: &mut RBatisTxExecutor,
     ids: &Vec<i64>,
     attendance_status: i8,
+    remark: &str
 ) -> Result<ExecResult, rbatis::Error> {
-    impled!()
-}
-
-#[py_sql("UPDATE records SET remark = #{remark} WHERE id IN ${ids.sql()}")]
-pub async fn update_remark(tx: &mut RBatisTxExecutor, ids: &Vec<i64>, remark: &str) -> Result<ExecResult, rbatis::Error> {
     impled!()
 }
