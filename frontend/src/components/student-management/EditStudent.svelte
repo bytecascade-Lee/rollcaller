@@ -1,37 +1,55 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import {invoke} from "@tauri-apps/api/core";
   import {studentManagementDialogController} from "$controllers/studentManagementDialogController";
   import type {StudentTable} from "$types/StudentTable";
-
+  import type {StudentSingleUpdate} from "$types/StudentSingleUpdate";
+  import {StudentCommand} from "$commands"
+  import {format} from "$utils/DataTimeUtils";
 
   let {selected = $bindable()}: { selected: Set<bigint> } = $props();
-  let value = $derived(selected.values().next().value);
-  let editing = $derived(studentStore.get(value ? value : -1n))
-
+  let localEdit = $state<StudentTable | null>(null);
   let isVisible = $state(false);
   let closeOnOutside = true;
+  let editResult = $state<StudentSingleUpdate>()
 
   async function edit() {
-    if (!editing || !editing.name.trim() || !editing.student_no.trim()) return;
+    if (!localEdit) return;
+    localEdit.student_no = localEdit.student_no.trim()
+    localEdit.name = localEdit.name.trim()
+    if (!localEdit.name || !localEdit.student_no) return;
     try {
-      let student = await invoke<StudentTable>("student_single_update", {
-        student: {
-          id: editing.id,
-          student_no: editing.student_no.trim(),
-          name: editing.name.trim(),
+      editResult = await StudentCommand.update({
+          id: localEdit.id,
+          student_no: localEdit.student_no,
+          name: localEdit.name,
         }
-      });
-      studentStore.upsert(student);
+      );
+      if (editResult && editResult.type == "Update") {
+        studentStore.upsert(localEdit);
+        close()
+      }
     } catch (e) {
       alert(String(e));
     }
   }
 
+  function close() {
+    isVisible = false;
+    localEdit = null;
+    editResult = undefined;
+  }
+
+  $effect(() => {
+    if (isVisible && selected.size == 1) {
+      // 必须拷贝，否则拿到的是引用，表格中的照样会变
+      const original = studentStore.get(selected.values().next().value);
+      localEdit = original ? {...original} : null;
+    }
+  });
   $effect(() => {
     studentManagementDialogController.register("Edit", {
       open: () => isVisible = true,
-      close: () => isVisible = false,
+      close: close,
       isVisible: () => isVisible
     })
   })
@@ -47,27 +65,28 @@
         <div>
           <button onclick={() => isVisible = false}>确定</button>
         </div>
-      {:else if editing == null}
+      {:else if localEdit == null}
         <h3>待编辑的对象为Null，失败！</h3>
         <div>当前选中id：{Array.from(selected)}</div>
-        <div>当前查找的id：{value ? value : "undefined"}</div>
-        <div>当前获取到的编辑对象：{editing}</div>
         <div>
           <button onclick={() => isVisible = false}>确定</button>
         </div>
       {:else}
-        <!-- 此处无需bind，否则会直接修改表格数据，应该等到写入库中后再修改 -->
         <h3>修改学生</h3>
         <label>
           学号
-          <input type="text" value={editing.student_no}/>
+          <input type="text" bind:value={localEdit.student_no}/>
         </label>
         <label>
           姓名
-          <input type="text" value={editing.name}/>
+          <input type="text" bind:value={localEdit.name}/>
         </label>
+        {#if editResult && editResult.type == "Conflict"}
+          <div>存在冲突：学号：{editResult.data.student_no}，姓名：{editResult.data.name}
+            ，创建于{format(editResult.data.created_at)}</div>
+        {/if}
         <div class="dialog-actions">
-          <button class="btn-secondary" onclick={() => isVisible = false}>取消</button>
+          <button class="btn-secondary" onclick={close}>取消</button>
           <button onclick={edit}>保存</button>
         </div>
       {/if}
