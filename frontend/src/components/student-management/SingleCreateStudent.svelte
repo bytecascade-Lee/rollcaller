@@ -41,7 +41,8 @@
 {#if isVisible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="overlay" onclick={closeOnOutside ? () => isVisible = false : undefined}>
+  <!-- 点击遮罩不可关闭，确保不会误触 -->
+  <div class="overlay">
     <div class="dialog" onclick={(e) => e.stopPropagation()}>
       <h3>添加学生</h3>
       <label>学号<input
