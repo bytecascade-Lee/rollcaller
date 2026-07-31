@@ -1,4 +1,4 @@
-use crate::common::entity::record::RollcallRecord;
+use crate::common::entity::record::{Record, RollcallRecord};
 use crate::repo::record_repo;
 use anyhow::anyhow;
 use rbatis::RBatis;
@@ -9,6 +9,15 @@ pub async fn list_all(rb: &RBatis) -> anyhow::Result<Vec<RollcallRecord>> {
     let records = record_repo::select_all(&mut tx).await?;
     tx.commit().await?;
     Ok(records)
+}
+
+pub async fn create(rb: &RBatis, record: Record) -> anyhow::Result<RollcallRecord> {
+    Record::insert(rb, &record).await?;
+    let mut tx = rb.acquire_begin().await?;
+    let id = record.id.ok_or_else(|| anyhow!("插入失败"))?;
+    let records = record_repo::select_by_ids(&mut tx, vec![id]).await?;
+    tx.commit().await?;
+    Ok(records.into_iter().next().ok_or_else(|| anyhow!("通过id[{}]查询失败", id))?)
 }
 
 pub async fn update(
