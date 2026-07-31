@@ -5,7 +5,7 @@
   import type {RollcallRecord} from "$types/RollcallRecord";
   import {statusText} from "$constants/AttendanceStatus";
   import type {RecordGroupMetaData} from "$types/RecordGroupMetaData"
-  import {ArrowClockwiseIcon, FileArrowDownIcon, MagnifyingGlassIcon} from "phosphor-svelte"
+  import {ArrowClockwiseIcon, FileArrowDownIcon, MagnifyingGlassIcon, PencilIcon, PencilSimpleIcon} from "phosphor-svelte"
   import {COLORS, group} from "$services/RecordService.svelte";
 
   let selected = $state<Set<bigint>>(new Set());
@@ -18,6 +18,7 @@
       return (
         r.student_no.toLowerCase().includes(q) ||
         r.name.toLowerCase().includes(q) ||
+        r.remark.toLowerCase().includes(q) ||
         format(r.rollcall_at).toLowerCase().includes(q)
       );
     });
@@ -52,23 +53,35 @@
 </script>
 
 <div class="page">
-  <div>
-    <button onclick={() => alert("导出")}>
-      <FileArrowDownIcon/>
-      导出
-    </button>
-    <button onclick={recordStore.load}>
-      <ArrowClockwiseIcon/>
-      刷新
-    </button>
-  </div>
-  <div class="toolbar-search">
-    <MagnifyingGlassIcon/>
-    <input
-      type="search"
-      placeholder="🔍 搜索姓名、学号和点名时间"
-      bind:value={searchQuery}
-    />
+  <div class="toolbar">
+    <div class="toolbar-button">
+      <button
+        disabled={selected.size == 0}>
+        <PencilIcon/>
+        修改
+      </button>
+      <button
+        disabled={recordStore.isLoading}
+        onclick={() => alert("导出")}>
+        <FileArrowDownIcon/>
+        导出
+      </button>
+      <button
+        disabled={recordStore.isLoading}
+        onclick={recordStore.load}>
+        <ArrowClockwiseIcon/>
+        刷新
+      </button>
+    </div>
+    <div class="toolbar-search">
+      <MagnifyingGlassIcon/>
+      <input
+        type="search"
+        disabled={recordStore.isLoading}
+        placeholder="搜索姓名、学号或备注"
+        bind:value={searchQuery}
+      />
+    </div>
   </div>
 
   {#if recordStore.isLoading}
@@ -90,8 +103,14 @@
           <th>序号</th>
           <th>姓名</th>
           <th>学号</th>
-          <th>状态</th>
-          <th>备注</th>
+          <th>
+            <PencilSimpleIcon/>
+            状态
+          </th>
+          <th>
+            <PencilSimpleIcon/>
+            备注
+          </th>
           <th>点名时间</th>
         </tr>
         </thead>
