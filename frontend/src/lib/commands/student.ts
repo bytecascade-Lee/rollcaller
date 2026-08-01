@@ -32,3 +32,10 @@ export async function restore(ids: bigint[]) {
     ids: ids
   })
 }
+
+export async function expose(path: string, ids: bigint[]) {
+  return await invoke<null>("student_export", {
+    path: path,
+    ids: ids
+  })
+}
