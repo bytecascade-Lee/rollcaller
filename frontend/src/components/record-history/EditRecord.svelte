@@ -3,8 +3,12 @@
   import {recordStore} from "$stores/recordStore.svelte";
   import {STATUS_MAP, statusText} from "$constants/AttendanceStatus";
   import type {RollcallRecord} from "$types/RollcallRecord";
+  import {overlayController} from "$controllers/overlayController";
 
-  let {selected = $bindable()} = $props<{ selected: Set<bigint> }>();
+  let {selected = $bindable(), anchor = $bindable()} = $props<{
+    selected: Set<bigint>;
+    anchor: HTMLElement | null;
+  }>();
 
   let isVisible = $state(false);
   let updateStatus = $state(true);
@@ -15,17 +19,17 @@
 
   const statusCodes = Object.keys(STATUS_MAP).map(Number);
 
-  function updatePosition(anchor: HTMLElement) {
+  function updatePosition() {
     const rect = anchor.getBoundingClientRect();
     popoverStyle = `position: fixed; top: ${rect.bottom + 6}px; left: ${rect.left}px; min-width: ${Math.max(rect.width, 280)}px;`;
   }
 
-  export function open(anchor: HTMLElement) {
+  export function open() {
     updateStatus = true;
     updateRemark = true;
     attendanceStatus = null;
     remark = "";
-    updatePosition(anchor);
+    updatePosition();
     isVisible = true;
   }
 
@@ -46,7 +50,7 @@
       records = await RecordCommand.update(ids, attendanceStatus as number, remark.trim());
     } else if (wantStatus) {
       records = await RecordCommand.update_attendance_status(ids, attendanceStatus as number);
-    } else if (wantRemark){
+    } else if (wantRemark) {
       records = await RecordCommand.update_remark(ids, remark.trim());
     } else {
       alert("卧槽")
@@ -56,6 +60,14 @@
     selected.clear();
     isVisible = false;
   }
+
+  $effect(() => {
+    overlayController.register("RecordEdit", {
+      open: open,
+      close: close,
+      isVisible: isVisible
+    })
+  })
 </script>
 
 {#if isVisible}
