@@ -1,4 +1,4 @@
-import type {RollcallRecord} from "$types/RollcallRecord";
+import type {RollcallRecord} from "$types";
 import {RecordCommand} from "$commands";
 
 class RecordStore {
