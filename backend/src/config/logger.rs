@@ -40,7 +40,7 @@ pub fn build() -> impl tracing::Subscriber {
 
     // 开发/生产环境控制台日志级别
     #[cfg(debug_assertions)]
-    let console_level = LevelFilter::TRACE;
+    let console_level = LevelFilter::DEBUG;
     #[cfg(not(debug_assertions))]
     let console_level = LevelFilter::INFO;
 
