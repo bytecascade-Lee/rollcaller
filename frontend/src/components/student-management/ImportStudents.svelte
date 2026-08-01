@@ -1,10 +1,10 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import type { ImportPreviewData } from "$types/ImportPreviewData";
-  import type { StudentBatchCreateResult } from "$types/StudentBatchCreateResult";
-  import { invoke } from "@tauri-apps/api/core";
-  import { open } from "@tauri-apps/plugin-dialog";
-  import {studentManagementDialogController} from "$controllers/studentManagementDialogController";
+  import type {ImportPreviewData} from "$types/ImportPreviewData";
+  import type {StudentBatchCreateResult} from "$types/StudentBatchCreateResult";
+  import {invoke} from "@tauri-apps/api/core";
+  import {open} from "@tauri-apps/plugin-dialog";
+  import {overlayController} from "$controllers/overlayController";
 
   let previewData = $state<ImportPreviewData>({
     rows: [[]],
@@ -73,7 +73,7 @@
   }
 
   $effect(() => {
-    studentManagementDialogController.register("Import", {
+    overlayController.register("StudentImport", {
       open: () => isVisible = true,
       close: () => isVisible = false,
       isVisible: () => isVisible
