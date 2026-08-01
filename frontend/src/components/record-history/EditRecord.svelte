@@ -1,8 +1,8 @@
 <script lang="ts">
   import {RecordCommand} from "$commands";
   import {recordStore} from "$stores/recordStore.svelte";
-  import {STATUS_MAP, statusText} from "$constants/AttendanceStatus";
-  import type {RollcallRecord} from "$types/RollcallRecord";
+  import {STATUS_MAP, statusText} from "$constants";
+  import type {RollcallRecord} from "$types";
   import {overlayController} from "$controllers/overlayController";
 
   let {selected = $bindable(), anchor = $bindable()} = $props<{
