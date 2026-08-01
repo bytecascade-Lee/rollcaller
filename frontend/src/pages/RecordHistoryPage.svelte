@@ -2,8 +2,7 @@
 
   import {recordStore} from "$stores/recordStore.svelte";
   import {format} from "$utils/DataTimeUtils";
-  import type {RollcallRecord} from "$types/RollcallRecord";
-  import type {RecordGroupMetaData} from "$types/RecordGroupMetaData"
+  import type {RecordGroupMetaData, RollcallRecord} from "$types";
   import {ArrowClockwiseIcon, FileArrowDownIcon, MagnifyingGlassIcon, PencilIcon, PencilSimpleIcon} from "phosphor-svelte"
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
@@ -12,7 +11,7 @@
 
   let selected = $state<Set<bigint>>(new Set());
   let searchQuery = $state("");
-  let anchor = $state<HTMLElement>();
+  let anchor = $state<HTMLElement | null>(null);
 
   let display = $derived.by<RollcallRecord[]>(() => {
     if (!searchQuery.trim()) return recordStore.records;
@@ -61,19 +60,16 @@
         disabled={selected.size == 0}
         onclick={(e) => {anchor = e.currentTarget; overlayController.open("RecordEdit")}}>
         <PencilIcon/>
-        修改
       </button>
       <button
         disabled={recordStore.isLoading}
         onclick={() => alert("导出")}>
         <FileArrowDownIcon/>
-        导出
       </button>
       <button
         disabled={recordStore.isLoading}
         onclick={recordStore.load}>
         <ArrowClockwiseIcon/>
-        刷新
       </button>
     </div>
     <div class="toolbar-search">
