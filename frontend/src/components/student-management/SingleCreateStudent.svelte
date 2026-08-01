@@ -4,7 +4,7 @@
   import type {StudentSingleCreateResult} from "$types/StudentSingleCreateResult";
   import {format} from "$utils/DataTimeUtils";
   import {StudentCommand} from "$commands"
-  import {studentManagementDialogController} from "$controllers/studentManagementDialogController";
+  import {overlayController} from "$controllers/overlayController";
 
   let newStudent = $state<Student>({
     id: null,
@@ -30,7 +30,7 @@
   }
 
   $effect(() => {
-    studentManagementDialogController.register("SingleCreate", {
+    overlayController.register("StudentSingleCreate", {
       open: () => isVisible = true,
       close: () => isVisible = false,
       isVisible: () => isVisible
