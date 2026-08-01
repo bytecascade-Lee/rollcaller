@@ -12,13 +12,8 @@ mod util;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub async fn run() {
-    #[cfg(debug_assertions)]
-    let devtools = tauri_plugin_devtools::init();
     logger::init();
-    let mut builder = tauri::Builder::default();
-    #[cfg(debug_assertions)]
-    { builder = builder.plugin(devtools) };
-    builder
+    tauri::Builder::default()
         .setup(|app| init(app))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
