@@ -1,7 +1,6 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import type {Student} from "$types/Student";
-  import type {StudentSingleCreateResult} from "$types/StudentSingleCreateResult";
+  import type {Student, StudentSingleCreateResult} from "$types";
   import {format} from "$utils/DataTimeUtils";
   import {StudentCommand} from "$commands"
   import {overlayController} from "$controllers/overlayController";
