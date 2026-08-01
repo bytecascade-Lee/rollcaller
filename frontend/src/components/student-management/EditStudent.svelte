@@ -1,8 +1,7 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
   import {overlayController} from "$controllers/overlayController";
-  import type {StudentTable} from "$types/StudentTable";
-  import type {StudentSingleUpdate} from "$types/StudentSingleUpdate";
+  import type {StudentSingleUpdate, StudentTable} from "$types";
   import {StudentCommand} from "$commands"
   import {format} from "$utils/DataTimeUtils";
 
@@ -42,7 +41,8 @@
   $effect(() => {
     if (isVisible && selected.size == 1) {
       // 必须拷贝，否则拿到的是引用，表格中的照样会变
-      const original = studentStore.get(selected.values().next().value);
+      let value = selected.values().next().value;
+      const original = studentStore.get(value ? value : -1n);
       localEdit = original ? {...original} : null;
     }
   });
