@@ -1,0 +1,242 @@
+/* ═══════════════════════════════════════════════════════
+   Shared component styles — imported globally via layout
+   ═══════════════════════════════════════════════════════ */
+
+/* ─── Page layout ─────────────────────────── */
+.page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* ─── Toolbar ─────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.toolbar-button {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.toolbar-search {
+  margin-left: auto;
+}
+
+.toolbar-search input {
+  padding: 6px 10px;
+  border: 1px solid #ced4da;
+  border-radius: 5px;
+  font-size: 13px;
+  width: 200px;
+}
+
+/* ─── Toolbar / dialog buttons ────────────── */
+.toolbar-button button {
+  padding: 6px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.toolbar-button button:hover:not(:disabled) {
+  background: #f1f3f5;
+}
+
+.toolbar-button button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolbar-button button.refresh {
+  background: #e8f4fd;
+  border-color: #b6d4fe;
+}
+
+/* ─── Table ───────────────────────────────── */
+.table {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  position: relative;
+}
+
+.table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th {
+  background: #f8f9fa;
+  padding: 8px 6px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.table td {
+  padding: 6px;
+  border-bottom: 1px solid #e9ecef;
+  color: #2c3e50;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.table tr.selected {
+  background: #e8f4fd;
+}
+
+/* ─── Column width helpers ────────────────── */
+.col-cb {
+  width: 36px;
+  text-align: center;
+}
+
+.col-cb input {
+  margin: 0;
+}
+
+.col-seq {
+  width: 40px;
+  text-align: center;
+  color: #888;
+}
+
+.col-no {
+  width: 100px;
+}
+
+.col-name {
+  width: 80px;
+}
+
+.col-time {
+  width: 150px;
+  color: #666;
+}
+
+.col-sid {
+  width: 80px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.col-remark {
+  min-width: 80px;
+}
+
+.col-status {
+  width: 60px;
+}
+
+.col-ts {
+  width: 150px;
+  color: #666;
+}
+
+/* ─── Empty / Loading ─────────────────────── */
+.empty {
+  padding: 32px;
+  text-align: center;
+  color: #aaa;
+}
+
+.loading {
+  padding: 32px;
+  text-align: center;
+  color: #999;
+}
+
+/* ─── Modal overlay / dialog ──────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 400px;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.dialog h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+}
+
+.dialog label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #495057;
+}
+
+.dialog label input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 10px;
+  border: 1px solid #ced4da;
+  border-radius: 5px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.btn-secondary {
+  padding: 6px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.btn-danger {
+  padding: 6px 12px;
+  border: 1px solid #dc3545;
+  border-radius: 5px;
+  background: #dc3545;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
