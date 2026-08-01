@@ -14,8 +14,9 @@
     PencilSimpleIcon,
     PlusIcon
   } from "phosphor-svelte";
-  import {studentManagementDialogController} from "$controllers/studentManagementDialogController";
+  import {overlayController} from "$controllers/overlayController";
   import EditStudent from "$components/student-management/EditStudent.svelte";
+  import ExportStudents from "$components/student-management/ExportStudents.svelte";
 
   let selected = $state<Set<bigint>>(new Set())
   let searchQuery = $state("")
@@ -55,31 +56,31 @@
     <div class="toolbar-button">
       <button
         disabled={studentStore.isLoading}
-        onclick={() => studentManagementDialogController.open("SingleCreate")}>
+        onclick={() => overlayController.open("StudentSingleCreate")}>
         <PlusIcon/>
         添加
       </button>
       <button
         disabled={selected.size != 1}
-        onclick={() => studentManagementDialogController.open("Edit")}>
+        onclick={() => overlayController.open("StudentEdit")}>
         <PencilIcon/>
         修改
       </button>
       <button
         disabled={selected.size == 0}
-        onclick={() => studentManagementDialogController.open("Delete")}>
+        onclick={() => overlayController.open("StudentDelete")}>
         <MinusIcon/>
         删除
       </button>
       <button
         disabled={studentStore.isLoading}
-        onclick={() => studentManagementDialogController.open("Import")}>
+        onclick={() => overlayController.open("StudentImport")}>
         <FileArrowUpIcon/>
         导入
       </button>
       <button
         disabled={studentStore.isLoading}
-        onclick={() => (alert("导出"))}>
+        onclick={() => overlayController.open("StudentExport")}>
         <FileArrowDownIcon/>
         导出
       </button>
@@ -156,3 +157,4 @@
 <EditStudent bind:selected={selected}/>
 <DeleteStudents bind:selected={selected}/>
 <ImportStudents/>
+<ExportStudents bind:selected={selected}/>
