@@ -1,4 +1,4 @@
-use crate::config::app_paths;
+use crate::config::{app_paths, logger};
 use crate::database::database_bootstrap;
 use anyhow::{anyhow, Context, Result};
 use std::fs;
@@ -18,6 +18,7 @@ use tracing::info;
 pub async fn init() -> Result<()> {
     ensure_directories()?;
     ensure_data_dir_writable()?;
+    logger::init();
     database_bootstrap::init().await?;
     Ok(())
 }
@@ -95,4 +96,41 @@ pub fn ensure_read_write(path: &Path) -> io::Result<()> {
             format!("文件不可写: {:?}, 错误: {}", path, e)
         )),
     }
+}
+
+/// 弹出原生错误对话框并退出应用
+///
+/// `blocking_show()` 会阻塞当前线程直到用户点击对话框，不能直接在 Tauri
+/// 主线程中调用（否则会冻结应用），因此在独立线程中执行；用户确认后退出应用。
+///
+/// 初始化阶段 tracing 日志模块可能不可用（日志目录/订阅器初始化失败），
+/// 因此除 tracing 外，同时向控制台输出，并直接写一份 fatal-error.log 兜底。
+pub fn show_fatal_error(handle: &tauri::AppHandle, error: anyhow::Error) {
+    // 携带上下文的完整错误链（anyhow 的 {:#} 逐层展开 Caused by）
+    let message = format!(
+        "应用初始化失败，无法继续运行：\n\n{error:#}\n\n日志目录：{}\n本次错误另存于: fatal-error.log",
+        app_paths::logs_dir().display()
+    );
+
+    tracing::error!("应用初始化失败: {:#}", error);
+    // 控制台输出兜底（release 无控制台时被丢弃，不影响其他渠道）
+    eprintln!("[fatal] {message}");
+    // 直接写日志文件兜底：不依赖 tracing 订阅器是否成功初始化
+    if let Err(e) = write_fatal_log(&message) {
+        eprintln!("[fatal] 写入 fatal-error.log 失败: {e}");
+    }
+
+    let handle = handle.clone();
+    std::thread::spawn(move || {
+        use tauri_plugin_dialog::DialogExt;
+        handle.dialog().message(message).title("启动失败").blocking_show();
+        handle.exit(1);
+    });
+}
+
+/// 将致命错误直接写入日志目录，绕过 tracing（初始化阶段其可能不可用）
+fn write_fatal_log(message: &str) -> io::Result<()> {
+    let logs_dir = app_paths::logs_dir();
+    fs::create_dir_all(logs_dir)?;
+    fs::write(logs_dir.join("setup-fatal-error.log"), message)
 }
