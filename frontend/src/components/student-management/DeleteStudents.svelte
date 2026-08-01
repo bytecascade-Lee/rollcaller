@@ -1,6 +1,6 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import {studentManagementDialogController} from "$controllers/studentManagementDialogController";
+  import {overlayController} from "$controllers/overlayController";
   import {StudentCommand} from "$commands";
 
   let {selected = $bindable()} = $props<{ selected: Set<bigint> }>();
@@ -20,7 +20,7 @@
   }
 
   $effect(() => {
-    studentManagementDialogController.register("Delete", {
+    overlayController.register("StudentDelete", {
       open: () => isVisible = true,
       close: () => isVisible = false,
       isVisible: () => isVisible
