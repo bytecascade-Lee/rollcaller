@@ -3,7 +3,7 @@ use crate::database::database_pool;
 use crate::repo::database_migration_repo;
 use crate::repo::database_migration_repo::update_success_status;
 use crate::util::time_utils::current_timestamp_millis;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use jiff::Timestamp;
 use rbatis::{RBatis, RBatisRef, RBatisTxExecutor};
 use rbs::{value, Value};
@@ -25,13 +25,18 @@ pub struct MigrationFileInfo {
 
 pub async fn migrate(rb: &RBatis, migration_dir: &Path) -> anyhow::Result<()> {
     //* 1. 创建迁移历史表
-    database_migration_repo::create_migration_history_table(rb).await?;
+    database_migration_repo::create_migration_history_table(rb)
+        .await
+        .map_err(|e| anyhow!("创建迁移历史表 migration_history 失败: {}", e))?;
 
     //* 2. 读取并解析迁移文件
-    let migration_files = load_files(migration_dir)?;
+    let migration_files = load_files(migration_dir)
+        .with_context(|| format!("读取迁移文件失败, 迁移目录: {}", migration_dir.display()))?;
 
     //* 3. 获取已执行的迁移记录 (MigrationRecord {version, checksum, status})
-    let history = database_migration_repo::get_existing_history(rb).await?;
+    let history = database_migration_repo::get_existing_history(rb)
+        .await
+        .map_err(|e| anyhow!("读取已执行的迁移记录失败: {}", e))?;
 
     //* 4. 开启事务
     let mut tx = rb.try_acquire_begin().await?;
@@ -114,15 +119,19 @@ pub async fn migrate(rb: &RBatis, migration_dir: &Path) -> anyhow::Result<()> {
 
 fn load_files(migration_dir: &Path) -> anyhow::Result<Vec<MigrationFileInfo>> {
     let mut migration_files = Vec::new();
-    for entry in fs::read_dir(migration_dir)? {
-        let entry = entry?;
+    let entries = fs::read_dir(migration_dir)
+        .with_context(|| format!("无法打开迁移目录: {}", migration_dir.display()))?;
+    for entry in entries {
+        let entry = entry
+            .with_context(|| format!("读取迁移目录条目失败: {}", migration_dir.display()))?;
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) != Some("sql") {
             continue;
         }
-        if let Some((version, description)) =
-            parse_filename(path.file_name().unwrap().to_str().unwrap())
-        {
+        let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if let Some((version, description)) = parse_filename(file_name) {
             let content = fs::read_to_string(&path)?;
             let checksum = content.sha256();
             migration_files.push(MigrationFileInfo {
