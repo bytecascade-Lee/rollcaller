@@ -95,12 +95,10 @@ fn detect_resources_dir(mode: AppMode) -> PathBuf {
     #[cfg(target_os = "windows")]
     match mode {
         AppMode::Develop => dev_dir().join("resources"),
-        AppMode::Portable => current_exe_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .to_path_buf(),
-        //. exe 在 bin 下面，需要跳到外面
-        AppMode::Install => current_exe_dir()
-            .map(|p| p.join(".."))
+        // 便携/安装模式下，Tauri 的资源目录就是可执行文件所在目录
+        // （tauri-utils platform::resource_dir 在 Windows 上返回 exe 所在目录，
+        //  打包时 bundle.resources 的 "../resources/xxx/" 会被复制到 exe 旁边）
+        AppMode::Portable | AppMode::Install => current_exe_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .to_path_buf(),
     }
@@ -122,11 +120,19 @@ fn detect_resources_dir(mode: AppMode) -> PathBuf {
 
 /// 开发模式下资源文件的路径
 fn dev_dir() -> PathBuf {
-    std::env::current_dir()
-        //. backend是项目根目录的子目录，必须提到父级
-        .map(|p| p.parent().unwrap().to_path_buf())
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .to_path_buf()
+    match std::env::current_dir() {
+        Ok(cwd) => match cwd.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => {
+                eprintln!("警告: 当前工作目录 {} 没有父目录，使用当前目录作为开发目录", cwd.display());
+                PathBuf::from(".")
+            }
+        },
+        Err(e) => {
+            eprintln!("警告: 获取当前工作目录失败: {}，使用当前目录作为开发目录", e);
+            PathBuf::from(".")
+        }
+    }
 }
 
 /// 辅助函数
