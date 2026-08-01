@@ -4,7 +4,7 @@
   import RecordHistoryPage from "$pages/RecordHistoryPage.svelte";
   import StudentManagementPage from "$pages/StudentManagementPage.svelte";
 
-  import {ClockCounterClockwiseIcon, UsersIcon} from "phosphor-svelte";
+  import {ClockCounterClockwiseIcon, DiceFourIcon, UsersIcon} from "phosphor-svelte";
 
   let currentPage: 'rollcall' | 'students' | 'records' = $state("rollcall");
 </script>
@@ -18,21 +18,21 @@
         class:active={currentPage == "rollcall"}
         onclick={() => currentPage = "rollcall"}
       >
-        🎲
+        <DiceFourIcon size="24"/>
       </button>
       <button
         class="nav-item"
         class:active={currentPage == "records"}
         onclick={() => currentPage = "records"}
       >
-        <ClockCounterClockwiseIcon/>
+        <ClockCounterClockwiseIcon size="24"/>
       </button>
       <button
         class="nav-item"
         class:active={currentPage == "students"}
         onclick={() => currentPage = "students"}
       >
-        <UsersIcon/>
+        <UsersIcon size="24"/>
       </button>
     </nav>
   </aside>
