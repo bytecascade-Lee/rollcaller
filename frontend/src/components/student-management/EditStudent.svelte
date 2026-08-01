@@ -1,6 +1,6 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import {studentManagementDialogController} from "$controllers/studentManagementDialogController";
+  import {overlayController} from "$controllers/overlayController";
   import type {StudentTable} from "$types/StudentTable";
   import type {StudentSingleUpdate} from "$types/StudentSingleUpdate";
   import {StudentCommand} from "$commands"
@@ -47,7 +47,7 @@
     }
   });
   $effect(() => {
-    studentManagementDialogController.register("Edit", {
+    overlayController.register("StudentEdit", {
       open: () => isVisible = true,
       close: close,
       isVisible: () => isVisible
