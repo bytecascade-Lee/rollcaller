@@ -1,7 +1,6 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import type {ImportPreviewData} from "$types/ImportPreviewData";
-  import type {StudentBatchCreateResult} from "$types/StudentBatchCreateResult";
+  import type {ImportPreviewData, StudentBatchCreateResult} from "$types";
   import {invoke} from "@tauri-apps/api/core";
   import {open} from "@tauri-apps/plugin-dialog";
   import {overlayController} from "$controllers/overlayController";
@@ -44,7 +43,7 @@
     try {
       invoke<StudentBatchCreateResult>("import_excel", {
         filePath: filePath,
-        hearder_rows: headerRows,
+        header_rows: headerRows,
         column_mapping: {
           student_no: studentNoColumnIndex,
           name: nameColumnIndex,
