@@ -58,37 +58,31 @@
         disabled={studentStore.isLoading}
         onclick={() => overlayController.open("StudentSingleCreate")}>
         <PlusIcon/>
-        添加
       </button>
       <button
         disabled={selected.size != 1}
         onclick={() => overlayController.open("StudentEdit")}>
         <PencilIcon/>
-        修改
       </button>
       <button
         disabled={selected.size == 0}
         onclick={() => overlayController.open("StudentDelete")}>
         <MinusIcon/>
-        删除
       </button>
       <button
         disabled={studentStore.isLoading}
         onclick={() => overlayController.open("StudentImport")}>
         <FileArrowUpIcon/>
-        导入
       </button>
       <button
         disabled={studentStore.isLoading}
         onclick={() => overlayController.open("StudentExport")}>
         <FileArrowDownIcon/>
-        导出
       </button>
       <button
         disabled={studentStore.isLoading}
         onclick={() => studentStore.load()}>
         <ArrowClockwiseIcon/>
-        刷新
       </button>
     </div>
     <div class="toolbar-search">
