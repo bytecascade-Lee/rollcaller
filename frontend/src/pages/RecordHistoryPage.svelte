@@ -8,10 +8,11 @@
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import EditRecord from "$components/record-history/EditRecord.svelte";
+  import {overlayController} from "$controllers/overlayController";
 
   let selected = $state<Set<bigint>>(new Set());
   let searchQuery = $state("");
-  let editRecord = $state<{open: (anchor: HTMLElement) => void}>();
+  let anchor = $state<HTMLElement>();
 
   let display = $derived.by<RollcallRecord[]>(() => {
     if (!searchQuery.trim()) return recordStore.records;
@@ -58,7 +59,7 @@
     <div class="toolbar-button">
       <button
         disabled={selected.size == 0}
-        onclick={(e) => editRecord?.open(e.currentTarget)}>
+        onclick={(e) => {anchor = e.currentTarget; overlayController.open("RecordEdit")}}>
         <PencilIcon/>
         修改
       </button>
@@ -142,4 +143,4 @@
   {/if}
 </div>
 
-<EditRecord bind:this={editRecord} bind:selected={selected}/>
+<EditRecord bind:anchor={anchor} bind:selected={selected}/>
