@@ -1,9 +1,11 @@
 use crate::config::app_paths;
+use anyhow::{anyhow, Context};
 use parking_lot::RwLock;
 use rbatis::RBatis;
 use rbdc_sqlite::SqliteDriver;
 use std::env;
 use std::fs::File;
+use std::io;
 use std::sync::{Arc, LazyLock};
 use tracing::info;
 
@@ -56,22 +58,26 @@ impl DatabasePool {
         let db_path = match env::var("DEVELOP_DATABASE_FILENAME") {
             Ok(env) if !env.is_empty() => app_paths::data_dir().join(env),
             Ok(_) | Err(_) => {
-                panic!("未指定开发环境数据库名称")
+                anyhow::bail!("未指定开发环境数据库名称（环境变量 DEVELOP_DATABASE_FILENAME 未设置）")
             }
         };
         #[cfg(not(debug_assertions))]
         let db_path = app_paths::data_dir().join("sqlite.db");
         match File::create_new(&db_path) {
-            Ok(_) => {
-                info!("数据库文件 {:#?} 已存在，无需创建", db_path);
+            Ok(_) => info!("数据库文件不存在，已创建: {}", db_path.display()),
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+                info!("数据库文件已存在: {}", db_path.display())
             }
-            Err(_) => {
-                info!("数据库文件 {:#?} 已存在，无需创建", db_path);
-            }
+            Err(e) => anyhow::bail!("创建数据库文件失败: {} ({})", db_path.display(), e),
         }
-        let db_path = db_path.to_str().expect("数据库路径转换失败").to_string();
+        let db_path = db_path
+            .to_str()
+            .ok_or_else(|| anyhow!("数据库路径不是合法 UTF-8: {}", db_path.display()))?
+            .to_string();
 
-        rb.link(SqliteDriver {}, format!("sqlite:{}", db_path).as_str()).await?;
+        rb.link(SqliteDriver {}, format!("sqlite:{}", db_path).as_str())
+            .await
+            .with_context(|| format!("连接 SQLite 数据库失败, 数据库文件: {}", db_path))?;
 
         Ok(rb)
     }
