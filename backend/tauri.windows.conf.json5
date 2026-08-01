@@ -11,8 +11,9 @@
                 languages: [
                     "SimpChinese",
                     "TradChinese",
-                    "English",
+                    "English"
                 ],
+                installerIcon: "icons/icon.ico",
                 startMenuFolder: "Rollcaller",
                 displayLanguageSelector: true
             }
