@@ -16,6 +16,7 @@
             "$commands": ["./src/lib/commands"],
             "$commands/*": ["./src/lib/commands/*"],
             "$components/*": ["./src/components/*"],
+            "$constants": ["./src/lib/constants"],
             "$constants/*": ["./src/lib/constants/*"],
             "$controllers/*": ["./src/lib/controllers/*"],
             "$pages/*": ["./src/pages/*"],
@@ -24,6 +25,7 @@
             "$stores/*": ["./src/lib/stores/*"],
             "$styles/*": ["./src/styles/*"],
             "$types/*": ["./src/lib/types/*"],
+            "$types": ["./src/lib/types"],
             "$utils/*": ["./src/lib/utils/*"],
         },
         "typeRoots": [

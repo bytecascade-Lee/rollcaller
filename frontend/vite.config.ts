@@ -24,7 +24,8 @@ export default defineConfig(async () => ({
     }
   },
   optimizeDeps: {
-    include: ["phosphor-svelte"]
+    include: ["phosphor-svelte"],
+    exclude: ["open props"]
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
@@ -44,5 +45,8 @@ export default defineConfig(async () => ({
     watch: {
       ignored: ["**/backend/**"],
     },
+    fs: {
+      strict: true
+    }
   },
 }));
