@@ -36,6 +36,14 @@ class StudentManagementDialogController {
   getKeys() {
     return Array.from(this.#controllers.keys())
   }
+
+  openAll() {
+    this.getKeys().forEach(v => this.open(v))
+  }
+
+  closeAll() {
+    this.getKeys().forEach(v => this.close(v))
+  }
 }
 
 export const studentManagementDialogController = new StudentManagementDialogController();
