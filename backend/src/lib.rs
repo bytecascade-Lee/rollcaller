@@ -1,5 +1,4 @@
 use crate::config::{app_config, app_paths, logger};
-use crate::database::database_bootstrap;
 use tauri::WebviewWindowBuilder;
 
 mod bootstrap;
@@ -17,7 +16,6 @@ pub async fn run() {
     println!("{:?}", app_config::AppConfig::get(""));
 
     logger::init();
-    database_bootstrap::init().await.expect("Failed to run database migrations.");
 
     tauri::Builder::default()
         .setup(|app| init(app))
@@ -52,12 +50,48 @@ pub async fn run() {
         .expect("error while running tauri application");
 }
 
+/// Tauri setup 钩子：创建主窗口并异步执行启动初始化
+///
+/// 初始化（目录准备、数据目录读写校验、数据库迁移）通过
+/// `tauri::async_runtime::spawn` 异步执行，避免阻塞主线程；
+/// 失败时弹出原生错误对话框提示，解决打包后启动失败无任何报错输出的问题。
 fn init(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    WebviewWindowBuilder::new(app, "main", Default::default())
+    let handle = app.handle().clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = bootstrap::init().await {
+            show_fatal_error(&handle, e);
+        }
+    });
+
+    if let Err(e) = WebviewWindowBuilder::new(app, "main", Default::default())
         .data_directory(app_paths::webview_dir().to_path_buf())
         .inner_size(900.0, 700.0)
         .auto_resize()
         .build()
-        .expect("error while creating window");
+    {
+        show_fatal_error(app.handle(), anyhow::Error::msg(e.to_string()));
+    }
     Ok(())
+}
+
+/// 弹出原生错误对话框并退出应用
+///
+/// `blocking_show()` 会阻塞当前线程直到用户点击对话框，不能直接在 Tauri
+/// 主线程中调用（否则会冻结应用），因此在独立线程中执行；用户确认后退出应用。
+fn show_fatal_error(handle: &tauri::AppHandle, error: anyhow::Error) {
+    tracing::error!("应用初始化失败: {:#}", error);
+    let message = format!(
+        "应用初始化失败，无法继续运行：\n\n{error:#}\n\n详细日志目录：{}",
+        app_paths::logs_dir().display()
+    );
+    let handle = handle.clone();
+    std::thread::spawn(move || {
+        use tauri_plugin_dialog::DialogExt;
+        handle
+            .dialog()
+            .message(message)
+            .title("启动失败")
+            .blocking_show();
+        handle.exit(1);
+    });
 }
