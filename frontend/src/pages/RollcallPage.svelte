@@ -3,12 +3,11 @@
   import {studentStore} from "$stores/studentStore.svelte"
   import {recordStore} from "$stores/recordStore.svelte"
   import {rollcallEngine} from "$services/RollcallEngine.svelte";
-  import {RollcallPhase} from "$types/RollcallPhase";
+  import {RollcallPhase} from "$types";
   import {format} from "$utils/DataTimeUtils";
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
-  import {RollcallRecord} from "$types/RollcallRecord";
-  import {RecordGroupMetaData} from "$types/RecordGroupMetaData";
+  import type {RecordGroupMetaData, RollcallRecord} from "$types";
 
   const engine = rollcallEngine;
   let display = $derived<RollcallRecord[]>(
