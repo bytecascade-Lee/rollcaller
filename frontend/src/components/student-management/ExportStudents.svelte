@@ -18,7 +18,7 @@
       const rect = toolbar.getBoundingClientRect();
       popoverStyle = `position: fixed; top: ${rect.bottom + 6}px; left: ${rect.left}px;`;
     } else {
-      popoverStyle = "position: fixed; top: 80px; left: 40px;";
+      popoverStyle = `position: fixed; top: var(--size-9); left: var(--size-9);`;
     }
   }
 
@@ -74,9 +74,9 @@
   <div class="export-backdrop" onclick={close}></div>
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="export-popover" style={popoverStyle} onclick={(e) => e.stopPropagation()}>
+  <div class="popover" style={popoverStyle} onclick={(e) => e.stopPropagation()}>
     <h3>导出学生</h3>
-    <p class="export-hint">选择导出范围，然后指定保存位置（.xlsx）</p>
+    <span class="field-label">选择导出范围，然后指定保存位置（.xlsx）</span>
 
     <button
       type="button"
@@ -105,8 +105,15 @@
       <div class="export-status">正在导出...</div>
     {/if}
 
-    <div class="export-actions">
-      <button type="button" class="btn-secondary" onclick={close} disabled={isExporting}>取消</button>
+    <div class="button-group">
+      <button
+        type="button"
+        class="button"
+        style:--button-bg="var(--app-color-surface-strong)"
+        style:--button-color="var(--app-color-text)"
+        onclick={close}
+        disabled={isExporting}
+      >取消</button>
     </div>
   </div>
 {/if}
@@ -119,81 +126,50 @@
     background: transparent;
   }
 
-  .export-popover {
-    position: fixed;
-    z-index: 999;
-    background: #fff;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    padding: 14px;
-    box-sizing: border-box;
-    min-width: 220px;
-  }
-
-  .export-popover h3 {
-    margin: 0 0 4px 0;
-    font-size: 14px;
-  }
-
-  .export-hint {
-    margin: 0 0 10px 0;
-    font-size: 12px;
-    color: #6c757d;
-  }
-
   .export-option {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 2px;
+    gap: var(--app-space-xxs);
     width: 100%;
-    padding: 8px 10px;
-    margin-bottom: 6px;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
-    background: #fff;
+    padding: var(--app-space-xs) var(--app-space-sm);
+    border: var(--border-size-1) solid var(--app-color-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-color-surface);
     cursor: pointer;
     text-align: left;
   }
 
   .export-option:hover:not(:disabled) {
-    background: #f1f3f5;
+    background: var(--app-color-hover);
   }
 
   .export-option:disabled {
-    opacity: 0.5;
+    opacity: var(--app-opacity-disabled);
     cursor: not-allowed;
   }
 
   .option-title {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--app-font-size-sm);
+    font-weight: var(--app-font-weight-bold);
+    color: var(--app-color-text);
   }
 
   .option-desc {
-    font-size: 12px;
-    color: #6c757d;
+    font-size: var(--app-font-size-xs);
+    color: var(--app-color-text-soft);
   }
 
   .export-error {
-    margin-top: 6px;
-    padding: 6px 8px;
-    border-radius: 4px;
-    background: #fdecea;
-    color: #c0392b;
-    font-size: 12px;
+    padding: var(--app-space-xs) var(--app-space-sm);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-color-danger-soft);
+    color: var(--app-color-danger);
+    font-size: var(--app-font-size-xs);
   }
 
   .export-status {
-    margin-top: 6px;
-    font-size: 12px;
-    color: #6c757d;
-  }
-
-  .export-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 8px;
+    font-size: var(--app-font-size-xs);
+    color: var(--app-color-text-soft);
   }
 </style>
