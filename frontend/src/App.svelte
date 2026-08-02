@@ -48,29 +48,4 @@
     <RecordHistoryPage active={currentPage == "records"}/>
     <StudentManagementPage active={currentPage == "students"}/>
   </main>
-
-  <footer class="footbar">
-    <div class="button-group">
-      <span class="field-label">当前页面</span>
-      <span>{pageNames[currentPage]}</span>
-    </div>
-    <div class="button-group">
-      <span class="footbar-badge">v0.1.0</span>
-    </div>
-  </footer>
 </div>
-
-<style>
-  .footbar-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: var(--app-size-control-sm);
-    padding: 0 var(--app-space-sm);
-    border-radius: var(--app-radius-round);
-    background: var(--app-color-surface-muted);
-    color: var(--app-color-text-muted);
-    font-size: var(--app-font-size-xs);
-    font-weight: var(--app-font-weight-medium);
-  }
-</style>
