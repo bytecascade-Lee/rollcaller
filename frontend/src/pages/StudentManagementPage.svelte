@@ -6,6 +6,7 @@
   import ImportStudents from "$components/student-management/ImportStudents.svelte";
   import {
     ArrowClockwiseIcon,
+    ClockClockwiseIcon,
     FileArrowDownIcon,
     FileArrowUpIcon,
     MagnifyingGlassIcon,
@@ -95,6 +96,15 @@
         disabled={studentStore.isLoading}
         onclick={() => overlayController.open("StudentExport")}>
         <FileArrowDownIcon size="24"/>
+      </button>
+      <!-- 功能后期添加 -->
+      <button
+        class="icon-button"
+        aria-label="恢复已删除学生"
+        title="恢复已删除学生"
+        style="display: none"
+        onclick={() => overlayController.open("StudentRestore")}>
+        <ClockClockwiseIcon size="24"/>
       </button>
       <button
         class="icon-button"
