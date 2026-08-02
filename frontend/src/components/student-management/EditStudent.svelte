@@ -77,29 +77,29 @@
     <div class="dialog" onclick={(e) => e.stopPropagation()}>
       {#if selected.size > 1}
         <h3>仅支持单个修改</h3>
-        <div>当前选中了 {selected.size} 名学生，请只选择一名后再试。</div>
-        <div class="dialog-actions">
-          <button type="button" onclick={close}>确定</button>
+        <p>当前选中了 {selected.size} 名学生，请只选择一名后再试。</p>
+        <div class="button-group">
+          <button type="button" class="button" onclick={close}>确定</button>
         </div>
       {:else if localEdit == null}
         <h3>未找到待编辑的学生</h3>
-        <div>当前选中id：{Array.from(selected)}</div>
-        <div class="dialog-actions">
-          <button type="button" onclick={close}>确定</button>
+        <p>当前选中id：{Array.from(selected)}</p>
+        <div class="button-group">
+          <button type="button" class="button" onclick={close}>确定</button>
         </div>
       {:else}
         <form onsubmit={(e) => { e.preventDefault(); edit(); }}>
           <h3>修改学生</h3>
-          <label>
-            学号
+          <label class="field">
+            <span class="field-label">学号</span>
             <input
               type="text"
               bind:value={localEdit.student_no}
               oninput={() => { if (editResult) editResult = undefined; }}
             />
           </label>
-          <label>
-            姓名
+          <label class="field">
+            <span class="field-label">姓名</span>
             <input
               type="text"
               bind:value={localEdit.name}
@@ -107,7 +107,7 @@
             />
           </label>
           {#if editResult && editResult.type == "Conflict"}
-            <div class="msg-box msg-warn">
+            <div class="state" data-kind="warn">
               <strong>学号已被占用</strong>
               <p>
                 学号「{editResult.data.student_no}」已被学生
@@ -117,9 +117,16 @@
               <p>请修改学号或姓名后重新保存。</p>
             </div>
           {/if}
-          <div class="dialog-actions">
-            <button type="button" class="btn-secondary" onclick={close} disabled={isSaving}>取消</button>
-            <button type="submit" disabled={isSaving || !canSave}>
+          <div class="button-group">
+            <button
+              type="button"
+              class="button"
+              style:--button-bg="var(--app-color-surface-strong)"
+              style:--button-color="var(--app-color-text)"
+              onclick={close}
+              disabled={isSaving}
+            >取消</button>
+            <button type="submit" class="button" disabled={isSaving || !canSave}>
               {isSaving ? "保存中..." : "保存"}
             </button>
           </div>
