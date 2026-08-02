@@ -112,9 +112,15 @@
       />
     </div>
 
-    <div class="popover-actions">
-      <button type="button" class="btn-secondary" onclick={close}>取消</button>
-      <button type="button" onclick={update}>确定</button>
+    <div class="button-group">
+      <button
+        type="button"
+        class="button"
+        style:--button-bg="var(--app-color-surface-strong)"
+        style:--button-color="var(--app-color-text)"
+        onclick={close}
+      >取消</button>
+      <button type="button" class="button" onclick={update}>确定</button>
     </div>
   </div>
 {/if}
@@ -127,97 +133,49 @@
     background: transparent;
   }
 
-  .popover {
-    position: fixed;
-    z-index: 999;
-    background: #fff;
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    padding: 16px;
-    box-sizing: border-box;
-  }
-
-  .popover h3 {
-    margin: 0 0 12px 0;
-    font-size: 14px;
-  }
-
-  .field {
-    margin-bottom: 12px;
-  }
-
-  .field-label {
-    display: block;
-    font-size: 13px;
-    color: #495057;
-    margin-bottom: 6px;
-  }
-
-  .field label {
-    font-size: 13px;
-    margin-right: 12px;
-  }
-
   .status-group {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--app-space-xs);
   }
 
   .status-btn {
-    padding: 3px 10px;
-    border: 1px solid transparent;
-    border-radius: 12px;
-    font-size: 13px;
+    padding: var(--app-space-xxs) var(--app-space-sm);
+    border: none;
+    border-radius: var(--app-radius-round);
+    font-size: var(--app-font-size-xs);
     cursor: pointer;
-    background: var(--status-bg, #e5e7eb);
-    color: var(--status-color, #374151);
+    background: var(--status-bg, var(--app-color-surface-strong));
+    color: var(--status-color, var(--app-color-text-soft));
   }
 
   .status-btn[data-status="0"] {
-    --status-bg: #dc2626;
-    --status-color: #fef2f2;
+    --status-bg: var(--app-status-0-bg);
+    --status-color: var(--app-status-0-color);
   }
 
   .status-btn[data-status="1"] {
-    --status-bg: #16a34a;
-    --status-color: #fef2f2;
+    --status-bg: var(--app-status-1-bg);
+    --status-color: var(--app-status-1-color);
   }
 
   .status-btn[data-status="2"] {
-    --status-bg: #d97706;
-    --status-color: #fffbeb;
+    --status-bg: var(--app-status-2-bg);
+    --status-color: var(--app-status-2-color);
   }
 
   .status-btn[data-status="3"] {
-    --status-bg: #F1E710;
-    --status-color: #232020;
+    --status-bg: var(--app-status-3-bg);
+    --status-color: var(--app-status-3-color);
   }
 
   .status-btn[data-status="4"] {
-    --status-bg: #2563eb;
-    --status-color: #eff6ff;
+    --status-bg: var(--app-status-4-bg);
+    --status-color: var(--app-status-4-color);
   }
 
   .status-btn.selected {
-    outline: 2px solid #212529;
-    outline-offset: 1px;
-  }
-
-  .field input[type="text"] {
-    width: 100%;
-    padding: 6px 10px;
-    border: 1px solid #ced4da;
-    border-radius: 5px;
-    font-size: 13px;
-    box-sizing: border-box;
-  }
-
-  .popover-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 12px;
+    outline: var(--border-size-2) solid var(--app-color-ink);
+    outline-offset: var(--size-1);
   }
 </style>
