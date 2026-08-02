@@ -103,7 +103,7 @@
       <table>
         <thead>
         <tr>
-          <th></th>
+          <th class="fixed-width"></th>
           <th><input
             type="checkbox"
             checked={display.length > 0 && displaySelectedCount == display.length}
@@ -114,11 +114,11 @@
           <th>姓名</th>
           <th>学号</th>
           <th>
-            <PencilSimpleIcon size="16"/>
+            <PencilSimpleIcon size="14" weight="bold"/>
             状态
           </th>
           <th>
-            <PencilSimpleIcon size="16"/>
+            <PencilSimpleIcon size="14" weight="bold"/>
             备注
           </th>
           <th>点名时间</th>
@@ -129,7 +129,7 @@
           {@const color = COLORS[groupInfo[index].groupIndex % COLORS.length]}
           <tr>
             {#if groupInfo[index].isStart}
-              <td rowspan={groupInfo[index].rowspan} style:background-color={color}></td>
+              <td rowspan={groupInfo[index].rowspan} style:background-color={color} class="fixed-width"></td>
             {/if}
             <td><input
               type="checkbox"
@@ -139,7 +139,9 @@
             <td>{index + 1}</td>
             <td>{record.name}</td>
             <td>{record.student_no}</td>
-            <td><AttendanceStatusBadge code={record.attendance_status}/></td>
+            <td>
+              <AttendanceStatusBadge code={record.attendance_status}/>
+            </td>
             <td>{record.remark}</td>
             <td>{format(record.rollcall_at)}</td>
           </tr>
@@ -161,6 +163,11 @@
     background: var(--app-color-surface);
     color: var(--app-color-text-muted);
     font-size: var(--app-font-size-sm);
+  }
+
+  .fixed-width {
+    width: 10px !important;
+    padding: 0 !important;
   }
 </style>
 
