@@ -10,6 +10,7 @@
   import {overlayController} from "$controllers/overlayController";
 
   let selected = $state<Set<bigint>>(new Set());
+  let {active = $bindable(false)} = $props();
   let searchQuery = $state("");
   let anchor = $state<HTMLElement | null>(null);
 
@@ -53,27 +54,37 @@
 
 </script>
 
-<div class="page">
+<!-- 页面根节点由 .content > * 提供布局与激活态 -->
+<div class:active={active}>
   <div class="toolbar">
-    <div class="toolbar-button">
+    <div class="button-group">
       <button
+        class="icon-button"
+        aria-label="批量修改记录"
+        title="批量修改记录"
         disabled={selected.size == 0}
         onclick={(e) => {anchor = e.currentTarget; overlayController.open("RecordEdit")}}>
-        <PencilIcon/>
+        <PencilIcon size="24"/>
       </button>
       <button
+        class="icon-button"
+        aria-label="导出记录"
+        title="导出记录"
         disabled={recordStore.isLoading}
         onclick={() => alert("导出")}>
-        <FileArrowDownIcon/>
+        <FileArrowDownIcon size="24"/>
       </button>
       <button
+        class="icon-button"
+        aria-label="刷新"
+        title="刷新"
         disabled={recordStore.isLoading}
         onclick={recordStore.load}>
-        <ArrowClockwiseIcon/>
+        <ArrowClockwiseIcon size="24"/>
       </button>
     </div>
-    <div class="toolbar-search">
-      <MagnifyingGlassIcon/>
+    <div class="search">
+      <MagnifyingGlassIcon size="20"/>
       <input
         type="search"
         disabled={recordStore.isLoading}
@@ -84,9 +95,9 @@
   </div>
 
   {#if recordStore.isLoading}
-    数据加载中...
+    <div class="state">数据加载中...</div>
   {:else if display.length == 0}
-    暂无历史记录
+    <div class="state">暂无历史记录</div>
   {:else}
     <div class="table">
       <table>
@@ -103,11 +114,11 @@
           <th>姓名</th>
           <th>学号</th>
           <th>
-            <PencilSimpleIcon/>
+            <PencilSimpleIcon size="16"/>
             状态
           </th>
           <th>
-            <PencilSimpleIcon/>
+            <PencilSimpleIcon size="16"/>
             备注
           </th>
           <th>点名时间</th>
