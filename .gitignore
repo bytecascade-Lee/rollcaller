@@ -47,3 +47,6 @@ vite.config.ts.timestamp-*
 
 ### Cargo Local Environment Configuration File ###
 /.cargo/config.toml
+
+### Local Release File ###
+/release/
