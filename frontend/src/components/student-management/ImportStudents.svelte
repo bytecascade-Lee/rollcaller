@@ -1,9 +1,9 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import type {ImportPreviewData, StudentBatchCreateResult, StudentTable} from "$types";
-  import {invoke} from "@tauri-apps/api/core";
+  import type {ImportPreviewData, StudentTable} from "$types";
   import {open} from "@tauri-apps/plugin-dialog";
   import {overlayController} from "$controllers/overlayController";
+  import {ImportCommand} from "$commands/"
 
   let previewData = $state<ImportPreviewData | null>(null);
   let filePath = $state("");
@@ -18,7 +18,7 @@
   // 已删除但姓名不同的冲突记录，需用户逐条决策
   let pendingDecisions = $state<StudentTable[]>([]);
   // 学号 -> 是否覆盖（true=覆盖并恢复，false=跳过）
-  let pendingChoices = $state<Record<string, boolean>>({});
+  let pendingChoices = $state<Map<string, boolean>>({});
 
   let configValid = $derived(
     previewData != null &&
@@ -31,7 +31,7 @@
   );
   let allDecided = $derived(
     pendingDecisions.length > 0 &&
-    pendingDecisions.every((s) => pendingChoices[s.student_no] !== undefined)
+    pendingDecisions.every((s) => pendingChoices.get(s.student_no) !== undefined)
   );
 
   function resetState() {
@@ -42,7 +42,7 @@
     headerRows = 0;
     message = null;
     pendingDecisions = [];
-    pendingChoices = {};
+    pendingChoices = new Map<string, boolean>();
     isPreviewing = false;
     isImporting = false;
   }
@@ -61,13 +61,13 @@
     try {
       const selected = await open({
         multiple: false,
-        filters: [{ name: "Excel", extensions: ["xlsx", "xls"] }],
+        filters: [{name: "Excel", extensions: ["xlsx", "xls"]}],
       });
       if (!selected) return;
       filePath = selected;
       await preview();
     } catch (e) {
-      message = { text: "选择文件失败：" + e };
+      message = {text: "选择文件失败：" + e};
     }
   }
 
@@ -76,11 +76,9 @@
     isPreviewing = true;
     message = null;
     pendingDecisions = [];
-    pendingChoices = {};
+    pendingChoices = new Map<string, boolean>();
     try {
-      const result = await invoke<ImportPreviewData>("preview_excel", {
-        filePath: filePath,
-      });
+      const result = await ImportCommand.preview(filePath);
       previewData = result;
       // 默认：第 1 列学号、第 2 列姓名（列数不足则留空待配）
       studentNoColumnIndex = result.total_columns > 0 ? 0 : -1;
@@ -88,7 +86,7 @@
       headerRows = 0;
     } catch (e) {
       previewData = null;
-      message = { text: "预览失败：" + e };
+      message = {text: "预览失败：" + e};
     } finally {
       isPreviewing = false;
     }
@@ -97,7 +95,7 @@
   /** 列映射变化后，之前的冲突决策不再适用，需要重新导入校验 */
   function onConfigChange() {
     pendingDecisions = [];
-    pendingChoices = {};
+    pendingChoices = new Map<string, boolean>();
   }
 
   /** 点击表头按钮：设置 / 取消某列为学号列或姓名列 */
@@ -143,19 +141,16 @@
     // 存在待决策冲突时必须全部处理完才能导入
     if (pendingDecisions.length > 0 && !allDecided) return;
 
-    const decisions: Record<string, boolean> = {...pendingChoices};
+    const decisions: Map<string, boolean> = {...pendingChoices};
     isImporting = true;
     message = null;
     try {
-      const result = await invoke<StudentBatchCreateResult>("import_excel", {
-        filePath: filePath,
-        header_rows: headerRows,
-        column_mapping: {
+      const result = await ImportCommand.load(filePath, headerRows, {
           student_no: studentNoColumnIndex,
           name: nameColumnIndex,
         },
-        decisions: decisions,
-      });
+        decisions
+      );
       switch (result.type) {
         case "Insert":
         case "Upsert": {
@@ -182,14 +177,14 @@
           break;
         case "DecisionRequired":
           pendingDecisions = result.data;
-          pendingChoices = {};
+          pendingChoices = new Map<string, boolean>();
           message = {
             text: "以下学号存在已删除但姓名不同的记录，请逐条选择「覆盖并恢复」或「跳过」。",
           };
           break;
       }
     } catch (e) {
-      message = { text: "导入失败：" + e };
+      message = {text: "导入失败：" + e};
     } finally {
       isImporting = false;
     }
@@ -219,7 +214,7 @@
           placeholder="请选择 Excel 文件（.xlsx / .xls）"
           value={filePath}
         />
-        <button type="button" class="btn import-file-btn" onclick={chooseFile} disabled={isPreviewing}>
+        <button type="button" class="button import-file-btn" onclick={chooseFile} disabled={isPreviewing}>
           {filePath ? "重新选择" : "选择文件"}
         </button>
       </div>
@@ -244,12 +239,14 @@
                         type="button"
                         class:active={studentNoColumnIndex == colIndex}
                         onclick={() => assignColumn(colIndex, "student_no")}
-                      >设为学号</button>
+                      >设为学号
+                      </button>
                       <button
                         type="button"
                         class:active={nameColumnIndex == colIndex}
                         onclick={() => assignColumn(colIndex, "name")}
-                      >设为姓名</button>
+                      >设为姓名
+                      </button>
                     </div>
                   </div>
                 </th>
@@ -322,12 +319,14 @@
                 type="button"
                 class="btn decide-btn"
                 onclick={() => decideAll(true)}
-              >全部覆盖</button>
+              >全部覆盖
+              </button>
               <button
                 type="button"
                 class="btn decide-btn"
                 onclick={() => decideAll(false)}
-              >全部跳过</button>
+              >全部跳过
+              </button>
             </div>
           </div>
           <table class="decide-table">
@@ -349,13 +348,15 @@
                     class="btn decide-btn"
                     class:chosen={pendingChoices[s.student_no] === true}
                     onclick={() => chooseDecision(s.student_no, true)}
-                  >覆盖并恢复</button>
+                  >覆盖并恢复
+                  </button>
                   <button
                     type="button"
                     class="btn decide-btn"
                     class:chosen={pendingChoices[s.student_no] === false}
                     onclick={() => chooseDecision(s.student_no, false)}
-                  >跳过</button>
+                  >跳过
+                  </button>
                 </td>
               </tr>
             {/each}
@@ -375,7 +376,8 @@
           class="button"
           onclick={close}
           disabled={isImporting}
-        >关闭</button>
+        >关闭
+        </button>
         <button
           type="button"
           class="button"
@@ -385,7 +387,8 @@
           {#if isImporting}
             导入中...
           {:else if pendingDecisions.length > 0}
-            导入（{pendingDecisions.filter((s) => pendingChoices[s.student_no] !== undefined).length}/{pendingDecisions.length} 已决策）
+            导入（{pendingDecisions.filter((s) => pendingChoices[s.student_no] !== undefined).length}
+            /{pendingDecisions.length} 已决策）
           {:else}
             导入
           {/if}
