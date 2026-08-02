@@ -147,7 +147,7 @@
     border: var(--border-size-1) solid var(--app-color-border);
     border-radius: var(--app-radius-md);
     background: var(--app-color-surface);
-    box-shadow: var(--app-shadow-lg);
+    box-shadow: var(--app-shadow-md);
     z-index: var(--app-layer-popover);
   }
 
