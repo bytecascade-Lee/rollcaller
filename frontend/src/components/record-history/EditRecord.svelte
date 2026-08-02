@@ -1,7 +1,7 @@
 <script lang="ts">
   import {RecordCommand} from "$commands";
   import {recordStore} from "$stores/recordStore.svelte";
-  import {STATUS_MAP, statusText, STATUS_COLORS, STATUS_DEFAULT_COLOR} from "$constants";
+  import {STATUS_COLORS, STATUS_DEFAULT_COLOR, STATUS_MAP, statusText} from "$constants";
   import type {RollcallRecord} from "$types";
   import {overlayController} from "$controllers/overlayController";
 
@@ -81,16 +81,10 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="edit-popover" style={popoverStyle} onclick={(e) => e.stopPropagation()}>
-    <h3>批量修改出勤记录（共 {selected.size} 条）</h3>
+    <h3>批量修改记录（共 {selected.size} 条）</h3>
 
-    <div class="field">
-      <span class="field-label">更新条目</span>
-      <label><input type="checkbox" bind:checked={updateStatus}/> 状态</label>
-      <label><input type="checkbox" bind:checked={updateRemark}/> 备注</label>
-    </div>
-
-    <div class="field">
-      <span class="field-label">状态</span>
+    <div class="field-label">
+      <label><input type="checkbox" bind:checked={updateStatus}/>状态</label>
       <div class="status-group">
         {#each statusCodes as code (code)}
           {@const s = statusStyle(code)}
@@ -108,25 +102,30 @@
       </div>
     </div>
 
-    <div class="field">
-      <span class="field-label">备注</span>
-      <input
-        type="text"
-        disabled={!updateRemark}
-        placeholder="批量添加备注"
-        bind:value={remark}
-      />
+    <div class="field-label">
+      <label><input type="checkbox" bind:checked={updateRemark}/> 备注</label>
+      <div class="field-label">
+        <input
+          type="text"
+          disabled={!updateRemark}
+          placeholder="批量添加备注"
+          bind:value={remark}/>
+      </div>
     </div>
 
     <div class="button-group">
       <button
         type="button"
-        class="btn"
-        style:--btn-bg="var(--app-color-surface-muted)"
-        style:--btn-color="var(--app-color-text)"
-        onclick={close}
-      >取消</button>
-      <button type="button" class="btn" onclick={update}>确定</button>
+        class="button"
+        onclick={close}>
+        取消
+      </button>
+      <button type="button"
+              class="button"
+              style="background: var(--app-color-primary); color: var(--app-color-text-white)"
+              onclick={update}>
+        确定
+      </button>
     </div>
   </div>
 {/if}
@@ -157,32 +156,6 @@
     color: var(--app-color-text);
   }
 
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: var(--app-size-control);
-    padding: var(--app-space-xs) var(--app-space-md);
-    border: none;
-    border-radius: var(--app-radius-sm);
-    background: var(--btn-bg, var(--app-color-primary));
-    color: var(--btn-color, var(--sand-0));
-    font-family: inherit;
-    font-size: var(--app-font-size-sm);
-    font-weight: var(--app-font-weight-medium);
-    cursor: pointer;
-    transition: filter 150ms var(--app-ease), opacity 150ms var(--app-ease);
-  }
-
-  .btn:hover {
-    filter: brightness(.94);
-  }
-
-  .btn:disabled {
-    opacity: var(--app-opacity-disabled);
-    cursor: not-allowed;
-  }
-
   .status-group {
     display: flex;
     flex-wrap: wrap;
@@ -192,7 +165,7 @@
   .status-btn {
     padding: var(--app-space-xxs) var(--app-space-sm);
     border: none;
-    border-radius: var(--app-radius-round);
+    border-radius: var(--app-radius-sm);
     font-size: var(--app-font-size-xs);
     cursor: pointer;
     background: var(--status-bg, var(--app-color-surface-muted));
