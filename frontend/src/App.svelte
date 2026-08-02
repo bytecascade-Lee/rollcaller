@@ -11,7 +11,6 @@
 
 <div class="shell">
   <aside class="sidebar">
-    <div class="logo"><DiceFourIcon /></div>
     <nav>
       <button
         class="nav-item"
