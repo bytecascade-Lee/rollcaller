@@ -116,10 +116,11 @@ textarea::placeholder {
     display: flex;
     flex-direction: column;
     gap: var(--app-space-sm);
-    padding: var(--app-space-md) var(--app-space-xs);
+    padding: var(--app-space-xs) var(--app-space-xs);
     background: var(--app-color-page);
     border-right: var(--border-size-1) solid var(--app-color-border);
-    min-width: 0;
+    max-width: 64px;
+;
 }
 
 .nav {
