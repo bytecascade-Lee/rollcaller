@@ -116,9 +116,9 @@
   </div>
 
   {#if studentStore.isLoading}
-    <div class="state">数据加载中...</div>
+    <div class="page-state">数据加载中...</div>
   {:else if display.length == 0}
-    <div class="state">暂无学生数据</div>
+    <div class="page-state">暂无学生数据</div>
   {:else}
     <div class="table">
       <table>
@@ -166,6 +166,20 @@
   {/if}
 
 </div>
+
+<style>
+  .page-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--app-space-xl);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-color-surface);
+    color: var(--app-color-text-muted);
+    font-size: var(--app-font-size-sm);
+  }
+</style>
 
 <SingleCreateStudent/>
 <EditStudent bind:selected={selected}/>
