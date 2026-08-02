@@ -74,7 +74,7 @@
   <div class="export-backdrop" onclick={close}></div>
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="popover" style={popoverStyle} onclick={(e) => e.stopPropagation()}>
+  <div class="export-popover" style={popoverStyle} onclick={(e) => e.stopPropagation()}>
     <h3>导出学生</h3>
     <span class="field-label">选择导出范围，然后指定保存位置（.xlsx）</span>
 
@@ -108,9 +108,9 @@
     <div class="button-group">
       <button
         type="button"
-        class="button"
-        style:--button-bg="var(--app-color-surface-strong)"
-        style:--button-color="var(--app-color-text)"
+        class="btn"
+        style:--btn-bg="var(--app-color-surface-muted)"
+        style:--btn-color="var(--app-color-text)"
         onclick={close}
         disabled={isExporting}
       >取消</button>
@@ -124,6 +124,51 @@
     inset: 0;
     z-index: 998;
     background: transparent;
+  }
+
+  .export-popover {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-space-xs);
+    padding: var(--app-space-md);
+    border: var(--border-size-1) solid var(--app-color-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-color-surface);
+    box-shadow: var(--app-shadow-lg);
+    z-index: var(--app-layer-popover);
+    min-width: var(--size-13);
+  }
+
+  .export-popover h3 {
+    margin: 0;
+    font-size: var(--app-font-size-md);
+    color: var(--app-color-text);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--app-size-control);
+    padding: var(--app-space-xs) var(--app-space-md);
+    border: none;
+    border-radius: var(--app-radius-sm);
+    background: var(--btn-bg, var(--app-color-primary));
+    color: var(--btn-color, var(--sand-0));
+    font-family: inherit;
+    font-size: var(--app-font-size-sm);
+    font-weight: var(--app-font-weight-medium);
+    cursor: pointer;
+    transition: filter 150ms var(--app-ease), opacity 150ms var(--app-ease);
+  }
+
+  .btn:hover {
+    filter: brightness(.94);
+  }
+
+  .btn:disabled {
+    opacity: var(--app-opacity-disabled);
+    cursor: not-allowed;
   }
 
   .export-option {
@@ -157,19 +202,19 @@
 
   .option-desc {
     font-size: var(--app-font-size-xs);
-    color: var(--app-color-text-soft);
+    color: var(--app-color-text-muted);
   }
 
   .export-error {
     padding: var(--app-space-xs) var(--app-space-sm);
     border-radius: var(--app-radius-sm);
-    background: var(--app-color-danger-soft);
-    color: var(--app-color-danger);
+    background: var(--red-1);
+    color: var(--red-9);
     font-size: var(--app-font-size-xs);
   }
 
   .export-status {
     font-size: var(--app-font-size-xs);
-    color: var(--app-color-text-soft);
+    color: var(--app-color-text-muted);
   }
 </style>
