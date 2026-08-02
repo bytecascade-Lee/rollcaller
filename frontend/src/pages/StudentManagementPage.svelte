@@ -9,10 +9,10 @@
     FileArrowDownIcon,
     FileArrowUpIcon,
     MagnifyingGlassIcon,
-    MinusIcon,
     PencilIcon,
     PencilSimpleIcon,
-    PlusIcon
+    PlusIcon,
+    TrashIcon
   } from "phosphor-svelte";
   import {overlayController} from "$controllers/overlayController";
   import EditStudent from "$components/student-management/EditStudent.svelte";
@@ -78,7 +78,7 @@
         title="删除学生"
         disabled={selected.size == 0}
         onclick={() => overlayController.open("StudentDelete")}>
-        <MinusIcon size="24"/>
+        <TrashIcon size="24"/>
       </button>
       <button
         class="icon-button"
