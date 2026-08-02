@@ -65,7 +65,7 @@
     overlayController.register("RecordEdit", {
       open: open,
       close: close,
-      isVisible: isVisible
+      isVisible: () => isVisible
     })
   })
 </script>
