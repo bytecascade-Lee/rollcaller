@@ -47,7 +47,7 @@
   --app-radius-sm: var(--radius-2);
   --app-radius-md: var(--radius-3);
   --app-radius-round: var(--radius-round);
-  --app-shadow-lg: var(--shadow-4);
+  --app-shadow-md: var(--shadow-2);
   --app-ease: var(--ease-3);
   --app-layer-popover: var(--layer-3);
   --app-layer-overlay: var(--layer-4);
@@ -344,7 +344,7 @@ textarea::placeholder {
   max-width: var(--size-15);
   background: var(--app-color-surface);
   border-radius: var(--app-radius-md);
-  box-shadow: var(--app-shadow-lg);
+  box-shadow: var(--app-shadow-md);
 }
 
 .dialog h3 {
