@@ -70,6 +70,7 @@
         class="icon-button"
         aria-label="导出记录"
         title="导出记录"
+        style="display: none"
         disabled={recordStore.isLoading}
         onclick={() => alert("导出")}>
         <FileArrowDownIcon size="24"/>
