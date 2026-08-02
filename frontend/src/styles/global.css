@@ -1,70 +1,69 @@
 @import "open-props/style";
 
-/* 职责：Open Props 导入 + :root 语义令牌 + 宏观布局骨架 + 最小共享基座
-   组件 / 页面的独有样式一律写入各自 <style>，不得进全局 */
-
-/* ── 层 1：语义令牌 ── */
 :root {
-  --app-color-primary: var(--indigo-6); /* 主色：蓝 */
+    --app-color-primary: #3871e1;
+    --app-color-hover: var(--blue-4);
 
-  /* 米白主题：暖白，仅三种 */
-  --app-color-page: color-mix(in srgb, var(--sand-0) 88%, var(--yellow-2));
-  --app-color-surface: var(--sand-0);
-  --app-color-surface-muted: color-mix(in srgb, var(--sand-0) 92%, var(--sand-4));
+    --app-color-page: var(--sand-0);
+    --app-color-surface: var(--sand-0);
 
-  /* 中性（灰） */
-  --app-color-text: var(--gray-8);
-  --app-color-text-muted: var(--gray-6);
-  --app-color-border: var(--gray-3);
-  --app-color-overlay: color-mix(in srgb, var(--gray-12) 40%, transparent);
-  --app-color-hover: color-mix(in srgb, var(--gray-12) 5%, transparent);
+    --app-color-text: var(--gray-8);
+    --app-color-text-white: var(--sand-0);
+    --app-color-text-muted: var(--gray-6);
+    --app-color-border: var(--gray-3);
+    --app-color-overlay: color-mix(in srgb, var(--gray-12) 40%, transparent);
+    --app-color-hover: color-mix(in srgb, var(--gray-12) 5%, transparent);
 
-  --app-space-xxs: var(--size-1);
-  --app-space-xs: var(--size-2);
-  --app-space-sm: var(--size-3);
-  --app-space-md: var(--size-4);
-  --app-space-lg: var(--size-5);
-  --app-space-xl: var(--size-6);
+    --app-color-success: var(--green-5);
+    --app-color-info: var(--blue-4);
+    --app-color-warn: var(--yellow-5);
+    --app-color-error: var(--red-7);
 
-  --app-size-icon: var(--size-px-5);
-  --app-size-control-sm: var(--size-px-6);
-  --app-size-control: var(--size-px-7);
-  --app-size-control-lg: var(--size-px-8);
-  --app-size-sidebar: var(--size-px-10);
-  --app-size-footbar: var(--size-px-8);
-  --app-size-page-gap: var(--size-3);
+    --app-space-xxs: var(--size-1);
+    --app-space-xs: var(--size-2);
+    --app-space-sm: var(--size-3);
+    --app-space-md: var(--size-4);
+    --app-space-lg: var(--size-5);
+    --app-space-xl: var(--size-6);
 
-  --app-font-sans: var(--font-sans);
-  --app-font-size-xs: var(--font-size-0);
-  --app-font-size-sm: var(--font-size-1);
-  --app-font-size-md: var(--font-size-2);
-  --app-font-size-lg: var(--font-size-3);
-  --app-font-size-xl: var(--font-size-4);
-  --app-font-weight-medium: var(--font-weight-5);
-  --app-font-weight-bold: var(--font-weight-6);
-  --app-font-weight-heavy: var(--font-weight-7);
+    --app-size-icon: var(--size-px-5);
+    --app-size-control-sm: var(--size-px-6);
+    --app-size-control: var(--size-px-7);
+    --app-size-control-lg: var(--size-px-8);
+    --app-size-sidebar: var(--size-px-10);
+    --app-size-footbar: var(--size-px-8);
+    --app-size-page-gap: var(--size-3);
 
-  --app-radius-sm: var(--radius-2);
-  --app-radius-md: var(--radius-3);
-  --app-radius-round: var(--radius-round);
-  --app-shadow-md: var(--shadow-2);
-  --app-ease: var(--ease-3);
-  --app-layer-popover: var(--layer-3);
-  --app-layer-overlay: var(--layer-4);
-  --app-opacity-disabled: .5;
+    --app-font-sans: var(--font-sans);
+    --app-font-size-xs: var(--font-size-0);
+    --app-font-size-sm: var(--font-size-1);
+    --app-font-size-md: var(--font-size-2);
+    --app-font-size-lg: var(--font-size-3);
+    --app-font-size-xl: var(--font-size-4);
+    --app-font-weight-medium: var(--font-weight-5);
+    --app-font-weight-bold: var(--font-weight-6);
+    --app-font-weight-heavy: var(--font-weight-7);
+
+    --app-radius-sm: var(--radius-2);
+    --app-radius-md: var(--radius-3);
+    --app-radius-round: var(--radius-round);
+    --app-shadow-md: var(--shadow-2);
+    --app-ease: var(--ease-3);
+    --app-layer-popover: var(--layer-3);
+    --app-layer-overlay: var(--layer-4);
+    --app-opacity-disabled: .5;
 }
 
-/* ── 基础：盒模型与表单控件 ── */
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 input[type="checkbox"],
 input[type="radio"] {
-  margin: 0;
-  accent-color: var(--app-color-primary);
+    margin: 0;
+    accent-color: var(--app-color-primary);
 }
 
 input[type="text"],
@@ -73,15 +72,14 @@ input[type="search"],
 input[type="password"],
 select,
 textarea {
-  box-sizing: border-box;
-  padding: var(--app-space-xs) var(--app-space-sm);
-  border: var(--border-size-1) solid var(--app-color-border);
-  border-radius: var(--app-radius-sm);
-  background: var(--app-color-surface);
-  color: var(--app-color-text);
-  font-family: inherit;
-  font-size: var(--app-font-size-sm);
-  transition: border-color 150ms var(--app-ease), outline-color 150ms var(--app-ease);
+    box-sizing: border-box;
+    padding: var(--app-space-xs) var(--app-space-sm);
+    border: var(--border-size-1) solid var(--app-color-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-color-page);
+    color: var(--app-color-text);
+    font-family: inherit;
+    font-size: var(--app-font-size-sm);
 }
 
 input[type="text"]:focus,
@@ -90,318 +88,350 @@ input[type="search"]:focus,
 input[type="password"]:focus,
 select:focus,
 textarea:focus {
-  border-color: var(--app-color-primary);
-  outline: var(--border-size-2) solid color-mix(in srgb, var(--app-color-primary) 15%, transparent);
+    border-color: var(--app-color-primary);
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: var(--app-color-text-muted);
+    color: var(--app-color-text-muted);
 }
 
-/* ── 层 2：宏观布局骨架（shell = 网格：侧栏 + 内容 + 底栏） ── */
 .shell {
-  display: grid;
-  grid-template-columns: var(--app-size-sidebar) 1fr;
-  grid-template-rows: 1fr auto;
-  grid-template-areas:
+    display: grid;
+    grid-template-columns: var(--app-size-sidebar) 1fr;
+    grid-template-rows: 1fr auto;
+    grid-template-areas:
     "sidebar content"
     "sidebar footbar";
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: var(--app-color-page);
-  color: var(--app-color-text);
-  font-family: var(--app-font-sans);
-  font-size: var(--app-font-size-sm);
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--app-color-page);
+    color: var(--app-color-text);
+    font-family: var(--app-font-sans);
+    font-size: var(--app-font-size-sm);
 }
 
 .sidebar {
-  grid-area: sidebar;
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-space-sm);
-  padding: var(--app-space-md) var(--app-space-xs);
-  background: var(--app-color-surface);
-  border-right: var(--border-size-1) solid var(--app-color-border);
-  min-width: 0;
+    grid-area: sidebar;
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-space-sm);
+    padding: var(--app-space-md) var(--app-space-xs);
+    background: var(--app-color-page);
+    border-right: var(--border-size-1) solid var(--app-color-border);
+    min-width: 0;
 }
 
 .nav {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-space-xs);
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-space-xs);
 }
 
 .nav-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: var(--app-size-control-lg);
-  padding: 0;
-  border: none;
-  border-radius: var(--app-radius-sm);
-  background: transparent;
-  color: var(--app-color-text-muted);
-  cursor: pointer;
-  transition: background-color 150ms var(--app-ease), color 150ms var(--app-ease);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: var(--app-size-control-lg);
+    padding: 0;
+    border: none;
+    border-radius: var(--app-radius-sm);
+    background: transparent;
+    color: var(--app-color-text);
+    cursor: pointer;
+    transition: background-color 150ms var(--app-ease), color 150ms var(--app-ease);
 }
 
 .nav-item:hover {
-  background: var(--app-color-hover);
-  color: var(--app-color-text);
+    background: var(--app-color-hover);
+    color: var(--app-color-primary);
 }
 
 .nav-item.active {
-  background: var(--app-color-primary);
-  color: var(--sand-0);
+    background: var(--app-color-primary);
+    color: var(--sand-0);
 }
 
 .nav-item svg {
-  width: var(--app-size-icon);
-  height: var(--app-size-icon);
+    width: var(--app-size-icon);
+    height: var(--app-size-icon);
 }
 
 .content {
-  grid-area: content;
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-size-page-gap);
-  padding: var(--app-size-page-gap);
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
+    grid-area: content;
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-size-page-gap);
+    padding: var(--app-size-page-gap);
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .content > * {
-  display: none;
-  flex: 1;
-  min-height: 0;
-  flex-direction: column;
-  gap: var(--app-size-page-gap);
+    display: none;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    gap: var(--app-size-page-gap);
 }
 
 .content > *.active {
-  display: flex;
+    display: flex;
 }
 
 .footbar {
-  grid-area: footbar;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--app-space-md);
-  padding: var(--app-space-xs) var(--app-space-md);
-  background: var(--app-color-surface);
-  border-top: var(--border-size-1) solid var(--app-color-border);
-  color: var(--app-color-text-muted);
-  font-size: var(--app-font-size-xs);
-  min-width: 0;
+    grid-area: footbar;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--app-space-md);
+    padding: var(--app-space-xs) var(--app-space-md);
+    background: var(--app-color-page);
+    border-top: var(--border-size-1) solid var(--app-color-border);
+    color: var(--app-color-text);
+    font-size: var(--app-font-size-xs);
+    min-width: 0;
 }
 
-/* ── 层 3：最小共享基座（仅三处以上用法完全一致的结构） ── */
 .toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--app-space-md);
-  flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--app-space-md);
+    flex-shrink: 0;
 }
 
 .toolbar .search {
-  margin-left: auto;
+    margin-left: auto;
 }
 
 .button-group {
-  display: flex;
-  align-items: center;
-  gap: var(--app-space-xs);
+    display: flex;
+    align-items: center;
+    gap: var(--app-space-xs);
+}
+
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--app-size-control);
+    padding: var(--app-space-xs) var(--app-space-md);
+    border: none;
+    border-radius: var(--app-radius-sm);
+    font-family: inherit;
+    font-size: var(--app-font-size-sm);
+    font-weight: var(--app-font-weight-medium);
+    cursor: pointer;
+    transition: filter 150ms var(--app-ease), opacity 150ms var(--app-ease);
+}
+
+.button:hover {
+    background: var(--app-color-hover);
+}
+
+.button:disabled {
+    opacity: var(--app-opacity-disabled);
+    cursor: not-allowed;
+    color: var(--app-opacity-disabled);
 }
 
 .icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--app-size-control);
-  height: var(--app-size-control);
-  padding: 0;
-  border: var(--border-size-1) solid var(--app-color-border);
-  border-radius: var(--app-radius-sm);
-  background: var(--app-color-surface);
-  color: var(--app-color-text-muted);
-  cursor: pointer;
-  transition: background-color 150ms var(--app-ease), color 150ms var(--app-ease);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--app-size-control);
+    height: var(--app-size-control);
+    padding: 0;
+    border: var(--border-size-1) solid var(--app-color-page);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-color-page);
+    color: var(--app-color-text);
+    cursor: pointer;
+    transition: background-color 150ms var(--app-ease), color 150ms var(--app-ease);
 }
 
 .icon-button:hover {
-  background: var(--app-color-hover);
-  color: var(--app-color-text);
+    background: var(--app-color-hover);
+    color: var(--app-color-primary);
 }
 
 .icon-button:disabled {
-  opacity: var(--app-opacity-disabled);
-  cursor: not-allowed;
+    opacity: var(--app-opacity-disabled);
+    cursor: not-allowed;
+    color: var(--app-opacity-disabled);
+}
+
+.icon-button:active {
+    background: var(--app-color-primary);
+    color: var(--app-color-page);
 }
 
 .icon-button svg {
-  width: var(--app-size-icon);
-  height: var(--app-size-icon);
+    width: var(--app-size-icon);
+    height: var(--app-size-icon);
 }
 
 .search {
-  display: flex;
-  align-items: center;
-  gap: var(--app-space-xs);
-  padding: var(--app-space-xs) var(--app-space-sm);
-  border: var(--border-size-1) solid var(--app-color-border);
-  border-radius: var(--app-radius-sm);
-  background: var(--app-color-surface);
-  transition: border-color 150ms var(--app-ease);
+    display: flex;
+    align-items: center;
+    gap: var(--app-space-xs);
+    padding: var(--app-space-xxs) var(--app-space-xxs);
+    border: var(--border-size-2) solid var(--app-color-page);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-color-page);
+    transition: border-color 150ms var(--app-ease);
 }
 
 .search:focus-within {
-  border-color: var(--app-color-primary);
+    border-color: var(--app-color-text);
 }
 
 .search svg {
-  width: var(--size-px-4);
-  height: var(--size-px-4);
-  color: var(--app-color-text-muted);
-  flex-shrink: 0;
+    width: var(--size-px-4);
+    height: var(--size-px-4);
+    color: var(--app-color-text);
+    flex-shrink: 0;
 }
 
 .search input {
-  width: var(--size-13);
-  min-width: 0;
-  padding: 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--app-color-text);
-  font-size: var(--app-font-size-sm);
+    width: var(--size-13);
+    min-width: 0;
+    padding: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--app-color-text);
+    font-size: var(--app-font-size-sm);
 }
 
 .table {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  border: var(--border-size-1) solid var(--app-color-border);
-  border-radius: var(--app-radius-sm);
-  background: var(--app-color-surface);
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    overflow: auto;
+    border: var(--border-size-1) solid var(--app-color-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-color-page);
 }
 
 .table table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--app-font-size-xs);
+    width: 100%;
+    border-collapse: collapse;
+    font-size: clamp(var(--app-font-size-xs), 0.85rem, var(--app-font-size-sm));
+    margin: 0 auto;
 }
 
 .table th,
 .table td {
-  padding: var(--app-space-sm) var(--app-space-sm);
-  border-bottom: var(--border-size-1) solid var(--app-color-border);
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+    padding: var(--app-space-xs) var(--app-space-xs);
+    border-bottom: var(--border-size-1) solid var(--app-color-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+    vertical-align: middle;
 }
 
 .table th {
-  position: sticky;
-  top: 0;
-  z-index: var(--layer-1);
-  background: var(--app-color-surface-muted);
-  color: var(--app-color-text-muted);
-  font-weight: var(--app-font-weight-medium);
+    position: sticky;
+    top: 0;
+    z-index: var(--layer-1);
+    background: var(--app-color-page);
+    color: var(--app-color-text);
+    font-weight: var(--app-font-weight-bold);
+    font-size: var(--app-font-size-sm);
 }
 
 .table tbody tr {
-  transition: background-color 100ms var(--app-ease);
+    transition: background-color 100ms var(--app-ease);
 }
 
 .table tbody tr:hover {
-  background: var(--app-color-hover);
+    background: var(--app-color-hover);
 }
 
 .overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--app-color-overlay);
-  z-index: var(--app-layer-overlay);
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--app-color-overlay);
+    z-index: var(--app-layer-overlay);
 }
 
 .dialog {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-space-md);
-  max-height: 80vh;
-  overflow-y: auto;
-  padding: var(--app-space-lg);
-  min-width: var(--size-14);
-  max-width: var(--size-15);
-  background: var(--app-color-surface);
-  border-radius: var(--app-radius-md);
-  box-shadow: var(--app-shadow-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-space-md);
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: var(--app-space-lg);
+    min-width: var(--size-14);
+    max-width: var(--size-15);
+    background: var(--app-color-page);
+    border-radius: var(--app-radius-md);
+    box-shadow: var(--app-shadow-md);
 }
 
 .dialog h3 {
-  margin: 0;
-  font-size: var(--app-font-size-lg);
-  font-weight: var(--app-font-weight-bold);
-  color: var(--app-color-text);
+    margin: 0;
+    font-size: var(--app-font-size-lg);
+    font-weight: var(--app-font-weight-bold);
+    color: var(--app-color-text);
 }
 
 .dialog p {
-  margin: 0;
-  font-size: var(--app-font-size-sm);
-  color: var(--app-color-text-muted);
+    margin: 0;
+    font-size: var(--app-font-size-sm);
+    color: var(--app-color-text);
 }
 
 .dialog .button-group {
-  justify-content: flex-end;
-  margin-top: var(--app-space-xs);
+    justify-content: flex-end;
+    margin-top: var(--app-space-xs);
 }
 
 .dialog table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--app-font-size-xs);
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--app-font-size-xs);
 }
 
 .dialog th,
 .dialog td {
-  padding: var(--app-space-xs) var(--app-space-sm);
-  border: var(--border-size-1) solid var(--app-color-border);
-  text-align: left;
+    padding: var(--app-space-xs) var(--app-space-sm);
+    border: var(--border-size-1) solid var(--app-color-border);
+    text-align: left;
 }
 
 .dialog th {
-  background: var(--app-color-surface-muted);
-  color: var(--app-color-text-muted);
-  font-weight: var(--app-font-weight-medium);
+    background: var(--app-color-page);
+    color: var(--app-color-text);
+    font-weight: var(--app-font-weight-medium);
 }
 
 .field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-space-xs);
-  margin: 0;
-  font-size: var(--app-font-size-xs);
-  color: var(--app-color-text-muted);
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-space-xs);
+    margin: 0;
+    font-size: var(--app-font-size-xs);
+    color: var(--app-color-text);
 }
 
 .field-label {
-  display: block;
-  font-size: var(--app-font-size-xs);
-  font-weight: var(--app-font-weight-medium);
-  color: var(--app-color-text-muted);
+    display: block;
+    font-size: var(--app-font-size-xs);
+    font-weight: var(--app-font-weight-medium);
+    color: var(--app-color-text);
 }
 
 .field input,
 .field select,
 .field textarea {
-  width: 100%;
+    width: 100%;
 }
