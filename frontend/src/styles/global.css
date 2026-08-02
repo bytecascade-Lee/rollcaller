@@ -2,7 +2,6 @@
 
 :root {
     --app-color-primary: #3871e1;
-    --app-color-hover: var(--blue-4);
 
     --app-color-page: var(--sand-0);
     --app-color-surface: var(--sand-0);
@@ -73,7 +72,7 @@ input[type="password"],
 select,
 textarea {
     box-sizing: border-box;
-    padding: var(--app-space-xs) var(--app-space-sm);
+    padding: var(--app-space-xs) var(--app-space-xs);
     border: var(--border-size-1) solid var(--app-color-border);
     border-radius: var(--app-radius-sm);
     background: var(--app-color-page);
