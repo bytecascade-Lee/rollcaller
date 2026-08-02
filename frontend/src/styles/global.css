@@ -1,64 +1,24 @@
 @import "open-props/style";
 
-/* ════════════════════════════════════════════════════════════
-   RollCaller 设计系统 — 基于 Open Props 的三层架构
-   层 1：语义令牌（Token Mapping）
-   层 2：布局宏结构（Macro Layout）
-   层 3：组件 API（Component Props via CSS）
-   约束：零新增类名 / 零硬编码（px、rem、#HEX、rgb）/ 零 !important / 扁平化
-   ════════════════════════════════════════════════════════════ */
+/* 职责：Open Props 导入 + :root 语义令牌 + 宏观布局骨架 + 最小共享基座
+   组件 / 页面的独有样式一律写入各自 <style>，不得进全局 */
 
-/* ────────────────────────────────────────────────────────────
-   层 1：语义令牌
-   业务语义 ← Open Props 变量，组件一律引用 --app-*，不直接暴露 Open Props
-   ──────────────────────────────────────────────────────────── */
+/* ── 层 1：语义令牌 ── */
 :root {
-  /* 品牌色：蓝（关键操作：确定按钮、选中、链接） */
-  --app-color-primary: var(--indigo-6);
-  --app-color-primary-strong: var(--indigo-7);
-  --app-color-primary-soft: var(--indigo-1);
-  --app-color-primary-ink: var(--indigo-9);
+  --app-color-primary: var(--indigo-6); /* 主色：蓝 */
 
-  /* 状态色 */
-  --app-color-success: var(--green-7);
-  --app-color-success-soft: var(--green-1);
-  --app-color-danger: var(--red-7);
-  --app-color-danger-soft: var(--red-1);
-  --app-color-warn: var(--orange-7);
-  --app-color-warn-soft: var(--orange-1);
-  --app-color-early: var(--yellow-8);
-  --app-color-early-soft: var(--yellow-1);
-  --app-color-info: var(--blue-7);
-  --app-color-info-soft: var(--blue-1);
+  /* 米白主题：暖白，仅三种 */
+  --app-color-page: color-mix(in srgb, var(--sand-0) 88%, var(--yellow-2));
+  --app-color-surface: var(--sand-0);
+  --app-color-surface-muted: color-mix(in srgb, var(--sand-0) 92%, var(--sand-4));
 
-  /* 出勤状态（0 缺勤 / 1 出勤 / 2 迟到 / 3 早退 / 4 请假） */
-  --app-status-0-bg: var(--app-color-danger);
-  --app-status-0-color: var(--red-0);
-  --app-status-1-bg: var(--app-color-success);
-  --app-status-1-color: var(--green-0);
-  --app-status-2-bg: var(--app-color-warn);
-  --app-status-2-color: var(--orange-0);
-  --app-status-3-bg: var(--app-color-early);
-  --app-status-3-color: var(--yellow-0);
-  --app-status-4-bg: var(--app-color-info);
-  --app-status-4-color: var(--blue-0);
+  /* 中性（灰） */
+  --app-color-text: var(--gray-8);
+  --app-color-text-muted: var(--gray-6);
+  --app-color-border: var(--gray-3);
+  --app-color-overlay: color-mix(in srgb, var(--gray-12) 40%, transparent);
+  --app-color-hover: color-mix(in srgb, var(--gray-12) 5%, transparent);
 
-  /* 中性色：米白主题 */
-  --app-color-page: var(--sand-1);            /* 页面底色 */
-  --app-color-surface: var(--sand-0);         /* 卡片 / 面板 */
-  --app-color-surface-strong: var(--sand-2);  /* 表头 / 次级底 */
-  --app-color-border: var(--sand-3);
-  --app-color-border-strong: var(--sand-4);
-  --app-color-text: var(--sand-9);
-  --app-color-text-soft: var(--sand-7);
-  --app-color-text-faint: var(--sand-5);
-  --app-color-ink: var(--sand-12);
-  --app-color-hover: color-mix(in srgb, var(--sand-12) 6%, transparent);
-  --app-color-overlay: color-mix(in srgb, var(--sand-12) 40%, transparent);
-  /* 阴影统一为暖色调 */
-  --shadow-color: 40 28% 24%;
-
-  /* 间距 */
   --app-space-xxs: var(--size-1);
   --app-space-xs: var(--size-2);
   --app-space-sm: var(--size-3);
@@ -66,7 +26,6 @@
   --app-space-lg: var(--size-5);
   --app-space-xl: var(--size-6);
 
-  /* 尺寸 */
   --app-size-icon: var(--size-px-5);
   --app-size-control-sm: var(--size-px-6);
   --app-size-control: var(--size-px-7);
@@ -75,37 +34,27 @@
   --app-size-footbar: var(--size-px-8);
   --app-size-page-gap: var(--size-3);
 
-  /* 字体 */
   --app-font-sans: var(--font-sans);
-  --app-font-mono: var(--font-mono);
   --app-font-size-xs: var(--font-size-0);
   --app-font-size-sm: var(--font-size-1);
   --app-font-size-md: var(--font-size-2);
   --app-font-size-lg: var(--font-size-3);
   --app-font-size-xl: var(--font-size-4);
-  --app-font-size-xxl: var(--font-size-6);
-  --app-font-weight-normal: var(--font-weight-4);
   --app-font-weight-medium: var(--font-weight-5);
   --app-font-weight-bold: var(--font-weight-6);
   --app-font-weight-heavy: var(--font-weight-7);
 
-  /* 圆角 / 阴影 / 动效 / 层级 / 透明度 */
   --app-radius-sm: var(--radius-2);
   --app-radius-md: var(--radius-3);
   --app-radius-round: var(--radius-round);
-  --app-shadow-sm: var(--shadow-1);
-  --app-shadow-md: var(--shadow-2);
   --app-shadow-lg: var(--shadow-4);
   --app-ease: var(--ease-3);
-  --app-ease-out: var(--ease-out-3);
   --app-layer-popover: var(--layer-3);
   --app-layer-overlay: var(--layer-4);
   --app-opacity-disabled: .5;
 }
 
-/* ────────────────────────────────────────────────────────────
-   基础：盒模型与表单控件（元素选择器，非类名）
-   ──────────────────────────────────────────────────────────── */
+/* ── 基础：盒模型与表单控件 ── */
 *,
 *::before,
 *::after {
@@ -142,18 +91,15 @@ input[type="password"]:focus,
 select:focus,
 textarea:focus {
   border-color: var(--app-color-primary);
-  outline: var(--border-size-2) solid var(--app-color-primary-soft);
+  outline: var(--border-size-2) solid color-mix(in srgb, var(--app-color-primary) 15%, transparent);
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: var(--app-color-text-faint);
+  color: var(--app-color-text-muted);
 }
 
-/* ────────────────────────────────────────────────────────────
-   层 2：布局宏结构
-   shell = 网格：左侧导航栏 + 主内容区 + 底部横向栏
-   ──────────────────────────────────────────────────────────── */
+/* ── 层 2：宏观布局骨架（shell = 网格：侧栏 + 内容 + 底栏） ── */
 .shell {
   display: grid;
   grid-template-columns: var(--app-size-sidebar) 1fr;
@@ -170,7 +116,6 @@ textarea::placeholder {
   font-size: var(--app-font-size-sm);
 }
 
-/* 左侧竖状导航栏（QQ / 微信风格，窄栏 + 图标） */
 .sidebar {
   grid-area: sidebar;
   display: flex;
@@ -198,7 +143,7 @@ textarea::placeholder {
   border: none;
   border-radius: var(--app-radius-sm);
   background: transparent;
-  color: var(--app-color-text-soft);
+  color: var(--app-color-text-muted);
   cursor: pointer;
   transition: background-color 150ms var(--app-ease), color 150ms var(--app-ease);
 }
@@ -209,8 +154,8 @@ textarea::placeholder {
 }
 
 .nav-item.active {
-  background: var(--app-color-primary-soft);
-  color: var(--app-color-primary-ink);
+  background: var(--app-color-primary);
+  color: var(--sand-0);
 }
 
 .nav-item svg {
@@ -218,7 +163,6 @@ textarea::placeholder {
   height: var(--app-size-icon);
 }
 
-/* 主内容区：直接容纳各页面，激活页面显示 */
 .content {
   grid-area: content;
   display: flex;
@@ -242,12 +186,6 @@ textarea::placeholder {
   display: flex;
 }
 
-/* 页面内的占满态（空态 / 加载态） */
-.content > * > .state {
-  flex: 1;
-}
-
-/* 底部横向栏 */
 .footbar {
   grid-area: footbar;
   display: flex;
@@ -257,18 +195,12 @@ textarea::placeholder {
   padding: var(--app-space-xs) var(--app-space-md);
   background: var(--app-color-surface);
   border-top: var(--border-size-1) solid var(--app-color-border);
-  color: var(--app-color-text-soft);
+  color: var(--app-color-text-muted);
   font-size: var(--app-font-size-xs);
   min-width: 0;
 }
 
-/* ────────────────────────────────────────────────────────────
-   层 3：组件 API
-   基础结构 + 组件级 CSS 变量（--button-* / --badge-* / --state-*）
-   变体由组件通过 style: 指令或 data-* 属性覆盖
-   ──────────────────────────────────────────────────────────── */
-
-/* ─── 工具栏 ─── */
+/* ── 层 3：最小共享基座（仅三处以上用法完全一致的结构） ── */
 .toolbar {
   display: flex;
   align-items: center;
@@ -280,7 +212,6 @@ textarea::placeholder {
   margin-left: auto;
 }
 
-/* ─── 按钮组 / 图标按钮 ─── */
 .button-group {
   display: flex;
   align-items: center;
@@ -297,13 +228,13 @@ textarea::placeholder {
   border: var(--border-size-1) solid var(--app-color-border);
   border-radius: var(--app-radius-sm);
   background: var(--app-color-surface);
-  color: var(--app-color-text-soft);
+  color: var(--app-color-text-muted);
   cursor: pointer;
   transition: background-color 150ms var(--app-ease), color 150ms var(--app-ease);
 }
 
 .icon-button:hover {
-  background: var(--app-color-surface-strong);
+  background: var(--app-color-hover);
   color: var(--app-color-text);
 }
 
@@ -317,39 +248,6 @@ textarea::placeholder {
   height: var(--app-size-icon);
 }
 
-/* ─── 文本按钮（变体通过 --button-bg / --button-color 覆盖） ─── */
-.button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--app-space-xs);
-  min-height: var(--app-size-control);
-  padding: var(--app-space-xs) var(--app-space-md);
-  border: none;
-  border-radius: var(--app-radius-sm);
-  background: var(--button-bg, var(--app-color-primary));
-  color: var(--button-color, var(--sand-0));
-  font-family: inherit;
-  font-size: var(--app-font-size-sm);
-  font-weight: var(--app-font-weight-medium);
-  cursor: pointer;
-  transition: filter 150ms var(--app-ease), opacity 150ms var(--app-ease);
-}
-
-.button:hover {
-  filter: brightness(.94);
-}
-
-.button:active {
-  filter: brightness(.88);
-}
-
-.button:disabled {
-  opacity: var(--app-opacity-disabled);
-  cursor: not-allowed;
-}
-
-/* ─── 搜索框 ─── */
 .search {
   display: flex;
   align-items: center;
@@ -358,18 +256,17 @@ textarea::placeholder {
   border: var(--border-size-1) solid var(--app-color-border);
   border-radius: var(--app-radius-sm);
   background: var(--app-color-surface);
-  transition: border-color 150ms var(--app-ease), outline-color 150ms var(--app-ease);
+  transition: border-color 150ms var(--app-ease);
 }
 
 .search:focus-within {
   border-color: var(--app-color-primary);
-  outline: var(--border-size-2) solid var(--app-color-primary-soft);
 }
 
 .search svg {
   width: var(--size-px-4);
   height: var(--size-px-4);
-  color: var(--app-color-text-faint);
+  color: var(--app-color-text-muted);
   flex-shrink: 0;
 }
 
@@ -384,7 +281,6 @@ textarea::placeholder {
   font-size: var(--app-font-size-sm);
 }
 
-/* ─── 表格 ─── */
 .table {
   flex: 1;
   min-height: 0;
@@ -414,8 +310,8 @@ textarea::placeholder {
   position: sticky;
   top: 0;
   z-index: var(--layer-1);
-  background: var(--app-color-surface-strong);
-  color: var(--app-color-text-soft);
+  background: var(--app-color-surface-muted);
+  color: var(--app-color-text-muted);
   font-weight: var(--app-font-weight-medium);
 }
 
@@ -427,99 +323,6 @@ textarea::placeholder {
   background: var(--app-color-hover);
 }
 
-/* ─── 状态框（空态 / 加载态 / 消息；变体通过 --state-bg / --state-color） ─── */
-.state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--app-space-sm);
-  padding: var(--app-space-lg);
-  border-radius: var(--app-radius-md);
-  background: var(--state-bg, var(--app-color-surface-strong));
-  color: var(--state-color, var(--app-color-text-soft));
-  font-size: var(--app-font-size-sm);
-  text-align: center;
-}
-
-.state[data-kind="success"] {
-  --state-bg: var(--app-color-success-soft);
-  --state-color: var(--app-color-success);
-}
-
-.state[data-kind="warn"] {
-  --state-bg: var(--app-color-warn-soft);
-  --state-color: var(--app-color-warn);
-}
-
-.state[data-kind="info"] {
-  --state-bg: var(--app-color-info-soft);
-  --state-color: var(--app-color-info);
-}
-
-.state[data-kind="error"] {
-  --state-bg: var(--app-color-danger-soft);
-  --state-color: var(--app-color-danger);
-}
-
-/* 弹窗内的状态框：左对齐的消息体 */
-.dialog .state {
-  align-items: flex-start;
-  text-align: left;
-}
-
-/* ─── 分割线 ─── */
-.divider {
-  display: block;
-  height: var(--border-size-1);
-  width: 100%;
-  margin: var(--app-space-sm) 0;
-  border: none;
-  background: var(--app-color-border);
-}
-
-/* ─── 徽标（出勤状态经 data-status 着色） ─── */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--app-size-control-sm);
-  height: var(--app-size-control-sm);
-  padding: 0 var(--app-space-sm);
-  border-radius: var(--app-radius-round);
-  font-size: var(--app-font-size-xs);
-  font-weight: var(--app-font-weight-medium);
-  line-height: 1;
-  background: var(--badge-bg, var(--app-color-surface-strong));
-  color: var(--badge-color, var(--app-color-text-soft));
-}
-
-.badge[data-status="0"] {
-  --badge-bg: var(--app-status-0-bg);
-  --badge-color: var(--app-status-0-color);
-}
-
-.badge[data-status="1"] {
-  --badge-bg: var(--app-status-1-bg);
-  --badge-color: var(--app-status-1-color);
-}
-
-.badge[data-status="2"] {
-  --badge-bg: var(--app-status-2-bg);
-  --badge-color: var(--app-status-2-color);
-}
-
-.badge[data-status="3"] {
-  --badge-bg: var(--app-status-3-bg);
-  --badge-color: var(--app-status-3-color);
-}
-
-.badge[data-status="4"] {
-  --badge-bg: var(--app-status-4-bg);
-  --badge-color: var(--app-status-4-color);
-}
-
-/* ─── 遮罩与弹窗 ─── */
 .overlay {
   position: fixed;
   inset: 0;
@@ -554,7 +357,7 @@ textarea::placeholder {
 .dialog p {
   margin: 0;
   font-size: var(--app-font-size-sm);
-  color: var(--app-color-text-soft);
+  color: var(--app-color-text-muted);
 }
 
 .dialog .button-group {
@@ -576,62 +379,25 @@ textarea::placeholder {
 }
 
 .dialog th {
-  background: var(--app-color-surface-strong);
-  color: var(--app-color-text-soft);
+  background: var(--app-color-surface-muted);
+  color: var(--app-color-text-muted);
   font-weight: var(--app-font-weight-medium);
 }
 
-/* ─── 图标 ─── */
-.icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1em;
-  height: 1em;
-  flex-shrink: 0;
-  fill: currentColor;
-  color: inherit;
-}
-
-/* ─── 气泡卡片（位置由组件内联 style 控制） ─── */
-.popover {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-space-xs);
-  padding: var(--app-space-md);
-  border: var(--border-size-1) solid var(--app-color-border);
-  border-radius: var(--app-radius-md);
-  background: var(--app-color-surface);
-  box-shadow: var(--app-shadow-lg);
-  z-index: var(--app-layer-popover);
-}
-
-.popover h3 {
-  margin: 0;
-  font-size: var(--app-font-size-md);
-  color: var(--app-color-text);
-}
-
-.popover .button-group {
-  justify-content: flex-end;
-  margin-top: var(--app-space-xs);
-}
-
-/* ─── 表单字段 ─── */
 .field {
   display: flex;
   flex-direction: column;
   gap: var(--app-space-xs);
   margin: 0;
   font-size: var(--app-font-size-xs);
-  color: var(--app-color-text-soft);
+  color: var(--app-color-text-muted);
 }
 
 .field-label {
   display: block;
   font-size: var(--app-font-size-xs);
   font-weight: var(--app-font-weight-medium);
-  color: var(--app-color-text-soft);
+  color: var(--app-color-text-muted);
 }
 
 .field input,
