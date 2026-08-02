@@ -107,7 +107,7 @@
             />
           </label>
           {#if editResult && editResult.type == "Conflict"}
-            <div class="msg" data-kind="warn">
+            <div class="msg">
               <strong>学号已被占用</strong>
               <p>
                 学号「{editResult.data.student_no}」已被学生
@@ -170,17 +170,12 @@
     padding: var(--app-space-sm) var(--app-space-md);
     border-radius: var(--app-radius-sm);
     font-size: var(--app-font-size-sm);
-    background: var(--msg-bg, var(--app-color-surface-muted));
-    color: var(--msg-color, var(--app-color-text-muted));
+    background: var(--app-color-surface-muted);
+    color: var(--app-color-text-muted);
     text-align: left;
   }
 
   .msg p {
     margin: 0;
-  }
-
-  .msg[data-kind="warn"] {
-    --msg-bg: var(--orange-1);
-    --msg-color: var(--orange-9);
   }
 </style>
