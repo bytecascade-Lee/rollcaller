@@ -38,7 +38,7 @@
 <!-- 页面根节点由 .content > * 提供布局与激活态 -->
 <div class:active={active}>
   <!-- 上方 1/3：被选中的人 -->
-  <section class="state result-panel">
+  <section class="result-panel">
     <span class="result-phase">{phaseText}</span>
     <span
       class="result-name"
@@ -74,8 +74,8 @@
     </div>
 
     <button
-      class="button toggle-btn"
-      style:--button-bg={engine.isRolling ? "var(--app-color-danger)" : "var(--app-color-success)"}
+      class="btn-toggle"
+      style:--btn-bg={engine.isRolling ? "var(--red-6)" : "var(--green-6)"}
       onclick={() => engine.toggle()}
     >
       {engine.isRolling ? "停止点名" : "开始点名"}
@@ -86,9 +86,9 @@
   <section class="table-section">
     <h3 class="table-title">当前点名记录（{display.length}）</h3>
     {#if recordStore.isLoading}
-      <div class="state">数据加载中...</div>
+      <div class="section-state">数据加载中...</div>
     {:else if display.length == 0}
-      <div class="state">当前还未点名，请先点名</div>
+      <div class="section-state">当前还未点名，请先点名</div>
     {:else}
       <div class="table">
         <table>
@@ -130,11 +130,19 @@
   .result-panel {
     flex: 1 1 33%;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--app-space-sm);
+    padding: var(--app-space-lg);
+    border-radius: var(--app-radius-md);
+    background: var(--app-color-surface);
   }
 
   .result-phase {
     font-size: var(--app-font-size-sm);
-    color: var(--app-color-text-soft);
+    color: var(--app-color-text-muted);
   }
 
   .result-name {
@@ -149,11 +157,11 @@
   }
 
   .result-name.animating {
-    color: var(--app-color-danger);
+    color: var(--red-6);
   }
 
   .result-name.has-result {
-    color: var(--app-color-success);
+    color: var(--green-7);
   }
 
   .control-bar {
@@ -176,8 +184,26 @@
     line-height: var(--font-lineheight-1);
   }
 
-  .toggle-btn {
+  .btn-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     min-width: var(--size-10);
+    min-height: var(--app-size-control);
+    padding: var(--app-space-xs) var(--app-space-md);
+    border: none;
+    border-radius: var(--app-radius-sm);
+    background: var(--btn-bg, var(--green-6));
+    color: var(--sand-0);
+    font-family: inherit;
+    font-size: var(--app-font-size-sm);
+    font-weight: var(--app-font-weight-medium);
+    cursor: pointer;
+    transition: filter 150ms var(--app-ease), opacity 150ms var(--app-ease);
+  }
+
+  .btn-toggle:hover {
+    filter: brightness(.94);
   }
 
   .table-section {
@@ -188,14 +214,22 @@
     gap: var(--app-space-xs);
   }
 
-  .table-section .state {
+  .section-state {
     flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--app-space-xl);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-color-surface);
+    color: var(--app-color-text-muted);
+    font-size: var(--app-font-size-sm);
   }
 
   .table-title {
     margin: 0;
     font-size: var(--app-font-size-sm);
-    color: var(--app-color-text-soft);
+    color: var(--app-color-text-muted);
     flex-shrink: 0;
   }
 </style>
