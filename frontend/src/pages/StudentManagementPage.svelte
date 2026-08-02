@@ -106,7 +106,7 @@
       </button>
     </div>
     <div class="search">
-      <MagnifyingGlassIcon size="20"/>
+      <MagnifyingGlassIcon size="24"/>
       <input
         type="search"
         disabled={studentStore.isLoading}
@@ -133,11 +133,11 @@
           </th>
           <th>序号</th>
           <th>
-            <PencilSimpleIcon size="16"/>
+            <PencilSimpleIcon size="14" weight="bold"/>
             姓名
           </th>
           <th>
-            <PencilSimpleIcon size="16"/>
+            <PencilSimpleIcon size="14" weight="bold"/>
             学号
           </th>
           <th>创建时间</th>
@@ -175,9 +175,9 @@
     justify-content: center;
     padding: var(--app-space-xl);
     border-radius: var(--app-radius-sm);
-    background: var(--app-color-surface);
-    color: var(--app-color-text-muted);
-    font-size: var(--app-font-size-sm);
+    background: var(--app-color-page);
+    color: var(--app-color-text);
+    font-size: var(--app-font-size-bg);
   }
 </style>
 
