@@ -223,7 +223,7 @@
           placeholder="请选择 Excel 文件（.xlsx / .xls）"
           value={filePath}
         />
-        <button type="button" class="btn-secondary" onclick={chooseFile} disabled={isPreviewing}>
+        <button type="button" class="button import-file-btn" onclick={chooseFile} disabled={isPreviewing}>
           {filePath ? "重新选择" : "选择文件"}
         </button>
       </div>
@@ -283,8 +283,8 @@
       <!-- 配置 -->
       {#if previewData}
         <div class="config-grid">
-          <label>
-            表头行数
+          <label class="field">
+            <span class="field-label">表头行数</span>
             <input
               type="number"
               min="0"
@@ -293,8 +293,8 @@
               oninput={onConfigChange}
             />
           </label>
-          <label>
-            学号列索引
+          <label class="field">
+            <span class="field-label">学号列索引</span>
             <input
               type="number"
               min="-1"
@@ -303,8 +303,8 @@
               oninput={onConfigChange}
             />
           </label>
-          <label>
-            姓名列索引
+          <label class="field">
+            <span class="field-label">姓名列索引</span>
             <input
               type="number"
               min="-1"
@@ -321,9 +321,17 @@
         <div class="decide-panel">
           <div class="decide-head">
             <strong>处理学号冲突（{pendingDecisions.length} 条）</strong>
-            <div class="decide-batch">
-              <button type="button" class="btn-secondary" onclick={() => decideAll(true)}>全部覆盖</button>
-              <button type="button" class="btn-secondary" onclick={() => decideAll(false)}>全部跳过</button>
+            <div class="button-group">
+              <button
+                type="button"
+                class="button decide-btn"
+                onclick={() => decideAll(true)}
+              >全部覆盖</button>
+              <button
+                type="button"
+                class="button decide-btn"
+                onclick={() => decideAll(false)}
+              >全部跳过</button>
             </div>
           </div>
           <table class="decide-table">
@@ -342,13 +350,13 @@
                 <td class="decide-actions">
                   <button
                     type="button"
-                    class="btn-secondary"
+                    class="button decide-btn"
                     class:chosen={pendingChoices[s.student_no] === true}
                     onclick={() => chooseDecision(s.student_no, true)}
                   >覆盖并恢复</button>
                   <button
                     type="button"
-                    class="btn-secondary"
+                    class="button decide-btn"
                     class:chosen={pendingChoices[s.student_no] === false}
                     onclick={() => chooseDecision(s.student_no, false)}
                   >跳过</button>
@@ -362,19 +370,21 @@
 
       <!-- 结果消息 -->
       {#if message}
-        <div
-          class="msg-box"
-          class:msg-success={message.kind == "success"}
-          class:msg-warn={message.kind == "warn"}
-          class:msg-info={message.kind == "info"}
-          class:msg-error={message.kind == "error"}
-        >{message.text}</div>
+        <div class="state" data-kind={message.kind}>{message.text}</div>
       {/if}
 
-      <div class="dialog-actions">
-        <button type="button" class="btn-secondary" onclick={close} disabled={isImporting}>关闭</button>
+      <div class="button-group">
         <button
           type="button"
+          class="button"
+          style:--button-bg="var(--app-color-surface-strong)"
+          style:--button-color="var(--app-color-text)"
+          onclick={close}
+          disabled={isImporting}
+        >关闭</button>
+        <button
+          type="button"
+          class="button"
           onclick={runImport}
           disabled={!configValid || isImporting || (pendingDecisions.length > 0 && !allDecided)}
         >
@@ -394,104 +404,108 @@
 <style>
   .import-file-row {
     display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: var(--app-space-xs);
   }
 
   .import-file-row input {
     flex: 1;
     min-width: 0;
-    padding: 6px 10px;
-    border: 1px solid #ced4da;
-    border-radius: 5px;
-    font-size: 13px;
-    background: #f8f9fa;
-    color: #495057;
+    background: var(--app-color-surface-strong);
+    color: var(--app-color-text-soft);
+  }
+
+  .import-file-btn {
+    flex-shrink: 0;
   }
 
   .preview-table-wrap {
-    max-height: 220px;
+    max-height: var(--size-13);
     overflow: auto;
-    border: 1px solid #e9ecef;
-    border-radius: 6px;
-    margin-bottom: 6px;
+    border: var(--border-size-1) solid var(--app-color-border);
+    border-radius: var(--app-radius-sm);
   }
 
   .preview-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: var(--app-font-size-xs);
   }
 
   .preview-table th,
   .preview-table td {
-    padding: 4px 6px;
-    border: 1px solid #e9ecef;
+    padding: var(--app-space-xs) var(--app-space-sm);
+    border: var(--border-size-1) solid var(--app-color-border);
     white-space: nowrap;
   }
 
   .preview-table th {
-    background: #f8f9fa;
+    background: var(--app-color-surface-strong);
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: var(--layer-1);
   }
 
   .col-rowno {
-    width: 32px;
+    width: var(--size-7);
     text-align: center;
-    color: #adb5bd;
+    color: var(--app-color-text-faint);
   }
 
   .preview-table tbody tr.is-header td {
-    background: #f1f3f5;
-    color: #868e96;
+    background: var(--app-color-hover);
+    color: var(--app-color-text-faint);
   }
 
   .preview-table tbody td.is-no-col {
-    background: #e7f5ff;
+    background: var(--app-color-primary-soft);
   }
 
   .preview-table tbody td.is-name-col {
-    background: #ebfbee;
+    background: var(--app-color-success-soft);
   }
 
   .col-head {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--app-space-xxs);
     align-items: center;
+  }
+
+  .col-label {
+    color: var(--app-color-text-soft);
   }
 
   .col-actions {
     display: flex;
-    gap: 4px;
+    gap: var(--app-space-xxs);
   }
 
   .col-actions button {
-    padding: 1px 6px;
-    font-size: 11px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    background: #fff;
+    padding: var(--app-space-xxs) var(--app-space-xs);
+    font-size: var(--app-font-size-xs);
+    border: var(--border-size-1) solid var(--app-color-border);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-color-surface);
+    color: var(--app-color-text-soft);
     cursor: pointer;
   }
 
   .col-actions button:hover {
-    background: #f1f3f5;
+    background: var(--app-color-hover);
   }
 
   .col-actions button.active {
-    border-color: #4dabf7;
-    background: #e7f5ff;
+    border-color: var(--app-color-primary);
+    background: var(--app-color-primary-soft);
+    color: var(--app-color-primary-ink);
   }
 
   .col-tag {
     display: none;
-    padding: 0 6px;
-    border-radius: 8px;
-    font-size: 11px;
-    font-weight: 600;
+    padding: 0 var(--app-space-xs);
+    border-radius: var(--app-radius-round);
+    font-size: var(--app-font-size-xs);
+    font-weight: var(--app-font-weight-medium);
   }
 
   .col-tag.active {
@@ -499,111 +513,78 @@
   }
 
   .col-tag-no {
-    background: #4dabf7;
-    color: #fff;
+    background: var(--app-color-primary);
+    color: var(--sand-0);
   }
 
   .col-tag-name {
-    background: #40c057;
-    color: #fff;
+    background: var(--app-color-success);
+    color: var(--green-0);
   }
 
   .preview-info {
-    margin: 6px 0 12px 0;
-    font-size: 12px;
-    color: #868e96;
+    margin: 0;
+    font-size: var(--app-font-size-xs);
+    color: var(--app-color-text-faint);
   }
 
   .config-grid {
     display: flex;
-    gap: 16px;
-    margin-bottom: 12px;
+    gap: var(--app-space-md);
   }
 
-  .config-grid label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 12px;
-    color: #495057;
-  }
-
-  .config-grid input {
-    width: 80px;
-    padding: 4px 8px;
-    border: 1px solid #ced4da;
-    border-radius: 5px;
-    font-size: 13px;
+  .config-grid .field {
+    width: var(--size-11);
   }
 
   .decide-panel {
-    margin-bottom: 12px;
-    border: 1px solid #ffd43b;
-    border-radius: 6px;
-    padding: 10px;
-    background: #fff9db;
+    padding: var(--app-space-sm);
+    border: var(--border-size-1) solid var(--app-color-warn);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-color-warn-soft);
   }
 
   .decide-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 8px;
-    font-size: 13px;
-  }
-
-  .decide-batch {
-    display: flex;
-    gap: 6px;
+    gap: var(--app-space-sm);
+    margin-bottom: var(--app-space-xs);
+    font-size: var(--app-font-size-sm);
+    color: var(--app-color-text);
   }
 
   .decide-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: var(--app-font-size-xs);
   }
 
   .decide-table th,
   .decide-table td {
-    padding: 4px 8px;
-    border-bottom: 1px solid #ffe066;
+    padding: var(--app-space-xs) var(--app-space-sm);
+    border-bottom: var(--border-size-1) solid var(--app-color-border);
     text-align: left;
+  }
+
+  .decide-table th {
+    color: var(--app-color-text-soft);
+    font-weight: var(--app-font-weight-medium);
   }
 
   .decide-actions {
     display: flex;
-    gap: 6px;
+    gap: var(--app-space-xs);
   }
 
-  .decide-actions button.chosen {
-    border-color: #1971c2;
-    background: #e7f5ff;
+  .decide-btn {
+    --button-bg: var(--app-color-surface-strong);
+    --button-color: var(--app-color-text);
   }
 
-  .msg-box {
-    margin-bottom: 12px;
-    padding: 10px 12px;
-    border-radius: 6px;
-    font-size: 13px;
-  }
-
-  .msg-success {
-    background: #ebfbee;
-    color: #2b8a3e;
-  }
-
-  .msg-warn {
-    background: #fff9db;
-    color: #e67700;
-  }
-
-  .msg-info {
-    background: #e7f5ff;
-    color: #1971c2;
-  }
-
-  .msg-error {
-    background: #fff5f5;
-    color: #c92a2a;
+  .decide-btn.chosen {
+    --button-bg: var(--app-color-primary-soft);
+    --button-color: var(--app-color-primary-ink);
+    outline: var(--border-size-2) solid var(--app-color-primary);
   }
 </style>
