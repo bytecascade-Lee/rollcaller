@@ -223,7 +223,7 @@
           placeholder="请选择 Excel 文件（.xlsx / .xls）"
           value={filePath}
         />
-        <button type="button" class="button import-file-btn" onclick={chooseFile} disabled={isPreviewing}>
+        <button type="button" class="btn import-file-btn" onclick={chooseFile} disabled={isPreviewing}>
           {filePath ? "重新选择" : "选择文件"}
         </button>
       </div>
@@ -324,12 +324,12 @@
             <div class="button-group">
               <button
                 type="button"
-                class="button decide-btn"
+                class="btn decide-btn"
                 onclick={() => decideAll(true)}
               >全部覆盖</button>
               <button
                 type="button"
-                class="button decide-btn"
+                class="btn decide-btn"
                 onclick={() => decideAll(false)}
               >全部跳过</button>
             </div>
@@ -350,13 +350,13 @@
                 <td class="decide-actions">
                   <button
                     type="button"
-                    class="button decide-btn"
+                    class="btn decide-btn"
                     class:chosen={pendingChoices[s.student_no] === true}
                     onclick={() => chooseDecision(s.student_no, true)}
                   >覆盖并恢复</button>
                   <button
                     type="button"
-                    class="button decide-btn"
+                    class="btn decide-btn"
                     class:chosen={pendingChoices[s.student_no] === false}
                     onclick={() => chooseDecision(s.student_no, false)}
                   >跳过</button>
@@ -370,21 +370,21 @@
 
       <!-- 结果消息 -->
       {#if message}
-        <div class="state" data-kind={message.kind}>{message.text}</div>
+        <div class="msg" data-kind={message.kind}>{message.text}</div>
       {/if}
 
       <div class="button-group">
         <button
           type="button"
-          class="button"
-          style:--button-bg="var(--app-color-surface-strong)"
-          style:--button-color="var(--app-color-text)"
+          class="btn"
+          style:--btn-bg="var(--app-color-surface-muted)"
+          style:--btn-color="var(--app-color-text)"
           onclick={close}
           disabled={isImporting}
         >关闭</button>
         <button
           type="button"
-          class="button"
+          class="btn"
           onclick={runImport}
           disabled={!configValid || isImporting || (pendingDecisions.length > 0 && !allDecided)}
         >
@@ -402,6 +402,64 @@
 {/if}
 
 <style>
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--app-size-control);
+    padding: var(--app-space-xs) var(--app-space-md);
+    border: none;
+    border-radius: var(--app-radius-sm);
+    background: var(--btn-bg, var(--app-color-primary));
+    color: var(--btn-color, var(--sand-0));
+    font-family: inherit;
+    font-size: var(--app-font-size-sm);
+    font-weight: var(--app-font-weight-medium);
+    cursor: pointer;
+    transition: filter 150ms var(--app-ease), opacity 150ms var(--app-ease);
+  }
+
+  .btn:hover {
+    filter: brightness(.94);
+  }
+
+  .btn:disabled {
+    opacity: var(--app-opacity-disabled);
+    cursor: not-allowed;
+  }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-space-xs);
+    padding: var(--app-space-sm) var(--app-space-md);
+    border-radius: var(--app-radius-sm);
+    font-size: var(--app-font-size-sm);
+    background: var(--msg-bg, var(--app-color-surface-muted));
+    color: var(--msg-color, var(--app-color-text-muted));
+    text-align: left;
+  }
+
+  .msg[data-kind="success"] {
+    --msg-bg: var(--green-1);
+    --msg-color: var(--green-9);
+  }
+
+  .msg[data-kind="warn"] {
+    --msg-bg: var(--orange-1);
+    --msg-color: var(--orange-9);
+  }
+
+  .msg[data-kind="info"] {
+    --msg-bg: var(--blue-1);
+    --msg-color: var(--blue-9);
+  }
+
+  .msg[data-kind="error"] {
+    --msg-bg: var(--red-1);
+    --msg-color: var(--red-9);
+  }
+
   .import-file-row {
     display: flex;
     gap: var(--app-space-xs);
@@ -410,8 +468,8 @@
   .import-file-row input {
     flex: 1;
     min-width: 0;
-    background: var(--app-color-surface-strong);
-    color: var(--app-color-text-soft);
+    background: var(--app-color-surface-muted);
+    color: var(--app-color-text-muted);
   }
 
   .import-file-btn {
@@ -439,7 +497,7 @@
   }
 
   .preview-table th {
-    background: var(--app-color-surface-strong);
+    background: var(--app-color-surface-muted);
     position: sticky;
     top: 0;
     z-index: var(--layer-1);
@@ -448,20 +506,20 @@
   .col-rowno {
     width: var(--size-7);
     text-align: center;
-    color: var(--app-color-text-faint);
+    color: var(--app-color-text-muted);
   }
 
   .preview-table tbody tr.is-header td {
     background: var(--app-color-hover);
-    color: var(--app-color-text-faint);
+    color: var(--app-color-text-muted);
   }
 
   .preview-table tbody td.is-no-col {
-    background: var(--app-color-primary-soft);
+    background: color-mix(in srgb, var(--app-color-primary) 10%, transparent);
   }
 
   .preview-table tbody td.is-name-col {
-    background: var(--app-color-success-soft);
+    background: color-mix(in srgb, var(--green-6) 12%, transparent);
   }
 
   .col-head {
@@ -472,7 +530,7 @@
   }
 
   .col-label {
-    color: var(--app-color-text-soft);
+    color: var(--app-color-text-muted);
   }
 
   .col-actions {
@@ -486,7 +544,7 @@
     border: var(--border-size-1) solid var(--app-color-border);
     border-radius: var(--app-radius-sm);
     background: var(--app-color-surface);
-    color: var(--app-color-text-soft);
+    color: var(--app-color-text-muted);
     cursor: pointer;
   }
 
@@ -496,8 +554,8 @@
 
   .col-actions button.active {
     border-color: var(--app-color-primary);
-    background: var(--app-color-primary-soft);
-    color: var(--app-color-primary-ink);
+    background: color-mix(in srgb, var(--app-color-primary) 10%, transparent);
+    color: var(--app-color-primary);
   }
 
   .col-tag {
@@ -518,14 +576,14 @@
   }
 
   .col-tag-name {
-    background: var(--app-color-success);
+    background: var(--green-6);
     color: var(--green-0);
   }
 
   .preview-info {
     margin: 0;
     font-size: var(--app-font-size-xs);
-    color: var(--app-color-text-faint);
+    color: var(--app-color-text-muted);
   }
 
   .config-grid {
@@ -539,9 +597,9 @@
 
   .decide-panel {
     padding: var(--app-space-sm);
-    border: var(--border-size-1) solid var(--app-color-warn);
+    border: var(--border-size-1) solid var(--orange-7);
     border-radius: var(--app-radius-sm);
-    background: var(--app-color-warn-soft);
+    background: var(--orange-1);
   }
 
   .decide-head {
@@ -568,7 +626,7 @@
   }
 
   .decide-table th {
-    color: var(--app-color-text-soft);
+    color: var(--app-color-text-muted);
     font-weight: var(--app-font-weight-medium);
   }
 
@@ -578,13 +636,12 @@
   }
 
   .decide-btn {
-    --button-bg: var(--app-color-surface-strong);
-    --button-color: var(--app-color-text);
+    --btn-bg: var(--app-color-surface);
+    --btn-color: var(--app-color-text);
   }
 
   .decide-btn.chosen {
-    --button-bg: var(--app-color-primary-soft);
-    --button-color: var(--app-color-primary-ink);
-    outline: var(--border-size-2) solid var(--app-color-primary);
+    --btn-bg: var(--app-color-primary);
+    --btn-color: var(--sand-0);
   }
 </style>
