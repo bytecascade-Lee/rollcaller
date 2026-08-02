@@ -1,7 +1,7 @@
 <script lang="ts">
   import {RecordCommand} from "$commands";
   import {recordStore} from "$stores/recordStore.svelte";
-  import {STATUS_MAP, statusText} from "$constants";
+  import {STATUS_MAP, statusText, STATUS_COLORS, STATUS_DEFAULT_COLOR} from "$constants";
   import type {RollcallRecord} from "$types";
   import {overlayController} from "$controllers/overlayController";
 
@@ -18,6 +18,10 @@
   let popoverStyle = $state("");
 
   const statusCodes = Object.keys(STATUS_MAP).map(Number);
+
+  function statusStyle(code: number) {
+    return STATUS_COLORS[code] ?? STATUS_DEFAULT_COLOR;
+  }
 
   function updatePosition() {
     const rect = anchor.getBoundingClientRect();
@@ -76,7 +80,7 @@
   <div class="popover-backdrop" onclick={close}></div>
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="popover" style={popoverStyle} onclick={(e) => e.stopPropagation()}>
+  <div class="edit-popover" style={popoverStyle} onclick={(e) => e.stopPropagation()}>
     <h3>批量修改出勤记录（共 {selected.size} 条）</h3>
 
     <div class="field">
@@ -89,11 +93,13 @@
       <span class="field-label">状态</span>
       <div class="status-group">
         {#each statusCodes as code (code)}
+          {@const s = statusStyle(code)}
           <button
             class="status-btn"
             type="button"
             disabled={!updateStatus}
-            data-status={code}
+            style:--status-bg={s.bg}
+            style:--status-color={s.color}
             class:selected={attendanceStatus == code}
             onclick={() => attendanceStatus = attendanceStatus == code ? null : code}>
             {statusText(code)}
@@ -115,12 +121,12 @@
     <div class="button-group">
       <button
         type="button"
-        class="button"
-        style:--button-bg="var(--app-color-surface-strong)"
-        style:--button-color="var(--app-color-text)"
+        class="btn"
+        style:--btn-bg="var(--app-color-surface-muted)"
+        style:--btn-color="var(--app-color-text)"
         onclick={close}
       >取消</button>
-      <button type="button" class="button" onclick={update}>确定</button>
+      <button type="button" class="btn" onclick={update}>确定</button>
     </div>
   </div>
 {/if}
@@ -131,6 +137,50 @@
     inset: 0;
     z-index: 998;
     background: transparent;
+  }
+
+  .edit-popover {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-space-sm);
+    padding: var(--app-space-md);
+    border: var(--border-size-1) solid var(--app-color-border);
+    border-radius: var(--app-radius-md);
+    background: var(--app-color-surface);
+    box-shadow: var(--app-shadow-lg);
+    z-index: var(--app-layer-popover);
+  }
+
+  .edit-popover h3 {
+    margin: 0;
+    font-size: var(--app-font-size-md);
+    color: var(--app-color-text);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--app-size-control);
+    padding: var(--app-space-xs) var(--app-space-md);
+    border: none;
+    border-radius: var(--app-radius-sm);
+    background: var(--btn-bg, var(--app-color-primary));
+    color: var(--btn-color, var(--sand-0));
+    font-family: inherit;
+    font-size: var(--app-font-size-sm);
+    font-weight: var(--app-font-weight-medium);
+    cursor: pointer;
+    transition: filter 150ms var(--app-ease), opacity 150ms var(--app-ease);
+  }
+
+  .btn:hover {
+    filter: brightness(.94);
+  }
+
+  .btn:disabled {
+    opacity: var(--app-opacity-disabled);
+    cursor: not-allowed;
   }
 
   .status-group {
@@ -145,37 +195,12 @@
     border-radius: var(--app-radius-round);
     font-size: var(--app-font-size-xs);
     cursor: pointer;
-    background: var(--status-bg, var(--app-color-surface-strong));
-    color: var(--status-color, var(--app-color-text-soft));
-  }
-
-  .status-btn[data-status="0"] {
-    --status-bg: var(--app-status-0-bg);
-    --status-color: var(--app-status-0-color);
-  }
-
-  .status-btn[data-status="1"] {
-    --status-bg: var(--app-status-1-bg);
-    --status-color: var(--app-status-1-color);
-  }
-
-  .status-btn[data-status="2"] {
-    --status-bg: var(--app-status-2-bg);
-    --status-color: var(--app-status-2-color);
-  }
-
-  .status-btn[data-status="3"] {
-    --status-bg: var(--app-status-3-bg);
-    --status-color: var(--app-status-3-color);
-  }
-
-  .status-btn[data-status="4"] {
-    --status-bg: var(--app-status-4-bg);
-    --status-color: var(--app-status-4-color);
+    background: var(--status-bg, var(--app-color-surface-muted));
+    color: var(--status-color, var(--app-color-text-muted));
   }
 
   .status-btn.selected {
-    outline: var(--border-size-2) solid var(--app-color-ink);
+    outline: var(--border-size-2) solid var(--gray-9);
     outline-offset: var(--size-1);
   }
 </style>
