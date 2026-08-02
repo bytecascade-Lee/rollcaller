@@ -24,21 +24,21 @@
       </button>
       <button
         class="nav-item"
-        class:active={currentPage == "records"}
-        aria-label="历史记录"
-        title="历史记录"
-        onclick={() => currentPage = "records"}
-      >
-        <ClockCounterClockwiseIcon size="24"/>
-      </button>
-      <button
-        class="nav-item"
         class:active={currentPage == "students"}
         aria-label="学生管理"
         title="学生管理"
         onclick={() => currentPage = "students"}
       >
         <UsersIcon size="24"/>
+      </button>
+      <button
+        class="nav-item"
+        class:active={currentPage == "records"}
+        aria-label="历史记录"
+        title="历史记录"
+        onclick={() => currentPage = "records"}
+      >
+        <ClockCounterClockwiseIcon size="24"/>
       </button>
     </nav>
   </aside>
