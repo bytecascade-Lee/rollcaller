@@ -7,7 +7,7 @@ export async function preview(filePath: string) {
   })
 }
 
-export async function load(filePath: string, headerRows: number, columnMapping: Map<string, number>, decisions: Map<string, boolean>) {
+export async function load(filePath: string, headerRows: number, columnMapping: Record<string, number>, decisions: Record<string, boolean>) {
   return await invoke<StudentBatchCreateResult>("import_excel", {
     filePath: filePath,
     headerRows: headerRows,
