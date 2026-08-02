@@ -19,6 +19,7 @@
   import ExportStudents from "$components/student-management/ExportStudents.svelte";
 
   let selected = $state<Set<bigint>>(new Set())
+  let {active = $bindable(false)} = $props();
   let searchQuery = $state("")
   let display = $derived(
     studentStore.students.filter(student =>
@@ -51,42 +52,61 @@
 
 </script>
 
-<div class="page">
+<!-- 页面根节点由 .content > * 提供布局与激活态 -->
+<div class:active={active}>
   <div class="toolbar">
-    <div class="toolbar-button">
+    <div class="button-group">
       <button
+        class="icon-button"
+        aria-label="添加学生"
+        title="添加学生"
         disabled={studentStore.isLoading}
         onclick={() => overlayController.open("StudentSingleCreate")}>
-        <PlusIcon/>
+        <PlusIcon size="24"/>
       </button>
       <button
+        class="icon-button"
+        aria-label="修改学生"
+        title="修改学生"
         disabled={selected.size != 1}
         onclick={() => overlayController.open("StudentEdit")}>
-        <PencilIcon/>
+        <PencilIcon size="24"/>
       </button>
       <button
+        class="icon-button"
+        aria-label="删除学生"
+        title="删除学生"
         disabled={selected.size == 0}
         onclick={() => overlayController.open("StudentDelete")}>
-        <MinusIcon/>
+        <MinusIcon size="24"/>
       </button>
       <button
+        class="icon-button"
+        aria-label="导入学生"
+        title="导入学生"
         disabled={studentStore.isLoading}
         onclick={() => overlayController.open("StudentImport")}>
-        <FileArrowUpIcon/>
+        <FileArrowUpIcon size="24"/>
       </button>
       <button
+        class="icon-button"
+        aria-label="导出学生"
+        title="导出学生"
         disabled={studentStore.isLoading}
         onclick={() => overlayController.open("StudentExport")}>
-        <FileArrowDownIcon/>
+        <FileArrowDownIcon size="24"/>
       </button>
       <button
+        class="icon-button"
+        aria-label="刷新"
+        title="刷新"
         disabled={studentStore.isLoading}
         onclick={() => studentStore.load()}>
-        <ArrowClockwiseIcon/>
+        <ArrowClockwiseIcon size="24"/>
       </button>
     </div>
-    <div class="toolbar-search">
-      <MagnifyingGlassIcon/>
+    <div class="search">
+      <MagnifyingGlassIcon size="20"/>
       <input
         type="search"
         disabled={studentStore.isLoading}
@@ -96,9 +116,9 @@
   </div>
 
   {#if studentStore.isLoading}
-    数据加载中...
+    <div class="state">数据加载中...</div>
   {:else if display.length == 0}
-    暂无学生数据
+    <div class="state">暂无学生数据</div>
   {:else}
     <div class="table">
       <table>
@@ -113,11 +133,11 @@
           </th>
           <th>序号</th>
           <th>
-            <PencilSimpleIcon/>
+            <PencilSimpleIcon size="16"/>
             姓名
           </th>
           <th>
-            <PencilSimpleIcon/>
+            <PencilSimpleIcon size="16"/>
             学号
           </th>
           <th>创建时间</th>
