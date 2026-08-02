@@ -42,6 +42,7 @@
     <span class="result-phase">{phaseText}</span>
     <span
       class="result-name"
+      style="color: var(--app-color-warn);"
       class:animating={engine.phase == RollcallPhase.Animating}
       class:has-result={engine.phase != RollcallPhase.Animating && engine.currentName !== "" && engine.currentName !== "等待点名"}
     >
