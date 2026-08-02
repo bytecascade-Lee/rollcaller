@@ -35,9 +35,20 @@
     <div class="dialog" onclick={(e) => e.stopPropagation()}>
       <h3>确认删除</h3>
       <p>确定删除选中的 {selected.size} 条记录吗？</p>
-      <div class="dialog-actions">
-        <button class="btn-secondary" onclick={() => isVisible = false}>取消</button>
-        <button class="btn-danger" onclick={del}>删除</button>
+      <div class="button-group">
+        <button
+          type="button"
+          class="button"
+          style:--button-bg="var(--app-color-surface-strong)"
+          style:--button-color="var(--app-color-text)"
+          onclick={() => isVisible = false}
+        >取消</button>
+        <button
+          type="button"
+          class="button"
+          style:--button-bg="var(--app-color-danger)"
+          onclick={del}
+        >删除</button>
       </div>
     </div>
   </div>
