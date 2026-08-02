@@ -9,26 +9,35 @@
   let localEdit = $state<StudentTable | null>(null);
   let isVisible = $state(false);
   let closeOnOutside = true;
-  let editResult = $state<StudentSingleUpdate>()
+  let editResult = $state<StudentSingleUpdate | undefined>(undefined);
+  let isSaving = $state(false);
+
+  let canSave = $derived(
+    localEdit != null &&
+    localEdit.student_no.trim() !== "" &&
+    localEdit.name.trim() !== ""
+  );
 
   async function edit() {
-    if (!localEdit) return;
-    localEdit.student_no = localEdit.student_no.trim()
-    localEdit.name = localEdit.name.trim()
-    if (!localEdit.name || !localEdit.student_no) return;
+    if (!localEdit || !canSave || isSaving) return;
+    localEdit.student_no = localEdit.student_no.trim();
+    localEdit.name = localEdit.name.trim();
     try {
+      isSaving = true;
       editResult = await StudentCommand.update({
-          id: localEdit.id,
-          student_no: localEdit.student_no,
-          name: localEdit.name,
-        }
-      );
-      if (editResult && editResult.type == "Update") {
+        id: localEdit.id,
+        student_no: localEdit.student_no,
+        name: localEdit.name,
+      });
+      if (editResult.type == "Update") {
         studentStore.upsert(localEdit);
-        close()
+        close();
       }
+      // Conflict：保持弹窗打开，提示用户修改学号或姓名后重试
     } catch (e) {
       alert(String(e));
+    } finally {
+      isSaving = false;
     }
   }
 
@@ -36,6 +45,12 @@
     isVisible = false;
     localEdit = null;
     editResult = undefined;
+    isSaving = false;
+  }
+
+  function open() {
+    editResult = undefined;
+    isVisible = true;
   }
 
   $effect(() => {
@@ -48,7 +63,7 @@
   });
   $effect(() => {
     overlayController.register("StudentEdit", {
-      open: () => isVisible = true,
+      open: open,
       close: close,
       isVisible: () => isVisible
     })
@@ -58,37 +73,57 @@
 {#if isVisible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="overlay" onclick={closeOnOutside ? () => isVisible = false : undefined}>
+  <div class="overlay" onclick={closeOnOutside ? () => close() : undefined}>
     <div class="dialog" onclick={(e) => e.stopPropagation()}>
       {#if selected.size > 1}
         <h3>仅支持单个修改</h3>
-        <div>
-          <button onclick={() => isVisible = false}>确定</button>
+        <div>当前选中了 {selected.size} 名学生，请只选择一名后再试。</div>
+        <div class="dialog-actions">
+          <button type="button" onclick={close}>确定</button>
         </div>
       {:else if localEdit == null}
-        <h3>待编辑的对象为Null，失败！</h3>
+        <h3>未找到待编辑的学生</h3>
         <div>当前选中id：{Array.from(selected)}</div>
-        <div>
-          <button onclick={() => isVisible = false}>确定</button>
+        <div class="dialog-actions">
+          <button type="button" onclick={close}>确定</button>
         </div>
       {:else}
-        <h3>修改学生</h3>
-        <label>
-          学号
-          <input type="text" bind:value={localEdit.student_no}/>
-        </label>
-        <label>
-          姓名
-          <input type="text" bind:value={localEdit.name}/>
-        </label>
-        {#if editResult && editResult.type == "Conflict"}
-          <div>存在冲突：学号：{editResult.data.student_no}，姓名：{editResult.data.name}
-            ，创建于{format(editResult.data.created_at)}</div>
-        {/if}
-        <div class="dialog-actions">
-          <button class="btn-secondary" onclick={close}>取消</button>
-          <button onclick={edit}>保存</button>
-        </div>
+        <form onsubmit={(e) => { e.preventDefault(); edit(); }}>
+          <h3>修改学生</h3>
+          <label>
+            学号
+            <input
+              type="text"
+              bind:value={localEdit.student_no}
+              oninput={() => { if (editResult) editResult = undefined; }}
+            />
+          </label>
+          <label>
+            姓名
+            <input
+              type="text"
+              bind:value={localEdit.name}
+              oninput={() => { if (editResult) editResult = undefined; }}
+            />
+          </label>
+          {#if editResult && editResult.type == "Conflict"}
+            <div class="msg-box msg-warn">
+              <strong>学号已被占用</strong>
+              <p>
+                学号「{editResult.data.student_no}」已被学生
+                <b>{editResult.data.name}</b>
+                使用（创建于 {format(editResult.data.created_at)}）。
+              </p>
+              <p>请修改学号或姓名后重新保存。</p>
+            </div>
+          {/if}
+          <div class="dialog-actions">
+            <button type="button" class="btn-secondary" onclick={close} disabled={isSaving}>取消</button>
+            <button type="submit" disabled={isSaving || !canSave}>
+              {isSaving ? "保存中..." : "保存"}
+            </button>
+          </div>
+        </form>
       {/if}
     </div>
   </div>
