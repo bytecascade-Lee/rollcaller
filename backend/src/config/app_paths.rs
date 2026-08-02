@@ -59,7 +59,7 @@ fn detect_mode() -> AppMode {
 
     // 便携模式: 检测 .portable 文件
     if let Some(exe_dir) = current_exe_dir() {
-        if exe_dir.join(".portable").is_file() {
+        if exe_dir.join("portable.mode").is_file() {
             return AppMode::Portable;
         }
     }
