@@ -38,46 +38,16 @@
       <div class="button-group">
         <button
           type="button"
-          class="btn"
-          style:--btn-bg="var(--app-color-surface-muted)"
-          style:--btn-color="var(--app-color-text)"
+          class="button"
           onclick={() => isVisible = false}
         >取消</button>
         <button
           type="button"
-          class="btn"
-          style:--btn-bg="var(--red-7)"
+          class="button"
+          style="background: var(--app-color-error); color: var(--app-color-text-white)"
           onclick={del}
         >删除</button>
       </div>
     </div>
   </div>
 {/if}
-
-<style>
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: var(--app-size-control);
-    padding: var(--app-space-xs) var(--app-space-md);
-    border: none;
-    border-radius: var(--app-radius-sm);
-    background: var(--btn-bg, var(--app-color-primary));
-    color: var(--btn-color, var(--sand-0));
-    font-family: inherit;
-    font-size: var(--app-font-size-sm);
-    font-weight: var(--app-font-weight-medium);
-    cursor: pointer;
-    transition: filter 150ms var(--app-ease), opacity 150ms var(--app-ease);
-  }
-
-  .btn:hover {
-    filter: brightness(.94);
-  }
-
-  .btn:disabled {
-    opacity: var(--app-opacity-disabled);
-    cursor: not-allowed;
-  }
-</style>
