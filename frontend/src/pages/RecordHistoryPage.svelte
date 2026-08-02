@@ -95,9 +95,9 @@
   </div>
 
   {#if recordStore.isLoading}
-    <div class="state">数据加载中...</div>
+    <div class="page-state">数据加载中...</div>
   {:else if display.length == 0}
-    <div class="state">暂无历史记录</div>
+    <div class="page-state">暂无历史记录</div>
   {:else}
     <div class="table">
       <table>
@@ -149,5 +149,19 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .page-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--app-space-xl);
+    border-radius: var(--app-radius-sm);
+    background: var(--app-color-surface);
+    color: var(--app-color-text-muted);
+    font-size: var(--app-font-size-sm);
+  }
+</style>
 
 <EditRecord bind:anchor={anchor} bind:selected={selected}/>
