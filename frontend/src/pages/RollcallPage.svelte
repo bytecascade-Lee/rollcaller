@@ -57,6 +57,7 @@
         type="number"
         min="1"
         max={studentStore.students.length || 1}
+        style="height: 28px; width: 64px"
         value={engine.totalTimes}
         oninput={(e) => engine.updateTotalTimes(Number(e.currentTarget.value))}
         disabled={engine.isRolling}
@@ -128,7 +129,7 @@
 <style>
   /* 结构布局：上 1/3 结果区 + 中间控制区 + 下 1/2 记录表 */
   .result-panel {
-    flex: 1 1 33%;
+    flex: 1 1 30%;
     min-height: 0;
     display: flex;
     flex-direction: column;
