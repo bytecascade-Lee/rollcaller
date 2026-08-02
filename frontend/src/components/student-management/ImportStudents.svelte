@@ -18,7 +18,7 @@
   // 已删除但姓名不同的冲突记录，需用户逐条决策
   let pendingDecisions = $state<StudentTable[]>([]);
   // 学号 -> 是否覆盖（true=覆盖并恢复，false=跳过）
-  let pendingChoices = $state<Map<string, boolean>>({});
+  let pendingChoices = $state<Map<string, boolean>>(new Map<string, boolean>());
 
   let configValid = $derived(
     previewData != null &&
@@ -120,18 +120,18 @@
 
   function chooseDecision(studentNo: string, override: boolean) {
     const next = {...pendingChoices};
-    if (next[studentNo] === override) {
-      delete next[studentNo];
+    if (next.get(studentNo) === override) {
+      next.delete(studentNo);
     } else {
-      next[studentNo] = override;
+      next.set(studentNo, override);
     }
     pendingChoices = next;
   }
 
   function decideAll(override: boolean) {
-    const next: Record<string, boolean> = {...pendingChoices};
+    const next: Map<string, boolean> = {...pendingChoices};
     for (const s of pendingDecisions) {
-      next[s.student_no] = override;
+      next.set(s.student_no, override)
     }
     pendingChoices = next;
   }
@@ -171,7 +171,7 @@
         case "Conflict":
           message = {
             text: `以下学号已存在活跃记录，无法导入：${result.data
-              .map((s) => `${s.student_no}（${s.name}）`)
+              .map((s: { student_no: string; name: string; }) => `${s.student_no}（${s.name}）`)
               .join("、")}。`,
           };
           break;
@@ -346,14 +346,14 @@
                   <button
                     type="button"
                     class="btn decide-btn"
-                    class:chosen={pendingChoices[s.student_no] === true}
+                    class:chosen={pendingChoices.get(s.student_no) === true}
                     onclick={() => chooseDecision(s.student_no, true)}
                   >覆盖并恢复
                   </button>
                   <button
                     type="button"
                     class="btn decide-btn"
-                    class:chosen={pendingChoices[s.student_no] === false}
+                    class:chosen={pendingChoices.get(s.student_no) === false}
                     onclick={() => chooseDecision(s.student_no, false)}
                   >跳过
                   </button>
@@ -387,7 +387,7 @@
           {#if isImporting}
             导入中...
           {:else if pendingDecisions.length > 0}
-            导入（{pendingDecisions.filter((s) => pendingChoices[s.student_no] !== undefined).length}
+            导入（{pendingDecisions.filter((s) => pendingChoices.get(s.student_no) !== undefined).length}
             /{pendingDecisions.length} 已决策）
           {:else}
             导入
