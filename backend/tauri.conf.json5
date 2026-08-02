@@ -1,7 +1,7 @@
 {
     $schema: "../docs/schema/tauri-config-schema.json",
     productName: "rollcaller",
-    version: "0.1.0-alpha.1",
+    version: "0.1.0-rc.1",
     identifier: "com.serene.client.rollcaller",
     build: {
         beforeDevCommand: "cd ./frontend && pnpm dev",
