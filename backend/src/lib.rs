@@ -16,6 +16,7 @@ pub async fn run() {
         .setup(|app| init(app))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_single_instance::init(|app, args, cmd| {}))
         .invoke_handler(tauri::generate_handler![
             crate::cmd::app_paths::data_dir,
             crate::cmd::app_paths::config_dir,
