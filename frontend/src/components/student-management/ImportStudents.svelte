@@ -14,7 +14,7 @@
   let closeOnOutside = true;
   let isPreviewing = $state(false);
   let isImporting = $state(false);
-  let message = $state<{ kind: "success" | "warn" | "info" | "error"; text: string } | null>(null);
+  let message = $state<{ text: string } | null>(null);
   // 已删除但姓名不同的冲突记录，需用户逐条决策
   let pendingDecisions = $state<StudentTable[]>([]);
   // 学号 -> 是否覆盖（true=覆盖并恢复，false=跳过）
@@ -67,7 +67,7 @@
       filePath = selected;
       await preview();
     } catch (e) {
-      message = { kind: "error", text: "选择文件失败：" + e };
+      message = { text: "选择文件失败：" + e };
     }
   }
 
@@ -88,7 +88,7 @@
       headerRows = 0;
     } catch (e) {
       previewData = null;
-      message = { kind: "error", text: "预览失败：" + e };
+      message = { text: "预览失败：" + e };
     } finally {
       isPreviewing = false;
     }
@@ -161,7 +161,6 @@
         case "Upsert": {
           await studentStore.load();
           message = {
-            kind: "success",
             text: result.type === "Upsert"
               ? `成功导入 ${result.data.length} 名学生（含自动恢复/覆写）`
               : `成功导入 ${result.data.length} 名学生`,
@@ -171,13 +170,11 @@
         }
         case "DuplicateInput":
           message = {
-            kind: "error",
             text: `导入数据中存在重复学号：${result.data.join("、")}，请去重后重试。`,
           };
           break;
         case "Conflict":
           message = {
-            kind: "error",
             text: `以下学号已存在活跃记录，无法导入：${result.data
               .map((s) => `${s.student_no}（${s.name}）`)
               .join("、")}。`,
@@ -187,13 +184,12 @@
           pendingDecisions = result.data;
           pendingChoices = {};
           message = {
-            kind: "info",
             text: "以下学号存在已删除但姓名不同的记录，请逐条选择「覆盖并恢复」或「跳过」。",
           };
           break;
       }
     } catch (e) {
-      message = { kind: "error", text: "导入失败：" + e };
+      message = { text: "导入失败：" + e };
     } finally {
       isImporting = false;
     }
@@ -370,7 +366,7 @@
 
       <!-- 结果消息 -->
       {#if message}
-        <div class="msg" data-kind={message.kind}>{message.text}</div>
+        <div class="msg">{message.text}</div>
       {/if}
 
       <div class="button-group">
@@ -435,29 +431,9 @@
     padding: var(--app-space-sm) var(--app-space-md);
     border-radius: var(--app-radius-sm);
     font-size: var(--app-font-size-sm);
-    background: var(--msg-bg, var(--app-color-surface-muted));
-    color: var(--msg-color, var(--app-color-text-muted));
+    background: var(--app-color-surface-muted);
+    color: var(--app-color-text-muted);
     text-align: left;
-  }
-
-  .msg[data-kind="success"] {
-    --msg-bg: var(--green-1);
-    --msg-color: var(--green-9);
-  }
-
-  .msg[data-kind="warn"] {
-    --msg-bg: var(--orange-1);
-    --msg-color: var(--orange-9);
-  }
-
-  .msg[data-kind="info"] {
-    --msg-bg: var(--blue-1);
-    --msg-color: var(--blue-9);
-  }
-
-  .msg[data-kind="error"] {
-    --msg-bg: var(--red-1);
-    --msg-color: var(--red-9);
   }
 
   .import-file-row {
@@ -597,9 +573,9 @@
 
   .decide-panel {
     padding: var(--app-space-sm);
-    border: var(--border-size-1) solid var(--orange-7);
+    border: var(--border-size-1) solid var(--app-color-border);
     border-radius: var(--app-radius-sm);
-    background: var(--orange-1);
+    background: var(--app-color-surface);
   }
 
   .decide-head {
