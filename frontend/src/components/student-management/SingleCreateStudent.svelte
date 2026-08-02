@@ -102,7 +102,7 @@
         </label>
         {#if result != null}
           {#if result.type == "ActiveExists"}
-            <div class="msg" data-kind="warn">
+            <div class="msg">
               <strong>学号已被占用</strong>
               <p>
                 学号「{result.data.student_no}」已被学生
@@ -113,7 +113,7 @@
               <p>请修改学号后重试。</p>
             </div>
           {:else if result.type == "Conflict"}
-            <div class="msg" data-kind="warn">
+            <div class="msg">
               <strong>学号冲突 — 存在已删除的记录</strong>
               <table>
                 <thead>
@@ -139,14 +139,14 @@
               <p>原记录已被软删除，是否用新姓名覆盖并恢复？</p>
             </div>
           {:else if result.type == "Restore"}
-            <div class="msg" data-kind="info">
+            <div class="msg">
               <strong>已自动恢复</strong>
               <p>
                 学号「{result.data.student_no}」曾存在且已删除，系统已自动恢复原记录。
               </p>
             </div>
           {:else if result.type == "Insert"}
-            <div class="msg" data-kind="success">
+            <div class="msg">
               <strong>添加成功</strong>
               <p>
                 学生 <b>{result.data.name}</b>（{result.data
@@ -154,7 +154,7 @@
               </p>
             </div>
           {:else if result.type == "Override"}
-            <div class="msg" data-kind="info">
+            <div class="msg">
               <strong>已覆写</strong>
               <p>
                 学生「{result.data.student_no}」已用新姓名
@@ -162,7 +162,7 @@
               </p>
             </div>
           {:else if result.type == "Retain"}
-            <div class="msg" data-kind="info">
+            <div class="msg">
               <strong>已保留原记录</strong>
               <p>
                 学号「{result.data.student_no}」的原记录（已删除）未被修改，
@@ -238,27 +238,12 @@
     padding: var(--app-space-sm) var(--app-space-md);
     border-radius: var(--app-radius-sm);
     font-size: var(--app-font-size-sm);
-    background: var(--msg-bg, var(--app-color-surface-muted));
-    color: var(--msg-color, var(--app-color-text-muted));
+    background: var(--app-color-surface-muted);
+    color: var(--app-color-text-muted);
     text-align: left;
   }
 
   .msg p {
     margin: 0;
-  }
-
-  .msg[data-kind="success"] {
-    --msg-bg: var(--green-1);
-    --msg-color: var(--green-9);
-  }
-
-  .msg[data-kind="warn"] {
-    --msg-bg: var(--orange-1);
-    --msg-color: var(--orange-9);
-  }
-
-  .msg[data-kind="info"] {
-    --msg-bg: var(--blue-1);
-    --msg-color: var(--blue-9);
   }
 </style>
