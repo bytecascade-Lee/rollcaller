@@ -134,7 +134,7 @@
     border: var(--border-size-1) solid var(--app-color-border);
     border-radius: var(--app-radius-md);
     background: var(--app-color-surface);
-    box-shadow: var(--app-shadow-lg);
+    box-shadow: var(--app-shadow-md);
     z-index: var(--app-layer-popover);
     min-width: var(--size-13);
   }
@@ -208,8 +208,8 @@
   .export-error {
     padding: var(--app-space-xs) var(--app-space-sm);
     border-radius: var(--app-radius-sm);
-    background: var(--red-1);
-    color: var(--red-9);
+    background: var(--app-color-surface-muted);
+    color: var(--app-color-text-muted);
     font-size: var(--app-font-size-xs);
   }
 
