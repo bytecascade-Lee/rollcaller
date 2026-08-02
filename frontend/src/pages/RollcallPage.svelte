@@ -10,6 +10,7 @@
   import type {RecordGroupMetaData, RollcallRecord} from "$types";
 
   const engine = rollcallEngine;
+  let {active = $bindable(false)} = $props();
   let display = $derived<RollcallRecord[]>(
     recordStore.records.filter((r) => r.id > recordStore.boundaryPoint).reverse()
   );
@@ -34,64 +35,60 @@
   });
 </script>
 
-<div class="page rollcall-page">
+<!-- 页面根节点由 .content > * 提供布局与激活态 -->
+<div class:active={active}>
   <!-- 上方 1/3：被选中的人 -->
-  <section class="result-panel">
-    <div class="result-phase">{phaseText}</div>
-    <div
+  <section class="state result-panel">
+    <span class="result-phase">{phaseText}</span>
+    <span
       class="result-name"
       class:animating={engine.phase == RollcallPhase.Animating}
       class:has-result={engine.phase != RollcallPhase.Animating && engine.currentName !== "" && engine.currentName !== "等待点名"}
     >
       {engine.currentName || "等待点名"}
-    </div>
+    </span>
   </section>
 
   <!-- 中间：点名次数 / 总人数 / 完成次数 / 按钮 -->
-  <section class="control-bar">
-    <div class="control-item">
-      <label>
-        点名次数
-        <input
-          type="number"
-          min="1"
-          max={studentStore.students.length || 1}
-          value={engine.totalTimes}
-          oninput={(e) => engine.updateTotalTimes(Number(e.currentTarget.value))}
-          disabled={engine.isRolling}
-        />
-      </label>
-    </div>
+  <div class="toolbar control-bar">
+    <label class="field">
+      <span class="field-label">点名次数</span>
+      <input
+        type="number"
+        min="1"
+        max={studentStore.students.length || 1}
+        value={engine.totalTimes}
+        oninput={(e) => engine.updateTotalTimes(Number(e.currentTarget.value))}
+        disabled={engine.isRolling}
+      />
+    </label>
 
-    <div class="control-item">
-      <span class="stat-label">总人数</span>
+    <div class="field">
+      <span class="field-label">总人数</span>
       <span class="stat-value">{studentStore.students.length}</span>
     </div>
 
-    <div class="control-item">
-      <span class="stat-label">已完成</span>
+    <div class="field">
+      <span class="field-label">已完成</span>
       <span class="stat-value">{engine.completedTimes}/{engine.totalTimes}</span>
     </div>
 
-    <div class="control-item">
-      <button
-        class="btn toggle-btn"
-        class:start={!engine.isRolling}
-        class:stop={engine.isRolling}
-        onclick={() => engine.toggle()}
-      >
-        {engine.isRolling ? "停止点名" : "开始点名"}
-      </button>
-    </div>
-  </section>
+    <button
+      class="button toggle-btn"
+      style:--button-bg={engine.isRolling ? "var(--app-color-danger)" : "var(--app-color-success)"}
+      onclick={() => engine.toggle()}
+    >
+      {engine.isRolling ? "停止点名" : "开始点名"}
+    </button>
+  </div>
 
   <!-- 下方 1/2：本轮点名记录 -->
   <section class="table-section">
     <h3 class="table-title">当前点名记录（{display.length}）</h3>
     {#if recordStore.isLoading}
-      <div class="empty">数据加载中...</div>
+      <div class="state">数据加载中...</div>
     {:else if display.length == 0}
-      <div class="empty">当前还未点名，请先点名</div>
+      <div class="state">当前还未点名，请先点名</div>
     {:else}
       <div class="table">
         <table>
@@ -130,128 +127,75 @@
 
 <style>
   /* 结构布局：上 1/3 结果区 + 中间控制区 + 下 1/2 记录表 */
-  .rollcall-page {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    height: 100%;
-    min-height: 0;
-  }
-
-  /* 上方 1/3：结果展示区 */
   .result-panel {
     flex: 1 1 33%;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    background: #fff;
   }
 
   .result-phase {
-    font-size: 13px;
-    color: #6c757d;
+    font-size: var(--app-font-size-sm);
+    color: var(--app-color-text-soft);
   }
 
   .result-name {
-    font-size: 56px;
-    font-weight: 700;
-    color: #495057;
-    line-height: 1.2;
-    max-width: 90%;
+    font-size: var(--font-size-fluid-3);
+    font-weight: var(--app-font-weight-heavy);
+    color: var(--app-color-text);
+    line-height: var(--font-lineheight-1);
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .result-name.animating {
-    color: #e94f4f;
+    color: var(--app-color-danger);
   }
 
   .result-name.has-result {
-    color: #16a34a;
+    color: var(--app-color-success);
   }
 
-  /* 中间：统计与按钮 */
   .control-bar {
     flex-shrink: 0;
-    display: flex;
     align-items: flex-end;
-    gap: 24px;
-    padding: 12px 16px;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    background: #fff;
+    padding: var(--app-space-sm) var(--app-space-md);
+    background: var(--app-color-surface);
+    border: var(--border-size-1) solid var(--app-color-border);
+    border-radius: var(--app-radius-sm);
   }
 
-  .control-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .control-item label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .control-item label,
-  .stat-label {
-    font-size: 12px;
-    color: #6c757d;
-  }
-
-  .control-item input {
-    width: 80px;
-    padding: 6px 8px;
-    border: 1px solid #ced4da;
-    border-radius: 5px;
-    font-size: 14px;
+  .control-bar .field {
+    width: var(--size-11);
   }
 
   .stat-value {
-    font-size: 20px;
-    font-weight: 600;
-    color: #2c3e50;
-    line-height: 1.3;
+    font-size: var(--app-font-size-xl);
+    font-weight: var(--app-font-weight-bold);
+    color: var(--app-color-text);
+    line-height: var(--font-lineheight-1);
   }
 
   .toggle-btn {
-    padding: 8px 20px;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    cursor: pointer;
+    min-width: var(--size-10);
   }
 
-  .toggle-btn.start {
-    background: #16a34a;
-    color: #fff;
-  }
-
-  .toggle-btn.stop {
-    background: #dc2626;
-    color: #fff;
-  }
-
-  /* 下方 1/2：表格区 */
   .table-section {
     flex: 1 1 50%;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--app-space-xs);
+  }
+
+  .table-section .state {
+    flex: 1;
   }
 
   .table-title {
     margin: 0;
-    font-size: 13px;
-    color: #495057;
+    font-size: var(--app-font-size-sm);
+    color: var(--app-color-text-soft);
     flex-shrink: 0;
   }
 </style>
