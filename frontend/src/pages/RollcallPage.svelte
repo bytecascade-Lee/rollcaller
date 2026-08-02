@@ -3,11 +3,11 @@
   import {studentStore} from "$stores/studentStore.svelte"
   import {recordStore} from "$stores/recordStore.svelte"
   import {rollcallEngine} from "$services/RollcallEngine.svelte";
+  import type {RecordGroupMetaData, RollcallRecord} from "$types";
   import {RollcallPhase} from "$types";
   import {format} from "$utils/DataTimeUtils";
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
-  import type {RecordGroupMetaData, RollcallRecord} from "$types";
 
   const engine = rollcallEngine;
   let {active = $bindable(false)} = $props();
@@ -94,7 +94,7 @@
         <table>
           <thead>
           <tr>
-            <th></th>
+            <th class="fixed-width"></th>
             <th>序号</th>
             <th>姓名</th>
             <th>学号</th>
@@ -108,7 +108,7 @@
             {@const color = COLORS[groupInfo[index].groupIndex % COLORS.length]}
             <tr>
               {#if groupInfo[index].isStart}
-                <td rowspan={groupInfo[index].rowspan} style:background-color={color}></td>
+                <td rowspan={groupInfo[index].rowspan} style:background-color={color} class="fixed-width"></td>
               {/if}
               <td>{index + 1}</td>
               <td>{record.name}</td>
@@ -231,5 +231,10 @@
     font-size: var(--app-font-size-sm);
     color: var(--app-color-text-muted);
     flex-shrink: 0;
+  }
+
+  .fixed-width {
+    width: 10px !important;
+    padding: 0 !important;
   }
 </style>
