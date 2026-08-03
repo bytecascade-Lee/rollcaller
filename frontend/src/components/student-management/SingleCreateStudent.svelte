@@ -183,14 +183,12 @@
             <button
               type="button"
               class="button"
-              style="background: var(--app-color-warn); color: var(--app-color-text)"
               onclick={() => create(false)}
               disabled={isCreating}
             >保留原记录</button>
             <button
               type="button"
               class="button"
-              style="background: var(--app-color-warn); color: var(--app-color-text)"
               onclick={() => create(true)}
               disabled={isCreating}>
               {isCreating ? "处理中..." : "覆盖并恢复"}
@@ -198,8 +196,7 @@
           {:else}
             <button
               type="submit"
-              class="button"
-              style="background: var(--app-color-primary); color: var(--app-color-text-white)"
+              class="button yes"
               disabled={isCreating || !canSubmit}>
               {isCreating ? "提交中..." : "确定"}
             </button>
