@@ -1,3 +1,9 @@
+.icon-button-group {
+    display: inline-flex;
+    flex-direction: row;
+    gap: var(--space-xs);
+}
+
 .icon-button {
     display: inline-flex;
     align-items: center;
@@ -19,7 +25,7 @@
 }
 
 .icon-button:disabled {
-    color: var(--text-color-disable);
+    color: var(--text-color-disabled);
     cursor: not-allowed;
 }
 
