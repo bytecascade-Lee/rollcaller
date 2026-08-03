@@ -1,7 +1,7 @@
 .nav {
     display: flex;
     flex-direction: column;
-    gap: var(--app-space-xs);
+    gap: var(--space-xs);
 }
 
 .nav-item {
@@ -25,8 +25,8 @@
 }
 
 .nav-item:disabled {
-    background: var(--color-disable);
-    color: var(--text-color-disable);
+    background: var(--color-disabled);
+    color: var(--text-color-disabled);
 }
 
 /*
