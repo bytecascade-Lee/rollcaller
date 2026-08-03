@@ -58,7 +58,9 @@ jobs:
 
             -   name: Install frontend dependencies
                 working-directory: frontend
-                run: pnpm install --frozen-lockfile
+                run: |
+                    Write-Host "pnpm version: $(pnpm --version)"
+                    pnpm install --frozen-lockfile
 
             -   name: Install Rust toolchain (cargo/rustc)
                 uses: dtolnay/rust-toolchain@stable
