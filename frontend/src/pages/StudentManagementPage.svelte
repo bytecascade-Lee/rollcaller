@@ -56,7 +56,7 @@
 <!-- 页面根节点由 .content > * 提供布局与激活态 -->
 <div class:active={active}>
   <div class="toolbar">
-    <div class="button-group">
+    <div class="icon-button-group">
       <button
         class="icon-button"
         aria-label="添加学生"
@@ -116,7 +116,7 @@
       </button>
     </div>
     <div class="search">
-      <MagnifyingGlassIcon size="24"/>
+      <MagnifyingGlassIcon size="18"/>
       <input
         type="search"
         disabled={studentStore.isLoading}
