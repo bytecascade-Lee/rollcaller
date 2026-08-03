@@ -35,14 +35,11 @@
   });
 </script>
 
-<!-- 页面根节点由 .content > * 提供布局与激活态 -->
 <div class:active={active}>
   <!-- 上方 1/3：被选中的人 -->
   <section class="result-panel">
-    <span class="result-phase">{phaseText}</span>
     <span
       class="result-name"
-      style="color: var(--app-color-warn);"
       class:animating={engine.phase == RollcallPhase.Animating}
       class:has-result={engine.phase != RollcallPhase.Animating && engine.currentName !== "" && engine.currentName !== "等待点名"}
     >
@@ -130,7 +127,7 @@
 <style>
   /* 结构布局：上 1/3 结果区 + 中间控制区 + 下 1/2 记录表 */
   .result-panel {
-    flex: 1 1 30%;
+    flex: 1 1 20%;
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -140,11 +137,6 @@
     padding: var(--app-space-lg);
     border-radius: var(--app-radius-md);
     background: var(--app-color-surface);
-  }
-
-  .result-phase {
-    font-size: var(--app-font-size-sm);
-    color: var(--app-color-text-muted);
   }
 
   .result-name {
