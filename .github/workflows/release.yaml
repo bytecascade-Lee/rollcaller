@@ -111,12 +111,20 @@ jobs:
                     $portableMode = Join-Path $releaseDir "portable.mode"
                     [System.IO.File]::WriteAllBytes($portableMode, [byte[]]@())
                     $portableName = "rollcaller-$version-windows-x86_64-portable.zip"
-                    Compress-Archive -Path @(
-                      (Join-Path $releaseDir "rollcaller.exe"),
-                      (Join-Path $releaseDir "config"),
-                      (Join-Path $releaseDir "database"),
-                      $portableMode
-                    ) -DestinationPath $portableName -CompressionLevel Optimal
+                    # 保存当前目录
+                    $originalDir = Get-Location
+                    Push-Location $releaseDir
+                    try {
+                        # 只使用当前目录下的相对名称
+                        Compress-Archive -Path @(
+                            "rollcaller.exe",
+                            "config",
+                            "database",
+                            "portable.mode"
+                        ) -DestinationPath (Join-Path $originalDir $portableName) -CompressionLevel Optimal
+                    } finally {
+                        Pop-Location
+                    }
                     Write-Host "Portable package: $portableName"
 
             -   name: Extract release notes
