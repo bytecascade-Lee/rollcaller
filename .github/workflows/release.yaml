@@ -21,6 +21,26 @@ jobs:
         name: Build & publish Windows x86_64
         runs-on: windows-latest
         steps:
+            -   name: Determine version
+                id: version
+                shell: pwsh
+                env:
+                    VERSION_INPUT: ${{ inputs.version }}
+                run: |
+                    if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+                      $version = $env:VERSION_INPUT.TrimStart('v')
+                    } else {
+                      $version = $env:GITHUB_REF_NAME.TrimStart('v')
+                    }
+                    if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$') {
+                      throw "Invalid version '$version' - must look like 0.1.0 or 0.1.0-rc.1"
+                    }
+                    if ($version -match '(?i)alpha|beta') {
+                      throw "Version '$version' must not contain alpha or beta"
+                    }
+                    "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+                    "tag=v$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
             -   name: Checkout
                 uses: actions/checkout@v4
 
@@ -47,26 +67,6 @@ jobs:
                 uses: Swatinem/rust-cache@v2
                 with:
                     workspaces: backend
-
-            -   name: Determine version
-                id: version
-                shell: pwsh
-                env:
-                    VERSION_INPUT: ${{ inputs.version }}
-                run: |
-                    if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-                      $version = $env:VERSION_INPUT.TrimStart('v')
-                    } else {
-                      $version = $env:GITHUB_REF_NAME.TrimStart('v')
-                    }
-                    if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$') {
-                      throw "Invalid version '$version' - must look like 0.1.0 or 0.1.0-rc.1"
-                    }
-                    if ($version -match '(?i)alpha|beta') {
-                      throw "Version '$version' must not contain alpha or beta"
-                    }
-                    "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-                    "tag=v$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
             -   name: Install tauri-cli (prebuilt, no Tauri actions)
                 shell: pwsh
