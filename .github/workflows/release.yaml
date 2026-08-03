@@ -83,7 +83,7 @@ jobs:
                 run: |
                     # 清掉可能从缓存带入的旧 bundle，保证 nsis 目录里只有一个安装包
                     Remove-Item -Recurse -Force .\target\release\bundle -ErrorAction SilentlyContinue
-                    & "${{ github.workspace }}\cargo-tauri-x86_64-pc-windows-msvc.exe" build
+                    & "${{ github.workspace }}\cargo-tauri.exe" build
 
             -   name: Package installer (setup.exe)
                 shell: pwsh
