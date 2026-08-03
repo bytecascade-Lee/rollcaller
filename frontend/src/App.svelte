@@ -1,13 +1,30 @@
 <script lang="ts">
+  import "open-props"
+  import "$styles/button.css";
+  import "$styles/content.css";
+  import "$styles/footbar.css";
   import "$styles/global.css";
+  import "$styles/icon-button.css"
+  import "$styles/nav.css";
+  import "$styles/search.css";
+  import "$styles/sidebar.css";
+  import "$styles/table.css";
+  import "$styles/tokens.css";
+  import "$styles/toolbar.css";
   import RollcallPage from "$pages/RollcallPage.svelte";
   import RecordHistoryPage from "$pages/RecordHistoryPage.svelte";
   import StudentManagementPage from "$pages/StudentManagementPage.svelte";
 
-  import {ClockCounterClockwiseIcon, DiceFourIcon, UsersIcon} from "phosphor-svelte";
+  import {
+    ClockCounterClockwiseIcon,
+    DiceFourIcon,
+    GearIcon,
+    ListBulletsIcon,
+    QuestionIcon,
+    UsersIcon
+  } from "phosphor-svelte";
 
   let currentPage: 'rollcall' | 'students' | 'records' = $state("rollcall");
-  const pageNames = {rollcall: "点名", records: "历史记录", students: "学生管理"} as const;
 </script>
 
 <div class="shell">
@@ -41,6 +58,14 @@
         <ClockCounterClockwiseIcon size="24"/>
       </button>
     </nav>
+    <nav style="display: none">
+      <button class="nav-item">
+        <QuestionIcon size="24"/>
+      </button>
+      <button class="nav-item">
+        <ListBulletsIcon size="24"/>
+      </button>
+    </nav>
   </aside>
 
   <main class="content">
@@ -48,4 +73,29 @@
     <RecordHistoryPage active={currentPage == "records"}/>
     <StudentManagementPage active={currentPage == "students"}/>
   </main>
+
+  <footer class="footbar">
+    <div>
+      <GearIcon size="14" weight="bold" style="display: none"/>
+      当前版本：v0.1.0-rc.1
+    </div>
+  </footer>
 </div>
+
+<style>
+  .shell {
+    display: grid;
+    grid-auto-columns: 56px 1fr;
+    grid-template-rows: 1fr auto;
+    grid-template-areas:
+    "sidebar content"
+    "footbar footbar";
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--color-page);
+    color: var(--text-color-content);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+  }
+</style>
