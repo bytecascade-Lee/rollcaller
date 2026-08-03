@@ -1,0 +1,106 @@
+:root {
+    --color-primary: #3871e1;
+
+    --color-page: #f5f5f5;
+    --color-surface: var(--sand-1);
+    --color-focus: var(--color-primary);
+    --color-background: var(--gray-2);
+    --color-hover: var(--gray-3);
+    --color-disable: var(--gray-5);
+
+    --text-color-primary: var(--gray-9);
+    --text-color-secondary: var(--gray-7);
+    --text-color-content: var(--gray-8);
+    --text-color-placeholder: var(--gray-6);
+    --text-color-disable: var(--gray-5);
+
+    --border-color-extralight: var(--gray-1);
+    --border-color-light: var(--gray-2);
+    --border-color-normal: var(--gray-3);
+    --border-color-regular: var(--gray-4);
+    --border-color-medium: var(--gray-5);
+    --border-color-bold: var(--gray-6);
+    --border-color-heavy: var(--gray-7);
+
+    --border-size-xxs: 1px;
+    --border-size-xs: 2px;
+    --border-size-sm: 3px;
+    --border-size-md: 5px;
+    --border-size-lg: 8px;
+    --border-size-xl: 10px;
+
+    --color-success: var(--green-5);
+    --color-info: var(--cyan-5);
+    --color-warn: var(--yellow-5);
+    --color-error: var(--red-7);
+
+    --scrollbar-track-color: var(--gray-1);
+    --scrollbar-thumb-color: var(--gray-4);
+
+    --space-xxs: var(--size-1);
+    --space-xs: var(--size-2);
+    --space-sm: var(--size-3);
+    --space-md: var(--size-4);
+    --space-lg: var(--size-5);
+    --space-xl: var(--size-6);
+
+    --size-xxs : var(--size-1);
+    --size-xs : var(--size-2);
+    --size-sm : var(--size-4);
+    --size-md : var(--size-6);
+    --size-lg : var(--size-8);
+    --size-xl : var(--size-10);
+
+    --font-size-xxs: var(--font-size-0);
+    --font-size-xs: var(--font-size-1);
+    --font-size-sm: var(--font-size-2);
+    --font-size-md: var(--font-size-3);
+    --font-size-lg: var(--font-size-4);
+    --font-size-xl: var(--font-size-5);
+
+    --font-weight-extralight: var(--font-weight-1);
+    --font-weight-light: var(--font-weight-2);
+    --font-weight-normal: var(--font-weight-3);
+    --font-weight-regular: var(--font-weight-4);
+    --font-weight-medium: var(--font-weight-5);
+    --font-weight-bold: var(--font-weight-6);
+    --font-weight-heavy: var(--font-weight-7);
+
+    --font-family-sans: "Segoe UI";
+    --font-family-mono: "Cascadia Code";
+
+    --radius-none: 0px;
+    --radius-xxs: 1px;
+    --radius-xs: 2px;
+    --radius-sm: 3px;
+    --radius-md: 5px;
+    --radius-lg: 8px;
+    --radius-xl: 10px;
+    --radius-round: var(--radius-round);
+
+    --transition-duration-fast: 150ms;
+    --transition-duration-md: 300ms;
+    --transition-duration-slow: 500ms;
+    --transition-ease: var(--ease-3);
+    --transition-ease-in: var(--ease-in-2);
+    --transition-ease-out: var(--ease-out-3);
+
+    --shadow-xxs: var(--shadow-1);
+    --shadow-xs: var(--shadow-2);
+    --shadow-sm: var(--shadow-3);
+    --shadow-md: var(--shadow-4);
+    --shadow-lg: var(--shadow-5);
+    --shadow-xl: var(--shadow-6);
+
+    --layer-base: 0;
+    --layer-card: 1;
+    --layer-dropdown: 10;
+    --layer-overlay: 100;
+    --layer-modal: 200;
+    --layer-toast: 300;
+    --layer-max: 9999;
+
+    --opacity-disabled: .7;
+    --opacity-loading: .8;
+    --opacity-hover: .9;
+}
