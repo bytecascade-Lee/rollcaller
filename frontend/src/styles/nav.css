@@ -1,0 +1,40 @@
+.nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--app-space-xs);
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 95%;
+    aspect-ratio: 1;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-lg);
+    background: var(--color-page);
+    color: var(--text-color-primary);
+    cursor: pointer;
+    transition: background-color var(--transition-duration-md) var(--transition-ease), color var(--transition-duration-md) var(--transition-ease-in);
+}
+
+.nav-item:hover {
+    background: var(--color-hover);
+    color: var(--color-primary);
+}
+
+.nav-item:disabled {
+    background: var(--color-disable);
+    color: var(--text-color-disable);
+}
+
+/*
+导航栏图标，必须使用类选择器
+不可使用 active 和 focus 属性
+否则鼠标松开后就无效了
+*/
+.nav-item.active {
+    background: var(--color-primary);
+    color: var(--color-page);
+}
