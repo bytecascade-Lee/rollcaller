@@ -28,12 +28,12 @@
 - Windows NSIS 安装包
 - Windows 便携模式
 
-## 安装方式
+### 安装方式
 
 1. 下载对应平台的安装包或便携版压缩包
 2. 安装包：运行安装程序，按提示完成安装
 3. 便携版：解压后直接运行 `rollcaller.exe`
 
-## 反馈与建议
+### 反馈与建议
 
 如有问题或建议，欢迎在 [Issue](https://github.com/bytecascade-Lee/rollcaller/issues) 区提出。
