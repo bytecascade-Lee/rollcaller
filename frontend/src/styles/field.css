@@ -1,0 +1,23 @@
+.field {
+    display: flex;
+    flex-direction: row;
+    gap: var(--space-xs);
+    padding: var(--space-xs) 0;
+    font-size: var(--font-size-xs);
+    color: var(--text-color-content);
+}
+
+.field-label {
+    display: block;
+    align-content: center;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-color-content);
+}
+
+.field input,
+.field select,
+.field textarea {
+    flex: 1;
+    min-width: 0;
+}
