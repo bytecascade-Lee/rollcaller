@@ -235,6 +235,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="overlay" onclick={closeOnOutside ? close : undefined}>
+    <!-- svelte-ignore a11y_interactive_supports_focus -->
     <div
       class="popup import-dialog"
       onclick={(e) => e.stopPropagation()}
@@ -537,13 +538,13 @@
       <div class="dialog-foot">
         <button
           type="button"
-          class="button close-btn"
+          class="button"
           onclick={close}
           disabled={isImporting}
         >关闭</button>
         <button
           type="button"
-          class="button import-btn"
+          class="button yes"
           onclick={runImport}
           disabled={!configValid || isImporting || (pendingDecisions.length > 0 && !allDecided)}
         >
@@ -1282,33 +1283,5 @@
     padding: var(--app-space-md) var(--app-space-lg);
     border-top: var(--border-size-1) solid var(--app-color-border);
     background: var(--app-color-page);
-  }
-
-  .close-btn {
-    border: var(--border-size-1) solid var(--app-color-border);
-    background: var(--app-color-page);
-  }
-
-  .import-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--app-space-xs);
-    min-height: var(--app-size-control-lg);
-    padding: var(--app-space-xs) var(--app-space-lg);
-    background: var(--app-color-primary);
-    color: var(--app-color-text-white);
-    font-size: var(--app-font-size-sm);
-  }
-
-  .import-btn:hover {
-    background: var(--app-color-primary);
-    filter: brightness(0.93);
-  }
-
-  .import-btn:disabled {
-    background: var(--app-color-primary);
-    color: var(--app-color-text-white);
-    opacity: var(--app-opacity-disabled);
-    cursor: not-allowed;
   }
 </style>

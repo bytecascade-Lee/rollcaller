@@ -136,10 +136,10 @@ def save_changelog(content: str, tag: Optional[str] = None) -> Path:
     """保存 Change Log 到文件"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if tag is None:
-        filename = f"ChangesFirstUnused.md"
+        filename = f"First.md"
     else:
         safe_tag = tag.replace('/', '_').replace(' ', '_')
-        filename = f"ChangesFrom{safe_tag}Unused.md"
+        filename = f"{safe_tag}.md"
 
     filepath = Path.cwd() / "docs/changes" / filename
     with open(filepath, 'w', encoding='utf-8') as f:

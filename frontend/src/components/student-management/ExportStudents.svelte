@@ -129,9 +129,9 @@
     gap: var(--space-xxs);
     width: 100%;
     padding: var(--space-xs) var(--space-sm);
-    border: var(--border-size-xs) solid var(--border-color-regular);
+    border: var(--border-size-xs) solid var(--border-color-4);
     border-radius: var(--radius-sm);
-    background: var(--color-page);
+    background: var(--color-background);
     cursor: pointer;
     text-align: left;
   }

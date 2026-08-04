@@ -17,7 +17,7 @@ select,
 textarea {
     box-sizing: border-box;
     padding: var(--space-xs) var(--space-xs);
-    border: var(--border-size-xs) solid var(--border-color-md);
+    border: var(--border-size-xs) solid var(--border-color-5);
     border-radius: var(--radius-sm);
     background: var(--color-page);
     color: var(--text-color-content);

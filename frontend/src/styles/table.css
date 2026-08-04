@@ -3,7 +3,7 @@
     width: 100%;
     min-height: 0;
     overflow: auto;
-    border: var(--border-size-xs) solid var(--border-color-normal);
+    border: var(--border-size-xs) solid var(--border-color-3);
     border-radius: var(--radius-md);
     background: var(--color-page);
     scrollbar-color: var(--color-page);
@@ -27,7 +27,7 @@
 .table th,
 .table td {
     padding: var(--space-xs) var(--space-xxs);
-    border-bottom: var(--border-size-xxs) solid var(--border-color-normal);
+    border-bottom: var(--border-size-xxs) solid var(--border-color-3);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -39,7 +39,7 @@
     position: sticky;
     top: 0;
     z-index: var(--layer-1);
-    border-bottom: var(--border-size-xxs) solid var(--border-color-regular);
+    border-bottom: var(--border-size-xxs) solid var(--border-color-4);
     background: var(--color-page);
     color: var(--text-color-primary);
     font-weight: var(--font-weight-bold);
