@@ -20,6 +20,7 @@
   import RollcallPage from "$pages/RollcallPage.svelte";
   import RecordHistoryPage from "$pages/RecordHistoryPage.svelte";
   import StudentManagementPage from "$pages/StudentManagementPage.svelte";
+  import {APP_INFO} from "$constants"
 
   import {
     ClockCounterClockwiseIcon,
@@ -83,7 +84,7 @@
   <footer class="footbar">
     <div>
       <GearIcon size="14" weight="bold" style="display: none"/>
-      当前版本：v0.1.0-rc.1
+      v0.1.0-rc.1+{APP_INFO.BRANCH}.{APP_INFO.COMMIT_COUNT}.{APP_INFO.SHORT_HASH}.{APP_INFO.COMMIT_TIME}->{APP_INFO.BUILD_TIME}
     </div>
   </footer>
 </div>
