@@ -57,7 +57,7 @@
 <!-- 页面根节点由 .content > * 提供布局与激活态 -->
 <div class:active={active}>
   <div class="toolbar">
-    <div class="button-group">
+    <div class="icon-button-group">
       <button
         class="icon-button"
         aria-label="批量修改记录"
@@ -89,7 +89,7 @@
       <input
         type="search"
         disabled={recordStore.isLoading}
-        placeholder="搜索姓名、学号或备注"
+        placeholder="搜索学号、姓名或备注"
         bind:value={searchQuery}
       />
     </div>
