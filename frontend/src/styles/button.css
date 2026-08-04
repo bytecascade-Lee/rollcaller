@@ -36,6 +36,10 @@
     background: var(--color-active);
 }
 
+.button.selected {
+    border: var(--border-size-xs) solid var(--border-color-regular);
+}
+
 .button.yes {
     background: var(--color-primary);
     color: var(--color-page);
