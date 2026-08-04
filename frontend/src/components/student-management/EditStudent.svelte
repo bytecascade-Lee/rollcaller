@@ -74,7 +74,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="overlay" onclick={closeOnOutside ? () => close() : undefined}>
-    <div class="dialog" onclick={(e) => e.stopPropagation()}>
+    <div class="popup" onclick={(e) => e.stopPropagation()}>
       {#if selected.size > 1}
         <h3>仅支持单个修改</h3>
         <p>当前选中了 {selected.size} 名学生，请只选择一名后再试。</p>
