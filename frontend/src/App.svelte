@@ -1,5 +1,6 @@
 <script lang="ts">
   import "open-props"
+  import "$styles/attendance-status-budge.css"
   import "$styles/button.css";
   import "$styles/content.css";
   import "$styles/footbar.css";
