@@ -96,7 +96,7 @@
     overflow: hidden;
     background: var(--color-page);
     color: var(--text-color-content);
-    font-family: var(--font-family-mono);
+    font-family: var(--font-family-sans);
     font-size: var(--font-size-sm);
   }
 </style>
