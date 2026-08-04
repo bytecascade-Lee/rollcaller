@@ -23,14 +23,21 @@
 
 <div class:active={active}>
   <section class="result">
-    <span
-      class="name"
-      class:waiting={engine.currentName == null}
-      class:animating={engine.phase == RollcallPhase.Animating}
-      class:displaying={engine.phase != RollcallPhase.Animating && engine.currentName != null}
-    >
-      {engine.currentName || "等待点名"}
-    </span>
+    {#if display.length == 0}
+      <span class="name waiting">等待点名</span>
+    {:else}
+      <span
+        class="name"
+        class:animating={engine.phase == RollcallPhase.Animating}
+        class:displaying={engine.phase != RollcallPhase.Animating}
+      >
+        <!-- 当当前学生为null时，如果开始点名，上方区域会先变低，当展示名字时，才会变回来 -->
+        <!-- 换为空白字符串，问题照旧 -->
+        <!-- 当前先使用学生名单的第一个人临时修复一下 -->
+        <!-- 后期将滚动时显示的名字抽取到当前页面 -->
+        {engine.currentName || studentStore.students[0].name}
+      </span>
+    {/if}
   </section>
 
   <!-- 中间：点名次数 / 总人数 / 完成次数 / 按钮 -->
@@ -68,14 +75,14 @@
   </div>
 
   <section class="table-section">
-    <h3 class="title">
-      当前点名记录（{display.length}）
-    </h3>
     {#if recordStore.isLoading}
       <div class="state">数据加载中...</div>
     {:else if display.length == 0}
-      <div class="state">当前还未点名，请先点名</div>
+      <div class="state">当前还未点名，暂无记录，请先点名</div>
     {:else}
+      <h3 class="title">
+        当前点名记录（{display.length}）
+      </h3>
       <div class="table">
         <table>
           <thead>
@@ -109,7 +116,9 @@
               <td>{index + 1}</td>
               <td>{record.name}</td>
               <td>{record.student_no}</td>
-              <td><AttendanceStatusBadge code={record.attendance_status}/></td>
+              <td>
+                <AttendanceStatusBadge code={record.attendance_status}/>
+              </td>
               <td>{record.remark}</td>
               <td>{format(record.rollcall_at)}</td>
             </tr>
