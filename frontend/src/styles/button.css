@@ -37,7 +37,7 @@
 }
 
 .button.selected {
-    border: var(--border-size-xs) solid var(--border-color-regular);
+    border: var(--border-size-xs) solid var(--border-color-4);
 }
 
 .button.yes {
@@ -50,7 +50,7 @@
 }
 
 .button.yes:disabled {
-    background: var(--color-primary-diasbled);
+    background: var(--color-primary-disabled);
     cursor: not-allowed;
 }
 
