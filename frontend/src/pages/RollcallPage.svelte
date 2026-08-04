@@ -155,7 +155,7 @@
   }
 
   .result .name.waiting {
-    color: var(--color-disabled);
+    color: var(--text-color-secondary);
   }
 
   .result .name.animating {
