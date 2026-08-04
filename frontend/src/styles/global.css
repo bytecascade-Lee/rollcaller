@@ -62,7 +62,7 @@
 input[type="checkbox"],
 input[type="radio"] {
     margin: 0;
-    accent-color: var(--app-color-primary);
+    accent-color: var(--color-primary);
 }
 
 input[type="text"],
@@ -72,13 +72,13 @@ input[type="password"],
 select,
 textarea {
     box-sizing: border-box;
-    padding: var(--app-space-xs) var(--app-space-xs);
-    border: var(--border-size-1) solid var(--app-color-border);
-    border-radius: var(--app-radius-sm);
-    background: var(--app-color-page);
-    color: var(--app-color-text);
+    padding: var(--space-xs) var(--space-xs);
+    border: var(--border-size-xs) solid var(--border-color-normal);
+    border-radius: var(--radius-sm);
+    background: var(--color-page);
+    color: var(--text-color-content);
     font-family: inherit;
-    font-size: var(--app-font-size-sm);
+    font-size: var(--font-size-sm);
 }
 
 input[type="text"]:focus,
@@ -87,88 +87,10 @@ input[type="search"]:focus,
 input[type="password"]:focus,
 select:focus,
 textarea:focus {
-    border-color: var(--app-color-primary);
+    border-color: var(--color-primary);
 }
 
 input::placeholder,
 textarea::placeholder {
-    color: var(--app-color-text-muted);
-}
-
-.overlay {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--app-color-overlay);
-    z-index: var(--app-layer-overlay);
-}
-
-.dialog {
-    display: flex;
-    flex-direction: column;
-    gap: var(--app-space-md);
-    max-height: 80vh;
-    overflow-y: auto;
-    padding: var(--app-space-lg);
-    min-width: var(--size-14);
-    max-width: var(--size-15);
-    background: var(--app-color-page);
-    border-radius: var(--app-radius-md);
-    box-shadow: var(--app-shadow-md);
-}
-
-.dialog h3 {
-    margin: 0;
-    font-size: var(--app-font-size-lg);
-    font-weight: var(--app-font-weight-bold);
-    color: var(--app-color-text);
-}
-
-.dialog p {
-    margin: 0;
-    font-size: var(--app-font-size-sm);
-    color: var(--app-color-text);
-}
-
-.dialog table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--app-font-size-xs);
-}
-
-.dialog th,
-.dialog td {
-    padding: var(--app-space-xs) var(--app-space-sm);
-    border: var(--border-size-1) solid var(--app-color-border);
-    text-align: left;
-}
-
-.dialog th {
-    background: var(--app-color-page);
-    color: var(--app-color-text);
-    font-weight: var(--app-font-weight-medium);
-}
-
-.field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--app-space-xs);
-    margin: 0;
-    font-size: var(--app-font-size-xs);
-    color: var(--app-color-text);
-}
-
-.field-label {
-    display: block;
-    font-size: var(--app-font-size-xs);
-    font-weight: var(--app-font-weight-medium);
-    color: var(--app-color-text);
-}
-
-.field input,
-.field select,
-.field textarea {
-    width: 100%;
+    color: var(--text-color-placeholder);
 }
