@@ -1,0 +1,31 @@
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+    margin: 0;
+    accent-color: var(--color-primary);
+}
+
+input[type="text"],
+input[type="number"],
+input[type="password"],
+select,
+textarea {
+    box-sizing: border-box;
+    padding: var(--space-xs) var(--space-xs);
+    border: var(--border-size-xs) solid var(--border-color-normal);
+    border-radius: var(--radius-sm);
+    background: var(--color-page);
+    color: var(--text-color-content);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: var(--text-color-placeholder);
+}
