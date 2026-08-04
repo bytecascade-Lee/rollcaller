@@ -2,10 +2,10 @@
 
 export const APP_INFO = {
   BRANCH: "feature/feat" as const,
-  COMMIT_COUNT: "493" as const,
-  SHORT_HASH: "4e7d6d0" as const,
-  COMMIT_TIME: "2026-08-04T21:50:00+08:00" as const,
-  BUILD_TIME: "2026-08-04T22:17:51.0145984+08:00" as const,
+  COMMIT_COUNT: "499" as const,
+  SHORT_HASH: "1e4750f" as const,
+  COMMIT_TIME: "2026-08-04T22:29:59+08:00" as const,
+  BUILD_TIME: "2026-08-04T22:30:10.1107654+08:00" as const,
 } as const;
 
 export type AppInfo = keyof typeof APP_INFO;
