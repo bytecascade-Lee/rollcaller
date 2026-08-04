@@ -104,7 +104,7 @@
       <table>
         <thead>
         <tr>
-          <th class="fixed-width"></th>
+          <th class="fixed-width" style="border: 0px"></th>
           <th><input
             type="checkbox"
             checked={display.length > 0 && displaySelectedCount == display.length}
@@ -130,7 +130,11 @@
           {@const color = COLORS[groupInfo[index].groupIndex % COLORS.length]}
           <tr>
             {#if groupInfo[index].isStart}
-              <td rowspan={groupInfo[index].rowspan} style:background-color={color} class="fixed-width"></td>
+              <td
+                class="fixed-width"
+                rowspan={groupInfo[index].rowspan}
+                style="background: {color}; border-bottom: 0px">
+              </td>
             {/if}
             <td><input
               type="checkbox"
@@ -143,7 +147,7 @@
             <td>
               <AttendanceStatusBadge code={record.attendance_status}/>
             </td>
-            <td>{record.remark}</td>
+            <td style="white-space: normal; word-wrap: break-word">{record.remark}</td>
             <td>{format(record.rollcall_at)}</td>
           </tr>
         {/each}
