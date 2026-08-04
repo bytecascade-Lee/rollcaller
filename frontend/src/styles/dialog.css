@@ -9,6 +9,7 @@
     background: var(--color-page);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
+    z-index: var(--layer-card);
 }
 
 .popup h3 {
