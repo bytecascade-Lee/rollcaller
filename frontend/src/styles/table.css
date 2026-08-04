@@ -1,0 +1,51 @@
+.table {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    overflow: auto;
+    border: var(--border-size-xs) solid var(--border-color-normal);
+    border-radius: var(--radius-md);
+    background: var(--color-page);
+    scrollbar-color: var(--color-page);
+    scrollbar-track-color: var(--color-page);
+}
+
+.table::-webkit-scrollbar-track {
+    background: var(--scrollbar-track-color);
+}
+
+.table::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color);
+}
+
+.table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-md);
+}
+
+.table th,
+.table td {
+    padding: var(--space-xs) var(--space-xxs);
+    border-bottom: var(--border-size-xxs) solid var(--border-color-normal);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.table th {
+    position: sticky;
+    top: 0;
+    z-index: var(--layer-1);
+    border-bottom: var(--border-size-xxs) solid var(--border-color-regular);
+    background: var(--color-page);
+    color: var(--text-color-primary);
+    font-weight: var(--font-weight-bold);
+    font-size: var(--font-size-lg);
+}
+
+.table tbody tr:hover {
+    background: var(--color-hover);
+}

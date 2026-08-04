@@ -32,7 +32,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="overlay" onclick={closeOnOutside ? () => isVisible = false : undefined}>
-    <div class="dialog" onclick={(e) => e.stopPropagation()}>
+    <div class="popup" onclick={(e) => e.stopPropagation()}>
       <h3>确认删除</h3>
       <p>确定删除选中的 {selected.size} 条记录吗？</p>
       <div class="button-group">
@@ -43,8 +43,7 @@
         >取消</button>
         <button
           type="button"
-          class="button"
-          style="background: var(--app-color-error); color: var(--app-color-text-white)"
+          class="button error"
           onclick={del}
         >删除</button>
       </div>

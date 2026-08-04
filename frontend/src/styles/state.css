@@ -1,0 +1,11 @@
+.state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xl);
+    border-radius: var(--radius-sm);
+    background: var(--color-page);
+    color: var(--text-color-secondary);
+    font-size: var(--font-size-lg);
+}

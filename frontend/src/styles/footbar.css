@@ -9,4 +9,5 @@
     border-top: var(--border-size-xxs) solid var(--border-color-normal);
     color: var(--text-color-secondary);
     font-size: var(--font-size-xxs);
+    font-weight: var(--font-weight-bold);
 }

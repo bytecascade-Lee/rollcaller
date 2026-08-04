@@ -63,6 +63,7 @@ fn init(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .data_directory(app_paths::webview_dir().to_path_buf())
         .inner_size(900.0, 700.0)
         .auto_resize()
+        .decorations(true)
         .title("Rollcaller")
         .build()
     {

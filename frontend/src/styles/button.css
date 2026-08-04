@@ -1,6 +1,8 @@
 .button-group {
-    display: inline-flex;
+    display: flex;
+    padding-top: var(--space-xs);
     flex-direction: row;
+    justify-content: flex-end;
     gap: var(--space-xs);
 }
 
@@ -32,6 +34,10 @@
 
 .button:active {
     background: var(--color-active);
+}
+
+.button.selected {
+    border: var(--border-size-xs) solid var(--border-color-regular);
 }
 
 .button.yes {

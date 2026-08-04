@@ -5,7 +5,7 @@
     --color-primary-active: #1657d9;
 
     --color-page: #f5f5f5;
-    --color-surface: var(--sand-1);
+    --color-surface: #c9c8c8;
     --color-focus: var(--color-primary);
     --color-background: var(--gray-2);
 
@@ -23,7 +23,7 @@
     --border-color-light: var(--gray-2);
     --border-color-normal: var(--gray-3);
     --border-color-regular: var(--gray-4);
-    --border-color-medium: var(--gray-5);
+    --border-color-md: var(--gray-5);
     --border-color-bold: var(--gray-6);
     --border-color-heavy: var(--gray-7);
 
@@ -83,7 +83,7 @@
     --font-weight-bold: var(--font-weight-6);
     --font-weight-heavy: var(--font-weight-7);
 
-    --font-family-sans: "Segoe UI";
+    --font-family-sans: "Microsoft Yahei";
     --font-family-mono: "Cascadia Code";
 
     --radius-none: 0px;

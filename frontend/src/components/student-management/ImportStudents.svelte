@@ -3,7 +3,7 @@
   import type {ImportPreviewData, StudentTable} from "$types";
   import {open} from "@tauri-apps/plugin-dialog";
   import {overlayController} from "$controllers/overlayController";
-  import {ImportCommand} from "$commands/";
+  import {ImportCommand} from "$commands";
   import {
     CheckCircleIcon,
     CheckIcon,
@@ -236,7 +236,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="overlay" onclick={closeOnOutside ? close : undefined}>
     <div
-      class="dialog import-dialog"
+      class="popup import-dialog"
       onclick={(e) => e.stopPropagation()}
       role="dialog"
       aria-modal="true"

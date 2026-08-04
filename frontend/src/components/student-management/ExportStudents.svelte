@@ -37,7 +37,7 @@
     // 弹出保存对话框：默认文件名可修改，格式 xlsx
     const path = await save({
       defaultPath: "学生名单.xlsx",
-      filters: [{ name: "Excel", extensions: ["xlsx"] }],
+      filters: [{name: "Excel", extensions: ["xlsx"]}],
     });
     if (!path) return; // 用户取消保存
     try {
@@ -71,10 +71,13 @@
 {#if isVisible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="export-backdrop" onclick={close}></div>
+  <div onclick={close}></div>
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="export-popover" style={popoverStyle} onclick={(e) => e.stopPropagation()}>
+  <div class="popup"
+       style={popoverStyle}
+       onclick={(e) => e.stopPropagation()}
+  >
     <h3>导出学生</h3>
     <span class="field-label">选择导出范围，然后指定保存位置（.xlsx）</span>
 
@@ -111,82 +114,58 @@
         class="button"
         onclick={close}
         disabled={isExporting}
-      >取消</button>
+      >
+        取消
+      </button>
     </div>
   </div>
 {/if}
 
 <style>
-  .export-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 998;
-    background: transparent;
-  }
-
-  .export-popover {
-    display: flex;
-    flex-direction: column;
-    gap: var(--app-space-xs);
-    padding: var(--app-space-md);
-    border: var(--border-size-1) solid var(--app-color-border);
-    border-radius: var(--app-radius-md);
-    background: var(--app-color-surface);
-    box-shadow: var(--app-shadow-md);
-    z-index: var(--app-layer-popover);
-    min-width: var(--size-13);
-  }
-
-  .export-popover h3 {
-    margin: 0;
-    font-size: var(--app-font-size-md);
-    color: var(--app-color-text);
-  }
-
   .export-option {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--app-space-xxs);
+    gap: var(--space-xxs);
     width: 100%;
-    padding: var(--app-space-xs) var(--app-space-sm);
-    border: var(--border-size-1) solid var(--app-color-border);
-    border-radius: var(--app-radius-sm);
-    background: var(--app-color-surface);
+    padding: var(--space-xs) var(--space-sm);
+    border: var(--border-size-xs) solid var(--border-color-regular);
+    border-radius: var(--radius-sm);
+    background: var(--color-page);
     cursor: pointer;
     text-align: left;
   }
 
   .export-option:hover:not(:disabled) {
-    background: var(--app-color-hover);
+    background: var(--color-hover);
   }
 
   .export-option:disabled {
-    opacity: var(--app-opacity-disabled);
+    background: var(--color-disabled);
     cursor: not-allowed;
   }
 
   .option-title {
-    font-size: var(--app-font-size-sm);
-    font-weight: var(--app-font-weight-bold);
-    color: var(--app-color-text);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-color-secondary);
   }
 
   .option-desc {
-    font-size: var(--app-font-size-xs);
-    color: var(--app-color-text-muted);
+    font-size: var(--font-size-xs);
+    color: var(--text-color-content);
   }
 
   .export-error {
-    padding: var(--app-space-xs) var(--app-space-sm);
-    border-radius: var(--app-radius-sm);
-    background: var(--app-color-surface-muted);
-    color: var(--app-color-text-muted);
-    font-size: var(--app-font-size-xs);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    background: var(--color-page);
+    color: var(--color-error);
+    font-size: var(--font-size-xs);
   }
 
   .export-status {
-    font-size: var(--app-font-size-xs);
-    color: var(--app-color-text-muted);
+    font-size: var(--font-size-xs);
+    color: var(--text-color-content);
   }
 </style>
