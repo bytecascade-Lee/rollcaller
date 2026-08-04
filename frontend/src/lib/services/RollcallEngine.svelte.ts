@@ -8,11 +8,11 @@ import {recordStore} from "$stores/recordStore.svelte";
 import {uuid} from "$utils/UuidUtils";
 
 /** 名字滚动切换间隔（ms） */
-const ROLL_INTERVAL = 80;
+const ROLL_INTERVAL = 120;
 /** 连续点名时动画自动结束时长（ms） */
-const ANIM_DURATION = 1000;
+const ANIM_DURATION = 720;
 /** 结果展示时长（ms） */
-const SHOW_DURATION = 1000;
+const SHOW_DURATION = 1200;
 
 /**
  * 点名状态机（事件驱动）
@@ -30,15 +30,18 @@ const SHOW_DURATION = 1000;
  */
 class RollcallEngine {
   phase = $state(RollcallPhase.Idle);
-  currentName = $state("等待点名");
+  currentName = $state<string | null>(null);
   totalTimes = $state(1);
   completedTimes = $state(0);
 
   /** 用户暂停标记：不打断当前事务，仅在自然中断点（ShowDone）生效 */
   #pendingStop = $state(false);
   #sessionId = $state("");
+  // @ts-ignore
   #animTimer: NodeJS.Timeout | null = null;
+  // @ts-ignore
   #animTimeout: NodeJS.Timeout | null = null;
+  // @ts-ignore
   #showTimeout: NodeJS.Timeout | null = null;
   #savedRecord: RollcallRecord | null = null;
 
@@ -61,7 +64,7 @@ class RollcallEngine {
       this.#sessionId = uuid();
       this.completedTimes = 0;
       this.#pendingStop = false;
-      this.currentName = "";
+      this.currentName = null;
       this.#dispatch(RollcallEvent.Start);
     } else {
       this.#dispatch(RollcallEvent.UserStop);
@@ -118,7 +121,7 @@ class RollcallEngine {
 
   #enterAnimating(autoAdvance: boolean) {
     this.phase = RollcallPhase.Animating;
-    this.currentName = "";
+    this.currentName = null;
     this.#animTimer = setInterval(() => {
       if (studentStore.students.length > 0) {
         const idx = Math.floor(Math.random() * studentStore.students.length);
