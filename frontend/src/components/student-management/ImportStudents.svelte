@@ -3,7 +3,7 @@
   import type {ImportPreviewData, StudentTable} from "$types";
   import {open} from "@tauri-apps/plugin-dialog";
   import {overlayController} from "$controllers/overlayController";
-  import {ImportCommand} from "$commands/";
+  import {ImportCommand} from "$commands";
   import {
     CheckCircleIcon,
     CheckIcon,
