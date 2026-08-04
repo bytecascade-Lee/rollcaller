@@ -85,7 +85,7 @@
       </button>
     </div>
     <div class="search">
-      <MagnifyingGlassIcon size="20"/>
+      <MagnifyingGlassIcon size="18"/>
       <input
         type="search"
         disabled={recordStore.isLoading}
