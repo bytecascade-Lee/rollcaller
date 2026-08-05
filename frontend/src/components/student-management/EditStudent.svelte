@@ -30,7 +30,7 @@
         name: localEdit.name,
       });
       if (editResult.type == "Update") {
-        studentStore.upsert(localEdit);
+        studentStore.upsert(editResult.data);
         close();
       }
       // Conflict：保持弹窗打开，提示用户修改学号或姓名后重试
