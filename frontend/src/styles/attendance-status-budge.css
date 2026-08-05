@@ -1,8 +1,26 @@
+.badge-group {
+    display: inline-flex;
+    flex-direction: row;
+    gap: var(--space-xxs);
+    padding: 0;
+    justify-content: center;
+}
+
 .badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 0;
     padding: 2px var(--space-xs);
+    border: none;
     border-radius: var(--radius-md);
     font-weight: var(--font-weight-medium);
+}
+
+.badge:hover {
+    cursor: pointer;
+}
+
+.badge.selected {
+    filter: invert(1);
 }
