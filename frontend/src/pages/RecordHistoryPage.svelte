@@ -63,7 +63,11 @@
         aria-label="批量修改记录"
         title="批量修改记录"
         disabled={selected.size == 0}
-        onclick={(e) => {anchor = e.currentTarget; overlayController.open("RecordEdit")}}>
+        onclick={e => {
+          anchor = e.currentTarget;
+          overlayController.open("RecordEdit")
+        }}
+      >
         <PencilIcon size="24"/>
       </button>
       <button
@@ -72,7 +76,8 @@
         title="导出记录"
         style:display="none"
         disabled={recordStore.isLoading}
-        onclick={() => alert("导出")}>
+        onclick={() => alert("导出")}
+      >
         <FileArrowDownIcon size="24"/>
       </button>
       <button
@@ -80,7 +85,8 @@
         aria-label="刷新"
         title="刷新"
         disabled={recordStore.isLoading}
-        onclick={recordStore.load}>
+        onclick={recordStore.load}
+      >
         <ArrowClockwiseIcon size="24"/>
       </button>
     </div>
