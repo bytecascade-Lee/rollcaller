@@ -20,8 +20,6 @@
   import RollcallPage from "$pages/RollcallPage.svelte";
   import RecordHistoryPage from "$pages/RecordHistoryPage.svelte";
   import StudentManagementPage from "$pages/StudentManagementPage.svelte";
-  import {APP_INFO} from "$constants"
-
   import {
     ClockCounterClockwiseIcon,
     DiceFourIcon,
@@ -30,8 +28,16 @@
     QuestionIcon,
     UsersIcon
   } from "phosphor-svelte";
+  import {AppInfoCommand} from "$commands";
+  import type {AppInfo} from "$types";
+  import {onMount} from "svelte";
 
+  let APP_INFO = $state<AppInfo>({branch: "", commit_count: "", short_hash: "", commit_time: "", build_time: ""})
   let currentPage: 'rollcall' | 'students' | 'records' = $state("rollcall");
+
+  onMount(async () => {
+    APP_INFO = await AppInfoCommand.app_info();
+  });
 </script>
 
 <div class="shell">
@@ -84,7 +90,7 @@
   <footer class="footbar">
     <div>
       <GearIcon size="14" weight="bold" style="display: none"/>
-      v0.1.0-rc.1+{APP_INFO.BRANCH}.{APP_INFO.COMMIT_COUNT}.{APP_INFO.SHORT_HASH}.{APP_INFO.COMMIT_TIME}->{APP_INFO.BUILD_TIME}
+      v0.1.0+{APP_INFO.branch}.{APP_INFO.commit_count}.{APP_INFO.short_hash}.{APP_INFO.commit_time}->{APP_INFO.build_time}
     </div>
   </footer>
 </div>
