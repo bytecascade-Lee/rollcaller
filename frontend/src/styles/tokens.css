@@ -21,11 +21,10 @@
 
     --border-color-1: var(--gray-1);
     --border-color-2: var(--gray-2);
-    --border-color-3: var(--gray-3);
-    --border-color-4: var(--gray-4);
-    --border-color-5: var(--gray-5);
-    --border-color-6: var(--gray-6);
-    --border-color-7: var(--gray-7);
+    --border-color-3: var(--gray-4);
+    --border-color-4: var(--gray-5);
+    --border-color-5: var(--gray-7);
+    --border-color-6: var(--gray-10);
 
     --border-size-xxs: 1px;
     --border-size-xs: 2px;
