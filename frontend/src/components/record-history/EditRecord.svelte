@@ -26,19 +26,6 @@
     popoverStyle = `position: fixed; top: ${rect.bottom + 6}px; left: ${rect.left}px; min-width: ${Math.max(rect.width, 280)}px;`;
   }
 
-  export function open() {
-    updateStatus = true;
-    updateRemark = true;
-    attendanceStatus = null;
-    remark = "";
-    updatePosition();
-    isVisible = true;
-  }
-
-  export function close() {
-    isVisible = false;
-  }
-
   async function update() {
     const wantStatus = updateStatus && attendanceStatus != null;
     const wantRemark = updateRemark && remark.trim();
@@ -63,6 +50,28 @@
     isVisible = false;
   }
 
+  export function open() {
+    updateStatus = true;
+    updateRemark = true;
+    attendanceStatus = null;
+    remark = "";
+    updatePosition();
+    isVisible = true;
+    if (selected.size == 1) {
+      // 必须拷贝，否则拿到的是引用，表格中的照样会变
+      let value: bigint = selected.values().next().value;
+      const original = recordStore.get(value ? value : -1n);
+      if (original != null) {
+        attendanceStatus = original.attendance_status;
+        remark = original.remark ? original.remark : "";
+      }
+    }
+  }
+
+  export function close() {
+    isVisible = false;
+  }
+
   $effect(() => {
     overlayController.register("RecordEdit", {
       open: open,
@@ -78,7 +87,7 @@
   <div
     class="popup"
     style={popoverStyle}
-    onclick={(e) => e.stopPropagation()}
+    use:clickOutside={{ callback: close, exclude: anchor }}
   >
     {#if selected.size == 1}
       <h3>修改记录</h3>
@@ -130,9 +139,12 @@
         onclick={close}>
         取消
       </button>
-      <button type="button"
-              class="button yes"
-              onclick={update}>
+      <button
+        type="button"
+        class="button yes"
+        disabled={(updateStatus && attendanceStatus == null) || (updateRemark && remark.trim() == "")}
+        onclick={update}
+      >
         确定
       </button>
     </div>
