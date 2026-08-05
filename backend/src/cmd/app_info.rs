@@ -1,8 +1,9 @@
 use crate::common::entity::app_info::AppInfo;
+use tracing::debug;
 
 #[tauri::command]
 pub fn app_info() -> AppInfo {
     let app_info = AppInfo::new();
-    Debug!("{:#?}", app_info);
+    debug!("{:#?}", app_info);
     app_info
 }
