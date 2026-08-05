@@ -12,6 +12,8 @@
         "module": "preserve",
         "moduleResolution": "bundler",
         "paths": {
+            "$actions": ["./src/lib/actions"],
+            "$actions/*": ["./src/lib/actions/*"],
             "$assets/*": ["./src/assets/*"],
             "$commands": ["./src/lib/commands"],
             "$commands/*": ["./src/lib/commands/*"],
