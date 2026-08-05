@@ -1,0 +1,10 @@
+.toolbar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0;
+    gap: var(--space-xs);
+    background: var(--color-page);
+    flex-shrink: 0;
+}

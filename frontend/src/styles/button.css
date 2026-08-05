@@ -1,0 +1,89 @@
+.button-group {
+    display: flex;
+    padding-top: var(--space-xs);
+    flex-direction: row;
+    justify-content: flex-end;
+    gap: var(--space-xs);
+}
+
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xs) var(--space-sm);
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--color-background);
+    color: var(--text-color-secondary);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: filter var(--transition-duration-md) var(--transition-ease), opacity 150ms var(--transition-ease);
+}
+
+.button:hover {
+    background: var(--color-hover);
+}
+
+.button:disabled {
+    background: var(--color-disabled);
+    color: var(--text-color-disabled);
+    cursor: not-allowed;
+}
+
+.button:active {
+    background: var(--color-active);
+}
+
+.button.selected {
+    border: var(--border-size-xs) solid var(--border-color-4);
+}
+
+.button.yes {
+    background: var(--color-primary);
+    color: var(--color-page);
+}
+
+.button.yes:hover {
+    background: var(--color-primary-hover);
+}
+
+.button.yes:disabled {
+    background: var(--color-primary-disabled);
+    cursor: not-allowed;
+}
+
+.button.warn {
+    background: var(--color-warn);
+}
+
+.button.warn:hover {
+    background: var(--color-warn-hover);
+}
+
+.button.warn:disabled {
+    background: var(--color-warn-disabled);
+}
+
+.button.warn:active {
+    background: var(--color-warn-active);
+}
+
+.button.error {
+    background: var(--color-error);
+    color: var(--color-page);
+}
+
+.button.error:hover {
+    background: var(--color-error-hover);
+}
+
+.button.error:disabled {
+    background: var(--color-error-disabled);
+    cursor: not-allowed;
+}
+
+.button.error:active {
+    background: var(--color-error-active);
+}

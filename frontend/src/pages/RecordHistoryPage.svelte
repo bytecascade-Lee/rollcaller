@@ -57,7 +57,7 @@
 <!-- 页面根节点由 .content > * 提供布局与激活态 -->
 <div class:active={active}>
   <div class="toolbar">
-    <div class="button-group">
+    <div class="icon-button-group">
       <button
         class="icon-button"
         aria-label="批量修改记录"
@@ -70,7 +70,7 @@
         class="icon-button"
         aria-label="导出记录"
         title="导出记录"
-        style="display: none"
+        style:display="none"
         disabled={recordStore.isLoading}
         onclick={() => alert("导出")}>
         <FileArrowDownIcon size="24"/>
@@ -85,26 +85,29 @@
       </button>
     </div>
     <div class="search">
-      <MagnifyingGlassIcon size="20"/>
+      <MagnifyingGlassIcon size="18"/>
       <input
         type="search"
         disabled={recordStore.isLoading}
-        placeholder="搜索姓名、学号或备注"
+        placeholder="搜索学号、姓名或备注"
         bind:value={searchQuery}
       />
     </div>
   </div>
 
   {#if recordStore.isLoading}
-    <div class="page-state">数据加载中...</div>
+    <div class="state">数据加载中...</div>
   {:else if display.length == 0}
-    <div class="page-state">暂无历史记录</div>
+    <div class="state">暂无历史记录</div>
   {:else}
     <div class="table">
       <table>
         <thead>
         <tr>
-          <th class="fixed-width"></th>
+          <th
+            style:border="0px"
+            style:width="8px"
+          ></th>
           <th><input
             type="checkbox"
             checked={display.length > 0 && displaySelectedCount == display.length}
@@ -130,7 +133,11 @@
           {@const color = COLORS[groupInfo[index].groupIndex % COLORS.length]}
           <tr>
             {#if groupInfo[index].isStart}
-              <td rowspan={groupInfo[index].rowspan} style:background-color={color} class="fixed-width"></td>
+              <td
+                rowspan={groupInfo[index].rowspan}
+                style:background={color}
+                style:border-bottom="0px"
+              ></td>
             {/if}
             <td><input
               type="checkbox"
@@ -143,7 +150,12 @@
             <td>
               <AttendanceStatusBadge code={record.attendance_status}/>
             </td>
-            <td>{record.remark}</td>
+            <td
+              style:white-space="normal"
+              style:word-wrap="break-word"
+            >
+              {record.remark}
+            </td>
             <td>{format(record.rollcall_at)}</td>
           </tr>
         {/each}
@@ -152,24 +164,5 @@
     </div>
   {/if}
 </div>
-
-<style>
-  .page-state {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--app-space-xl);
-    border-radius: var(--app-radius-sm);
-    background: var(--app-color-surface);
-    color: var(--app-color-text-muted);
-    font-size: var(--app-font-size-sm);
-  }
-
-  .fixed-width {
-    width: 10px !important;
-    padding: 0 !important;
-  }
-</style>
 
 <EditRecord bind:anchor={anchor} bind:selected={selected}/>

@@ -1,0 +1,20 @@
+.content {
+    grid-area: content;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+    overflow: hidden;
+}
+
+.content > * {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.content > *.active {
+    display: flex;
+}

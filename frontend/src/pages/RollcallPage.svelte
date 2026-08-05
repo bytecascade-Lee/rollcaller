@@ -1,5 +1,4 @@
 <script lang="ts">
-
   import {studentStore} from "$stores/studentStore.svelte"
   import {recordStore} from "$stores/recordStore.svelte"
   import {rollcallEngine} from "$services/RollcallEngine.svelte";
@@ -16,38 +15,29 @@
   );
   let groupInfo = $derived<RecordGroupMetaData[]>(group(display));
 
-  let phaseText = $derived.by(() => {
-    switch (engine.phase) {
-      case RollcallPhase.Idle:
-        return engine.completedTimes > 0 ? "本轮已完成" : "等待开始";
-      case RollcallPhase.Animating:
-        return "名字滚动中 · 点击「停止点名」即可选定";
-      case RollcallPhase.Picking:
-        return "正在选人...";
-      case RollcallPhase.Showing:
-        return "已选定";
-    }
-  });
-
   $effect(() => {
     studentStore.load();
     recordStore.load();
   });
 </script>
 
-<!-- 页面根节点由 .content > * 提供布局与激活态 -->
 <div class:active={active}>
-  <!-- 上方 1/3：被选中的人 -->
-  <section class="result-panel">
-    <span class="result-phase">{phaseText}</span>
-    <span
-      class="result-name"
-      style="color: var(--app-color-warn);"
-      class:animating={engine.phase == RollcallPhase.Animating}
-      class:has-result={engine.phase != RollcallPhase.Animating && engine.currentName !== "" && engine.currentName !== "等待点名"}
-    >
-      {engine.currentName || "等待点名"}
-    </span>
+  <section class="result">
+    {#if display.length == 0}
+      <span class="name waiting">等待点名</span>
+    {:else}
+      <span
+        class="name"
+        class:animating={engine.phase == RollcallPhase.Animating}
+        class:displaying={engine.phase != RollcallPhase.Animating}
+      >
+        <!-- 当当前学生为null时，如果开始点名，上方区域会先变低，当展示名字时，才会变回来 -->
+        <!-- 换为空白字符串，问题照旧 -->
+        <!-- 当前先使用学生名单的第一个人临时修复一下 -->
+        <!-- 后期将滚动时显示的名字抽取到当前页面 -->
+        {engine.currentName || studentStore.students[0].name}
+      </span>
+    {/if}
   </section>
 
   <!-- 中间：点名次数 / 总人数 / 完成次数 / 按钮 -->
@@ -76,27 +66,32 @@
     </div>
 
     <button
-      class="btn-toggle"
-      style:--btn-bg={engine.isRolling ? "var(--red-6)" : "var(--green-6)"}
+      class="control"
+      style:background={engine.isRolling ? "var(--color-warn)" : "var(--color-success)"}
       onclick={() => engine.toggle()}
     >
       {engine.isRolling ? "停止点名" : "开始点名"}
     </button>
   </div>
 
-  <!-- 下方 1/2：本轮点名记录 -->
   <section class="table-section">
-    <h3 class="table-title">当前点名记录（{display.length}）</h3>
     {#if recordStore.isLoading}
-      <div class="section-state">数据加载中...</div>
+      <div class="state">数据加载中...</div>
     {:else if display.length == 0}
-      <div class="section-state">当前还未点名，请先点名</div>
+      <div class="state">当前还未点名，暂无记录，请先点名</div>
     {:else}
+      <h3 class="title">
+        当前点名记录（{display.length}）
+      </h3>
       <div class="table">
         <table>
           <thead>
           <tr>
-            <th class="fixed-width"></th>
+            <th
+              style:border="0px"
+              style:width="8px"
+            ></th>
+            <th style:display="none"></th>
             <th>序号</th>
             <th>姓名</th>
             <th>学号</th>
@@ -110,12 +105,20 @@
             {@const color = COLORS[groupInfo[index].groupIndex % COLORS.length]}
             <tr>
               {#if groupInfo[index].isStart}
-                <td rowspan={groupInfo[index].rowspan} style:background-color={color} class="fixed-width"></td>
+                <td
+                  rowspan={groupInfo[index].rowspan}
+                  style:background-color={color}
+                  style:border="0px"
+                  style:width="8px"
+                ></td>
               {/if}
+              <td style:display="none"></td>
               <td>{index + 1}</td>
               <td>{record.name}</td>
               <td>{record.student_no}</td>
-              <td><AttendanceStatusBadge code={record.attendance_status}/></td>
+              <td>
+                <AttendanceStatusBadge code={record.attendance_status}/>
+              </td>
               <td>{record.remark}</td>
               <td>{format(record.rollcall_at)}</td>
             </tr>
@@ -128,29 +131,22 @@
 </div>
 
 <style>
-  /* 结构布局：上 1/3 结果区 + 中间控制区 + 下 1/2 记录表 */
-  .result-panel {
-    flex: 1 1 30%;
-    min-height: 0;
+  .result {
+    min-height: 100px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--app-space-sm);
-    padding: var(--app-space-lg);
-    border-radius: var(--app-radius-md);
-    background: var(--app-color-surface);
+    gap: var(--space-sm);
+    padding: var(--space-lg);
+    border-radius: var(--radius-md);
+    background: var(--color-page);
   }
 
-  .result-phase {
-    font-size: var(--app-font-size-sm);
-    color: var(--app-color-text-muted);
-  }
-
-  .result-name {
+  .result .name {
     font-size: var(--font-size-fluid-3);
-    font-weight: var(--app-font-weight-heavy);
-    color: var(--app-color-text);
+    font-weight: var(--font-weight-heavy);
+    color: var(--color-text);
     line-height: var(--font-lineheight-1);
     max-width: 100%;
     overflow: hidden;
@@ -158,21 +154,25 @@
     white-space: nowrap;
   }
 
-  .result-name.animating {
-    color: var(--red-6);
+  .result .name.waiting {
+    color: var(--text-color-secondary);
   }
 
-  .result-name.has-result {
-    color: var(--green-7);
+  .result .name.animating {
+    color: var(--color-warn);
+  }
+
+  .result .name.displaying {
+    color: var(--color-info);
   }
 
   .control-bar {
     flex-shrink: 0;
     align-items: flex-end;
-    padding: var(--app-space-sm) var(--app-space-md);
-    background: var(--app-color-surface);
-    border: var(--border-size-1) solid var(--app-color-border);
-    border-radius: var(--app-radius-sm);
+    padding: 0;
+    background: var(--color-page);
+    border: var(--border-size-xs) solid var(--color-border);
+    border-radius: var(--radius-sm);
   }
 
   .control-bar .field {
@@ -180,32 +180,30 @@
   }
 
   .stat-value {
-    font-size: var(--app-font-size-xl);
-    font-weight: var(--app-font-weight-bold);
-    color: var(--app-color-text);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text);
     line-height: var(--font-lineheight-1);
   }
 
-  .btn-toggle {
+  .control {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: var(--size-10);
-    min-height: var(--app-size-control);
-    padding: var(--app-space-xs) var(--app-space-md);
+    padding: var(--space-xs) var(--space-md);
     border: none;
-    border-radius: var(--app-radius-sm);
-    background: var(--btn-bg, var(--green-6));
-    color: var(--sand-0);
+    border-radius: var(--radius-md);
+    background: var(--color-success);
+    color: var(--color-page);
     font-family: inherit;
-    font-size: var(--app-font-size-sm);
-    font-weight: var(--app-font-weight-medium);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
-    transition: filter 150ms var(--app-ease), opacity 150ms var(--app-ease);
+    transition: filter var(--transition-duration-md) var(--transition-ease), opacity var(--transition-duration-md) var(--transition-ease);
   }
 
-  .btn-toggle:hover {
-    filter: brightness(.94);
+  .control:hover {
+    filter: brightness(.90);
   }
 
   .table-section {
@@ -213,30 +211,6 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--app-space-xs);
-  }
-
-  .section-state {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--app-space-xl);
-    border-radius: var(--app-radius-sm);
-    background: var(--app-color-surface);
-    color: var(--app-color-text-muted);
-    font-size: var(--app-font-size-sm);
-  }
-
-  .table-title {
-    margin: 0;
-    font-size: var(--app-font-size-sm);
-    color: var(--app-color-text-muted);
-    flex-shrink: 0;
-  }
-
-  .fixed-width {
-    width: 10px !important;
-    padding: 0 !important;
+    gap: var(--space-xs);
   }
 </style>

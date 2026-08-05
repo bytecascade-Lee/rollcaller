@@ -56,13 +56,14 @@
 <!-- 页面根节点由 .content > * 提供布局与激活态 -->
 <div class:active={active}>
   <div class="toolbar">
-    <div class="button-group">
+    <div class="icon-button-group">
       <button
         class="icon-button"
         aria-label="添加学生"
         title="添加学生"
         disabled={studentStore.isLoading}
-        onclick={() => overlayController.open("StudentSingleCreate")}>
+        onclick={() => overlayController.open("StudentSingleCreate")}
+      >
         <PlusIcon size="24"/>
       </button>
       <button
@@ -70,7 +71,8 @@
         aria-label="修改学生"
         title="修改学生"
         disabled={selected.size != 1}
-        onclick={() => overlayController.open("StudentEdit")}>
+        onclick={() => overlayController.open("StudentEdit")}
+      >
         <PencilIcon size="24"/>
       </button>
       <button
@@ -78,7 +80,8 @@
         aria-label="删除学生"
         title="删除学生"
         disabled={selected.size == 0}
-        onclick={() => overlayController.open("StudentDelete")}>
+        onclick={() => overlayController.open("StudentDelete")}
+      >
         <TrashIcon size="24"/>
       </button>
       <button
@@ -86,7 +89,8 @@
         aria-label="导入学生"
         title="导入学生"
         disabled={studentStore.isLoading}
-        onclick={() => overlayController.open("StudentImport")}>
+        onclick={() => overlayController.open("StudentImport")}
+      >
         <FileArrowUpIcon size="24"/>
       </button>
       <button
@@ -94,7 +98,8 @@
         aria-label="导出学生"
         title="导出学生"
         disabled={studentStore.isLoading}
-        onclick={() => overlayController.open("StudentExport")}>
+        onclick={() => overlayController.open("StudentExport")}
+      >
         <FileArrowDownIcon size="24"/>
       </button>
       <!-- 功能后期添加 -->
@@ -103,7 +108,8 @@
         aria-label="恢复已删除学生"
         title="恢复已删除学生"
         style="display: none"
-        onclick={() => overlayController.open("StudentRestore")}>
+        onclick={() => overlayController.open("StudentRestore")}
+      >
         <ClockClockwiseIcon size="24"/>
       </button>
       <button
@@ -111,24 +117,26 @@
         aria-label="刷新"
         title="刷新"
         disabled={studentStore.isLoading}
-        onclick={() => studentStore.load()}>
+        onclick={() => studentStore.load()}
+      >
         <ArrowClockwiseIcon size="24"/>
       </button>
     </div>
     <div class="search">
-      <MagnifyingGlassIcon size="24"/>
+      <MagnifyingGlassIcon size="18"/>
       <input
         type="search"
         disabled={studentStore.isLoading}
         placeholder="搜索学号或姓名"
-        bind:value={searchQuery}/>
+        bind:value={searchQuery}
+      />
     </div>
   </div>
 
   {#if studentStore.isLoading}
-    <div class="page-state">数据加载中...</div>
+    <div class="state">数据加载中...</div>
   {:else if display.length == 0}
-    <div class="page-state">暂无学生数据</div>
+    <div class="state">暂无学生数据</div>
   {:else}
     <div class="table">
       <table>
@@ -139,7 +147,8 @@
               type="checkbox"
               checked={display.length > 0 && displaySelectedCount == display.length}
               indeterminate={displaySelectedCount > 0 && displaySelectedCount < display.length}
-              onchange={selectAll}/>
+              onchange={selectAll}
+            />
           </th>
           <th>序号</th>
           <th>
@@ -161,7 +170,8 @@
               <input
                 type="checkbox"
                 checked={selected.has(student.id)}
-                onchange={() => select(student.id)}/>
+                onchange={() => select(student.id)}
+              />
             </td>
             <td>{index + 1}</td>
             <td>{student.name}</td>
@@ -174,22 +184,7 @@
       </table>
     </div>
   {/if}
-
 </div>
-
-<style>
-  .page-state {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--app-space-xl);
-    border-radius: var(--app-radius-sm);
-    background: var(--app-color-page);
-    color: var(--app-color-text);
-    font-size: var(--app-font-size-bg);
-  }
-</style>
 
 <SingleCreateStudent/>
 <EditStudent bind:selected={selected}/>

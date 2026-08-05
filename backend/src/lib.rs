@@ -18,6 +18,7 @@ pub async fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, cmd| {}))
         .invoke_handler(tauri::generate_handler![
+            crate::cmd::app_info::app_info,
             crate::cmd::app_paths::data_dir,
             crate::cmd::app_paths::config_dir,
             crate::cmd::app_paths::cache_dir,
@@ -63,6 +64,7 @@ fn init(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .data_directory(app_paths::webview_dir().to_path_buf())
         .inner_size(900.0, 700.0)
         .auto_resize()
+        .decorations(true)
         .title("Rollcaller")
         .build()
     {

@@ -1,0 +1,123 @@
+:root {
+    --color-primary: #3871e1;
+    --color-primary-hover: color-mix(in srgb, #3871e1, #000 20%);
+    --color-primary-disabled: color-mix(in srgb, #3871e1, #000 35%);
+    --color-primary-active: color-mix(in srgb, #3871e1, #fff 60%);
+
+    --color-page: #f5f5f5;
+    --color-surface: #c9c8c8;
+    --color-focus: var(--color-primary);
+    --color-background: var(--gray-2);
+
+    --color-hover: var(--gray-3);
+    --color-disabled: color-mix(in srgb, var(--gray-2), #fff 40%);;
+    --color-active: var(--gray-4);
+
+    --text-color-primary: var(--gray-9);
+    --text-color-secondary: var(--gray-7);
+    --text-color-content: var(--gray-8);
+    --text-color-placeholder: var(--gray-6);
+    --text-color-disabled: var(--gray-5);
+
+    --border-color-1: var(--gray-1);
+    --border-color-2: var(--gray-2);
+    --border-color-3: var(--gray-3);
+    --border-color-4: var(--gray-4);
+    --border-color-5: var(--gray-5);
+    --border-color-6: var(--gray-6);
+    --border-color-7: var(--gray-7);
+
+    --border-size-xxs: 1px;
+    --border-size-xs: 2px;
+    --border-size-sm: 3px;
+    --border-size-md: 5px;
+    --border-size-lg: 8px;
+    --border-size-xl: 10px;
+
+    --color-success: var(--green-5);
+    --color-success-hover: color-mix(in srgb, var(--color-success), #000 15%);
+    --color-success-disabled: color-mix(in srgb, var(--color-success), #fff 50%);
+    --color-success-active: color-mix(in srgb, var(--color-success), #000 30%);
+    --color-info: var(--cyan-5);
+    --color-info-hover: color-mix(in srgb, var(--color-info), #000 15%);
+    --color-info-disabled: color-mix(in srgb, var(--color-info), #fff 50%);
+    --color-info-active: color-mix(in srgb, var(--color-info), #000 30%);
+    --color-warn: var(--yellow-5);
+    --color-warn-hover: color-mix(in srgb, var(--color-warn), #000 15%);
+    --color-warn-disabled: color-mix(in srgb, var(--color-warn), #fff 50%);
+    --color-warn-active: color-mix(in srgb, var(--color-warn), #000 30%);
+    --color-error: var(--red-7);
+    --color-error-hover:color-mix(in srgb, var(--color-error), #000 15%);
+    --color-error-disabled: color-mix(in srgb, var(--color-error), #000 50%);
+    --color-error-active: color-mix(in srgb, var(--color-error), #000 30%);
+
+    --scrollbar-track-color: var(--gray-1);
+    --scrollbar-thumb-color: var(--gray-4);
+
+    --space-xxs: var(--size-1);
+    --space-xs: var(--size-2);
+    --space-sm: var(--size-3);
+    --space-md: var(--size-4);
+    --space-lg: var(--size-5);
+    --space-xl: var(--size-6);
+
+    --size-xxs : var(--size-1);
+    --size-xs : var(--size-2);
+    --size-sm : var(--size-4);
+    --size-md : var(--size-6);
+    --size-lg : var(--size-8);
+    --size-xl : var(--size-10);
+
+    --font-size-xxs: 10px;
+    --font-size-xs: 12px;
+    --font-size-sm: 13px;
+    --font-size-md: 14px;
+    --font-size-lg: 16px;
+    --font-size-xl: 20px;
+
+    --font-weight-extralight: var(--font-weight-1);
+    --font-weight-light: var(--font-weight-2);
+    --font-weight-normal: var(--font-weight-3);
+    --font-weight-regular: var(--font-weight-4);
+    --font-weight-medium: var(--font-weight-5);
+    --font-weight-bold: var(--font-weight-6);
+    --font-weight-heavy: var(--font-weight-7);
+
+    --font-family-sans: "Microsoft Yahei";
+    --font-family-mono: "Cascadia Code";
+
+    --radius-none: 0px;
+    --radius-xxs: 1px;
+    --radius-xs: 2px;
+    --radius-sm: 3px;
+    --radius-md: 5px;
+    --radius-lg: 8px;
+    --radius-xl: 10px;
+    --radius-rd: var(--radius-round);
+
+    --transition-duration-fast: 150ms;
+    --transition-duration-md: 300ms;
+    --transition-duration-slow: 500ms;
+    --transition-ease: var(--ease-3);
+    --transition-ease-in: var(--ease-in-2);
+    --transition-ease-out: var(--ease-out-3);
+
+    --shadow-xxs: var(--shadow-1);
+    --shadow-xs: var(--shadow-2);
+    --shadow-sm: var(--shadow-3);
+    --shadow-md: var(--shadow-4);
+    --shadow-lg: var(--shadow-5);
+    --shadow-xl: var(--shadow-6);
+
+    --layer-base: 0;
+    --layer-card: 1;
+    --layer-dropdown: 10;
+    --layer-overlay: 100;
+    --layer-modal: 200;
+    --layer-toast: 300;
+    --layer-max: 9999;
+
+    --opacity-disabled: .7;
+    --opacity-loading: .8;
+    --opacity-hover: .9;
+}

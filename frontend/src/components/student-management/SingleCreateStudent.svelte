@@ -80,17 +80,18 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- 点击遮罩不可关闭，确保不会误触 -->
   <div class="overlay">
-    <div class="dialog" onclick={(e) => e.stopPropagation()}>
+    <div class="popup" onclick={(e) => e.stopPropagation()}>
       <form onsubmit={(e) => { e.preventDefault(); create(null); }}>
         <h3>添加学生</h3>
         <label class="field">
           <span class="field-label">学号</span>
-          <input
-            type="text"
-            bind:value={newStudent.student_no}
-            placeholder="如 1097260001"
-            autofocus
-          />
+            <!-- svelte-ignore a11y_autofocus -->
+            <input
+              type="text"
+              bind:value={newStudent.student_no}
+              placeholder="如 1097260001"
+              autofocus
+            />
         </label>
         <label class="field">
           <span class="field-label">姓名</span>
@@ -178,29 +179,32 @@
             class="button"
             onclick={close}
             disabled={isCreating}
-          >取消</button>
+          >
+            取消
+          </button>
           {#if result?.type == "Conflict"}
             <button
               type="button"
               class="button"
-              style="background: var(--app-color-warn); color: var(--app-color-text)"
               onclick={() => create(false)}
               disabled={isCreating}
-            >保留原记录</button>
+            >
+              保留原记录
+            </button>
             <button
               type="button"
               class="button"
-              style="background: var(--app-color-warn); color: var(--app-color-text)"
               onclick={() => create(true)}
-              disabled={isCreating}>
+              disabled={isCreating}
+            >
               {isCreating ? "处理中..." : "覆盖并恢复"}
             </button>
           {:else}
             <button
               type="submit"
-              class="button"
-              style="background: var(--app-color-primary); color: var(--app-color-text-white)"
-              disabled={isCreating || !canSubmit}>
+              class="button yes"
+              disabled={isCreating || !canSubmit}
+            >
               {isCreating ? "提交中..." : "确定"}
             </button>
           {/if}

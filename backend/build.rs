@@ -1,9 +1,34 @@
+use jiff::tz::TimeZone;
 use std::fs;
 use std::path::Path;
+use std::process::Command;
 
 fn main() {
+    generate_build_info();
     generate_config_constant();
     tauri_build::build()
+}
+
+fn generate_build_info() {
+    let branch = get_git_output(&["rev-parse", "--abbrev-ref", "HEAD"]);
+    let commit_count = get_git_output(&["rev-list", "--count", "HEAD"]);
+    let short_hash = get_git_output(&["rev-parse", "--short", "HEAD"]);
+    let commit_time = get_git_output(&["log", "-1", "--format=%cd", "--date=iso-strict"]);
+    let build_time = jiff::Timestamp::now().to_zoned(TimeZone::system()).to_string().replace("[Asia/Shanghai]", "");
+
+    println!("cargo:rustc-env=GIT_BRANCH={}", branch);
+    println!("cargo:rustc-env=GIT_COMMIT_COUNT={}", commit_count);
+    println!("cargo:rustc-env=GIT_SHORT_HASH={}", short_hash);
+    println!("cargo:rustc-env=GIT_COMMIT_TIME={}", commit_time);
+    println!("cargo:rustc-env=BUILD_TIME={}", build_time);
+}
+
+fn get_git_output(args: &[&str]) -> String {
+    let output = Command::new("git")
+        .args(args)
+        .output()
+        .expect("failed to execute git");
+    String::from_utf8(output.stdout).unwrap().trim().to_string()
 }
 
 fn generate_config_constant() {
