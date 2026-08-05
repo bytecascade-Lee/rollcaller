@@ -3,7 +3,7 @@
   import "$styles/attendance-status-budge.css"
   import "$styles/button.css";
   import "$styles/content.css";
-  import "$styles/dialog.css";
+  import "$styles/popup.css";
   import "$styles/field.css";
   import "$styles/footbar.css";
   import "$styles/global.css";
