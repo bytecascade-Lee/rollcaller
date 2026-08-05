@@ -1,7 +1,7 @@
 .popup {
     display: flex;
     flex-direction: column;
-    gap: var(--space-sm);
+    gap: var(--space-xxs);
     overflow-y: auto;
     max-height: 80vh;
     padding: var(--space-sm);
