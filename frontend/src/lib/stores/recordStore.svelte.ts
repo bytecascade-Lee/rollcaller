@@ -38,6 +38,11 @@ class RecordStore {
         }
     }
 
+    get(id: bigint) {
+      let find = this.#records.find(value => value.id == id);
+      return find ? find : null
+    }
+
     upsert(record: RollcallRecord) {
         const index = this.#records.findIndex((s) => s.id == record.id);
         if (index >= 0) {
