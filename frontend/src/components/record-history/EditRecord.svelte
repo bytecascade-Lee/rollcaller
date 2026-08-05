@@ -2,9 +2,10 @@
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import {RecordCommand} from "$commands";
   import {recordStore} from "$stores/recordStore.svelte";
-  import {STATUS_COLORS, STATUS_DEFAULT_COLOR, STATUS_MAP} from "$constants";
+  import {STATUS_MAP} from "$constants";
   import type {RollcallRecord} from "$types";
   import {overlayController} from "$controllers/overlayController";
+  import {clickOutside} from "$actions";
 
   let {selected = $bindable(), anchor = $bindable()} = $props<{
     selected: Set<bigint>;
@@ -19,10 +20,6 @@
   let popoverStyle = $state("");
 
   const statusCodes = Object.keys(STATUS_MAP).map(Number);
-
-  function statusStyle(code: number) {
-    return STATUS_COLORS[code] ?? STATUS_DEFAULT_COLOR;
-  }
 
   function updatePosition() {
     const rect = anchor.getBoundingClientRect();
@@ -78,43 +75,53 @@
 {#if isVisible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div onclick={close}></div>
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="popup"
     style={popoverStyle}
     onclick={(e) => e.stopPropagation()}
   >
-    <h3>批量修改记录（共 {selected.size} 条）</h3>
-    <div class="field-label">
-      <label><input type="checkbox" bind:checked={updateStatus}/>状态</label>
-      <div class="status-group">
+    {#if selected.size == 1}
+      <h3>修改记录</h3>
+    {:else}
+      <h3>批量修改记录（共 {selected.size} 条）</h3>
+    {/if}
+    <label class="field">
+      <span class="field-label">
+        <input type="checkbox" bind:checked={updateStatus}/>
+        状态
+      </span>
+
+      <span class="badge-group">
         {#each statusCodes as code (code)}
           <button
-            class="button"
+            class="badge"
             type="button"
-            class:selected={attendanceStatus == code}
             disabled={!updateStatus}
-            style:padding="var(--size-xxs)"
-            onclick={() => attendanceStatus = attendanceStatus == code ? null : code}
+            style:padding="0"
+            onclick={(e) => {
+              e.stopPropagation();
+              attendanceStatus = attendanceStatus == code ? null : code
+            }}
           >
-              <AttendanceStatusBadge code={code}/>
+              <AttendanceStatusBadge code={code} selected={attendanceStatus == code}/>
           </button>
         {/each}
-      </div>
-    </div>
+      </span>
+    </label>
 
-    <div class="field-label">
-      <label><input type="checkbox" bind:checked={updateRemark}/> 备注</label>
-      <div class="field-label">
-        <input
-          type="text"
-          disabled={!updateRemark}
-          placeholder="批量添加备注"
-          bind:value={remark}/>
-      </div>
-    </div>
+
+    <label class="field">
+      <span class="field-label">
+        <input type="checkbox" bind:checked={updateRemark}/>
+        备注
+      </span>
+      <input
+        type="text"
+        disabled={!updateRemark}
+        placeholder="批量添加备注"
+        bind:value={remark}
+      />
+    </label>
 
     <div class="button-group">
       <button
