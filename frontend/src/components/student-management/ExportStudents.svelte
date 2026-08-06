@@ -3,28 +3,20 @@
   import {save} from "@tauri-apps/plugin-dialog";
   import {StudentCommand} from "$commands";
   import {overlayController} from "$controllers/overlayController";
+  import {clickOutside, updatePosition} from "$actions";
 
-  let {selected = $bindable()} = $props<{ selected: Set<bigint> }>()
+  let {selected = $bindable(), anchor = $bindable()} = $props<{
+    selected: Set<bigint>;
+    anchor: HTMLElement | null;
+  }>();
   let isVisible = $state(false);
   let isExporting = $state(false);
   let popoverStyle = $state("");
   let errorMsg = $state("");
 
-  /** 定位到工具栏下方（导出按钮所在区域），不依赖页面改动 */
-  function updatePosition() {
-    const toolbars = document.querySelectorAll(".toolbar");
-    const toolbar = toolbars[toolbars.length - 1];
-    if (toolbar) {
-      const rect = toolbar.getBoundingClientRect();
-      popoverStyle = `position: fixed; top: ${rect.bottom + 6}px; left: ${rect.left}px;`;
-    } else {
-      popoverStyle = `position: fixed; top: var(--size-9); left: var(--size-9);`;
-    }
-  }
-
   function open() {
     errorMsg = "";
-    updatePosition();
+    popoverStyle = updatePosition(anchor);
     isVisible = true;
   }
 
@@ -74,9 +66,10 @@
   <div onclick={close}></div>
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="popup"
-       style={popoverStyle}
-       onclick={(e) => e.stopPropagation()}
+  <div
+    class="popup"
+    style={popoverStyle}
+    use:clickOutside={{ callback: close, exclude: anchor}}
   >
     <h3>导出学生</h3>
     <span class="field-label">选择导出范围，然后指定保存位置（.xlsx）</span>
