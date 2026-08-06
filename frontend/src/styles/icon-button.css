@@ -30,7 +30,7 @@
     cursor: not-allowed;
 }
 
-.icon-button:active {
+.icon-button:active:not(:disabled) {
     background: var(--color-primary);
     color: var(--color-page);
 }
