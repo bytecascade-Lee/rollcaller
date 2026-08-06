@@ -5,7 +5,7 @@
   import {STATUS_MAP} from "$constants";
   import type {RollcallRecord} from "$types";
   import {overlayController} from "$controllers/overlayController";
-  import {clickOutside} from "$actions";
+  import {clickOutside, updatePosition} from "$actions";
 
   let {selected = $bindable(), anchor = $bindable()} = $props<{
     selected: Set<bigint>;
@@ -20,11 +20,6 @@
   let popoverStyle = $state("");
 
   const statusCodes = Object.keys(STATUS_MAP).map(Number);
-
-  function updatePosition() {
-    const rect = anchor.getBoundingClientRect();
-    popoverStyle = `position: fixed; top: ${rect.bottom + 6}px; left: ${rect.left}px; min-width: ${Math.max(rect.width, 280)}px;`;
-  }
 
   async function update() {
     const wantStatus = updateStatus && attendanceStatus != null;
@@ -55,7 +50,7 @@
     updateRemark = true;
     attendanceStatus = null;
     remark = "";
-    updatePosition();
+    popoverStyle = updatePosition(anchor);
     isVisible = true;
     if (selected.size == 1) {
       // 必须拷贝，否则拿到的是引用，表格中的照样会变
