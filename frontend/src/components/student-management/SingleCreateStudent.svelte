@@ -82,16 +82,16 @@
   <div class="overlay">
     <div class="popup" onclick={(e) => e.stopPropagation()}>
       <form onsubmit={(e) => { e.preventDefault(); create(null); }}>
-        <h3>添加学生</h3>
+        <h3 class="text-title">添加学生</h3>
         <label class="field">
           <span class="field-label">学号</span>
-            <!-- svelte-ignore a11y_autofocus -->
-            <input
-              type="text"
-              bind:value={newStudent.student_no}
-              placeholder="如 1097260001"
-              autofocus
-            />
+          <!-- svelte-ignore a11y_autofocus -->
+          <input
+            type="text"
+            bind:value={newStudent.student_no}
+            placeholder="如 1097260001"
+            autofocus
+          />
         </label>
         <label class="field">
           <span class="field-label">姓名</span>
@@ -103,73 +103,59 @@
         </label>
         {#if result != null}
           {#if result.type == "ActiveExists"}
-            <div class="msg">
-              <strong>学号已被占用</strong>
-              <p>
-                学号「{result.data.student_no}」已被学生
-                <b>{result.data.name}</b>
-                使用<br/>
-                （创建于 {format(result.data.created_at)}）。
-              </p>
-              <p>请修改学号后重试。</p>
-            </div>
+            <span class="text-subtitle error">学号已被占用<br/></span>
+            <span class="text-content">
+                学号「{result.data.student_no}」已被学生<b>{result.data.name}</b>使用<br/>
+                （创建于 {format(result.data.created_at)}）<br/>
+                请修改学号后重试
+              </span>
           {:else if result.type == "Conflict"}
-            <div class="msg">
-              <strong>学号冲突 — 存在已删除的记录</strong>
-              <table>
-                <thead>
-                <tr>
-                  <th></th>
-                  <th>当前输入</th>
-                  <th>原记录（已删除）</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr>
-                  <td>学号</td>
-                  <td>{newStudent.student_no}</td>
-                  <td>{result.data.student_no}</td>
-                </tr>
-                <tr>
-                  <td>姓名</td>
-                  <td><b>{newStudent.name}</b></td>
-                  <td><b>{result.data.name}</b></td>
-                </tr>
-                </tbody>
-              </table>
-              <p>原记录已被软删除，是否用新姓名覆盖并恢复？</p>
-            </div>
+            <span class="text-subtitle warn">学号冲突 — 存在已删除的记录<br/></span>
+            <table>
+              <thead>
+              <tr>
+                <th></th>
+                <th>当前输入</th>
+                <th>原记录</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr>
+                <td>学号</td>
+                <td>{newStudent.student_no}</td>
+                <td>{result.data.student_no}</td>
+              </tr>
+              <tr>
+                <td>姓名</td>
+                <td><b>{newStudent.name}</b></td>
+                <td><b>{result.data.name}</b></td>
+              </tr>
+              </tbody>
+            </table>
+            <span class="text-content">原记录已被删除，是否用新姓名覆盖并恢复？</span>
           {:else if result.type == "Restore"}
-            <div class="msg">
-              <strong>已自动恢复</strong>
-              <p>
+            <span class="text-subtitle success">已自动恢复<br/></span>
+            <span class="text-content">
                 学号「{result.data.student_no}」曾存在且已删除，系统已自动恢复原记录。
-              </p>
-            </div>
+              </span>
           {:else if result.type == "Insert"}
-            <div class="msg">
-              <strong>添加成功</strong>
-              <p>
+            <span class="text-subtitle success">添加成功<br/></span>
+            <span class="text-content">
                 学生 <b>{result.data.name}</b>（{result.data
-                .student_no}）已添加，可继续录入下一位。
-              </p>
-            </div>
+              .student_no}）已添加，可继续录入下一位。
+              </span>
           {:else if result.type == "Override"}
-            <div class="msg">
-              <strong>已覆写</strong>
-              <p>
-                学生「{result.data.student_no}」已用新姓名
+            <span class="text-subtitle">已覆写<br/></span>
+            <span class="text-content">
+                学生「{result.data.student_no}」已用新姓名<br/>
                 <b>{result.data.name}</b> 覆写并恢复。
-              </p>
-            </div>
+              </span>
           {:else if result.type == "Retain"}
-            <div class="msg">
-              <strong>已保留原记录</strong>
-              <p>
-                学号「{result.data.student_no}」的原记录（已删除）未被修改，
-                请更换学号后重试。
-              </p>
-            </div>
+            <span class="text-subtitle">已保留原记录<br/></span>
+            <span class="text-content">
+                学号「{result.data.student_no}」的原记录未被修改<br/>
+                请更换学号后重新添加。
+              </span>
           {/if}
         {/if}
 
@@ -185,7 +171,7 @@
           {#if result?.type == "Conflict"}
             <button
               type="button"
-              class="button"
+              class="button yes"
               onclick={() => create(false)}
               disabled={isCreating}
             >
@@ -193,7 +179,7 @@
             </button>
             <button
               type="button"
-              class="button"
+              class="button warn"
               onclick={() => create(true)}
               disabled={isCreating}
             >
@@ -215,19 +201,15 @@
 {/if}
 
 <style>
-  .msg {
-    display: flex;
-    flex-direction: column;
-    gap: var(--app-space-xs);
-    padding: var(--app-space-sm) var(--app-space-md);
-    border-radius: var(--app-radius-sm);
-    font-size: var(--app-font-size-sm);
-    background: var(--app-color-surface-muted);
-    color: var(--app-color-text-muted);
-    text-align: left;
-  }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
 
-  .msg p {
-    margin: 0;
-  }
+    th, td {
+      border: var(--border-size-xs) solid var(--border-color-5);
+      border-radius:  var(--radius-md);
+      padding: var(--space-xs) var(--space-sm);
+      text-align: center;
+    }
 </style>
