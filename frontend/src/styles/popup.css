@@ -11,10 +11,3 @@
     box-shadow: var(--shadow-md);
     z-index: var(--layer-card);
 }
-
-.popup h3 {
-    margin: 0;
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-bold);
-    color: var(--text-color-secondary);
-}
