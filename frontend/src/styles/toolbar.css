@@ -7,4 +7,5 @@
     gap: var(--space-xs);
     background: var(--color-page);
     flex-shrink: 0;
+    user-select: none;
 }
