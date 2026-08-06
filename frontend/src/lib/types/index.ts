@@ -6,6 +6,7 @@ export * from "./OverlayName";
 export * from "./Record";
 export * from "./RecordGroupMetaData";
 export * from "./RecordTable";
+export * from "./Result";
 export * from "./RollcallEvent";
 export * from "./RollcallPhase";
 export * from "./RollcallRecord";
