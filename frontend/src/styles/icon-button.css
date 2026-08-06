@@ -16,7 +16,7 @@
     background: var(--color-page);
     color: var(--text-color-content);
     cursor: pointer;
-    transition: background-color var(--transition-duration-slow) var(--transition-ease), color var(--transition-duration-slow) var(--transition-ease);
+    transition: background-color var(--transition-duration-md) var(--transition-ease), color var(--transition-duration-md) var(--transition-ease);
 }
 
 .icon-button:hover {
