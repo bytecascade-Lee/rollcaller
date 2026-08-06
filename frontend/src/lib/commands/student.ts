@@ -22,7 +22,7 @@ export async function update(student: Student) {
 }
 
 export async function remove(ids: bigint[]) {
-  return await invoke("student_batch_delete", {
+  void await invoke("student_batch_delete", {
     ids: ids,
   })
 }
@@ -34,7 +34,7 @@ export async function restore(ids: bigint[]) {
 }
 
 export async function expose(path: string, ids: bigint[]) {
-  return await invoke<null>("student_export", {
+  void await invoke<null>("student_export", {
     path: path,
     ids: ids
   })
