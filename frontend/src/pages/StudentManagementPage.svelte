@@ -22,6 +22,7 @@
   let selected = $state<Set<bigint>>(new Set())
   let {active = $bindable(false)} = $props();
   let searchQuery = $state("")
+  let anchor = $state<HTMLElement | null>(null);
   let display = $derived(
     studentStore.students.filter(student =>
       student.name.toLowerCase().includes(searchQuery) ||
@@ -98,7 +99,10 @@
         aria-label="导出学生"
         title="导出学生"
         disabled={studentStore.isLoading}
-        onclick={() => overlayController.open("StudentExport")}
+        onclick={e => {
+          anchor = e.currentTarget;
+          overlayController.open("StudentExport")
+        }}
       >
         <FileArrowDownIcon size="24"/>
       </button>
@@ -190,4 +194,4 @@
 <EditStudent bind:selected={selected}/>
 <DeleteStudents bind:selected={selected}/>
 <ImportStudents/>
-<ExportStudents bind:selected={selected}/>
+<ExportStudents bind:selected={selected} bind:anchor={anchor}/>
