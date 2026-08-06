@@ -4,19 +4,28 @@
   import {StudentCommand} from "$commands";
   import {overlayController} from "$controllers/overlayController";
   import {clickOutside, updatePosition} from "$actions";
+  import type {StudentTable} from "$types";
+  import {Result} from "$types";
 
-  let {selected = $bindable(), anchor = $bindable()} = $props<{
+  let {selected = $bindable(), display = $bindable(), anchor = $bindable()} = $props<{
     selected: Set<bigint>;
+    display: StudentTable[];
     anchor: HTMLElement | null;
   }>();
   let isVisible = $state(false);
   let isExporting = $state(false);
   let popoverStyle = $state("");
-  let errorMsg = $state("");
+  let message = $state("");
+  let result = $state<Result>(Result.None);
 
   function open() {
-    errorMsg = "";
     popoverStyle = updatePosition(anchor);
+    if (selected.size == 0 && studentStore.students.length == display.length) {
+      exportAll();
+      return;
+    }
+    message = "";
+    result = Result.None;
     isVisible = true;
   }
 
@@ -28,23 +37,30 @@
     if (isExporting || ids.length == 0) return;
     // 弹出保存对话框：默认文件名可修改，格式 xlsx
     const path = await save({
-      defaultPath: "学生名单.xlsx",
+      defaultPath: `学生名单-${Date.now()}.xlsx`,
       filters: [{name: "Excel", extensions: ["xlsx"]}],
     });
-    if (!path) return; // 用户取消保存
+    if (!path) return;
     try {
-      isExporting = true;
+      result = Result.Doing;
       await StudentCommand.expose(path, ids);
-      close();
+      result = Result.Success;
+      setTimeout(() => close(), 2500);
     } catch (e) {
-      errorMsg = String(e);
+      result = Result.Error;
+      message = String(e);
     } finally {
+      isVisible = true;
       isExporting = false;
     }
   }
 
   function exportAll() {
     void doExport(studentStore.students.map((s) => s.id));
+  }
+
+  function exportDisplay() {
+    void doExport(display.map((student: { id: bigint; }) => student.id))
   }
 
   function exportSelected() {
@@ -68,34 +84,44 @@
     style={popoverStyle}
     use:clickOutside={{ callback: close, exclude: anchor}}
   >
-    <h3>导出学生</h3>
-    <span class="field-label">选择导出范围，然后指定保存位置（.xlsx）</span>
+    <h3 class="text-title">导出学生</h3>
+    <span class="text-content">选择导出范围<br>然后指定保存位置（.xlsx）</span>
 
-    <button
-      type="button"
-      class="export-option"
+    <div
+      class="card"
       onclick={exportAll}
-      disabled={isExporting || studentStore.isLoading || studentStore.students.length == 0}
     >
-      <span class="option-title">导出全部</span>
-      <span class="option-desc">共 {studentStore.students.length} 名学生</span>
-    </button>
+      <span class="text-subtitle">导出全部</span>
+      <span class="text-content">共 {studentStore.students.length} 名学生</span>
+    </div>
 
-    <button
-      type="button"
-      class="export-option"
-      onclick={exportSelected}
-      disabled={isExporting || selected.size == 0}
-    >
-      <span class="option-title">导出选中</span>
-      <span class="option-desc">已选 {selected.size} 名学生</span>
-    </button>
-
-    {#if errorMsg}
-      <div class="export-error">导出失败：{errorMsg}</div>
+    {#if studentStore.students.length != display.length}
+      <div
+        class="card"
+        onclick={exportDisplay}
+      >
+        <span class="text-subtitle">导出筛选后的</span>
+        <span class="text-content">共 {display.length} 名学生</span>
+      </div>
     {/if}
-    {#if isExporting}
-      <div class="export-status">正在导出...</div>
+
+    {#if selected.size > 0}
+      <div
+        class="card"
+        onclick={exportSelected}
+      >
+        <span class="text-subtitle">导出选中</span>
+        <span class="text-content">已选 {selected.size} 名学生</span>
+      </div>
+    {/if}
+
+    {#if result == Result.Error}
+      <span class="text-subtitle error">导出失败</span>
+      <span class="text-content error">{message}</span>
+    {:else if result == Result.Success}
+      <span class="text-subtitle success">导出成功</span>
+    {:else if result == Result.Doing}
+      <span class="text-subtitle info">正在导出...</span>
     {/if}
 
     <div class="button-group">
@@ -110,52 +136,3 @@
     </div>
   </div>
 {/if}
-
-<style>
-  .export-option {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-xxs);
-    width: 100%;
-    padding: var(--space-xs) var(--space-sm);
-    border: var(--border-size-xs) solid var(--border-color-4);
-    border-radius: var(--radius-sm);
-    background: var(--color-background);
-    cursor: pointer;
-    text-align: left;
-  }
-
-  .export-option:hover:not(:disabled) {
-    background: var(--color-hover);
-  }
-
-  .export-option:disabled {
-    background: var(--color-disabled);
-    cursor: not-allowed;
-  }
-
-  .option-title {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-bold);
-    color: var(--text-color-secondary);
-  }
-
-  .option-desc {
-    font-size: var(--font-size-xs);
-    color: var(--text-color-content);
-  }
-
-  .export-error {
-    padding: var(--space-xs) var(--space-sm);
-    border-radius: var(--radius-sm);
-    background: var(--color-page);
-    color: var(--color-error);
-    font-size: var(--font-size-xs);
-  }
-
-  .export-status {
-    font-size: var(--font-size-xs);
-    color: var(--text-color-content);
-  }
-</style>

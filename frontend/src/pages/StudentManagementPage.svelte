@@ -194,4 +194,4 @@
 <EditStudent bind:selected={selected}/>
 <DeleteStudents bind:selected={selected}/>
 <ImportStudents/>
-<ExportStudents bind:selected={selected} bind:anchor={anchor}/>
+<ExportStudents bind:selected={selected} bind:display={display} bind:anchor={anchor}/>
