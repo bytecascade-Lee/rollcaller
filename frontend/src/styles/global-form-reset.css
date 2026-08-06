@@ -45,4 +45,5 @@ textarea:focus {
 input::placeholder,
 textarea::placeholder {
     color: var(--text-color-placeholder);
+    user-select: none;
 }

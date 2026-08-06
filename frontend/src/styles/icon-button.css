@@ -17,6 +17,7 @@
     color: var(--text-color-content);
     cursor: pointer;
     transition: background-color var(--transition-duration-md) var(--transition-ease), color var(--transition-duration-md) var(--transition-ease);
+    user-select: none;
 }
 
 .icon-button:hover {

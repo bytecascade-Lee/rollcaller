@@ -4,6 +4,7 @@
     flex-direction: row;
     justify-content: flex-end;
     gap: var(--space-xs);
+    user-select: none;
 }
 
 .button {
@@ -20,6 +21,7 @@
     font-weight: var(--font-weight-medium);
     cursor: pointer;
     transition: filter var(--transition-duration-md) var(--transition-ease), opacity 150ms var(--transition-ease);
+    user-select: none;
 }
 
 .button:hover {
