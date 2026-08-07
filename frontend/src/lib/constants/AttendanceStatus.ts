@@ -9,11 +9,11 @@ export function statusText(code: number) {
  * 组件经 style: 指令注入，不写死在 CSS 中。
  */
 export const STATUS_COLORS: Record<number, {bg: string; color: string}> = {
-  0: {bg: "#e03131", color: "#fff5f5"}, // 缺勤 红
-  1: {bg: "#37b24d", color: "#ebfbee"}, // 出勤 绿
-  2: {bg: "#f76707", color: "#fff4e6"}, // 迟到 橙
-  3: {bg: "#f59f00", color: "#fff9db"}, // 早退 黄
-  4: {bg: "#1971c2", color: "#e7f5ff"}, // 请假 蓝
+  0: {bg: "#e03131", color: "#ffffff"}, // 缺勤 红
+  1: {bg: "#37b24d", color: "#ffffff"}, // 出勤 绿
+  2: {bg: "#e8590c", color: "#ffffff"}, // 迟到 橙
+  3: {bg: "#b8860b", color: "#ffffff"}, // 早退 黄
+  4: {bg: "#1971c2", color: "#ffffff"}, // 请假 蓝
 };
 
-export const STATUS_DEFAULT_COLOR = {bg: "var(--app-color-surface-muted)", color: "var(--app-color-text-muted)"};
+export const STATUS_DEFAULT_COLOR = {bg: "var(--color-page)", color: "var(--text-color-content)"};
