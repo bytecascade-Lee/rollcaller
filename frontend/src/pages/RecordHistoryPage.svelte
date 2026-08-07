@@ -8,6 +8,7 @@
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import EditRecord from "$components/record-history/EditRecord.svelte";
   import {overlayController} from "$controllers/overlayController";
+  import ExportRecords from "$components/record-history/ExportRecords.svelte";
 
   let selected = $state<Set<bigint>>(new Set());
   let {active = $bindable(false)} = $props();
@@ -74,9 +75,11 @@
         class="icon-button"
         aria-label="导出记录"
         title="导出记录"
-        style:display="none"
         disabled={recordStore.isLoading}
-        onclick={() => alert("导出")}
+        onclick={e => {
+          anchor = e.currentTarget;
+          overlayController.open("RecordExport")
+        }}
       >
         <FileArrowDownIcon size="24"/>
       </button>
@@ -172,3 +175,4 @@
 </div>
 
 <EditRecord bind:anchor={anchor} bind:selected={selected}/>
+<ExportRecords bind:selected={selected} bind:display={display} bind:anchor={anchor}/>
