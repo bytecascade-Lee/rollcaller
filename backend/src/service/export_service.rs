@@ -40,7 +40,7 @@ pub async fn export_students(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow:
         worksheet.write_with_format(row, 1, &student.student_no, &content_format)?;
         worksheet.write_with_format(row, 2, &student.name, &content_format)?;
         column_1_width = max(cell_autofit_width(&student.student_no), column_1_width);
-        column_1_width = max(cell_autofit_width(&student.name), column_2_width);
+        column_2_width = max(cell_autofit_width(&student.name), column_2_width);
     }
 
     worksheet.set_column_width(0, column_0_width)?;
