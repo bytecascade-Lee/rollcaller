@@ -83,7 +83,7 @@
         <span class="text-content">当前选中id：{Array.from(selected)}</span>
       {:else}
         <form onsubmit={(e) => { e.preventDefault(); edit(); }}>
-          <h3>修改学生</h3>
+          <h3 class="text-title">修改学生</h3>
           <label class="field">
             <span class="field-label">学号</span>
             <input

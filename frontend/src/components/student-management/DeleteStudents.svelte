@@ -33,8 +33,9 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="overlay" onclick={closeOnOutside ? () => isVisible = false : undefined}>
     <div class="popup" onclick={(e) => e.stopPropagation()}>
-      <h3>确认删除</h3>
-      <p>确定删除选中的 {selected.size} 条记录吗？</p>
+      <h3 class="text-title error">确认删除</h3>
+      <p class="text-content">确定删除选中的 {selected.size} 条记录吗？</p>
+      <p class="text-content">注：当前版本暂无恢复入口，删除后不可直接恢复！</p>
       <div class="button-group">
         <button
           type="button"
