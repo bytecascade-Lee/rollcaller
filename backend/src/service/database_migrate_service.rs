@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use crate::common::ext::hash_ext::HashExt;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 pub struct MigrationFileInfo {
     pub path: PathBuf,
@@ -80,7 +80,7 @@ pub async fn migrate(rb: &RBatis, migration_dir: &Path) -> anyhow::Result<()> {
             //* 5.3 迁移记录不存在
             None => {
                 // 未执行迁移
-                println!("📄 执行迁移: V{}__{}.sql", file.version, file.description);
+                info!("📄 执行迁移: V{}__{}.sql", file.version, file.description);
                 // 先插入新纪录，status默认为 'RUNNING_IN_TX'
                 database_migration_repo::insert_new_history(
                     &mut tx,
@@ -106,14 +106,14 @@ pub async fn migrate(rb: &RBatis, migration_dir: &Path) -> anyhow::Result<()> {
 
                 // 如果成功，更新为 SUCCESS
                 update_success_status(&mut tx, file.version, current_timestamp_millis()).await?;
-                println!("✅ 迁移成功: V{}__{}.sql", file.version, file.description);
+                info!("✅ 迁移成功: V{}__{}.sql", file.version, file.description);
             }
         }
     }
 
     //* 7. 提交事务
     tx.commit().await?;
-    println!("🎉 所有迁移执行完成");
+    info!("🎉 所有迁移执行完成");
     Ok(())
 }
 
@@ -155,5 +155,7 @@ fn parse_filename(filename: &str) -> Option<(i64, String)> {
         return None;
     }
     let version = parts[0].trim_start_matches('V').parse::<i64>().ok()?;
-    Some((version, parts[1].to_string()))
+    let description = parts[1].replace("-", " ");
+    debug!("解析迁移文件名：[{}] -> [{}] + [{}]", filename, &version, &description);
+    Some((version, description))
 }
