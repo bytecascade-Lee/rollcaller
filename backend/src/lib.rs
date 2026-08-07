@@ -42,6 +42,7 @@ pub async fn run() {
             crate::cmd::import::preview_excel,
             crate::cmd::import::import_excel,
             crate::cmd::export::student_export,
+            crate::cmd::export::record_export,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
