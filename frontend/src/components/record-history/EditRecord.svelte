@@ -85,9 +85,9 @@
     use:clickOutside={{ callback: close, exclude: anchor }}
   >
     {#if selected.size == 1}
-      <h3>修改记录</h3>
+      <h3 class="text-title">修改记录</h3>
     {:else}
-      <h3>批量修改记录（共 {selected.size} 条）</h3>
+      <h3 class="text-title">批量修改记录（共 {selected.size} 条）</h3>
     {/if}
     <label class="field">
       <span class="field-label">
