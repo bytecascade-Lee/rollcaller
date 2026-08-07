@@ -88,7 +88,7 @@
         aria-label="刷新"
         title="刷新"
         disabled={recordStore.isLoading}
-        onclick={recordStore.load}
+        onclick={() => recordStore.load()}
       >
         <ArrowClockwiseIcon size="24"/>
       </button>
