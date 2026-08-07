@@ -29,15 +29,6 @@ def run_git_command(cmd: List[str]) -> Tuple[bool, str]:
         return False, str(e)
 
 
-def get_latest_tag() -> Optional[str]:
-    """获取最新的附注标签（按创建时间排序）"""
-    success, output = run_git_command(["git", "tag", "--sort=-creatordate"])
-    if not success or not output:
-        return None
-    tags = output.split('\n')
-    return tags[0] if tags else None
-
-
 def get_commit_range(since: Optional[str] = None) -> List[Dict]:
     """
     获取指定范围的提交记录
@@ -132,14 +123,13 @@ def generate_markdown(commits: List[Dict], tag: Optional[str] = None) -> str:
     return ''.join(lines)
 
 
-def save_changelog(content: str, tag: Optional[str] = None) -> Path:
+def save_changelog(content: str, length: int, tag: Optional[str] = None) -> Path:
     """保存 Change Log 到文件"""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if tag is None:
-        filename = f"First.md"
+        filename = f"{length}-First.md"
     else:
         safe_tag = tag.replace('/', '_').replace(' ', '_')
-        filename = f"{safe_tag}.md"
+        filename = f"{length}-{safe_tag}.md"
 
     filepath = Path.cwd() / "docs/changes" / filename
     with open(filepath, 'w', encoding='utf-8') as f:
@@ -155,7 +145,14 @@ def main():
         sys.exit(1)
 
     print("🔍 正在获取最新的标签...")
-    latest_tag = get_latest_tag()
+    success, output = run_git_command(["git", "tag", "--sort=-creatordate"])
+    if not success or not output:
+        latest_tag =  None
+        length = 0
+    else:
+        tags = output.split('\n')
+        latest_tag = tags[0]
+        length = len(tags)
 
     if latest_tag is None:
         print("📌 未找到任何标签，生成首次发布的 Change Log...")
@@ -172,7 +169,7 @@ def main():
     print("📝 生成 Markdown 内容...")
     content = generate_markdown(commits, tag)
 
-    filepath = save_changelog(content, tag)
+    filepath = save_changelog(content, length, tag)
     print(f"✅ Change Log 已保存到: {filepath}")
 
 
