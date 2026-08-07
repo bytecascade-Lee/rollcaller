@@ -12,9 +12,6 @@ pub async fn export_students(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow:
     if ids.is_empty() {
         return Err(anyhow!("长度为0，没有待导出的学生。"));
     }
-    if path.exists() {
-        return Err(anyhow!("文件已存在：{:#?}", path));
-    }
     let mut students = Student::select_by_map(rb, value! {"id": ids}).await?;
     let mut workbook = Workbook::new();
     let header_format = Format::new()
@@ -45,9 +42,6 @@ pub async fn export_students(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow:
 pub async fn export_records(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow::Result<()> {
     if ids.is_empty() {
         return Err(anyhow!("长度为0，没有待导出的历史记录。"));
-    }
-    if path.exists() {
-        return Err(anyhow!("文件已存在：{:#?}", path));
     }
     let mut tx = rb.acquire_begin().await?;
     let records = record_repo::select_by_ids(&mut tx, ids).await?;
