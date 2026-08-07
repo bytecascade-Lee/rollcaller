@@ -85,11 +85,11 @@ pub async fn export_records(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow::
 
 fn get_status_from_code(code: i8) -> String {
     match code {
-        1 => String::from("缺勤"),
-        2 => String::from("出勤"),
-        3 => String::from("迟到"),
-        4 => String::from("早退"),
-        5 => String::from("请假"),
+        0 => String::from("缺勤"),
+        1 => String::from("出勤"),
+        2 => String::from("迟到"),
+        3 => String::from("早退"),
+        4 => String::from("请假"),
         _ => String::from("未知")
     }
 }
