@@ -151,7 +151,6 @@ def generate_markdown(commits: List[Dict], start: Optional[str], end: Optional[s
         if idx != len(commits):
             lines.append("\n---\n")
 
-    lines.append("结束")
     return ''.join(lines)
 
 
