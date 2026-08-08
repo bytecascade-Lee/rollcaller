@@ -7,6 +7,7 @@
   import {format} from "$utils/DataTimeUtils";
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
+  import {MinusCircleIcon, PlusCircleIcon} from "phosphor-svelte";
 
   const engine = rollcallEngine;
   let {active = $bindable(false)} = $props();
@@ -43,15 +44,29 @@
   <div class="toolbar">
     <label class="field">
       <span class="field-label">点名次数</span>
-      <input
-        type="number"
-        min="1"
-        max={studentStore.students.length || 1}
-        style="height: 28px; width: 64px"
-        value={engine.totalTimes}
-        oninput={(e) => engine.updateTotalTimes(Number(e.currentTarget.value))}
-        disabled={engine.isRolling}
-      />
+      <span class="icon-button-group">
+        <button
+          class="icon-button"
+          onclick={() => engine.updateTotalTimes(Math.min(engine.totalTimes + 1, studentStore.students.length))}
+        >
+          <PlusCircleIcon size="20"/>
+        </button>
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          style="height: 28px; width: 64px"
+          value={engine.totalTimes}
+          oninput={(e) => engine.updateTotalTimes(Number(e.currentTarget.value.replace(/\D/g, '')))}
+          disabled={engine.isRolling}
+        />
+        <button
+          class="icon-button"
+          onclick={() => engine.updateTotalTimes(Math.max(engine.totalTimes - 1, 1))}
+        >
+          <MinusCircleIcon size="20"/>
+        </button>
+      </span>
     </label>
 
     <div class="field">
