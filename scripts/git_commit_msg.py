@@ -116,10 +116,9 @@ def generate_markdown(commits: List[Dict], tag: Optional[str] = None) -> str:
         lines.append(f"> Hash: {commit['short_hash']}   At: {commit['full_time']}\n")
         if commit['body']:
             lines.append(commit['body'] + "\n")
-        if idx != len(commit):
+        if idx != len(commits):
             lines.append("\n---\n")
 
-    lines.append("结束")
     return ''.join(lines)
 
 
