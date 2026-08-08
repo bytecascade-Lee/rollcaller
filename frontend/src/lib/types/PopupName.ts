@@ -1,4 +1,4 @@
-export type OverlayName =
+export type PopupName =
   "StudentSingleCreate"
   | "StudentImport"
   | "StudentExport"

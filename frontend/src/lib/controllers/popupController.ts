@@ -1,30 +1,30 @@
-import {OverlayName} from "$types/OverlayName";
-import {Overlay} from "$types/Overlay";
+import {PopupName} from "$types/PopupName";
+import {Popup} from "$types/Popup";
 
 class PopupController {
-  #controllers = new Map<OverlayName, Overlay>();
+  #controllers = new Map<PopupName, Popup>();
 
   controllers() {
     return this.#controllers
   }
 
-  register(name: OverlayName, dialog: Overlay) {
+  register(name: PopupName, dialog: Popup) {
     this.#controllers.set(name, dialog)
   }
 
-  unregister(name: OverlayName) {
+  unregister(name: PopupName) {
     this.#controllers.delete(name)
   }
 
-  open(name: OverlayName) {
+  open(name: PopupName) {
     this.#controllers.get(name)?.open()
   }
 
-  close(name: OverlayName) {
+  close(name: PopupName) {
     this.#controllers.get(name)?.close()
   }
 
-  isOpen(name: OverlayName) {
+  isOpen(name: PopupName) {
     return this.#controllers.get(name)?.isVisible?.() || false;
   }
 
