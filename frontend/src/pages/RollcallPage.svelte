@@ -23,7 +23,7 @@
 
 <div class:active={active}>
   <section class="result">
-    {#if display.length == 0}
+    {#if display.length == 0 && engine.phase == RollcallPhase.Idle}
       <span class="name waiting">等待点名</span>
     {:else}
       <span
