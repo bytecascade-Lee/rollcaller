@@ -66,8 +66,8 @@ def get_commit_range(start: Optional[str] = None, end: Optional[str] = None) -> 
             # 无 start 无 end: --root (所有提交)
             range_spec = "--root"
         else:
-            # 无 start 有 end: --root..end (包含 end)
-            range_spec = f"--root..{end}"
+            # 无 start 有 end: end (包含 end)
+            range_spec = end
     else:
         # 有 start: start..end (不包含 start，包含 end)
         if end is None:
