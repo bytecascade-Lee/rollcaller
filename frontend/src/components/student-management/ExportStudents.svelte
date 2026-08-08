@@ -2,7 +2,7 @@
   import {studentStore} from "$stores/studentStore.svelte";
   import {save} from "@tauri-apps/plugin-dialog";
   import {StudentCommand} from "$commands";
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
   import {clickOutside, updatePosition} from "$actions";
   import type {StudentTable} from "$types";
   import {Result} from "$types";

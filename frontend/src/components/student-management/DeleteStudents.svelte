@@ -1,6 +1,6 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
   import {StudentCommand} from "$commands";
 
   let {selected = $bindable()} = $props<{ selected: Set<bigint> }>();

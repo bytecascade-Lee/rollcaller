@@ -15,7 +15,7 @@
     PlusIcon,
     TrashIcon
   } from "phosphor-svelte";
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
   import EditStudent from "$components/student-management/EditStudent.svelte";
   import ExportStudents from "$components/student-management/ExportStudents.svelte";
 

@@ -2,7 +2,7 @@
   import {studentStore} from "$stores/studentStore.svelte";
   import type {ImportPreviewData, StudentTable} from "$types";
   import {open} from "@tauri-apps/plugin-dialog";
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
   import {ImportCommand} from "$commands";
   import {
     CheckCircleIcon,

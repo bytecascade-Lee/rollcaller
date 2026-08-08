@@ -3,7 +3,7 @@
   import type {Student, StudentSingleCreateResult} from "$types";
   import {format} from "$utils/DataTimeUtils";
   import {StudentCommand} from "$commands"
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
 
   let newStudent = $state<Student>({
     id: null,

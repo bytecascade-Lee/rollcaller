@@ -7,7 +7,7 @@
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import EditRecord from "$components/record-history/EditRecord.svelte";
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
   import ExportRecords from "$components/record-history/ExportRecords.svelte";
 
   let selected = $state<Set<bigint>>(new Set());

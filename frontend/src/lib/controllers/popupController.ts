@@ -1,7 +1,7 @@
 import {OverlayName} from "$types/OverlayName";
 import {Overlay} from "$types/Overlay";
 
-class OverlayController {
+class PopupController {
   #controllers = new Map<OverlayName, Overlay>();
 
   controllers() {
@@ -41,4 +41,4 @@ class OverlayController {
   }
 }
 
-export const overlayController = new OverlayController();
+export const overlayController = new PopupController();

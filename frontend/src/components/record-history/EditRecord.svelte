@@ -4,7 +4,7 @@
   import {recordStore} from "$stores/recordStore.svelte";
   import {STATUS_MAP} from "$constants";
   import type {RollcallRecord} from "$types";
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
   import {clickOutside, updatePosition} from "$actions";
 
   let {selected = $bindable(), anchor = $bindable()} = $props<{

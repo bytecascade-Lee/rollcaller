@@ -1,7 +1,7 @@
 <script lang="ts">
   import {save} from "@tauri-apps/plugin-dialog";
   import {RecordCommand} from "$commands";
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
   import {clickOutside, updatePosition} from "$actions";
   import type {RollcallRecord} from "$types";
   import {Result} from "$types";

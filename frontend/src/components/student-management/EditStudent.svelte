@@ -1,6 +1,6 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
   import type {StudentSingleUpdate, StudentTable} from "$types";
   import {StudentCommand} from "$commands"
   import {format} from "$utils/DataTimeUtils";
