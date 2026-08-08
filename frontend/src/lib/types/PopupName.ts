@@ -1,6 +1,7 @@
 export type PopupName =
   "StudentSingleCreate"
   | "StudentImport"
+  | "StudentImportRefactored"
   | "StudentExport"
   | "StudentEdit"
   | "StudentDelete"
