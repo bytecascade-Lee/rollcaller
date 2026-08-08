@@ -111,6 +111,7 @@ def get_commit_range(start: Optional[str] = None, end: Optional[str] = None) -> 
 def generate_markdown(commits: List[Dict], start: Optional[str], end: Optional[str]) -> str:
     """生成 Markdown 内容"""
     time_full = datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z")
+    _, branch = run_git_command(["git", "branch", "--show-current"])
     lines = []
 
     # 构建范围描述
@@ -126,9 +127,10 @@ def generate_markdown(commits: List[Dict], start: Optional[str], end: Optional[s
 
     # 标题
     lines.append("# 变更日志 (Change Log)\n")
-    lines.append(f"**生成时间**: {time_full} \n")
-    lines.append(f"**版本范围**: {start_desc} → {end_desc}  \n")
-    lines.append(f"**提交总数**: {len(commits)}  \n")
+    lines.append(f"**生成时间**: {time_full}\n")
+    lines.append(f"**当前分支**: {branch}\n")
+    lines.append(f"**版本范围**: {start_desc} → {end_desc}\n")
+    lines.append(f"**提交总数**: {len(commits)}\n")
     lines.append("\n---\n")
 
     if not commits:
