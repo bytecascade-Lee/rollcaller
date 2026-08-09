@@ -3,7 +3,15 @@
   import {recordStore} from "$stores/recordStore.svelte";
   import {format} from "$utils/DataTimeUtils";
   import type {RecordGroupMetaData, RollcallRecord} from "$types";
-  import {ArrowClockwiseIcon, FileArrowDownIcon, MagnifyingGlassIcon, PencilIcon, PencilSimpleIcon} from "phosphor-svelte"
+  import {
+    ArrowClockwiseIcon,
+    ArrowDownIcon,
+    ArrowUpIcon,
+    FileArrowDownIcon,
+    MagnifyingGlassIcon,
+    PencilIcon,
+    PencilSimpleIcon
+  } from "phosphor-svelte"
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import EditRecord from "$components/record-history/EditRecord.svelte";
@@ -12,21 +20,49 @@
 
   let selected = $state<Set<bigint>>(new Set());
   let {active = $bindable(false)} = $props();
+  let sortKey = $state("")
+  let isAsc = $state(true)
   let searchQuery = $state("");
   let anchor = $state<HTMLElement | null>(null);
 
   let display = $derived.by<RollcallRecord[]>(() => {
-    if (!searchQuery.trim()) return recordStore.records;
-    const q = searchQuery.trim().toLowerCase();
-    return recordStore.records.filter((r) => {
-      return (
-        r.student_no.toLowerCase().includes(q) ||
-        r.name.toLowerCase().includes(q) ||
-        r.remark?.toLowerCase().includes(q) ||
-        format(r.rollcall_at).toLowerCase().includes(q)
-      );
+    let result = recordStore.records;
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter((r) => {
+        return (
+          r.student_no.toLowerCase().includes(q) ||
+          r.name.toLowerCase().includes(q) ||
+          r.remark?.toLowerCase().includes(q) ||
+          format(r.rollcall_at).toLowerCase().includes(q)
+        );
+      });
+    }
+    if (!sortKey) return result;
+    return [...result].sort((a, b) => {
+      const key = sortKey as "name" | "student_no" | "attendance_status" | "remark" | "rollcall_at";
+      const valA = a[key];
+      const valB = b[key];
+      let cmp: number;
+      if (typeof valA === "string" && typeof valB === "string") {
+        cmp = valA.localeCompare(valB, "zh-Hans-CN");
+      } else if (typeof valA === "number" && typeof valB === "number") {
+        cmp = valA - valB;
+      } else {
+        cmp = 0;
+      }
+      return isAsc ? cmp : -cmp;
     });
   });
+
+  function sort(key: string) {
+    if (sortKey === key) {
+      isAsc = !isAsc;
+    } else {
+      sortKey = key;
+      isAsc = true;
+    }
+  }
 
   let groupInfo = $derived<RecordGroupMetaData[]>(group(display));
   let displaySelectedCount = $derived(display.filter(r => selected.has(r.id)).length)
@@ -123,18 +159,59 @@
             indeterminate={displaySelectedCount > 0 && displaySelectedCount < display.length}
             onchange={selectAll}
           /></th>
-          <th>序号</th>
-          <th>姓名</th>
-          <th>学号</th>
-          <th>
+          <th style:cursor="auto">序号</th>
+          <th onclick={() => sort("name")}>
+            姓名
+            {#if sortKey === "name"}
+              {#if isAsc}
+                <ArrowUpIcon size="14"/>
+              {:else}
+                <ArrowDownIcon size="14"/>
+              {/if}
+            {/if}
+          </th>
+          <th onclick={() => sort("student_no")}>
+            学号
+            {#if sortKey === "student_no"}
+              {#if isAsc}
+                <ArrowUpIcon size="14"/>
+              {:else}
+                <ArrowDownIcon size="14"/>
+              {/if}
+            {/if}
+          </th>
+          <th onclick={() => sort("attendance_status")}>
             <PencilSimpleIcon size="14" weight="bold"/>
             状态
+            {#if sortKey === "attendance_status"}
+              {#if isAsc}
+                <ArrowUpIcon size="14"/>
+              {:else}
+                <ArrowDownIcon size="14"/>
+              {/if}
+            {/if}
           </th>
-          <th>
+          <th onclick={() => sort("remark")}>
             <PencilSimpleIcon size="14" weight="bold"/>
             备注
+            {#if sortKey === "remark"}
+              {#if isAsc}
+                <ArrowUpIcon size="14"/>
+              {:else}
+                <ArrowDownIcon size="14"/>
+              {/if}
+            {/if}
           </th>
-          <th>点名时间</th>
+          <th onclick={() => sort("rollcall_at")}>
+            点名时间
+            {#if sortKey === "rollcall_at"}
+              {#if isAsc}
+                <ArrowUpIcon size="14"/>
+              {:else}
+                <ArrowDownIcon size="14"/>
+              {/if}
+            {/if}
+          </th>
         </tr>
         </thead>
         <tbody>
