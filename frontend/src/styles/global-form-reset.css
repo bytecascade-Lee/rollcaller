@@ -9,6 +9,7 @@ input[type="radio"] {
     margin: -2px 2px 0 0;
     vertical-align: middle;
     accent-color: var(--color-primary);
+    cursor: pointer;
 }
 
 input[type="text"],
