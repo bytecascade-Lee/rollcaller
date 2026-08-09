@@ -7,6 +7,8 @@
   import ImportStudentsRefactored from "$components/student-management/ImportStudentsRefactored.svelte";
   import {
     ArrowClockwiseIcon,
+    ArrowDownIcon,
+    ArrowUpIcon,
     ClockClockwiseIcon,
     FileArrowDownIcon,
     FileArrowUpIcon,
@@ -24,13 +26,38 @@
   let selected = $state<Set<bigint>>(new Set())
   let {active = $bindable(false)} = $props();
   let searchQuery = $state("")
+  let sortKey = $state("")
+  let isAsc = $state(true)
   let anchor = $state<HTMLElement | null>(null);
-  let display = $derived(
-    studentStore.students.filter(student =>
+  let display = $derived([...studentStore.students]
+    .filter(student =>
       student.name.toLowerCase().includes(searchQuery) ||
       student.student_no.toLowerCase().includes(searchQuery)
-    ));
+    )
+    .sort((a, b) => {
+      if (!sortKey) return 0;
+      const valA = a[sortKey as "name" | "student_no" | "created_at" | "updated_at"];
+      const valB = b[sortKey as "name" | "student_no" | "created_at" | "updated_at"];
+      let cmp: number;
+      if (typeof valA === "string" && typeof valB === "string") {
+        cmp = valA.localeCompare(valB, "zh-Hans-CN");
+      } else if (typeof valA === "number" && typeof valB === "number") {
+        cmp = valA - valB;
+      } else {
+        cmp = 0;
+      }
+      return isAsc ? cmp : -cmp;
+    }));
   let displaySelectedCount = $derived(display.filter(student => selected.has(student.id)).length)
+
+  function sort(key: string) {
+    if (sortKey === key) {
+      isAsc = !isAsc;
+    } else {
+      sortKey = key;
+      isAsc = true;
+    }
+  }
 
   function select(id: bigint) {
     if (selected.has(id)) {
@@ -166,17 +193,49 @@
               onchange={selectAll}
             />
           </th>
-          <th>序号</th>
-          <th>
+          <th style:cursor="auto">序号</th>
+          <th onclick={() => sort("name")}>
             <PencilSimpleIcon size="14" weight="bold"/>
             姓名
+            {#if sortKey === "name"}
+              {#if isAsc}
+                <ArrowUpIcon size="14"/>
+              {:else}
+                <ArrowDownIcon size="14"/>
+              {/if}
+            {/if}
           </th>
-          <th>
+          <th onclick={() => sort("student_no")}>
             <PencilSimpleIcon size="14" weight="bold"/>
             学号
+            {#if sortKey === "student_no"}
+              {#if isAsc}
+                <ArrowUpIcon size="14"/>
+              {:else}
+                <ArrowDownIcon size="14"/>
+              {/if}
+            {/if}
           </th>
-          <th>创建时间</th>
-          <th>最后更新时间</th>
+          <th onclick={() => sort("created_at")}>
+            创建时间
+            {#if sortKey === "created_at"}
+              {#if isAsc}
+                <ArrowUpIcon size="14"/>
+              {:else}
+                <ArrowDownIcon size="14"/>
+              {/if}
+            {/if}
+          </th>
+          <th onclick={() => sort("updated_at")}>
+            最后更新时间
+            {#if sortKey === "updated_at"}
+              {#if isAsc}
+                <ArrowUpIcon size="14"/>
+              {:else}
+                <ArrowDownIcon size="14"/>
+              {/if}
+            {/if}
+          </th>
         </tr>
         </thead>
         <tbody>
