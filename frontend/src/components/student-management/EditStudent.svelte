@@ -1,6 +1,6 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
   import type {StudentSingleUpdate, StudentTable} from "$types";
   import {StudentCommand} from "$commands"
   import {format} from "$utils/DataTimeUtils";
@@ -76,20 +76,14 @@
   <div class="overlay" onclick={closeOnOutside ? () => close() : undefined}>
     <div class="popup" onclick={(e) => e.stopPropagation()}>
       {#if selected.size > 1}
-        <h3>仅支持单个修改</h3>
-        <p>当前选中了 {selected.size} 名学生，请只选择一名后再试。</p>
-        <div class="button-group">
-          <button type="button" class="btn" onclick={close}>确定</button>
-        </div>
+        <h3 class="text-title error">仅支持单个修改<br/></h3>
+        <span class="text-content">当前选中了 {selected.size} 名学生，请只选择一名后再试</span>
       {:else if localEdit == null}
-        <h3>未找到待编辑的学生</h3>
-        <p>当前选中id：{Array.from(selected)}</p>
-        <div class="button-group">
-          <button type="button" class="btn" onclick={close}>确定</button>
-        </div>
+        <h3 class="text-title error">未找到待编辑的学生<br/></h3>
+        <span class="text-content">当前选中id：{Array.from(selected)}</span>
       {:else}
         <form onsubmit={(e) => { e.preventDefault(); edit(); }}>
-          <h3>修改学生</h3>
+          <h3 class="text-title">修改学生</h3>
           <label class="field">
             <span class="field-label">学号</span>
             <input
@@ -107,15 +101,12 @@
             />
           </label>
           {#if editResult && editResult.type == "Conflict"}
-            <div class="msg">
-              <strong>学号已被占用</strong>
-              <p>
-                学号「{editResult.data.student_no}」已被学生
-                <b>{editResult.data.name}</b>
-                使用（创建于 {format(editResult.data.created_at)}）。
-              </p>
-              <p>请修改学号或姓名后重新保存。</p>
-            </div>
+            <span class="text-subtitle error">学号已被占用<br/></span>
+            <span class="text-content">
+                学号「{editResult.data.student_no}」已被学生<b>{editResult.data.name}</b>使用<br/>
+                （创建于 {format(editResult.data.created_at)}）<br/>
+                请修改学号后重试
+              </span>
           {/if}
           <div class="button-group">
             <button
@@ -123,34 +114,20 @@
               class="button"
               onclick={close}
               disabled={isSaving}
-            >取消</button>
-            <button type="submit"
-                    class="button"
-                    style="background: var(--app-color-primary); color: var(--app-color-text-white)"
-                    disabled={isSaving || !canSave}>
-              {isSaving ? "保存中..." : "保存"}
+            >
+              取消
             </button>
+            {#if selected.size == 1 && localEdit != null}
+              <button
+                type="submit"
+                class="button yes"
+                disabled={isSaving || !canSave}>
+                {isSaving ? "保存中..." : "保存"}
+              </button>
+            {/if}
           </div>
         </form>
       {/if}
     </div>
   </div>
 {/if}
-
-<style>
-  .msg {
-    display: flex;
-    flex-direction: column;
-    gap: var(--app-space-xs);
-    padding: var(--app-space-sm) var(--app-space-md);
-    border-radius: var(--app-radius-sm);
-    font-size: var(--app-font-size-sm);
-    background: var(--app-color-surface-muted);
-    color: var(--app-color-text-muted);
-    text-align: left;
-  }
-
-  .msg p {
-    margin: 0;
-  }
-</style>

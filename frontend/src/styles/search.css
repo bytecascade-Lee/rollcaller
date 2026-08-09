@@ -10,7 +10,7 @@
 }
 
 .search:focus-within {
-    border-color: var(--text-color-content);
+    border-color: var(--color-primary);
 }
 
 .search input {

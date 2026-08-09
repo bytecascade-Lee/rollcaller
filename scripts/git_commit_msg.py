@@ -2,8 +2,16 @@
 """
 生成 Change Log 脚本
 根据 Git 标签状态生成 Markdown 格式的变更日志
+
+用法:
+    python git_commit_msg.py                # 默认: latest_tag..HEAD 或 --root
+    python git_commit_msg.py -a             # --root..HEAD (所有提交)
+    python git_commit_msg.py -s v0.1.0      # v0.1.0..HEAD (不包含 v0.1.0)
+    python git_commit_msg.py -e v0.2.0      # --root..v0.2.0 (包含 root, 包含 v0.2.0)
+    python git_commit_msg.py -s v0.1.0 -e v0.2.0  # v0.1.0..v0.2.0 (不包含 v0.1.0, 包含 v0.2.0)
 """
 
+import argparse
 import subprocess
 import sys
 from datetime import datetime
@@ -29,25 +37,43 @@ def run_git_command(cmd: List[str]) -> Tuple[bool, str]:
         return False, str(e)
 
 
-def get_latest_tag() -> Optional[str]:
-    """获取最新的附注标签（按创建时间排序）"""
-    success, output = run_git_command(["git", "tag", "--sort=-creatordate"])
-    if not success or not output:
-        return None
-    tags = output.split('\n')
-    return tags[0] if tags else None
+def tag_exists(tag: str) -> bool:
+    """检查标签是否存在"""
+    success, _ = run_git_command(["git", "rev-parse", tag])
+    return success
 
 
-def get_commit_range(since: Optional[str] = None) -> List[Dict]:
+def get_head_hash() -> Optional[str]:
+    """获取 HEAD 的完整 hash"""
+    success, output = run_git_command(["git", "rev-parse", "HEAD"])
+    return output if success else None
+
+
+def get_commit_range(start: Optional[str] = None, end: Optional[str] = None) -> List[Dict]:
     """
     获取指定范围的提交记录
-    - since 为 None 时，从初始提交开始
-    - 否则从 since..HEAD
+
+    规则:
+    - start 为 None: 从初始提交开始 (--root)
+    - start 为标签: 不包含该标签 (tag..end)
+    - end 为 None: 到 HEAD 结束 (包含 HEAD)
+    - end 为标签: 包含该标签 (..tag)
     """
-    if since is None:
-        range_spec = "--root"
+    # 构建范围
+    if start is None:
+        # 从 root 开始，包含所有
+        if end is None:
+            # 无 start 无 end: --root (所有提交)
+            range_spec = "--root"
+        else:
+            # 无 start 有 end: end (包含 end)
+            range_spec = end
     else:
-        range_spec = f"{since}..HEAD"
+        # 有 start: start..end (不包含 start，包含 end)
+        if end is None:
+            range_spec = f"{start}..HEAD"
+        else:
+            range_spec = f"{start}..{end}"
 
     # 使用空字符 \x00 分隔字段，使用 \x01 分隔不同提交
     format_str = "%H%x00%h%x00%ct%x00%ci%x00%s%x00%b%x01"
@@ -62,7 +88,6 @@ def get_commit_range(since: Optional[str] = None) -> List[Dict]:
         return []
 
     commits = []
-    # 去掉末尾可能多余的 \x01，然后按 \x01 分割
     for commit_block in output.rstrip('\x01').split('\x01'):
         if not commit_block:
             continue
@@ -77,45 +102,43 @@ def get_commit_range(since: Optional[str] = None) -> List[Dict]:
             'timestamp': int(timestamp),
             'full_time': full_time,
             'subject': subject.strip(),
-            'body': body.strip()  # 保留内部换行，去除首尾空白
+            'body': body.strip()
         })
 
     return commits
 
 
-def generate_markdown(commits: List[Dict], tag: Optional[str] = None) -> str:
+def generate_markdown(commits: List[Dict], start: Optional[str], end: Optional[str]) -> str:
     """生成 Markdown 内容"""
     time_full = datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z")
+    _, branch = run_git_command(["git", "branch", "--show-current"])
     lines = []
 
+    # 构建范围描述
+    if start is None:
+        start_desc = "root"
+    else:
+        start_desc = start
+
+    if end is None:
+        end_desc = "HEAD"
+    else:
+        end_desc = end
+
     # 标题
-    if tag is None:
-        lines.append("# 变更日志 (Change Log) - 首次发布\n")
-    else:
-        lines.append("# 变更日志 (Change Log)\n")
-
-    # 元信息
-    lines.append(f"**生成时间**: {time_full} \n")
-
-    if tag is None:
-        lines.append("**版本范围**: 初始提交 → HEAD  \n")
-    else:
-        lines.append(f"**版本范围**: {tag} → HEAD  \n")
-
-    lines.append(f"**提交总数**: {len(commits)}  \n")
+    lines.append("# 变更日志 (Change Log)\n")
+    lines.append(f"**生成时间**: {time_full}\n")
+    lines.append(f"**当前分支**: {branch}\n")
+    lines.append(f"**版本范围**: {start_desc} → {end_desc}\n")
+    lines.append(f"**提交总数**: {len(commits)}\n")
     lines.append("\n---\n")
 
     if not commits:
-        if tag:
-            lines.append("\n## ✅ 无新提交\n")
-            lines.append(f"\n最新标签 `{tag}` 已指向 HEAD，没有新的变更。\n")
-        else:
-            lines.append("\n## ⚠️ 没有提交记录\n")
-            lines.append("\n仓库中没有任何提交。\n")
+        lines.append("\n## ✅ 无新提交\n")
+        lines.append(f"\n在范围 `{start_desc} → {end_desc}` 内没有新的变更。\n")
         return ''.join(lines)
 
     # 提交列表
-        # 提交列表
     lines.append("\n## 📦 提交列表\n")
 
     digits = len(str(len(commits)))
@@ -125,26 +148,83 @@ def generate_markdown(commits: List[Dict], tag: Optional[str] = None) -> str:
         lines.append(f"> Hash: {commit['short_hash']}   At: {commit['full_time']}\n")
         if commit['body']:
             lines.append(commit['body'] + "\n")
-        if idx != len(commit):
+        if idx != len(commits):
             lines.append("\n---\n")
 
-    lines.append("结束")
     return ''.join(lines)
 
 
-def save_changelog(content: str, tag: Optional[str] = None) -> Path:
-    """保存 Change Log 到文件"""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    if tag is None:
-        filename = f"First.md"
-    else:
-        safe_tag = tag.replace('/', '_').replace(' ', '_')
-        filename = f"{safe_tag}.md"
+def build_filename(start: Optional[str], end: Optional[str], all_mode: bool = False) -> str:
+    """
+    根据范围构建文件名
+    规则:
+    - all_mode: root-to-HEAD.md
+    - 有 start 有 end: start-to-end.md
+    - 有 start 无 end: start-to-HEAD.md
+    - 无 start 有 end: root-to-end.md
+    - 无 start 无 end: 根据是否有标签决定
+    """
+    if all_mode:
+        return "root-to-HEAD.md"
 
+    # 清理标签名中的特殊字符
+    def safe(s: str) -> str:
+        return s.replace('/', '_').replace(' ', '_')
+
+    if start is not None and end is not None:
+        return f"{safe(start)}-to-{safe(end)}.md"
+    elif start is not None and end is None:
+        return f"{safe(start)}-to-HEAD.md"
+    elif start is None and end is not None:
+        return f"root-to-{safe(end)}.md"
+    else:
+        # 无参数情况: 检查是否有标签
+        success, output = run_git_command(["git", "tag", "--sort=-creatordate"])
+        if success and output:
+            latest_tag = output.split('\n')[0]
+            return f"{safe(latest_tag)}-to-HEAD.md"
+        else:
+            return "root-to-HEAD.md"
+
+
+def save_changelog(content: str, start: Optional[str], end: Optional[str], all_mode: bool = False) -> Path:
+    """保存 Change Log 到文件"""
+    filename = build_filename(start, end, all_mode)
     filepath = Path.cwd() / "docs/changes" / filename
+    filepath.parent.mkdir(parents=True, exist_ok=True)
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(content)
     return filepath
+
+
+def parse_args():
+    """解析命令行参数"""
+    parser = argparse.ArgumentParser(
+        description="生成 Git 变更日志 (Change Log)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例:
+  %(prog)s                         # latest_tag..HEAD 或 --root
+  %(prog)s -a                      # --root..HEAD (所有提交)
+  %(prog)s -s v0.1.0               # v0.1.0..HEAD (不包含 v0.1.0)
+  %(prog)s -e v0.2.0               # --root..v0.2.0 (包含 v0.2.0)
+  %(prog)s -s v0.1.0 -e v0.2.0     # v0.1.0..v0.2.0 (不包含 v0.1.0, 包含 v0.2.0)
+        """
+    )
+    parser.add_argument(
+        '-a', '--all',
+        action='store_true',
+        help='生成所有提交 (--root..HEAD)，忽略 -s/-e'
+    )
+    parser.add_argument(
+        '-s', '--start',
+        help='起始标签/commit (不包含自身)'
+    )
+    parser.add_argument(
+        '-e', '--end',
+        help='结束标签/commit (包含自身)'
+    )
+    return parser.parse_args()
 
 
 def main():
@@ -154,25 +234,57 @@ def main():
         print("❌ 错误：当前目录不是 Git 仓库")
         sys.exit(1)
 
-    print("🔍 正在获取最新的标签...")
-    latest_tag = get_latest_tag()
+    args = parse_args()
 
-    if latest_tag is None:
-        print("📌 未找到任何标签，生成首次发布的 Change Log...")
-        commits = get_commit_range(since=None)
-        tag = None
+    # -a 模式：生成所有提交，忽略 -s/-e
+    if args.all:
+        print("📌 生成所有提交 (root → HEAD)")
+        start = None
+        end = None
+        all_mode = True
     else:
-        print(f"📌 最新标签: {latest_tag}")
-        print(f"🔍 检查 {latest_tag} 到 HEAD 之间的提交...")
-        commits = get_commit_range(since=latest_tag)
-        tag = latest_tag
+        all_mode = False
+        start = args.start
+        end = args.end
 
+        # 验证标签/commit 是否存在
+        if start is not None:
+            success, _ = run_git_command(["git", "rev-parse", start])
+            if not success:
+                print(f"❌ 错误：无法解析 '{start}'，请确认标签或 commit hash 是否存在")
+                sys.exit(1)
+
+        if end is not None:
+            success, _ = run_git_command(["git", "rev-parse", end])
+            if not success:
+                print(f"❌ 错误：无法解析 '{end}'，请确认标签或 commit hash 是否存在")
+                sys.exit(1)
+
+        # 无参数时，自动检测最新标签
+        if start is None and end is None:
+            success, output = run_git_command(["git", "tag", "--sort=-creatordate"])
+            if success and output:
+                latest_tag = output.split('\n')[0]
+                print(f"📌 使用最新标签: {latest_tag}")
+                print(f"🔍 范围: {latest_tag}..HEAD (不包含 {latest_tag})")
+                start = latest_tag
+            else:
+                print("📌 未找到任何标签，从初始提交开始")
+                print("🔍 范围: --root (所有提交)")
+            # end 保持 None = HEAD
+        else:
+            # 有参数时，打印范围信息
+            start_desc = start if start else "root"
+            end_desc = end if end else "HEAD"
+            print(f"🔍 范围: {start_desc}..{end_desc}")
+
+    commits = get_commit_range(start, end)
     print(f"📊 共找到 {len(commits)} 个提交")
 
     print("📝 生成 Markdown 内容...")
-    content = generate_markdown(commits, tag)
+    content = generate_markdown(commits, start, end)
 
-    filepath = save_changelog(content, tag)
+    filepath = save_changelog(content, start, end, all_mode)
     print(f"✅ Change Log 已保存到: {filepath}")
 
 

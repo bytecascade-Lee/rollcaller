@@ -1,15 +1,15 @@
 <script lang="ts">
-  import {studentStore} from "$stores/studentStore.svelte";
   import {save} from "@tauri-apps/plugin-dialog";
-  import {StudentCommand} from "$commands";
+  import {RecordCommand} from "$commands";
   import {overlayController} from "$controllers/popupController";
   import {clickOutside, updatePosition} from "$actions";
-  import type {StudentTable} from "$types";
+  import type {RollcallRecord} from "$types";
   import {Result} from "$types";
+  import {recordStore} from "$stores/recordStore.svelte";
 
   let {selected = $bindable(), display = $bindable(), anchor = $bindable()} = $props<{
     selected: Set<bigint>;
-    display: StudentTable[];
+    display: RollcallRecord[];
     anchor: HTMLElement | null;
   }>();
   let isVisible = $state(false);
@@ -20,7 +20,7 @@
 
   function open() {
     popoverStyle = updatePosition(anchor);
-    if (selected.size == 0 && studentStore.students.length == display.length) {
+    if (selected.size == 0 && recordStore.records.length == display.length) {
       exportAll();
       return;
     }
@@ -37,13 +37,13 @@
     if (isExporting || ids.length == 0) return;
     // 弹出保存对话框：默认文件名可修改，格式 xlsx
     const path = await save({
-      defaultPath: `学生名单-${Date.now()}.xlsx`,
+      defaultPath: `历史记录-${Date.now()}.xlsx`,
       filters: [{name: "Excel", extensions: ["xlsx"]}],
     });
     if (!path) return;
     try {
       result = Result.Doing;
-      await StudentCommand.expose(path, ids);
+      await RecordCommand.expose(path, ids);
       result = Result.Success;
       setTimeout(() => close(), 2500);
     } catch (e) {
@@ -56,11 +56,11 @@
   }
 
   function exportAll() {
-    void doExport(studentStore.students.map((s) => s.id));
+    void doExport(recordStore.records.map((s) => s.id));
   }
 
   function exportDisplay() {
-    void doExport(display.map((student: { id: bigint; }) => student.id))
+    void doExport(display.map((record: { id: bigint; }) => record.id))
   }
 
   function exportSelected() {
@@ -68,7 +68,7 @@
   }
 
   $effect(() => {
-    overlayController.register("StudentExport", {
+    overlayController.register("RecordExport", {
       open: open,
       close: close,
       isVisible: () => isVisible,
@@ -85,23 +85,23 @@
     use:clickOutside={{ callback: close, exclude: anchor}}
   >
     <h3 class="text-title">导出学生</h3>
-    <span class="text-content">选择导出范围，然后指定保存位置（.xlsx）</span>
+    <span class="text-content">选择导出范围<br>然后指定保存位置（.xlsx）</span>
 
     <div
       class="card"
       onclick={exportAll}
     >
       <span class="text-subtitle">导出全部</span>
-      <span class="text-content">共 {studentStore.students.length} 名学生</span>
+      <span class="text-content">共 {recordStore.records.length} 条记录</span>
     </div>
 
-    {#if studentStore.students.length != display.length}
+    {#if recordStore.records.length != display.length}
       <div
         class="card"
         onclick={exportDisplay}
       >
         <span class="text-subtitle">导出筛选后的</span>
-        <span class="text-content">共 {display.length} 名学生</span>
+        <span class="text-content">共 {display.length} 条 记录</span>
       </div>
     {/if}
 
@@ -111,7 +111,7 @@
         onclick={exportSelected}
       >
         <span class="text-subtitle">导出选中</span>
-        <span class="text-content">已选 {selected.size} 名学生</span>
+        <span class="text-content">已选 {selected.size} 条记录</span>
       </div>
     {/if}
 

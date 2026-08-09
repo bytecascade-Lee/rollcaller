@@ -34,3 +34,10 @@ export async function update_remark(ids: bigint[], remark: string) {
     remark: remark
   })
 }
+
+export async function expose(path: string, ids: bigint[]) {
+  return await invoke("record_export", {
+    path: path,
+    ids: ids
+  })
+}

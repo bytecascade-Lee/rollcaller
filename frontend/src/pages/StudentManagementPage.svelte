@@ -4,6 +4,7 @@
   import SingleCreateStudent from "$components/student-management/SingleCreateStudent.svelte";
   import DeleteStudents from "$components/student-management/DeleteStudents.svelte";
   import ImportStudents from "$components/student-management/ImportStudents.svelte";
+  import ImportStudentsRefactored from "$components/student-management/ImportStudentsRefactored.svelte";
   import {
     ArrowClockwiseIcon,
     ClockClockwiseIcon,
@@ -13,15 +14,17 @@
     PencilIcon,
     PencilSimpleIcon,
     PlusIcon,
-    TrashIcon
+    TrashIcon,
+    UploadSimpleIcon
   } from "phosphor-svelte";
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
   import EditStudent from "$components/student-management/EditStudent.svelte";
   import ExportStudents from "$components/student-management/ExportStudents.svelte";
 
   let selected = $state<Set<bigint>>(new Set())
   let {active = $bindable(false)} = $props();
   let searchQuery = $state("")
+  let anchor = $state<HTMLElement | null>(null);
   let display = $derived(
     studentStore.students.filter(student =>
       student.name.toLowerCase().includes(searchQuery) ||
@@ -95,10 +98,23 @@
       </button>
       <button
         class="icon-button"
+        aria-label="导入学生（向导版）"
+        title="导入学生（向导版）"
+        disabled={studentStore.isLoading}
+        style:display="none"
+        onclick={() => overlayController.open("StudentImportRefactored")}
+      >
+        <UploadSimpleIcon size="24"/>
+      </button>
+      <button
+        class="icon-button"
         aria-label="导出学生"
         title="导出学生"
         disabled={studentStore.isLoading}
-        onclick={() => overlayController.open("StudentExport")}
+        onclick={e => {
+          anchor = e.currentTarget;
+          overlayController.open("StudentExport")
+        }}
       >
         <FileArrowDownIcon size="24"/>
       </button>
@@ -190,4 +206,5 @@
 <EditStudent bind:selected={selected}/>
 <DeleteStudents bind:selected={selected}/>
 <ImportStudents/>
-<ExportStudents bind:selected={selected}/>
+<ImportStudentsRefactored/>
+<ExportStudents bind:selected={selected} bind:display={display} bind:anchor={anchor}/>

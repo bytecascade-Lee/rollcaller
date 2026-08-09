@@ -41,7 +41,7 @@ END;
 }
 
 /// 获取已执行的迁移记录
-#[py_sql("SELECT version, checksum, status FROM migration_history")]
+#[py_sql("SELECT version, checksum, status FROM migration_history ORDER BY version")]
 pub async fn get_existing_history(rb: &RBatis) -> Result<Vec<MigrationRecord>, rbs::Error> {
     impled!()
 }

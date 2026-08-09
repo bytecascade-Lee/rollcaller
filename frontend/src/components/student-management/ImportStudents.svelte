@@ -2,7 +2,7 @@
   import {studentStore} from "$stores/studentStore.svelte";
   import type {ImportPreviewData, StudentTable} from "$types";
   import {open} from "@tauri-apps/plugin-dialog";
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
   import {ImportCommand} from "$commands";
   import {
     CheckCircleIcon,
@@ -1245,35 +1245,6 @@
     text-align: left;
   }
 
-  .alert svg {
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-
-  .alert-success {
-    background: color-mix(in srgb, var(--green-6) 10%, var(--app-color-page));
-    border-color: color-mix(in srgb, var(--green-6) 45%, transparent);
-    color: var(--green-6);
-  }
-
-  .alert-error {
-    background: color-mix(in srgb, var(--red-6) 10%, var(--app-color-page));
-    border-color: color-mix(in srgb, var(--red-6) 45%, transparent);
-    color: var(--red-7);
-  }
-
-  .alert-warning {
-    background: color-mix(in srgb, var(--yellow-6) 14%, var(--app-color-page));
-    border-color: color-mix(in srgb, var(--yellow-6) 45%, transparent);
-    color: color-mix(in srgb, var(--yellow-6) 40%, var(--gray-8));
-  }
-
-  .alert-info {
-    background: color-mix(in srgb, var(--blue-5) 10%, var(--app-color-page));
-    border-color: color-mix(in srgb, var(--blue-5) 45%, transparent);
-    color: var(--blue-6);
-  }
-
   /* 底部操作区 */
   .dialog-foot {
     display: flex;
@@ -1282,6 +1253,6 @@
     gap: var(--app-space-sm);
     padding: var(--app-space-md) var(--app-space-lg);
     border-top: var(--border-size-1) solid var(--app-color-border);
-    background: var(--app-color-page);
+    background: var(--color-page);
   }
 </style>

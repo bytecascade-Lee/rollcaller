@@ -23,7 +23,7 @@
 
 <div class:active={active}>
   <section class="result">
-    {#if display.length == 0}
+    {#if display.length == 0 && engine.phase == RollcallPhase.Idle}
       <span class="name waiting">等待点名</span>
     {:else}
       <span
@@ -40,8 +40,7 @@
     {/if}
   </section>
 
-  <!-- 中间：点名次数 / 总人数 / 完成次数 / 按钮 -->
-  <div class="toolbar control-bar">
+  <div class="toolbar">
     <label class="field">
       <span class="field-label">点名次数</span>
       <input
@@ -65,13 +64,21 @@
       <span class="stat-value">{engine.completedTimes}/{engine.totalTimes}</span>
     </div>
 
-    <button
-      class="control"
-      style:background={engine.isRolling ? "var(--color-warn)" : "var(--color-success)"}
-      onclick={() => engine.toggle()}
-    >
-      {engine.isRolling ? "停止点名" : "开始点名"}
-    </button>
+    {#if engine.isRolling}
+      <button
+        class="button warn"
+        onclick={() => engine.toggle()}
+      >
+        停止点名
+      </button>
+    {:else}
+      <button
+        class="button yes"
+        onclick={() => engine.toggle()}
+      >
+        开始点名
+      </button>
+    {/if}
   </div>
 
   <section class="table-section">
@@ -80,7 +87,7 @@
     {:else if display.length == 0}
       <div class="state">当前还未点名，暂无记录，请先点名</div>
     {:else}
-      <h3 class="title">
+      <h3 class="text-title">
         当前点名记录（{display.length}）
       </h3>
       <div class="table">
@@ -152,6 +159,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    user-select: none;
   }
 
   .result .name.waiting {
@@ -163,20 +171,7 @@
   }
 
   .result .name.displaying {
-    color: var(--color-info);
-  }
-
-  .control-bar {
-    flex-shrink: 0;
-    align-items: flex-end;
-    padding: 0;
-    background: var(--color-page);
-    border: var(--border-size-xs) solid var(--color-border);
-    border-radius: var(--radius-sm);
-  }
-
-  .control-bar .field {
-    width: var(--size-11);
+    color: var(--color-primary);
   }
 
   .stat-value {
@@ -184,26 +179,6 @@
     font-weight: var(--font-weight-bold);
     color: var(--color-text);
     line-height: var(--font-lineheight-1);
-  }
-
-  .control {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-xs) var(--space-md);
-    border: none;
-    border-radius: var(--radius-md);
-    background: var(--color-success);
-    color: var(--color-page);
-    font-family: inherit;
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-medium);
-    cursor: pointer;
-    transition: filter var(--transition-duration-md) var(--transition-ease), opacity var(--transition-duration-md) var(--transition-ease);
-  }
-
-  .control:hover {
-    filter: brightness(.90);
   }
 
   .table-section {

@@ -16,7 +16,8 @@
     background: var(--color-page);
     color: var(--text-color-content);
     cursor: pointer;
-    transition: background-color var(--transition-duration-slow) var(--transition-ease), color var(--transition-duration-slow) var(--transition-ease);
+    transition: background-color var(--transition-duration-md) var(--transition-ease), color var(--transition-duration-md) var(--transition-ease);
+    user-select: none;
 }
 
 .icon-button:hover {
@@ -29,7 +30,7 @@
     cursor: not-allowed;
 }
 
-.icon-button:active {
+.icon-button:active:not(:disabled) {
     background: var(--color-primary);
     color: var(--color-page);
 }

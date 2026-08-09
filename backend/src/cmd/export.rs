@@ -10,6 +10,7 @@ pub async fn student_export(path: String, ids: Vec<i64>) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
 pub async fn record_export(path: String, ids: Vec<i64>) -> Result<(), String> {
     let path = Path::new(&path);
     let rb = database_pool::database().await.map_err(|e| e.to_string())?;

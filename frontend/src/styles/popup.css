@@ -1,20 +1,13 @@
 .popup {
     display: flex;
     flex-direction: column;
-    gap: var(--space-sm);
+    gap: var(--space-xxs);
     overflow-y: auto;
-    max-height: 80vh;
     padding: var(--space-sm);
-    min-width: var(--size-14);
+    padding-top: var(--space-xs);
+    min-width: 17.5rem;
     background: var(--color-page);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
     z-index: var(--layer-card);
-}
-
-.popup h3 {
-    margin: 0;
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-bold);
-    color: var(--text-color-secondary);
 }
