@@ -7,13 +7,42 @@
   import {format} from "$utils/DataTimeUtils";
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
+  import {ArrowDownIcon, ArrowUpIcon} from "phosphor-svelte";
 
   const engine = rollcallEngine;
   let {active = $bindable(false)} = $props();
+  let sortKey = $state("")
+  let isAsc = $state(true)
   let display = $derived<RollcallRecord[]>(
-    recordStore.records.filter((r) => r.id > recordStore.boundaryPoint).reverse()
+    recordStore.records
+      .filter((r) => r.id > recordStore.boundaryPoint)
+      .reverse()
+      .sort((a, b) => {
+        if (!sortKey) return 0;
+        const key = sortKey as "name" | "student_no" | "attendance_status" | "rollcall_at";
+        const valA = a[key];
+        const valB = b[key];
+        let cmp: number;
+        if (typeof valA === "string" && typeof valB === "string") {
+          cmp = valA.localeCompare(valB, "zh-Hans-CN");
+        } else if (typeof valA === "number" && typeof valB === "number") {
+          cmp = valA - valB;
+        } else {
+          cmp = 0;
+        }
+        return isAsc ? cmp : -cmp;
+      })
   );
   let groupInfo = $derived<RecordGroupMetaData[]>(group(display));
+
+  function sort(key: string) {
+    if (sortKey === key) {
+      isAsc = !isAsc;
+    } else {
+      sortKey = key;
+      isAsc = true;
+    }
+  }
 
   $effect(() => {
     studentStore.load();
@@ -99,12 +128,39 @@
               style:width="8px"
             ></th>
             <th style:display="none"></th>
-            <th>序号</th>
-            <th>姓名</th>
-            <th>学号</th>
+            <th style:cursor="auto">序号</th>
+            <th onclick={() => sort("name")}>
+              姓名
+              {#if sortKey === "name"}
+                {#if isAsc}
+                  <ArrowUpIcon size="14"/>
+                {:else}
+                  <ArrowDownIcon size="14"/>
+                {/if}
+              {/if}
+            </th>
+            <th onclick={() => sort("student_no")}>
+              学号
+              {#if sortKey === "student_no"}
+                {#if isAsc}
+                  <ArrowUpIcon size="14"/>
+                {:else}
+                  <ArrowDownIcon size="14"/>
+                {/if}
+              {/if}
+            </th>
             <th>状态</th>
             <th>备注</th>
-            <th>点名时间</th>
+            <th onclick={() => sort("rollcall_at")}>
+              点名时间
+              {#if sortKey === "rollcall_at"}
+                {#if isAsc}
+                  <ArrowUpIcon size="14"/>
+                {:else}
+                  <ArrowDownIcon size="14"/>
+                {/if}
+              {/if}
+            </th>
           </tr>
           </thead>
           <tbody>
