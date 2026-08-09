@@ -1,0 +1,29 @@
+.card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xxs);
+    padding: var(--space-xs) var(--space-xs);
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--color-card);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--transition-duration-md) var(--transition-ease) color var(--transition-duration-md) var(--transition-ease);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.card:hover {
+    background: var(--color-hover);
+}
+
+.card:active {
+    background: var(--color-primary);
+    color: var(--color-card);
+}
+
+.card:disabled {
+    background: var(--color-primary-disabled);
+    cursor: not-allowed;
+}

@@ -16,6 +16,7 @@ pub async fn run() {
         .setup(|app| init(app))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_tracing::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, cmd| {}))
         .invoke_handler(tauri::generate_handler![
             crate::cmd::app_info::app_info,
@@ -42,6 +43,7 @@ pub async fn run() {
             crate::cmd::import::preview_excel,
             crate::cmd::import::import_excel,
             crate::cmd::export::student_export,
+            crate::cmd::export::record_export,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -64,6 +66,7 @@ fn init(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .data_directory(app_paths::webview_dir().to_path_buf())
         .inner_size(900.0, 700.0)
         .auto_resize()
+        .center()
         .decorations(true)
         .title("Rollcaller")
         .build()

@@ -7,7 +7,8 @@
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import EditRecord from "$components/record-history/EditRecord.svelte";
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
+  import ExportRecords from "$components/record-history/ExportRecords.svelte";
 
   let selected = $state<Set<bigint>>(new Set());
   let {active = $bindable(false)} = $props();
@@ -63,16 +64,23 @@
         aria-label="批量修改记录"
         title="批量修改记录"
         disabled={selected.size == 0}
-        onclick={(e) => {anchor = e.currentTarget; overlayController.open("RecordEdit")}}>
+        onclick={e => {
+          anchor = e.currentTarget;
+          overlayController.open("RecordEdit")
+        }}
+      >
         <PencilIcon size="24"/>
       </button>
       <button
         class="icon-button"
         aria-label="导出记录"
         title="导出记录"
-        style:display="none"
         disabled={recordStore.isLoading}
-        onclick={() => alert("导出")}>
+        onclick={e => {
+          anchor = e.currentTarget;
+          overlayController.open("RecordExport")
+        }}
+      >
         <FileArrowDownIcon size="24"/>
       </button>
       <button
@@ -80,7 +88,8 @@
         aria-label="刷新"
         title="刷新"
         disabled={recordStore.isLoading}
-        onclick={recordStore.load}>
+        onclick={() => recordStore.load()}
+      >
         <ArrowClockwiseIcon size="24"/>
       </button>
     </div>
@@ -166,3 +175,4 @@
 </div>
 
 <EditRecord bind:anchor={anchor} bind:selected={selected}/>
+<ExportRecords bind:selected={selected} bind:display={display} bind:anchor={anchor}/>

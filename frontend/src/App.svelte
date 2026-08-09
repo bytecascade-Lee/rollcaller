@@ -2,8 +2,9 @@
   import "open-props"
   import "$styles/attendance-status-budge.css"
   import "$styles/button.css";
+  import "$styles/card.css";
   import "$styles/content.css";
-  import "$styles/dialog.css";
+  import "$styles/popup.css";
   import "$styles/field.css";
   import "$styles/footbar.css";
   import "$styles/global.css";
@@ -15,6 +16,7 @@
   import "$styles/sidebar.css";
   import "$styles/state.css";
   import "$styles/table.css";
+  import "$styles/text.css";
   import "$styles/tokens.css";
   import "$styles/toolbar.css";
   import RollcallPage from "$pages/RollcallPage.svelte";

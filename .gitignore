@@ -50,3 +50,6 @@ vite.config.ts.timestamp-*
 
 ### Local Release File ###
 /release/
+
+### Git Commit Message File ###
+/docs/changes/

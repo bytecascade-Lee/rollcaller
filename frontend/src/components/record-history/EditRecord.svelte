@@ -2,9 +2,10 @@
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import {RecordCommand} from "$commands";
   import {recordStore} from "$stores/recordStore.svelte";
-  import {STATUS_COLORS, STATUS_DEFAULT_COLOR, STATUS_MAP} from "$constants";
+  import {STATUS_MAP} from "$constants";
   import type {RollcallRecord} from "$types";
-  import {overlayController} from "$controllers/overlayController";
+  import {overlayController} from "$controllers/popupController";
+  import {clickOutside, updatePosition} from "$actions";
 
   let {selected = $bindable(), anchor = $bindable()} = $props<{
     selected: Set<bigint>;
@@ -19,28 +20,6 @@
   let popoverStyle = $state("");
 
   const statusCodes = Object.keys(STATUS_MAP).map(Number);
-
-  function statusStyle(code: number) {
-    return STATUS_COLORS[code] ?? STATUS_DEFAULT_COLOR;
-  }
-
-  function updatePosition() {
-    const rect = anchor.getBoundingClientRect();
-    popoverStyle = `position: fixed; top: ${rect.bottom + 6}px; left: ${rect.left}px; min-width: ${Math.max(rect.width, 280)}px;`;
-  }
-
-  export function open() {
-    updateStatus = true;
-    updateRemark = true;
-    attendanceStatus = null;
-    remark = "";
-    updatePosition();
-    isVisible = true;
-  }
-
-  export function close() {
-    isVisible = false;
-  }
 
   async function update() {
     const wantStatus = updateStatus && attendanceStatus != null;
@@ -66,6 +45,28 @@
     isVisible = false;
   }
 
+  export function open() {
+    updateStatus = true;
+    updateRemark = true;
+    attendanceStatus = null;
+    remark = "";
+    popoverStyle = updatePosition(anchor);
+    isVisible = true;
+    if (selected.size == 1) {
+      // 必须拷贝，否则拿到的是引用，表格中的照样会变
+      let value: bigint = selected.values().next().value;
+      const original = recordStore.get(value ? value : -1n);
+      if (original != null) {
+        attendanceStatus = original.attendance_status;
+        remark = original.remark ? original.remark : "";
+      }
+    }
+  }
+
+  export function close() {
+    isVisible = false;
+  }
+
   $effect(() => {
     overlayController.register("RecordEdit", {
       open: open,
@@ -78,43 +79,53 @@
 {#if isVisible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div onclick={close}></div>
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="popup"
     style={popoverStyle}
-    onclick={(e) => e.stopPropagation()}
+    use:clickOutside={{ callback: close, exclude: anchor }}
   >
-    <h3>批量修改记录（共 {selected.size} 条）</h3>
-    <div class="field-label">
-      <label><input type="checkbox" bind:checked={updateStatus}/>状态</label>
-      <div class="status-group">
+    {#if selected.size == 1}
+      <h3 class="text-title">修改记录</h3>
+    {:else}
+      <h3 class="text-title">批量修改记录（共 {selected.size} 条）</h3>
+    {/if}
+    <label class="field">
+      <span class="field-label">
+        <input type="checkbox" bind:checked={updateStatus}/>
+        状态
+      </span>
+
+      <span class="badge-group">
         {#each statusCodes as code (code)}
           <button
-            class="button"
+            class="badge"
             type="button"
-            class:selected={attendanceStatus == code}
             disabled={!updateStatus}
-            style:padding="var(--size-xxs)"
-            onclick={() => attendanceStatus = attendanceStatus == code ? null : code}
+            style:padding="0"
+            onclick={(e) => {
+              e.stopPropagation();
+              attendanceStatus = attendanceStatus == code ? null : code
+            }}
           >
-              <AttendanceStatusBadge code={code}/>
+              <AttendanceStatusBadge code={code} selected={attendanceStatus == code}/>
           </button>
         {/each}
-      </div>
-    </div>
+      </span>
+    </label>
 
-    <div class="field-label">
-      <label><input type="checkbox" bind:checked={updateRemark}/> 备注</label>
-      <div class="field-label">
-        <input
-          type="text"
-          disabled={!updateRemark}
-          placeholder="批量添加备注"
-          bind:value={remark}/>
-      </div>
-    </div>
+
+    <label class="field">
+      <span class="field-label">
+        <input type="checkbox" bind:checked={updateRemark}/>
+        备注
+      </span>
+      <input
+        type="text"
+        disabled={!updateRemark}
+        placeholder="批量添加备注"
+        bind:value={remark}
+      />
+    </label>
 
     <div class="button-group">
       <button
@@ -123,9 +134,12 @@
         onclick={close}>
         取消
       </button>
-      <button type="button"
-              class="button yes"
-              onclick={update}>
+      <button
+        type="button"
+        class="button yes"
+        disabled={(updateStatus && attendanceStatus == null) || (updateRemark && remark.trim() == "")}
+        onclick={update}
+      >
         确定
       </button>
     </div>

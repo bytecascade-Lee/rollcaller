@@ -6,7 +6,8 @@
 
 input[type="checkbox"],
 input[type="radio"] {
-    margin: 0;
+    margin: -2px 2px 0 0;
+    vertical-align: middle;
     accent-color: var(--color-primary);
 }
 
@@ -18,14 +19,31 @@ textarea {
     box-sizing: border-box;
     padding: var(--space-xs) var(--space-xs);
     border: var(--border-size-xs) solid var(--border-color-5);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-lg);
     background: var(--color-page);
     color: var(--text-color-content);
     font-family: inherit;
     font-size: var(--font-size-sm);
 }
 
+input[type="text"]:disabled,
+input[type="number"]:disabled,
+input[type="password"]:disabled,
+select:disabled,
+textarea:disabled {
+    cursor: not-allowed;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+    border: var(--border-size-xs) solid var(--color-primary);
+}
+
 input::placeholder,
 textarea::placeholder {
     color: var(--text-color-placeholder);
+    user-select: none;
 }
