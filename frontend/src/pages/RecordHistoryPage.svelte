@@ -25,21 +25,17 @@
   let searchQuery = $state("");
   let anchor = $state<HTMLElement | null>(null);
 
-  let display = $derived.by<RollcallRecord[]>(() => {
-    let result = recordStore.records;
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      result = result.filter((r) => {
-        return (
-          r.student_no.toLowerCase().includes(q) ||
-          r.name.toLowerCase().includes(q) ||
-          r.remark?.toLowerCase().includes(q) ||
-          format(r.rollcall_at).toLowerCase().includes(q)
-        );
-      });
-    }
-    if (!sortKey) return result;
-    return [...result].sort((a, b) => {
+  let display = $derived<RollcallRecord[]>([...recordStore.records]
+    .filter((record) => {
+      return (
+        record.student_no.toLowerCase().includes(searchQuery) ||
+        record.name.toLowerCase().includes(searchQuery) ||
+        record.remark?.toLowerCase().includes(searchQuery) ||
+        format(record.rollcall_at).toLowerCase().includes(searchQuery)
+      );
+    })
+    .sort((a, b) => {
+      if (!sortKey) return 0;
       const key = sortKey as "name" | "student_no" | "attendance_status" | "remark" | "rollcall_at";
       const valA = a[key];
       const valB = b[key];
@@ -52,8 +48,7 @@
         cmp = 0;
       }
       return isAsc ? cmp : -cmp;
-    });
-  });
+    }));
 
   function sort(key: string) {
     if (sortKey === key) {
