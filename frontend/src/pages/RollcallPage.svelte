@@ -13,25 +13,24 @@
   let {active = $bindable(false)} = $props();
   let sortKey = $state("")
   let isAsc = $state(true)
-  let display = $derived<RollcallRecord[]>(
-    recordStore.records
-      .filter((r) => r.id > recordStore.boundaryPoint)
-      .reverse()
-      .sort((a, b) => {
-        if (!sortKey) return 0;
-        const key = sortKey as "name" | "student_no" | "attendance_status" | "rollcall_at";
-        const valA = a[key];
-        const valB = b[key];
-        let cmp: number;
-        if (typeof valA === "string" && typeof valB === "string") {
-          cmp = valA.localeCompare(valB, "zh-Hans-CN");
-        } else if (typeof valA === "number" && typeof valB === "number") {
-          cmp = valA - valB;
-        } else {
-          cmp = 0;
-        }
-        return isAsc ? cmp : -cmp;
-      })
+  let display = $derived<RollcallRecord[]>([...recordStore.records]
+    .filter((r) => r.id > recordStore.boundaryPoint)
+    .reverse()
+    .sort((a, b) => {
+      if (!sortKey) return 0;
+      const key = sortKey as "name" | "student_no" | "attendance_status" | "rollcall_at";
+      const valA = a[key];
+      const valB = b[key];
+      let cmp: number;
+      if (typeof valA === "string" && typeof valB === "string") {
+        cmp = valA.localeCompare(valB, "zh-Hans-CN");
+      } else if (typeof valA === "number" && typeof valB === "number") {
+        cmp = valA - valB;
+      } else {
+        cmp = 0;
+      }
+      return isAsc ? cmp : -cmp;
+    })
   );
   let groupInfo = $derived<RecordGroupMetaData[]>(group(display));
 
