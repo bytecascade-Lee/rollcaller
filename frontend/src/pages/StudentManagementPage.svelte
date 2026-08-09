@@ -36,8 +36,9 @@
     )
     .sort((a, b) => {
       if (!sortKey) return 0;
-      const valA = a[sortKey as "name" | "student_no" | "created_at" | "updated_at"];
-      const valB = b[sortKey as "name" | "student_no" | "created_at" | "updated_at"];
+      const key = sortKey as "name" | "student_no" | "created_at" | "updated_at";
+      const valA = a[key];
+      const valB = b[key];
       let cmp: number;
       if (typeof valA === "string" && typeof valB === "string") {
         cmp = valA.localeCompare(valB, "zh-Hans-CN");
