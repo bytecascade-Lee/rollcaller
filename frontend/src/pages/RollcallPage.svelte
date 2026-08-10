@@ -7,7 +7,7 @@
   import {format} from "$utils/DataTimeUtils";
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
-  import {ArrowDownIcon, ArrowUpIcon} from "phosphor-svelte";
+  import {ArrowDownIcon, ArrowsDownUpIcon, ArrowUpIcon} from "phosphor-svelte";
 
   const engine = rollcallEngine;
   let {active = $bindable(false)} = $props();
@@ -18,7 +18,7 @@
     .reverse()
     .sort((a, b) => {
       if (!sortKey) return 0;
-      const key = sortKey as "name" | "student_no" | "attendance_status" | "rollcall_at";
+      const key = sortKey as "name" | "student_no" | "attendance_status" | "remark" | "rollcall_at";
       const valA = a[key];
       const valB = b[key];
       let cmp: number;
@@ -132,32 +132,60 @@
               姓名
               {#if sortKey === "name"}
                 {#if isAsc}
-                  <ArrowUpIcon size="14"/>
+                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
                 {:else}
-                  <ArrowDownIcon size="14"/>
+                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
                 {/if}
+              {:else}
+                <ArrowsDownUpIcon size="14"/>
               {/if}
             </th>
             <th onclick={() => sort("student_no")}>
               学号
               {#if sortKey === "student_no"}
                 {#if isAsc}
-                  <ArrowUpIcon size="14"/>
+                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
                 {:else}
-                  <ArrowDownIcon size="14"/>
+                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
                 {/if}
+              {:else}
+                <ArrowsDownUpIcon size="14"/>
               {/if}
             </th>
-            <th>状态</th>
-            <th>备注</th>
+            <th onclick={() => sort("attendance_status")}>
+              状态
+              {#if sortKey === "attendance_status"}
+                {#if isAsc}
+                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
+                {:else}
+                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
+                {/if}
+              {:else}
+                <ArrowsDownUpIcon size="14"/>
+              {/if}
+            </th>
+            <th onclick={() => sort("remark")}>
+              备注
+              {#if sortKey === "remark"}
+                {#if isAsc}
+                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
+                {:else}
+                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
+                {/if}
+              {:else}
+                <ArrowsDownUpIcon size="14"/>
+              {/if}
+            </th>
             <th onclick={() => sort("rollcall_at")}>
               点名时间
               {#if sortKey === "rollcall_at"}
                 {#if isAsc}
-                  <ArrowUpIcon size="14"/>
+                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
                 {:else}
-                  <ArrowDownIcon size="14"/>
+                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
                 {/if}
+              {:else}
+                <ArrowsDownUpIcon size="14"/>
               {/if}
             </th>
           </tr>
