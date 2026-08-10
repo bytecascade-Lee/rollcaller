@@ -54,8 +54,6 @@
     pendingDecisions.filter((s) => pendingChoices.get(s.student_no) !== undefined).length
   );
   let fileName = $derived(filePath.split(/[\\/]/).pop() || filePath);
-  // 文件数据规模（步骤一展示大小信息，真实字节大小需后端命令，超出本次改动范围）
-  let fileMeta = $derived(previewData ? `${previewData.total_rows} 行 × ${previewData.total_columns} 列` : "");
 
   function clearAutoClose() {
     if (autoCloseTimer !== undefined) {
@@ -284,7 +282,7 @@
 </script>
 
 {#if isVisible}
-<div class="overlay">
+  <div class="overlay">
     <!-- svelte-ignore a11y_interactive_supports_focus -->
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div
@@ -322,25 +320,16 @@
             <div class="section-head">
               <span class="section-no">1</span>
               <span class="section-title">选择文件</span>
-              <span class="section-hint">支持 .xlsx / .xls</span>
             </div>
-            <div class="file-picker">
-              <FileXlsIcon size={36} class="file-picker-icon"/>
-              <div class="file-picker-meta">
-                <div class="file-name" title={filePath}>{filePath ? fileName : "尚未选择文件"}</div>
-                {#if filePath}
-                  <div class="file-hint">
-                    {#if fileMeta}共 {fileMeta}{:else}导入前会自动预览文件前 5 行{/if}
-                  </div>
-                {:else}
-                  <div class="file-hint">导入前会自动预览文件前 5 行</div>
-                {/if}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div class="card-group">
+              <div
+                class="card"
+                onclick={chooseFile}
+              >
+                <FileXlsIcon size="36" class="file-picker-icon"/>
+                <span class="text-content" title={filePath}>{filePath ? fileName : "选择Excel文件"}</span>
               </div>
-              <button type="button" class="button file-picker-btn" onclick={chooseFile}
-                      disabled={isPreviewing || isImporting}>
-                <UploadSimpleIcon size={16}/>
-                {filePath ? "重新选择" : "选择文件"}
-              </button>
             </div>
           </section>
         {:else if step === 2}
@@ -411,7 +400,7 @@
               </div>
             {:else}
               <div class="loading-box">
-                <WarningCircleIcon size={18}/>
+                <WarningCircleIcon size="18"/>
                 <span>预览失败，请重新选择文件</span>
               </div>
             {/if}
@@ -433,15 +422,15 @@
               <div class="decide-panel">
                 <div class="decide-head">
                   <div class="decide-title">
-                    <WarningCircleIcon size={22} class="decide-icon"/>
+                    <WarningCircleIcon size="22"/>
                     <div>
                       <strong>发现 {pendingDecisions.length} 条学号冲突</strong>
                       <p>以下学号存在已删除但姓名不同的记录，需逐条决策后才能导入</p>
                     </div>
                   </div>
                   <div class="decide-all-group">
-                    <button type="button" class="decide-all-btn override" onclick={() => decideAll(true)}>全部覆盖</button>
-                    <button type="button" class="decide-all-btn skip" onclick={() => decideAll(false)}>全部跳过</button>
+                    <button type="button" class="button error" onclick={() => decideAll(true)}>全部覆盖</button>
+                    <button type="button" class="button warn" onclick={() => decideAll(false)}>全部跳过</button>
                   </div>
                 </div>
                 <div class="decide-progress">
@@ -468,20 +457,20 @@
                         <div class="decide-actions">
                           <button
                             type="button"
-                            class="decide-btn override"
+                            class="button error"
                             class:chosen={pendingChoices.get(s.student_no) === true}
                             onclick={() => chooseDecision(s.student_no, true)}
                           >
-                            <CheckIcon size={15}/>
+                            <CheckIcon size="15"/>
                             覆盖并恢复
                           </button>
                           <button
                             type="button"
-                            class="decide-btn skip"
+                            class="button warn"
                             class:chosen={pendingChoices.get(s.student_no) === false}
                             onclick={() => chooseDecision(s.student_no, false)}
                           >
-                            <XIcon size={15}/>
+                            <XIcon size="15"/>
                             跳过
                           </button>
                         </div>
@@ -493,7 +482,7 @@
               </div>
             {:else if !message}
               <div class="ready-panel">
-                <CheckCircleIcon size={20} class="ready-icon"/>
+                <CheckCircleIcon size="20" class="ready-icon"/>
                 <div>
                   <strong>准备就绪，可导入</strong>
                   <p>已通过校验，未发现学号冲突。</p>
@@ -512,13 +501,13 @@
                 role="status"
               >
                 {#if message.type === "success"}
-                  <CheckCircleIcon size={18} class="alert-icon"/>
+                  <CheckCircleIcon size="18"/>
                 {:else if message.type === "error"}
-                  <XCircleIcon size={18} class="alert-icon"/>
+                  <XCircleIcon size="18"/>
                 {:else if message.type === "warning"}
-                  <WarningCircleIcon size={18} class="alert-icon"/>
+                  <WarningCircleIcon size="18"/>
                 {:else}
-                  <InfoIcon size={18} class="alert-icon"/>
+                  <InfoIcon size="18"/>
                 {/if}
                 <span>{message.text}</span>
               </div>
@@ -701,56 +690,6 @@
     color: var(--text-color-secondary);
   }
 
-  /* 文件选择 */
-  .file-picker {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-    padding: var(--space-md);
-    border: var(--border-size-sm) dashed var(--border-color-3);
-    border-radius: var(--radius-md);
-    background: var(--color-page);
-    transition: border-color var(--transition-duration-fast) var(--transition-ease);
-  }
-
-  .file-picker:hover {
-    border-color: var(--color-primary);
-  }
-
-  .file-picker-icon {
-    flex-shrink: 0;
-    color: var(--color-primary);
-  }
-
-  .file-picker-meta {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xxs);
-  }
-
-  .file-name {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-color-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .file-hint {
-    font-size: var(--font-size-xs);
-    color: var(--text-color-secondary);
-  }
-
-  .file-picker-btn {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-xs);
-  }
-
   /* 加载态 */
   .loading-box {
     display: flex;
@@ -791,35 +730,6 @@
     display: flex;
     align-items: flex-start;
     gap: var(--space-lg);
-  }
-
-  .config-side {
-    flex-shrink: 0;
-    width: 13rem;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-    padding: var(--space-md);
-    border: var(--border-size-xxs) solid var(--border-color-3);
-    border-radius: var(--radius-md);
-    background: var(--color-page);
-  }
-
-  .header-rows-field {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 0;
-    gap: var(--space-xs);
-  }
-
-  .header-rows-field input {
-    width: 100%;
-  }
-
-  .config-hint {
-    margin: 0;
-    font-size: var(--font-size-xs);
-    color: var(--text-color-secondary);
   }
 
   /* 预览表格：sticky 表头 + 固定首列 */
@@ -1009,12 +919,6 @@
     min-width: 0;
   }
 
-  .decide-icon {
-    flex-shrink: 0;
-    margin-top: var(--space-xxs);
-    color: var(--color-warn);
-  }
-
   .decide-title strong {
     display: block;
     font-size: var(--font-size-sm);
@@ -1031,31 +935,6 @@
     display: flex;
     gap: var(--space-xs);
     flex-shrink: 0;
-  }
-
-  .decide-all-btn {
-    padding: var(--space-xs) var(--space-sm);
-    border: var(--border-size-xxs) solid var(--border-color-3);
-    border-radius: var(--radius-sm);
-    background: var(--color-page);
-    font-family: inherit;
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-medium);
-    cursor: pointer;
-    transition: background-color var(--transition-duration-fast) var(--transition-ease), border-color var(--transition-duration-fast) var(--transition-ease), color var(--transition-duration-fast) var(--transition-ease);
-  }
-
-  .decide-all-btn.override {
-    border-color: var(--green-6);
-    color: var(--green-6);
-  }
-
-  .decide-all-btn.override:hover {
-    background: color-mix(in srgb, var(--green-6) 10%, transparent);
-  }
-
-  .decide-all-btn.skip:hover {
-    background: var(--color-hover);
   }
 
   .decide-progress {
@@ -1125,38 +1004,6 @@
     gap: var(--space-xs);
   }
 
-  .decide-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-xxs);
-    padding: var(--space-xxs) var(--space-sm);
-    border: var(--border-size-xxs) solid var(--border-color-3);
-    border-radius: var(--radius-sm);
-    background: var(--color-page);
-    font-family: inherit;
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-color-primary);
-    cursor: pointer;
-    transition: background-color var(--transition-duration-fast) var(--transition-ease), border-color var(--transition-duration-fast) var(--transition-ease), color var(--transition-duration-fast) var(--transition-ease);
-  }
-
-  .decide-btn:hover {
-    background: var(--color-hover);
-  }
-
-  .decide-btn.override.chosen {
-    border-color: var(--green-6);
-    background: var(--green-6);
-    color: var(--green-0);
-  }
-
-  .decide-btn.skip.chosen {
-    border-color: var(--border-color-3);
-    background: color-mix(in srgb, var(--gray-12) 8%, transparent);
-    color: var(--text-color-secondary);
-  }
-
   /* 结果消息：按类型着色 */
   .alert {
     display: flex;
@@ -1169,19 +1016,10 @@
     text-align: left;
   }
 
-  .alert .alert-icon {
-    flex-shrink: 0;
-    margin-top: var(--space-xxs);
-  }
-
   .alert-success {
     border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
     background: color-mix(in srgb, var(--color-success) 8%, transparent);
     color: var(--text-color-primary);
-  }
-
-  .alert-success .alert-icon {
-    color: var(--color-success);
   }
 
   .alert-error {
@@ -1190,27 +1028,15 @@
     color: var(--text-color-primary);
   }
 
-  .alert-error .alert-icon {
-    color: var(--color-error);
-  }
-
   .alert-warning {
     border-color: color-mix(in srgb, var(--color-warn) 50%, transparent);
     background: color-mix(in srgb, var(--color-warn) 10%, transparent);
     color: var(--text-color-primary);
   }
 
-  .alert-warning .alert-icon {
-    color: var(--color-warn);
-  }
-
   .alert-info {
     border-color: color-mix(in srgb, var(--color-info) 45%, transparent);
     background: color-mix(in srgb, var(--color-info) 8%, transparent);
     color: var(--text-color-primary);
-  }
-
-  .alert-info .alert-icon {
-    color: var(--color-info);
   }
 </style>
