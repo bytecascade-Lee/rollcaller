@@ -5,6 +5,7 @@
   import {overlayController} from "$controllers/popupController";
   import {ImportCommand} from "$commands";
   import {
+    ArrowFatRightIcon,
     ArrowLeftIcon,
     ArrowRightIcon,
     CheckCircleIcon,
@@ -36,6 +37,10 @@
   // 学号 -> 是否覆盖（true=覆盖并恢复，false=跳过）
   let pendingChoices = $state<Map<string, boolean>>(new Map<string, boolean>());
   let autoCloseTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // 表头行数指针（拖拽左侧隐形列的箭头设置忽略行数）
+  let wrapEl = $state<HTMLDivElement | undefined>(undefined);
+  let dragging = $state(false);
 
   let configValid = $derived(
     previewData != null &&
@@ -153,17 +158,61 @@
     if (previewData) step = 2;
   }
 
-  /** 步骤二「下一步」：重新校验文件并清空冲突状态，再进入步骤三 */
-  async function goStep3() {
-    if (!configValid) return;
-    await preview(false);
-    if (previewData) step = 3;
+  /** 步骤二「导入」：进入步骤三并直接执行导入；若有审查结果（冲突）则先处理决策 */
+  async function goImport() {
+    if (!configValid || isImporting) return;
+    step = 3;
+    await runImport();
   }
 
   /** 列映射变化后，之前的冲突决策不再适用，需要重新导入校验 */
   function onConfigChange() {
     pendingDecisions = [];
     pendingChoices = new Map<string, boolean>();
+  }
+
+  /** 由指针 Y 坐标计算应忽略的行数：指向表头=0，指向数据行 i=忽略 0..i。位置统一相对内容顶部，兼容容器滚动 */
+  function computeHeaderFromY(clientY: number): number {
+    if (!wrapEl) return 0;
+    const rows = Array.from(wrapEl.querySelectorAll("tbody tr")) as HTMLElement[];
+    if (rows.length === 0) return 0;
+    const wrapRect = wrapEl.getBoundingClientRect();
+    const y = clientY - wrapRect.top + wrapEl.scrollTop;
+    // 表头（列映射辅助行）区域：指向这里表示不忽略任何行
+    const theadBottom = rows[0].getBoundingClientRect().top - wrapRect.top + wrapEl.scrollTop;
+    if (y <= theadBottom) return 0;
+    for (let i = 0; i < rows.length; i++) {
+      const rect = rows[i].getBoundingClientRect();
+      const top = rect.top - wrapRect.top + wrapEl.scrollTop;
+      const bottom = rect.bottom - wrapRect.top + wrapEl.scrollTop;
+      if (y >= top && y <= bottom) return i + 1;
+    }
+    return rows.length;
+  }
+
+  function moveArrow(clientY: number) {
+    const h = computeHeaderFromY(clientY);
+    if (h !== headerRows) {
+      headerRows = h;
+      onConfigChange(); // 表头行数变化 → 之前冲突决策作废
+    }
+  }
+
+  function onArrowDown(e: PointerEvent) {
+    if (isPreviewing || isImporting) return;
+    e.preventDefault();
+    dragging = true;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    moveArrow(e.clientY);
+  }
+
+  function onArrowMove(e: PointerEvent) {
+    if (!dragging) return;
+    moveArrow(e.clientY);
+  }
+
+  function onArrowUp() {
+    dragging = false;
   }
 
   /** 表头下拉选择列角色（"" = 取消映射） */
@@ -349,10 +398,30 @@
             {:else if previewData}
               <div class="step2-layout">
                 <div class="table-area">
-                  <div class="preview-table-wrap">
+                  <!-- svelte-ignore a11y_no_static_element_interactions -->
+                  <!-- svelte-ignore a11y_interactive_supports_focus -->
+                  <div class="preview-table-wrap" bind:this={wrapEl}>
                     <table class="preview-table">
                       <thead>
                       <tr>
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
+                        <!-- svelte-ignore a11y_interactive_supports_focus -->
+                        <th
+                          class="col-arrow"
+                          role="slider"
+                          aria-label="拖动设置要忽略的表头行数"
+                          aria-valuemin={0}
+                          aria-valuemax={previewData.rows.length}
+                          aria-valuenow={headerRows}
+                          onpointerdown={onArrowDown}
+                          onpointermove={onArrowMove}
+                          onpointerup={onArrowUp}
+                          onpointercancel={onArrowUp}
+                        >
+                          {#if headerRows === 0}
+                            <ArrowFatRightIcon size={20} weight="fill" style="color: var(--color-primary)"/>
+                          {/if}
+                        </th>
                         <th class="col-rowno">#</th>
                         {#each Array(previewData.total_columns) as _, colIndex}
                           <th
@@ -380,6 +449,24 @@
                       <tbody>
                       {#each previewData.rows as row, rowIndex}
                         <tr class:is-header={rowIndex < headerRows}>
+                          <!-- svelte-ignore a11y_no_static_element_interactions -->
+                          <!-- svelte-ignore a11y_interactive_supports_focus -->
+                          <td
+                            class="col-arrow"
+                            role="slider"
+                            aria-label="拖动设置要忽略的表头行数"
+                            aria-valuemin={0}
+                            aria-valuemax={previewData.rows.length}
+                            aria-valuenow={headerRows}
+                            onpointerdown={onArrowDown}
+                            onpointermove={onArrowMove}
+                            onpointerup={onArrowUp}
+                            onpointercancel={onArrowUp}
+                          >
+                            {#if rowIndex === headerRows - 1}
+                              <ArrowFatRightIcon size={20} weight="fill" style="color: var(--color-primary)"/>
+                            {/if}
+                          </td>
                           <td class="col-rowno">{rowIndex + 1}</td>
                           {#each row as cell, colIndex}
                             <td
@@ -413,8 +500,8 @@
               <span class="section-title">导入与冲突处理</span>
               {#if pendingDecisions.length > 0}
                 <span class="section-hint">需处理 {pendingDecisions.length} 条冲突</span>
-              {:else}
-                <span class="section-hint">准备就绪</span>
+              {:else if isImporting}
+                <span class="section-hint">正在导入…</span>
               {/if}
             </div>
 
@@ -480,39 +567,36 @@
                   </tbody>
                 </table>
               </div>
-            {:else if !message}
-              <div class="ready-panel">
-                <CheckCircleIcon size="20" class="ready-icon"/>
-                <div>
-                  <strong>准备就绪，可导入</strong>
-                  <p>已通过校验，未发现学号冲突。</p>
-                </div>
-              </div>
-            {/if}
-
-            <!-- 结果消息 -->
-            {#if message}
-              <div
-                class="alert"
-                class:alert-success={message.type === "success"}
-                class:alert-error={message.type === "error"}
-                class:alert-warning={message.type === "warning"}
-                class:alert-info={message.type === "info"}
-                role="status"
-              >
-                {#if message.type === "success"}
-                  <CheckCircleIcon size="18"/>
-                {:else if message.type === "error"}
-                  <XCircleIcon size="18"/>
-                {:else if message.type === "warning"}
-                  <WarningCircleIcon size="18"/>
-                {:else}
-                  <InfoIcon size="18"/>
-                {/if}
-                <span>{message.text}</span>
+            {:else if isImporting}
+              <div class="loading-box">
+                <span class="spinner" aria-hidden="true"></span>
+                <span>正在导入…</span>
               </div>
             {/if}
           </section>
+        {/if}
+
+        <!-- 结果消息：所有步骤可见，避免预览/导入报错时用户看不到提示 -->
+        {#if message}
+          <div
+            class="alert"
+            class:alert-success={message.type === "success"}
+            class:alert-error={message.type === "error"}
+            class:alert-warning={message.type === "warning"}
+            class:alert-info={message.type === "info"}
+            role="status"
+          >
+            {#if message.type === "success"}
+              <CheckCircleIcon size="18"/>
+            {:else if message.type === "error"}
+              <XCircleIcon size="18"/>
+            {:else if message.type === "warning"}
+              <WarningCircleIcon size="18"/>
+            {:else}
+              <InfoIcon size="18"/>
+            {/if}
+            <span>{message.text}</span>
+          </div>
         {/if}
       </div>
 
@@ -535,18 +619,28 @@
             上一步
           </button>
         {/if}
-        {#if step < 3}
+        {#if step === 1}
           <button
             type="button"
             class="button yes"
-            onclick={step === 1 ? goStep2 : goStep3}
-            disabled={step === 1 ? !filePath : !configValid || isPreviewing}
+            onclick={goStep2}
+            disabled={!filePath || isPreviewing}
           >
-            {#if step === 2 && isPreviewing}
+            {#if isPreviewing}
               <span class="spinner spinner-sm" aria-hidden="true"></span>
             {/if}
             下一步
             <ArrowRightIcon size={16}/>
+          </button>
+        {:else if step === 2}
+          <button
+            type="button"
+            class="button yes"
+            onclick={goImport}
+            disabled={!configValid || isImporting}
+          >
+            <UploadSimpleIcon size={18}/>
+            导入学生
           </button>
         {:else}
           <button
@@ -749,6 +843,28 @@
     background: var(--color-page);
   }
 
+  /* 表头行数指针所在列：冻结在左侧、背景不透明，滚动时仍可操控箭头 */
+  .preview-table th.col-arrow,
+  .preview-table td.col-arrow {
+    position: sticky;
+    left: 0;
+    width: 1.5rem;
+    min-width: 1.5rem;
+    padding: 0;
+    border: none;
+    background: var(--color-page);
+    text-align: center;
+    vertical-align: middle;
+    cursor: ns-resize;
+    touch-action: none;
+    z-index: var(--layer-2);
+  }
+
+  .preview-table thead th.col-arrow {
+    background: color-mix(in srgb, var(--gray-12) 5%, var(--color-page));
+    z-index: var(--layer-3);
+  }
+
   .preview-table {
     width: 100%;
     border-collapse: separate;
@@ -786,9 +902,10 @@
   .preview-table th.col-rowno,
   .preview-table td.col-rowno {
     position: sticky;
-    left: 0;
+    left: 1.5rem; /* 让出左侧表头行数指针列 */
     width: var(--size-lg);
     min-width: var(--size-lg);
+    border-left: var(--border-size-xxs) solid var(--border-color-3); /* 与指针列分隔 */
     text-align: center;
     color: var(--text-color-secondary);
     background: var(--color-page);
@@ -859,35 +976,6 @@
     justify-content: flex-end;
     gap: var(--space-sm);
     flex-wrap: wrap;
-    font-size: var(--font-size-xs);
-    color: var(--text-color-secondary);
-  }
-
-  /* 步骤三：准备就绪 */
-  .ready-panel {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-    padding: var(--space-md);
-    border: var(--border-size-xxs) solid color-mix(in srgb, var(--color-success) 45%, var(--border-color-3));
-    border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--color-success) 7%, var(--color-page));
-    box-shadow: var(--shadow-sm);
-  }
-
-  .ready-icon {
-    flex-shrink: 0;
-    color: var(--color-success);
-  }
-
-  .ready-panel strong {
-    display: block;
-    font-size: var(--font-size-sm);
-    color: var(--text-color-primary);
-  }
-
-  .ready-panel p {
-    margin: var(--space-xxs) 0 0;
     font-size: var(--font-size-xs);
     color: var(--text-color-secondary);
   }
