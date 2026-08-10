@@ -30,7 +30,7 @@
   let isPreviewing = $state(false);
   let isImporting = $state(false);
   let importSucceeded = $state(false);
-  let message = $state<{type: MessageType; text: string} | null>(null);
+  let message = $state<{ type: MessageType; text: string } | null>(null);
   // 已删除但姓名不同的冲突记录，需用户逐条决策
   let pendingDecisions = $state<StudentTable[]>([]);
   // 学号 -> 是否覆盖（true=覆盖并恢复，false=跳过）
@@ -284,33 +284,18 @@
 </script>
 
 {#if isVisible}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="overlay" onclick={!isImporting ? close : undefined}>
+<div class="overlay">
     <!-- svelte-ignore a11y_interactive_supports_focus -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div
-      class="popup import-dialog"
+      class="popup"
       onclick={(e) => e.stopPropagation()}
       role="dialog"
       aria-modal="true"
       aria-label="导入学生"
     >
-      <!-- 标题 + 关闭 -->
-      <div class="dialog-head">
-        <div class="dialog-title-wrap">
-          <h3>导入学生</h3>
-          <p class="dialog-subtitle">从 Excel 文件批量导入学生名单</p>
-        </div>
-        <button
-          type="button"
-          class="icon-button dialog-close"
-          onclick={close}
-          disabled={isImporting}
-          aria-label="关闭"
-        >
-          <XIcon size={16}/>
-        </button>
-      </div>
+      <h3 class="text-title">导入学生</h3>
+      <span class="text-content">从 Excel 文件批量导入学生名单</span>
 
       <!-- 步骤引导 -->
       <ol class="stepper">
@@ -344,12 +329,15 @@
               <div class="file-picker-meta">
                 <div class="file-name" title={filePath}>{filePath ? fileName : "尚未选择文件"}</div>
                 {#if filePath}
-                  <div class="file-hint">{#if fileMeta}共 {fileMeta}{:else}导入前会自动预览文件前 5 行{/if}</div>
+                  <div class="file-hint">
+                    {#if fileMeta}共 {fileMeta}{:else}导入前会自动预览文件前 5 行{/if}
+                  </div>
                 {:else}
                   <div class="file-hint">导入前会自动预览文件前 5 行</div>
                 {/if}
               </div>
-              <button type="button" class="button file-picker-btn" onclick={chooseFile} disabled={isPreviewing || isImporting}>
+              <button type="button" class="button file-picker-btn" onclick={chooseFile}
+                      disabled={isPreviewing || isImporting}>
                 <UploadSimpleIcon size={16}/>
                 {filePath ? "重新选择" : "选择文件"}
               </button>
@@ -371,27 +359,6 @@
               </div>
             {:else if previewData}
               <div class="step2-layout">
-                <!-- 左侧：表头行数调整 + 图例，实时生效 -->
-                <aside class="config-side">
-                  <label class="field header-rows-field">
-                    <span class="field-label">表头行数</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max={Math.max(previewData.total_rows - 1, 0)}
-                      bind:value={headerRows}
-                      oninput={onConfigChange}
-                    />
-                  </label>
-                  <p class="config-hint">前 N 行作为表头跳过（表格中显示为灰色行）</p>
-                  <div class="legend">
-                    <span class="legend-dot dot-no"></span>学号列
-                    <span class="legend-dot dot-name"></span>姓名列
-                    <span class="legend-dot dot-header"></span>表头行
-                  </div>
-                </aside>
-
-                <!-- 右侧：预览表格 -->
                 <div class="table-area">
                   <div class="preview-table-wrap">
                     <table class="preview-table">
@@ -404,12 +371,6 @@
                             class:is-name-col={nameColumnIndex == colIndex}
                           >
                             <div class="col-head">
-                              <span class="col-label">
-                                第 {colIndex + 1} 列
-                                {#if columnPreview(colIndex)[0]}
-                                  <span class="col-sample">· {columnPreview(colIndex)[0]}</span>
-                                {/if}
-                              </span>
                               <select
                                 class="col-select"
                                 class:sel-no={studentNoColumnIndex == colIndex}
@@ -418,7 +379,7 @@
                                 onchange={(e) => onHeaderRoleChange(colIndex, e.currentTarget.value)}
                                 aria-label={`第 ${colIndex + 1} 列的映射`}
                               >
-                                <option value="">无</option>
+                                <option value="">忽略此列</option>
                                 <option value="student_no">学号</option>
                                 <option value="name">姓名</option>
                               </select>
@@ -443,7 +404,8 @@
                     </table>
                   </div>
                   <div class="preview-summary">
-                    <span>共 {previewData.total_rows} 行 × {previewData.total_columns} 列 · 预览前 {previewData.rows.length} 行</span>
+                    <span>共 {previewData.total_rows} 行 × {previewData.total_columns} 列 · 预览前 {previewData.rows.length}
+                      行</span>
                   </div>
                 </div>
               </div>
@@ -484,7 +446,8 @@
                 </div>
                 <div class="decide-progress">
                   <div class="progress-track">
-                    <div class="progress-fill" style={`width: ${pendingDecisions.length ? (decidedCount / pendingDecisions.length) * 100 : 0}%`}></div>
+                    <div class="progress-fill"
+                         style={`width: ${pendingDecisions.length ? (decidedCount / pendingDecisions.length) * 100 : 0}%`}></div>
                   </div>
                   <span class="progress-label">已决策 {decidedCount}/{pendingDecisions.length}</span>
                 </div>
@@ -564,96 +527,64 @@
         {/if}
       </div>
 
-      <!-- 底部操作 -->
-      <div class="dialog-foot">
-        <div class="foot-left">
-          {#if step > 1}
-            <button
-              type="button"
-              class="button"
-              onclick={() => (step = step === 3 ? 2 : 1)}
-              disabled={isImporting}
-            >
-              <ArrowLeftIcon size={16}/>
-              上一步
-            </button>
-          {/if}
-        </div>
-        <div class="foot-right">
+      <div class="button-group">
+        <button
+          type="button"
+          class="button"
+          onclick={close}
+          disabled={isImporting}
+        >关闭
+        </button>
+        {#if step > 1}
           <button
             type="button"
             class="button"
-            onclick={close}
+            onclick={() => (step = step === 3 ? 2 : 1)}
             disabled={isImporting}
-          >关闭</button>
-          {#if step < 3}
-            <button
-              type="button"
-              class="button yes"
-              onclick={step === 1 ? goStep2 : goStep3}
-              disabled={step === 1 ? !filePath : !configValid || isPreviewing}
-            >
-              {#if step === 2 && isPreviewing}
-                <span class="spinner spinner-sm" aria-hidden="true"></span>
-              {/if}
-              下一步
-              <ArrowRightIcon size={16}/>
-            </button>
-          {:else}
-            <button
-              type="button"
-              class="button yes"
-              onclick={runImport}
-              disabled={!configValid || isImporting || (pendingDecisions.length > 0 && !allDecided)}
-            >
-              {#if isImporting}
-                <span class="spinner spinner-sm" aria-hidden="true"></span>
-                正在导入…
+          >
+            <ArrowLeftIcon size={16}/>
+            上一步
+          </button>
+        {/if}
+        {#if step < 3}
+          <button
+            type="button"
+            class="button yes"
+            onclick={step === 1 ? goStep2 : goStep3}
+            disabled={step === 1 ? !filePath : !configValid || isPreviewing}
+          >
+            {#if step === 2 && isPreviewing}
+              <span class="spinner spinner-sm" aria-hidden="true"></span>
+            {/if}
+            下一步
+            <ArrowRightIcon size={16}/>
+          </button>
+        {:else}
+          <button
+            type="button"
+            class="button yes"
+            onclick={runImport}
+            disabled={!configValid || isImporting || (pendingDecisions.length > 0 && !allDecided)}
+          >
+            {#if isImporting}
+              <span class="spinner spinner-sm" aria-hidden="true"></span>
+              正在导入…
+            {:else}
+              <UploadSimpleIcon size={18}/>
+              {#if pendingDecisions.length > 0}
+                导入（{decidedCount}/{pendingDecisions.length} 已决策）
               {:else}
-                <UploadSimpleIcon size={18}/>
-                {#if pendingDecisions.length > 0}
-                  导入（{decidedCount}/{pendingDecisions.length} 已决策）
-                {:else}
-                  导入学生
-                {/if}
+                导入学生
               {/if}
-            </button>
-          {/if}
-        </div>
+            {/if}
+          </button>
+        {/if}
       </div>
     </div>
   </div>
 {/if}
 
 <style>
-  /* 弹窗骨架：头部/主体/底部固定，主体内部滚动 */
-  .import-dialog {
-    width: min(1160px, 94vw);
-    max-width: none;
-    min-width: 0;
-    max-height: 88vh;
-    overflow: hidden;
-    padding: 0;
-    gap: 0;
-  }
-
-  .dialog-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--space-md);
-    padding: var(--space-lg) var(--space-lg) var(--space-sm);
-  }
-
-  .dialog-subtitle {
-    margin: var(--space-xxs) 0 0;
-    font-size: var(--font-size-xs);
-    color: var(--text-color-secondary);
-  }
-
-  .dialog-close {
-    flex-shrink: 0;
-  }
 
   /* 步骤引导 */
   .stepper {
@@ -662,7 +593,7 @@
     gap: var(--space-xs);
     list-style: none;
     margin: 0;
-    padding: var(--space-sm) var(--space-lg) var(--space-md);
+    padding: var(--space-xxs) var(--space-lg) var(--space-xs);
     border-bottom: var(--border-size-xxs) solid var(--border-color-3);
   }
 
@@ -850,7 +781,9 @@
   }
 
   @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   /* 步骤二：左侧配置 + 右侧预览表格 */
@@ -987,15 +920,6 @@
     min-width: var(--size-xl);
   }
 
-  .col-label {
-    color: var(--text-color-secondary);
-    font-size: var(--font-size-xs);
-  }
-
-  .col-sample {
-    opacity: 0.75;
-  }
-
   .col-select {
     width: 100%;
     padding: var(--space-xxs) var(--space-xs);
@@ -1027,40 +951,6 @@
     flex-wrap: wrap;
     font-size: var(--font-size-xs);
     color: var(--text-color-secondary);
-  }
-
-  .legend {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xxs);
-    flex-wrap: wrap;
-    font-size: var(--font-size-xs);
-    color: var(--text-color-secondary);
-  }
-
-  .legend-dot {
-    display: inline-block;
-    width: var(--space-xs);
-    height: var(--space-xs);
-    margin-left: var(--space-xs);
-    border-radius: var(--radius-round);
-  }
-
-  .legend-dot:first-child {
-    margin-left: 0;
-  }
-
-  .dot-no {
-    background: var(--color-primary);
-  }
-
-  .dot-name {
-    background: var(--green-6);
-  }
-
-  .dot-header {
-    background: color-mix(in srgb, var(--gray-12) 5%, var(--color-page));
-    border: var(--border-size-xxs) solid var(--border-color-3);
   }
 
   /* 步骤三：准备就绪 */
@@ -1322,23 +1212,5 @@
 
   .alert-info .alert-icon {
     color: var(--color-info);
-  }
-
-  /* 底部操作区：左「上一步」+ 右「关闭 / 下一步/导入」 */
-  .dialog-foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-sm);
-    padding: var(--space-md) var(--space-lg);
-    border-top: var(--border-size-xxs) solid var(--border-color-3);
-    background: var(--color-page);
-  }
-
-  .foot-left,
-  .foot-right {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
   }
 </style>
