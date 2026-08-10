@@ -387,7 +387,7 @@
             <div class="section-head">
               <span class="section-no">2</span>
               <span class="section-title">预览与列映射</span>
-              <span class="section-hint">在表头下拉选择「学号 / 姓名」列</span>
+              <span class="section-hint">在第一列拖动箭头忽略表头；在表头下拉选择「学号 / 姓名」列</span>
             </div>
 
             {#if isPreviewing}
@@ -848,14 +848,14 @@
   .preview-table td.col-arrow {
     position: sticky;
     left: 0;
-    width: 1.5rem;
+    width: 2rem;
     min-width: 1.5rem;
     padding: 0;
     border: none;
     background: var(--color-page);
     text-align: center;
     vertical-align: middle;
-    cursor: ns-resize;
+    cursor: pointer;
     touch-action: none;
     z-index: var(--layer-2);
   }
