@@ -11,11 +11,10 @@
 
   const engine = rollcallEngine;
   let {active = $bindable(false)} = $props();
-  let sortKey = $state("")
+  let sortKey = $state("rollcall_at")
   let isAsc = $state(true)
   let display = $derived<RollcallRecord[]>([...recordStore.records]
     .filter((r) => r.id > recordStore.boundaryPoint)
-    .reverse()
     .sort((a, b) => {
       if (!sortKey) return 0;
       const key = sortKey as "name" | "student_no" | "attendance_status" | "remark" | "rollcall_at";
