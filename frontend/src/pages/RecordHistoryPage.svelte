@@ -6,6 +6,7 @@
   import {
     ArrowClockwiseIcon,
     ArrowDownIcon,
+    ArrowsDownUpIcon,
     ArrowUpIcon,
     FileArrowDownIcon,
     MagnifyingGlassIcon,
@@ -159,52 +160,59 @@
             姓名
             {#if sortKey === "name"}
               {#if isAsc}
-                <ArrowUpIcon size="14"/>
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
               {:else}
-                <ArrowDownIcon size="14"/>
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
               {/if}
-            {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>{/if}
           </th>
           <th onclick={() => sort("student_no")}>
             学号
             {#if sortKey === "student_no"}
               {#if isAsc}
-                <ArrowUpIcon size="14"/>
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
               {:else}
-                <ArrowDownIcon size="14"/>
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
               {/if}
-            {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>{/if}
           </th>
           <th onclick={() => sort("attendance_status")}>
             <PencilSimpleIcon size="14" weight="bold"/>
             状态
             {#if sortKey === "attendance_status"}
               {#if isAsc}
-                <ArrowUpIcon size="14"/>
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
               {:else}
-                <ArrowDownIcon size="14"/>
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
               {/if}
-            {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>{/if}
           </th>
           <th onclick={() => sort("remark")}>
             <PencilSimpleIcon size="14" weight="bold"/>
             备注
             {#if sortKey === "remark"}
               {#if isAsc}
-                <ArrowUpIcon size="14"/>
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
               {:else}
-                <ArrowDownIcon size="14"/>
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
               {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>
             {/if}
           </th>
           <th onclick={() => sort("rollcall_at")}>
             点名时间
             {#if sortKey === "rollcall_at"}
               {#if isAsc}
-                <ArrowUpIcon size="14"/>
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
               {:else}
-                <ArrowDownIcon size="14"/>
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
               {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>
             {/if}
           </th>
         </tr>
