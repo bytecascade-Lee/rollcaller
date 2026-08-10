@@ -8,6 +8,7 @@
   import {
     ArrowClockwiseIcon,
     ArrowDownIcon,
+    ArrowsDownUpIcon,
     ArrowUpIcon,
     ClockClockwiseIcon,
     FileArrowDownIcon,
@@ -200,10 +201,12 @@
             姓名
             {#if sortKey === "name"}
               {#if isAsc}
-                <ArrowUpIcon size="14"/>
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
               {:else}
-                <ArrowDownIcon size="14"/>
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
               {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>
             {/if}
           </th>
           <th onclick={() => sort("student_no")}>
@@ -211,30 +214,36 @@
             学号
             {#if sortKey === "student_no"}
               {#if isAsc}
-                <ArrowUpIcon size="14"/>
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
               {:else}
-                <ArrowDownIcon size="14"/>
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
               {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>
             {/if}
           </th>
           <th onclick={() => sort("created_at")}>
             创建时间
             {#if sortKey === "created_at"}
               {#if isAsc}
-                <ArrowUpIcon size="14"/>
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
               {:else}
-                <ArrowDownIcon size="14"/>
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
               {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>
             {/if}
           </th>
           <th onclick={() => sort("updated_at")}>
             最后更新时间
             {#if sortKey === "updated_at"}
               {#if isAsc}
-                <ArrowUpIcon size="14"/>
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
               {:else}
-                <ArrowDownIcon size="14"/>
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
               {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>
             {/if}
           </th>
         </tr>
