@@ -1,6 +1,6 @@
-import {RollcallPhase, RollcallEvent} from "$types";
-import {RecordCommand, RollcallCommand} from "$commands";
 import type {Record, RollcallRecord} from "$types";
+import {RollcallEvent, RollcallPhase} from "$types";
+import {RecordCommand, RollcallCommand} from "$commands";
 import {studentStore} from "$stores/studentStore.svelte";
 import {recordStore} from "$stores/recordStore.svelte";
 import {uuid} from "$utils/UuidUtils";
@@ -150,12 +150,18 @@ class RollcallEngine {
   /** Picking：随机选人 → 展示名字 → 写入数据库，事务必须完整走完 */
   async #runPicking() {
     try {
+      //. 当学生列表更新时，此处会出现错误
       if (this.called.length == studentStore.students.length) {
         this.called = [];
       }
       let ids = studentStore.students.map((s) => s.id);
       if (!this.allowRepetition) {
         ids = ids.filter((id) => !this.called.includes(id));
+      }
+      //* 引入第二次检查，暂时确保一直有人被点到
+      if (ids.length === 0) {
+        this.called = [];
+        ids = studentStore.students.map((s) => s.id);
       }
       const studentId = await RollcallCommand.pick(ids);
       this.called = [...this.called, studentId];
