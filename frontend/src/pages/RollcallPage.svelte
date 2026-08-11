@@ -14,6 +14,7 @@
   let {active = $bindable(false)} = $props();
   let sortKey = $state("rollcall_at")
   let isAsc = $state(true)
+  let tableEl = $state<HTMLDivElement | null>(null)
   let display = $derived<RollcallRecord[]>([...recordStore.records]
     .filter((r) => r.id > recordStore.boundaryPoint)
     .sort((a, b) => {
@@ -46,6 +47,15 @@
   $effect(() => {
     studentStore.load();
     recordStore.load();
+  });
+
+  // 表格按点名时间升序排列，新点名记录追加在最后一行。
+  // 记录条数变化（新增/首次加载）时，将滚动容器自动滚到底部以显示最新记录。
+  $effect(() => {
+    const count = display.length;
+    if (tableEl) {
+      tableEl.scrollTop = tableEl.scrollHeight;
+    }
   });
 </script>
 
@@ -133,7 +143,10 @@
       <h3 class="text-title">
         当前点名记录（{display.length}）
       </h3>
-      <div class="table">
+      <div
+        class="table"
+        bind:this={tableEl}
+      >
         <table>
           <thead>
           <tr>
