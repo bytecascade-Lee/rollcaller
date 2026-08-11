@@ -1,6 +1,6 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import type {ImportPreviewData, StudentTable} from "$types";
+  import {ImportPreviewData, Result, StudentTable} from "$types";
   import {open} from "@tauri-apps/plugin-dialog";
   import {overlayController} from "$controllers/popupController";
   import {ImportCommand} from "$commands";
@@ -18,8 +18,6 @@
     XIcon
   } from "phosphor-svelte";
 
-  type MessageType = "info" | "success" | "error" | "warning";
-
   let previewData = $state<ImportPreviewData | null>(null);
   let filePath = $state("");
   let studentNoColumnIndex = $state(0);
@@ -31,7 +29,7 @@
   let isPreviewing = $state(false);
   let isImporting = $state(false);
   let importSucceeded = $state(false);
-  let message = $state<{ type: MessageType; text: string } | null>(null);
+  let message = $state<{ type: Result; content: string } | null>(null);
   // 已删除但姓名不同的冲突记录，需用户逐条决策
   let pendingDecisions = $state<StudentTable[]>([]);
   // 学号 -> 是否覆盖（true=覆盖并恢复，false=跳过）
@@ -106,7 +104,7 @@
       // 选择文件后自动预览并跳转到步骤二
       if (previewData) step = 2;
     } catch (e) {
-      message = {type: "error", text: "选择文件失败：" + e};
+      message = {type: Result.Error, content: "选择文件失败：" + e};
     }
   }
 
@@ -143,7 +141,7 @@
       }
     } catch (e) {
       previewData = null;
-      message = {type: "error", text: "预览失败：" + e};
+      message = {type: Result.Error, content: "预览失败：" + e};
     } finally {
       isPreviewing = false;
     }
@@ -284,8 +282,8 @@
           await studentStore.load();
           importSucceeded = true;
           message = {
-            type: "success",
-            text: result.type === "Upsert"
+            type: Result.Success,
+            content: result.type === "Upsert"
               ? `成功导入 ${result.data.length} 名学生（含自动恢复/覆写）`
               : `成功导入 ${result.data.length} 名学生`,
           };
@@ -296,14 +294,14 @@
         }
         case "DuplicateInput":
           message = {
-            type: "error",
-            text: `导入数据中存在重复学号：${result.data.join("、")}，请去重后重试。`,
+            type: Result.Error,
+            content: `导入数据中存在重复学号：${result.data.join("、")}，请去重后重试。`,
           };
           break;
         case "Conflict":
           message = {
-            type: "warning",
-            text: `以下学号已存在活跃记录，无法导入：${result.data
+            type: Result.Warning,
+            content: `以下学号已存在活跃记录，无法导入：${result.data
               .map((s: { student_no: string; name: string; }) => `${s.student_no}（${s.name}）`)
               .join("、")}。`,
           };
@@ -315,7 +313,7 @@
           break;
       }
     } catch (e) {
-      message = {type: "error", text: "导入失败：" + e};
+      message = {type: Result.Error, content: "导入失败：" + e};
     } finally {
       isImporting = false;
     }
@@ -353,7 +351,7 @@
         <li class="step-line" aria-hidden="true"></li>
         <li class="step" class:done={step > 2} class:active={step === 2}>
           <span class="step-badge">{#if step > 2}<CheckIcon size={13}/>{:else}2{/if}</span>
-          <span class="step-label">配置列映射</span>
+          <span class="step-label">配置表头行数及列映射</span>
         </li>
         <li class="step-line" aria-hidden="true"></li>
         <li class="step" class:done={importSucceeded} class:active={step === 3}>
@@ -371,7 +369,7 @@
               <span class="section-title">选择文件</span>
             </div>
             <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div class="card-group">
+            <div>
               <div
                 class="card"
                 onclick={chooseFile}
@@ -486,9 +484,9 @@
                 </div>
               </div>
             {:else}
-              <div class="loading-box">
+              <div class="state">
                 <WarningCircleIcon size="18"/>
-                <span>预览失败，请重新选择文件</span>
+                <span class="text-subtitle error">预览失败，请重新选择文件</span>
               </div>
             {/if}
           </section>
@@ -580,22 +578,22 @@
         {#if message}
           <div
             class="alert"
-            class:alert-success={message.type === "success"}
-            class:alert-error={message.type === "error"}
-            class:alert-warning={message.type === "warning"}
-            class:alert-info={message.type === "info"}
+            class:alert-success={message.type == Result.Success}
+            class:alert-error={message.type == Result.Error}
+            class:alert-warning={message.type == Result.Warning}
+            class:alert-info={message.type == Result.Info}
             role="status"
           >
-            {#if message.type === "success"}
+            {#if message.type == Result.Success}
               <CheckCircleIcon size="18"/>
-            {:else if message.type === "error"}
+            {:else if message.type == Result.Error}
               <XCircleIcon size="18"/>
-            {:else if message.type === "warning"}
+            {:else if message.type == Result.Warning}
               <WarningCircleIcon size="18"/>
             {:else}
               <InfoIcon size="18"/>
             {/if}
-            <span>{message.text}</span>
+            <span>{message.content}</span>
           </div>
         {/if}
       </div>
