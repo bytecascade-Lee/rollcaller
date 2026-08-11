@@ -5,6 +5,8 @@
     overflow-y: auto;
     padding: var(--space-sm);
     padding-top: var(--space-xs);
+    max-height: 80%;
+    max-width: 85%;
     min-width: 17.5rem;
     background: var(--color-page);
     border-radius: var(--radius-md);
