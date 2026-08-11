@@ -69,59 +69,59 @@
   </section>
 
   <div class="toolbar">
-    <div class="toolbar-group">
-      <label class="field">
-        <span class="field-label">点名次数</span>
-        <input
-          type="number"
-          min="1"
-          max={studentStore.students.length || 1}
-          style="height: 28px; width: 64px"
-          value={engine.totalTimes}
-          oninput={(e) => engine.updateTotalTimes(Number(e.currentTarget.value))}
-          disabled={engine.isRolling}
-        />
-      </label>
+    <label
+      class="field"
+      style:flex-direction="column"
+    >
+      <span class="field-label">点名次数</span>
+      <input
+        type="number"
+        min="1"
+        max={studentStore.students.length || 1}
+        value={engine.totalTimes}
+        oninput={(e) => engine.updateTotalTimes(Number(e.currentTarget.value))}
+        disabled={engine.isRolling}
+      />
+    </label>
 
-      <div class="field">
-        <span class="field-label">允许重复</span>
+    <div class="field">
+      <span class="field-label">总人数</span>
+      <span class="stat-value">{studentStore.students.length}</span>
+    </div>
+
+    <div class="field">
+      <span class="field-label">已完成</span>
+      <span class="stat-value">{engine.completedTimes}/{engine.totalTimes}</span>
+    </div>
+
+    <div class="field">
+      <span class="field-label">允许重复</span>
+      <button
+        class="switch-button"
+        type="button"
+        onclick={() => (engine.allowRepetition = !engine.allowRepetition)}
+      >
+        <Switch yes={engine.allowRepetition}/>
+      </button>
+    </div>
+
+    <div class="field">
+      {#if engine.isRolling}
         <button
-          class="switch-button"
-          type="button"
-          onclick={() => (engine.allowRepetition = !engine.allowRepetition)}
+          class="button warn rollcall-button"
+          onclick={() => engine.toggle()}
         >
-          <Switch yes={engine.allowRepetition}/>
+          停止点名
         </button>
-      </div>
+      {:else}
+        <button
+          class="button yes rollcall-button"
+          onclick={() => engine.toggle()}
+        >
+          开始点名
+        </button>
+      {/if}
     </div>
-
-    <div class="toolbar-group">
-      <div class="field">
-        <span class="field-label">总人数</span>
-        <span class="stat-value">{studentStore.students.length}</span>
-      </div>
-
-      <div class="field">
-        <span class="field-label">已完成</span>
-        <span class="stat-value">{engine.completedTimes}/{engine.totalTimes}</span>
-      </div>
-    </div>
-
-    {#if engine.isRolling}
-      <button
-        class="button warn rollcall-button"
-        onclick={() => engine.toggle()}
-      >
-        停止点名
-      </button>
-    {:else}
-      <button
-        class="button yes rollcall-button"
-        onclick={() => engine.toggle()}
-      >
-        开始点名
-      </button>
-    {/if}
   </div>
 
   <section class="table-section">
@@ -273,6 +273,10 @@
   }
 
   .stat-value {
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: var(--font-size-xl);
     font-weight: var(--font-weight-bold);
     color: var(--color-text);
@@ -287,53 +291,33 @@
     gap: var(--space-xs);
   }
 
-  /* 工具栏：交互列 + 文字列 + 独立按钮 */
-  .toolbar {
-    gap: var(--space-md);
-  }
-
-  .toolbar-group {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-  }
-
-  /* 字段纵向排布：标签在上、控件在下 */
   .field {
     flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-xxs);
-    padding: 0;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .field .field-label {
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
   }
 
   .field input {
     flex: none;
+    height: 28px;
+    width: 64px;
+    box-sizing: border-box;
   }
 
   .rollcall-button {
-    margin-left: auto;
-    align-self: center;
-  }
-
-  .switch-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: none;
-    border-radius: var(--radius-md);
-    background: transparent;
-    cursor: pointer;
-    transition: background var(--transition-duration-md) var(--transition-ease);
-    width: fit-content;
-  }
-
-  .switch-button:hover {
-    background: var(--color-hover);
-  }
-
-  .switch-button:focus-visible {
-    outline: 2px solid var(--color-focus);
-    outline-offset: 2px;
+    width: 96px;
+    /* 横跨标签行(22px) + 间距(--space-xs) + 内容行(28px)，与其它区域等高且更醒目 */
+    height: calc(22px + var(--space-xs) + 28px);
+    box-sizing: border-box;
+    font-size: var(--font-size-lg);
+    margin-left: 0;
   }
 </style>
