@@ -53,7 +53,7 @@
   // 记录条数变化（新增/首次加载）时，将滚动容器自动滚到底部以显示最新记录。
   $effect(() => {
     const count = display.length;
-    if (tableEl) {
+    if (tableEl && sortKey == "rollcall_at" && isAsc) {
       tableEl.scrollTop = tableEl.scrollHeight;
     }
   });
