@@ -98,7 +98,7 @@
       <span class="badge-group">
         {#each statusCodes as code (code)}
           <button
-            class="badge"
+            class="badge-button"
             type="button"
             disabled={!updateStatus}
             style:padding="0"

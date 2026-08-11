@@ -8,11 +8,13 @@
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import {ArrowDownIcon, ArrowsDownUpIcon, ArrowUpIcon} from "phosphor-svelte";
+  import Switch from "$components/common/Switch.svelte";
 
   const engine = rollcallEngine;
   let {active = $bindable(false)} = $props();
   let sortKey = $state("rollcall_at")
   let isAsc = $state(true)
+  let tableEl = $state<HTMLDivElement | null>(null)
   let display = $derived<RollcallRecord[]>([...recordStore.records]
     .filter((r) => r.id > recordStore.boundaryPoint)
     .sort((a, b) => {
@@ -46,6 +48,15 @@
     studentStore.load();
     recordStore.load();
   });
+
+  // 表格按点名时间升序排列，新点名记录追加在最后一行。
+  // 记录条数变化（新增/首次加载）时，将滚动容器自动滚到底部以显示最新记录。
+  $effect(() => {
+    const count = display.length;
+    if (tableEl && sortKey == "rollcall_at" && isAsc) {
+      tableEl.scrollTop = tableEl.scrollHeight;
+    }
+  });
 </script>
 
 <div class:active={active}>
@@ -68,13 +79,15 @@
   </section>
 
   <div class="toolbar">
-    <label class="field">
+    <label
+      class="field"
+      style:flex-direction="column"
+    >
       <span class="field-label">点名次数</span>
       <input
         type="number"
         min="1"
         max={studentStore.students.length || 1}
-        style="height: 28px; width: 64px"
         value={engine.totalTimes}
         oninput={(e) => engine.updateTotalTimes(Number(e.currentTarget.value))}
         disabled={engine.isRolling}
@@ -91,21 +104,34 @@
       <span class="stat-value">{engine.completedTimes}/{engine.totalTimes}</span>
     </div>
 
-    {#if engine.isRolling}
+    <div class="field">
+      <span class="field-label">允许重复</span>
       <button
-        class="button warn"
-        onclick={() => engine.toggle()}
+        class="switch-button"
+        type="button"
+        onclick={() => (engine.allowRepetition = !engine.allowRepetition)}
       >
-        停止点名
+        <Switch yes={engine.allowRepetition}/>
       </button>
-    {:else}
-      <button
-        class="button yes"
-        onclick={() => engine.toggle()}
-      >
-        开始点名
-      </button>
-    {/if}
+    </div>
+
+    <div class="field">
+      {#if engine.isRolling}
+        <button
+          class="button warn rollcall-button"
+          onclick={() => engine.toggle()}
+        >
+          停止点名
+        </button>
+      {:else}
+        <button
+          class="button yes rollcall-button"
+          onclick={() => engine.toggle()}
+        >
+          开始点名
+        </button>
+      {/if}
+    </div>
   </div>
 
   <section class="table-section">
@@ -117,7 +143,10 @@
       <h3 class="text-title">
         当前点名记录（{display.length}）
       </h3>
-      <div class="table">
+      <div
+        class="table"
+        bind:this={tableEl}
+      >
         <table>
           <thead>
           <tr>
@@ -257,6 +286,10 @@
   }
 
   .stat-value {
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: var(--font-size-xl);
     font-weight: var(--font-weight-bold);
     color: var(--color-text);
@@ -269,5 +302,35 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
+  }
+
+  .field {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .field .field-label {
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  .field input {
+    flex: none;
+    height: 28px;
+    width: 64px;
+    box-sizing: border-box;
+  }
+
+  .rollcall-button {
+    width: 96px;
+    /* 横跨标签行(22px) + 间距(--space-xs) + 内容行(28px)，与其它区域等高且更醒目 */
+    height: calc(22px + var(--space-xs) + 28px);
+    box-sizing: border-box;
+    font-size: var(--font-size-lg);
+    margin-left: 0;
   }
 </style>

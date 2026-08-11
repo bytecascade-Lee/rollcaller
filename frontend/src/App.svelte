@@ -15,6 +15,7 @@
   import "$styles/search.css";
   import "$styles/sidebar.css";
   import "$styles/state.css";
+  import "$styles/switch.css";
   import "$styles/table.css";
   import "$styles/text.css";
   import "$styles/tokens.css";
