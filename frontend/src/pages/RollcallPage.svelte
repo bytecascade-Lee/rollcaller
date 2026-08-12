@@ -9,6 +9,7 @@
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import {ArrowDownIcon, ArrowsDownUpIcon, ArrowUpIcon} from "phosphor-svelte";
   import Switch from "$components/common/Switch.svelte";
+  import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
 
   const engine = rollcallEngine;
   let {active = $bindable(false)} = $props();
@@ -47,6 +48,7 @@
   $effect(() => {
     studentStore.load();
     recordStore.load();
+    attendanceStatusStore.load();
   });
 
   // 表格按点名时间升序排列，新点名记录追加在最后一行。
@@ -235,7 +237,7 @@
               <td>{record.name}</td>
               <td>{record.student_no}</td>
               <td>
-                <AttendanceStatusBadge code={record.attendance_status}/>
+                <AttendanceStatusBadge id={record.attendance_status}/>
               </td>
               <td>{record.remark}</td>
               <td>{format(record.rollcall_at)}</td>

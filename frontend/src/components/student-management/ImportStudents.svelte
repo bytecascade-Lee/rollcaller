@@ -1,6 +1,7 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import {ImportPreviewData, Result, StudentTable} from "$types";
+  import type {ImportPreviewData, StudentTable} from "$types";
+  import {Result} from "$types"
   import {open} from "@tauri-apps/plugin-dialog";
   import {overlayController} from "$controllers/popupController";
   import {ImportCommand} from "$commands";
