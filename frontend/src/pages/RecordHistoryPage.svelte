@@ -237,7 +237,7 @@
             <td>{record.name}</td>
             <td>{record.student_no}</td>
             <td>
-              <AttendanceStatusBadge code={record.attendance_status}/>
+              <AttendanceStatusBadge id={record.attendance_status}/>
             </td>
             <td
               style:white-space="normal"
