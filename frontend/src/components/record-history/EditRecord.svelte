@@ -141,7 +141,7 @@
       <button
         type="button"
         class="button yes"
-        disabled={(updateStatus && attendanceStatus == null) || (updateRemark && remark.trim() == "")}
+        disabled={(updateStatus && attendanceStatus == null) || (updateRemark && remark.trim() == "") || (!updateStatus && !updateRemark)}
         onclick={update}
       >
         确定
