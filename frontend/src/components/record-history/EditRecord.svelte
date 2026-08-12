@@ -2,10 +2,10 @@
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import {RecordCommand} from "$commands";
   import {recordStore} from "$stores/recordStore.svelte";
-  import {STATUS_MAP} from "$constants";
   import type {RollcallRecord} from "$types";
   import {overlayController} from "$controllers/popupController";
   import {clickOutside, updatePosition} from "$actions";
+  import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
 
   let {selected = $bindable(), anchor = $bindable()} = $props<{
     selected: Set<bigint>;
@@ -19,7 +19,7 @@
   let remark = $state("");
   let popoverStyle = $state("");
 
-  const statusCodes = Object.keys(STATUS_MAP).map(Number);
+  const statusIds = $derived<number[]>(Array.from(attendanceStatusStore.attendanceStatusMap().keys()).filter(id => id != 0));
 
   async function update() {
     const wantStatus = updateStatus && attendanceStatus != null;
@@ -96,20 +96,24 @@
       </span>
 
       <span class="badge-group">
-        {#each statusCodes as code (code)}
-          <button
-            class="badge-button"
-            type="button"
-            disabled={!updateStatus}
-            style:padding="0"
-            onclick={(e) => {
+        {#if attendanceStatusStore.isLoading() || statusIds == null}
+          <span class="state">加载中……</span>
+        {:else}
+          {#each statusIds as id (id)}
+            <button
+              class="badge-button"
+              type="button"
+              disabled={!updateStatus}
+              style:padding="0"
+              onclick={(e) => {
               e.stopPropagation();
-              attendanceStatus = attendanceStatus == code ? null : code
+              attendanceStatus = attendanceStatus == id ? null : id
             }}
-          >
-              <AttendanceStatusBadge code={code} selected={attendanceStatus == code}/>
-          </button>
-        {/each}
+            >
+              <AttendanceStatusBadge id={id} selected={attendanceStatus == id}/>
+            </button>
+          {/each}
+        {/if}
       </span>
     </label>
 
