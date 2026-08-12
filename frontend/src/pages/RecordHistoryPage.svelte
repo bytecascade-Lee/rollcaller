@@ -56,7 +56,9 @@
       isAsc = !isAsc;
     } else {
       sortKey = key;
-      isAsc = true;
+      // 如果是按照点名时间排序，则先倒序
+      // 其他的则是正常情况，正序
+      isAsc = sortKey != "rollcall_at";
     }
   }
 
@@ -222,10 +224,14 @@
           {@const color = COLORS[groupInfo[index].groupIndex % COLORS.length]}
           <tr>
             {#if groupInfo[index].isStart}
+              <!-- 当按照点名时间排序，或按照默认排序（等于空字符串时），显示分组信息 -->
+              <!-- 否则隐藏分组信息 -->
+              <!-- 至于使用 visibility 而非 display='none'，是防止表结构来回变动，干扰视觉 -->
               <td
                 rowspan={groupInfo[index].rowspan}
                 style:background={color}
                 style:border-bottom="0px"
+                style:visibility={(sortKey == "rollcall_at" || sortKey == "") ? "visible" : "hidden"}
               ></td>
             {/if}
             <td><input
