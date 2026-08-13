@@ -35,7 +35,14 @@
   import type {AppInfo} from "$types";
   import {onMount} from "svelte";
 
-  let APP_INFO = $state<AppInfo>({branch: "", commit_count: "", short_hash: "", commit_time: "", build_time: ""})
+  let APP_INFO = $state<AppInfo>({
+    branch: "",
+    commit_count: "",
+    short_hash: "",
+    commit_time: "",
+    version: "",
+    build_time: ""
+  })
   let currentPage: 'rollcall' | 'students' | 'records' = $state("rollcall");
 
   onMount(async () => {
@@ -93,7 +100,7 @@
   <footer class="footbar">
     <div>
       <GearIcon size="14" weight="bold" style="display: none"/>
-      v0.1.0+{APP_INFO.branch}.{APP_INFO.commit_count}.{APP_INFO.short_hash}.{APP_INFO.commit_time}->{APP_INFO.build_time}
+      {APP_INFO.version}+{APP_INFO.branch}.{APP_INFO.commit_count}.{APP_INFO.short_hash}#{APP_INFO.commit_time}#{APP_INFO.build_time}
     </div>
   </footer>
 </div>

@@ -1,4 +1,5 @@
 use jiff::tz::TimeZone;
+use jiff::Timestamp;
 use std::path::Path;
 use std::process::Command;
 use std::{env, fs};
@@ -10,29 +11,27 @@ fn main() {
 }
 
 fn generate_build_info() {
-    let branch = match env::var("BRANCH_NAME") {
-        Ok(branch) => {branch}
-        Err(_) => {get_git_output(&["rev-parse", "--abbrev-ref", "HEAD"])}
-    };
+    let branch = env::var("BRANCH_NAME").unwrap_or_else(|_| get_git_output(&["rev-parse", "--abbrev-ref", "HEAD"]));
     let commit_count = get_git_output(&["rev-list", "--count", "HEAD"]);
     let short_hash = get_git_output(&["rev-parse", "--short", "HEAD"]);
     let commit_time = get_git_output(&["log", "-1", "--format=%cd", "--date=iso-strict"]);
-    let build_time = jiff::Timestamp::now()
-        .to_zoned(TimeZone::system())
+    let version = env::var("VERSION")
+        .unwrap_or_else(|_| env!("CARGO_PKG_VERSION").to_string())
+        .trim_start_matches(|c: char| c == 'v' || c == 'V')
         .to_string();
+    let time_string = format!("{:.0}", Timestamp::now().to_zoned(TimeZone::system()));
+    let build_time = time_string.split('[').next().unwrap_or(time_string.as_str());
 
     println!("cargo:rustc-env=GIT_BRANCH={}", branch);
     println!("cargo:rustc-env=GIT_COMMIT_COUNT={}", commit_count);
     println!("cargo:rustc-env=GIT_SHORT_HASH={}", short_hash);
     println!("cargo:rustc-env=GIT_COMMIT_TIME={}", commit_time);
+    println!("cargo:rustc-env=VERSION={}", version);
     println!("cargo:rustc-env=BUILD_TIME={}", build_time);
 }
 
 fn get_git_output(args: &[&str]) -> String {
-    let output = Command::new("git")
-        .args(args)
-        .output()
-        .expect("failed to execute git");
+    let output = Command::new("git").args(args).output().expect("failed to execute git");
     String::from_utf8(output.stdout).unwrap().trim().to_string()
 }
 
@@ -45,7 +44,7 @@ fn generate_config_constant() {
         Ok(content) => content,
         Err(e) => {
             println!("cargo:warning=配置文件不存在: {}", config_path.display());
-            println!("cargo:warning=当前工作目录是: {}", std::env::current_dir().unwrap().display());
+            println!("cargo:warning=当前工作目录是: {}", env::current_dir().unwrap().display());
             println!("cargo:warning=错误详情: {}", e);
             return;
         }
