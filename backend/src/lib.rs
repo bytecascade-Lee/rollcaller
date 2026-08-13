@@ -1,4 +1,5 @@
 use crate::config::{app_config, app_paths, logger};
+use crate::windows::main_window;
 use tauri::WebviewWindowBuilder;
 
 mod bootstrap;
@@ -9,6 +10,7 @@ mod database;
 mod repo;
 mod service;
 mod util;
+mod windows;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub async fn run() {
@@ -47,6 +49,11 @@ pub async fn run() {
             crate::cmd::import::import_excel,
             crate::cmd::export::student_export,
             crate::cmd::export::record_export,
+            crate::cmd::windows::windows_help_open,
+            crate::cmd::windows::windows_help_hide,
+            crate::cmd::windows::windows_help_close,
+            crate::cmd::windows::windows_help_destroy,
+            crate::cmd::windows::windows_main_open,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
