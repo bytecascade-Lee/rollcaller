@@ -29,11 +29,8 @@
     color: var(--text-color-disabled);
 }
 
-/*
-导航栏图标，必须使用类选择器
-不可使用 active 和 focus 属性
-否则鼠标松开后就无效了
-*/
+.nav-item:active,
+.nav-item:focus,
 .nav-item.active {
     background: var(--color-primary);
     color: var(--color-page);
