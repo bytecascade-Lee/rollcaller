@@ -72,16 +72,8 @@ fn init(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    if let Err(e) = WebviewWindowBuilder::new(app, "main", Default::default())
-        .data_directory(app_paths::webview_dir().to_path_buf())
-        .inner_size(900.0, 700.0)
-        .auto_resize()
-        .center()
-        .decorations(true)
-        .title("Rollcaller")
-        .build()
-    {
-        bootstrap::show_fatal_error(app.handle(), anyhow::Error::msg(e.to_string()));
+    if let Err(e) = main_window::init(app) {
+        bootstrap::show_fatal_error(app.handle(), e);
     }
     Ok(())
 }
