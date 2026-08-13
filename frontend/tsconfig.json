@@ -31,7 +31,7 @@
             "$utils/*": ["./src/lib/utils/*"],
         },
         "typeRoots": [
-            "./src/app.d.ts"
+            "./src/types.d.ts"
         ]
     },
     "include": ["src/**/*"],
