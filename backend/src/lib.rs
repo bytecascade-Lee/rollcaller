@@ -1,5 +1,5 @@
 use crate::config::{app_config, app_paths, logger};
-use crate::windows::main_window;
+use crate::windows::app_window;
 use tauri::WebviewWindowBuilder;
 
 mod bootstrap;
@@ -53,7 +53,7 @@ pub async fn run() {
             crate::cmd::windows::windows_help_hide,
             crate::cmd::windows::windows_help_close,
             crate::cmd::windows::windows_help_destroy,
-            crate::cmd::windows::windows_main_open,
+            crate::cmd::windows::windows_app_open,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -72,7 +72,7 @@ fn init(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    if let Err(e) = main_window::init(app) {
+    if let Err(e) = app_window::init(app) {
         bootstrap::show_fatal_error(app.handle(), e);
     }
     Ok(())
