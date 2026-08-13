@@ -1,7 +1,7 @@
 import {invoke} from "@tauri-apps/api/core";
 
-export async function openMainWindow() {
-  await invoke<void>("windows_main_open", {});
+export async function openAppWindow() {
+  await invoke<void>("windows_app_open", {});
 }
 
 export async function openHelpWindow() {
