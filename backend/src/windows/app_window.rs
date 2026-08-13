@@ -1,9 +1,9 @@
 use crate::config::app_paths;
 use anyhow::{anyhow, Context};
-use tauri::{Manager, WebviewWindowBuilder};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 pub fn init(app: &mut tauri::App) -> anyhow::Result<()> {
-    let _ = WebviewWindowBuilder::new(app, "main", Default::default())
+    let _ = WebviewWindowBuilder::new(app, "app", WebviewUrl::App("app.html".into()))
         .data_directory(app_paths::webview_dir().to_path_buf())
         .inner_size(900.0, 700.0)
         .auto_resize()
@@ -15,12 +15,12 @@ pub fn init(app: &mut tauri::App) -> anyhow::Result<()> {
 }
 
 pub fn open(app: tauri::AppHandle) -> anyhow::Result<()> {
-    match app.get_webview_window("main") {
-        Some(main_window) => {
-            main_window
+    match app.get_webview_window("app") {
+        Some(app_window) => {
+            app_window
                 .show()
                 .context("Failed to show window.")?;
-            main_window
+            app_window
                 .set_focus()
                 .context("Failed to focus window.")?;
             Ok(())
