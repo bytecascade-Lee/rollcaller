@@ -1,4 +1,4 @@
-use crate::windows::{help_window, main_window};
+use crate::windows::{app_window, help_window};
 use tauri::{AppHandle, Manager};
 
 #[tauri::command]
@@ -7,8 +7,8 @@ pub fn windows_list(app: AppHandle) -> Vec<String> {
 }
 
 #[tauri::command]
-pub async fn windows_main_open(app: AppHandle) -> Result<(), String> {
-    main_window::open(app).map_err(|e| e.to_string())
+pub async fn windows_app_open(app: AppHandle) -> Result<(), String> {
+    app_window::open(app).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
