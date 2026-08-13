@@ -1,7 +1,7 @@
 use jiff::tz::TimeZone;
-use std::fs;
 use std::path::Path;
 use std::process::Command;
+use std::{env, fs};
 
 fn main() {
     generate_build_info();
@@ -10,11 +10,16 @@ fn main() {
 }
 
 fn generate_build_info() {
-    let branch = get_git_output(&["rev-parse", "--abbrev-ref", "HEAD"]);
+    let branch = match env::var("BRANCH_NAME") {
+        Ok(branch) => {branch}
+        Err(_) => {get_git_output(&["rev-parse", "--abbrev-ref", "HEAD"])}
+    };
     let commit_count = get_git_output(&["rev-list", "--count", "HEAD"]);
     let short_hash = get_git_output(&["rev-parse", "--short", "HEAD"]);
     let commit_time = get_git_output(&["log", "-1", "--format=%cd", "--date=iso-strict"]);
-    let build_time = jiff::Timestamp::now().to_zoned(TimeZone::system()).to_string().replace("[Asia/Shanghai]", "");
+    let build_time = jiff::Timestamp::now()
+        .to_zoned(TimeZone::system())
+        .to_string();
 
     println!("cargo:rustc-env=GIT_BRANCH={}", branch);
     println!("cargo:rustc-env=GIT_COMMIT_COUNT={}", commit_count);

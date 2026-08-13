@@ -1,7 +1,8 @@
 export enum Result {
   Doing = "Doing",
   Success = "Success",
-  Warn = "Warn",
+  Info = "Info",
+  Warning = "Warning",
   Error = "Error",
   None = "None",
 }

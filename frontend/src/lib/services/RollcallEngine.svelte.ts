@@ -1,8 +1,6 @@
-import {RollcallPhase} from "$types/RollcallPhase";
-import {RollcallEvent} from "$types/RollcallEvent";
+import type {Record, RollcallRecord} from "$types";
+import {RollcallEvent, RollcallPhase} from "$types";
 import {RecordCommand, RollcallCommand} from "$commands";
-import type {Record} from "$types/Record";
-import type {RollcallRecord} from "$types/RollcallRecord";
 import {studentStore} from "$stores/studentStore.svelte";
 import {recordStore} from "$stores/recordStore.svelte";
 import {uuid} from "$utils/UuidUtils";
@@ -10,29 +8,31 @@ import {uuid} from "$utils/UuidUtils";
 /** 名字滚动切换间隔（ms） */
 const ROLL_INTERVAL = 120;
 /** 连续点名时动画自动结束时长（ms） */
-const ANIM_DURATION = 720;
+const ANIMATE_DURATION = 720;
 /** 结果展示时长（ms） */
 const SHOW_DURATION = 1200;
 
 /**
- * 点名状态机（事件驱动）
+ * 事件驱动下的点名状态机
  *
  * 转换规则：
- * - Idle      + Start      → Animating（重置会话，启动滚动动画）
- * - Animating + AnimateDone→ Picking（停止动画，随机选人）
- * - Animating + UserStop   → Picking（强制，设置 pendingStop）
- * - Picking   + UserStop   → 忽略（选人+存库事务必须走完）
- * - Picking   + PickDone   → Showing（展示名字，写入数据库）
- * - Showing   + SaveSuccess→ 更新 recordStore，completedTimes+1
- * - Showing   + SaveFailed → Idle（撤销展示的名字，提示错误）
- * - Showing   + ShowDone   → pendingStop 或已完成次数≥总次数 → Idle；否则 → Animating
- * - Showing   + UserStop   → 仅设置 pendingStop，不影响当前计时
+ * - Idle      + Start       → Animating    重置会话，启动滚动动画
+ * - Animating + AnimateDone → Picking      停止动画，随机选人
+ * - Animating + UserStop    → Picking      强制，设置 pendingStop
+ * - Picking   + UserStop    →              忽略（选人+存库事务必须走完）
+ * - Picking   + PickDone    → Showing      展示名字，写入数据库
+ * - Showing   + SaveSuccess →              更新 recordStore，completedTimes+1
+ * - Showing   + SaveFailed  → Idle         撤销展示的名字，提示错误
+ * - Showing   + ShowDone    → pendingStop  或已完成次数≥总次数 → Idle；否则 → Animating
+ * - Showing   + UserStop    →              仅设置 pendingStop，不影响当前计时
  */
 class RollcallEngine {
   phase = $state(RollcallPhase.Idle);
   currentName = $state<string | null>(null);
   totalTimes = $state(1);
   completedTimes = $state(0);
+  allowRepetition = $state(false);
+  called = $state<bigint[]>([]);
 
   /** 用户暂停标记：不打断当前事务，仅在自然中断点（ShowDone）生效 */
   #pendingStop = $state(false);
@@ -131,7 +131,7 @@ class RollcallEngine {
     if (autoAdvance) {
       this.#animTimeout = setTimeout(
         () => this.#dispatch(RollcallEvent.AnimateDone),
-        ANIM_DURATION
+        ANIMATE_DURATION
       );
     }
   }
@@ -150,9 +150,21 @@ class RollcallEngine {
   /** Picking：随机选人 → 展示名字 → 写入数据库，事务必须完整走完 */
   async #runPicking() {
     try {
-      const studentId = await RollcallCommand.pick(
-        studentStore.students.map((s) => s.id)
-      );
+      //. 当学生列表更新时，此处会出现错误
+      if (this.called.length == studentStore.students.length) {
+        this.called = [];
+      }
+      let ids = studentStore.students.map((s) => s.id);
+      if (!this.allowRepetition) {
+        ids = ids.filter((id) => !this.called.includes(id));
+      }
+      //* 引入第二次检查，暂时确保一直有人被点到
+      if (ids.length === 0) {
+        this.called = [];
+        ids = studentStore.students.map((s) => s.id);
+      }
+      const studentId = await RollcallCommand.pick(ids);
+      this.called = [...this.called, studentId];
       const student = studentStore.students.find((s) => s.id === studentId);
 
       // PickDone → Showing：展示学生名字 + 显式写入数据库
@@ -161,7 +173,7 @@ class RollcallEngine {
       const record: Record = {
         id: null,
         student_id: studentId,
-        attendance_status: 1, // 出勤
+        attendance_status: 2, // 出勤
         remark: null,
         rollcall_at: Date.now(),
         session_id: this.#sessionId,

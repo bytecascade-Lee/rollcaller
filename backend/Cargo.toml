@@ -1,6 +1,6 @@
 [package]
 name = "rollcaller"
-version = "0.1.0"
+version = "0.3.0-rc.1"
 description = "A feature rich automatic roll-call software"
 authors = ["Serene Lee"]
 edition = "2021"

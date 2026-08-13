@@ -44,6 +44,8 @@
     color: var(--text-color-primary);
     font-weight: var(--font-weight-bold);
     font-size: var(--font-size-lg);
+    user-select: none;
+    cursor: pointer;
 }
 
 .table tbody tr:hover {

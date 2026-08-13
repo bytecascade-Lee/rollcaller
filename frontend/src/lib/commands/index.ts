@@ -1,3 +1,4 @@
+export * as AttendanceStatusCommand from "./attendanceStatus"
 export * as AppInfoCommand from "./app_info"
 export * as StudentCommand from "./student"
 export * as RecordCommand from "./record"

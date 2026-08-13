@@ -1,16 +1,17 @@
 <script lang="ts">
-  import {STATUS_COLORS, STATUS_DEFAULT_COLOR, statusText} from "$constants/AttendanceStatus";
 
-  let {code, selected = true}: { code: number; selected?: boolean } = $props();
-  const style = $derived(STATUS_COLORS[code] ?? STATUS_DEFAULT_COLOR);
-  const bg = $derived(selected ? style.bg : style.color);
-  const text = $derived(selected ? style.color : style.bg);
+  import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
+
+  let {id = 0, selected = true}: { id: number; selected?: boolean } = $props();
+  const attendanceStatus = $derived(attendanceStatusStore.attendanceStatus(id));
+  const background = $derived(selected ? attendanceStatus.background : attendanceStatus.color);
+  const color = $derived(selected ? attendanceStatus.color : attendanceStatus.background);
 </script>
 
 <span
   class="badge"
-  style:background={bg}
-  style:color={text}
+  style:background={background}
+  style:color={color}
 >
-  {statusText(code)}
+  {attendanceStatus.name}
 </span>

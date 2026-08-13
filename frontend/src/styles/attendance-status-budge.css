@@ -6,11 +6,14 @@
     justify-content: center;
 }
 
+.badge-button {
+    border: none;
+}
+
 .badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0;
     padding: 2px var(--space-xs);
     border: none;
     border-radius: var(--radius-md);

@@ -4,3 +4,4 @@ pub mod rollcall_service;
 pub mod student_service;
 pub mod import_service;
 pub mod export_service;
+pub mod attendance_status_service;

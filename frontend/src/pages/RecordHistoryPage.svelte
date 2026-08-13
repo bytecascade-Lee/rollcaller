@@ -3,7 +3,16 @@
   import {recordStore} from "$stores/recordStore.svelte";
   import {format} from "$utils/DataTimeUtils";
   import type {RecordGroupMetaData, RollcallRecord} from "$types";
-  import {ArrowClockwiseIcon, FileArrowDownIcon, MagnifyingGlassIcon, PencilIcon, PencilSimpleIcon} from "phosphor-svelte"
+  import {
+    ArrowClockwiseIcon,
+    ArrowDownIcon,
+    ArrowsDownUpIcon,
+    ArrowUpIcon,
+    FileArrowDownIcon,
+    MagnifyingGlassIcon,
+    PencilIcon,
+    PencilSimpleIcon
+  } from "phosphor-svelte"
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import EditRecord from "$components/record-history/EditRecord.svelte";
@@ -12,21 +21,46 @@
 
   let selected = $state<Set<bigint>>(new Set());
   let {active = $bindable(false)} = $props();
+  let sortKey = $state("")
+  let isAsc = $state(true)
   let searchQuery = $state("");
   let anchor = $state<HTMLElement | null>(null);
 
-  let display = $derived.by<RollcallRecord[]>(() => {
-    if (!searchQuery.trim()) return recordStore.records;
-    const q = searchQuery.trim().toLowerCase();
-    return recordStore.records.filter((r) => {
+  let display = $derived<RollcallRecord[]>([...recordStore.records]
+    .filter((record) => {
       return (
-        r.student_no.toLowerCase().includes(q) ||
-        r.name.toLowerCase().includes(q) ||
-        r.remark?.toLowerCase().includes(q) ||
-        format(r.rollcall_at).toLowerCase().includes(q)
+        record.student_no.toLowerCase().includes(searchQuery) ||
+        record.name.toLowerCase().includes(searchQuery) ||
+        record.remark?.toLowerCase().includes(searchQuery) ||
+        format(record.rollcall_at).toLowerCase().includes(searchQuery)
       );
-    });
-  });
+    })
+    .sort((a, b) => {
+      if (!sortKey) return 0;
+      const key = sortKey as "name" | "student_no" | "attendance_status" | "remark" | "rollcall_at";
+      const valA = a[key];
+      const valB = b[key];
+      let cmp: number;
+      if (typeof valA === "string" && typeof valB === "string") {
+        cmp = valA.localeCompare(valB, "zh-Hans-CN");
+      } else if (typeof valA === "number" && typeof valB === "number") {
+        cmp = valA - valB;
+      } else {
+        cmp = 0;
+      }
+      return isAsc ? cmp : -cmp;
+    }));
+
+  function sort(key: string) {
+    if (sortKey === key) {
+      isAsc = !isAsc;
+    } else {
+      sortKey = key;
+      // 如果是按照点名时间排序，则先倒序
+      // 其他的则是正常情况，正序
+      isAsc = sortKey != "rollcall_at";
+    }
+  }
 
   let groupInfo = $derived<RecordGroupMetaData[]>(group(display));
   let displaySelectedCount = $derived(display.filter(r => selected.has(r.id)).length)
@@ -123,18 +157,66 @@
             indeterminate={displaySelectedCount > 0 && displaySelectedCount < display.length}
             onchange={selectAll}
           /></th>
-          <th>序号</th>
-          <th>姓名</th>
-          <th>学号</th>
-          <th>
+          <th style:cursor="auto">序号</th>
+          <th onclick={() => sort("name")}>
+            姓名
+            {#if sortKey === "name"}
+              {#if isAsc}
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
+              {:else}
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
+              {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>{/if}
+          </th>
+          <th onclick={() => sort("student_no")}>
+            学号
+            {#if sortKey === "student_no"}
+              {#if isAsc}
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
+              {:else}
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
+              {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>{/if}
+          </th>
+          <th onclick={() => sort("attendance_status")}>
             <PencilSimpleIcon size="14" weight="bold"/>
             状态
+            {#if sortKey === "attendance_status"}
+              {#if isAsc}
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
+              {:else}
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
+              {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>{/if}
           </th>
-          <th>
+          <th onclick={() => sort("remark")}>
             <PencilSimpleIcon size="14" weight="bold"/>
             备注
+            {#if sortKey === "remark"}
+              {#if isAsc}
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
+              {:else}
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
+              {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>
+            {/if}
           </th>
-          <th>点名时间</th>
+          <th onclick={() => sort("rollcall_at")}>
+            点名时间
+            {#if sortKey === "rollcall_at"}
+              {#if isAsc}
+                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
+              {:else}
+                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
+              {/if}
+            {:else}
+              <ArrowsDownUpIcon size="14"/>
+            {/if}
+          </th>
         </tr>
         </thead>
         <tbody>
@@ -142,10 +224,14 @@
           {@const color = COLORS[groupInfo[index].groupIndex % COLORS.length]}
           <tr>
             {#if groupInfo[index].isStart}
+              <!-- 当按照点名时间排序，或按照默认排序（等于空字符串时），显示分组信息 -->
+              <!-- 否则隐藏分组信息 -->
+              <!-- 至于使用 visibility 而非 display='none'，是防止表结构来回变动，干扰视觉 -->
               <td
                 rowspan={groupInfo[index].rowspan}
                 style:background={color}
                 style:border-bottom="0px"
+                style:visibility={(sortKey == "rollcall_at" || sortKey == "") ? "visible" : "hidden"}
               ></td>
             {/if}
             <td><input
@@ -157,7 +243,7 @@
             <td>{record.name}</td>
             <td>{record.student_no}</td>
             <td>
-              <AttendanceStatusBadge code={record.attendance_status}/>
+              <AttendanceStatusBadge id={record.attendance_status}/>
             </td>
             <td
               style:white-space="normal"
