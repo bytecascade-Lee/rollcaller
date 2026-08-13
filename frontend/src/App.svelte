@@ -31,7 +31,7 @@
     QuestionIcon,
     UsersIcon
   } from "phosphor-svelte";
-  import {AppInfoCommand} from "$commands";
+  import {AppInfoCommand, WindowsCommand} from "$commands";
   import type {AppInfo} from "$types";
   import {onMount} from "svelte";
 
@@ -82,10 +82,15 @@
       </button>
     </nav>
     <nav style="display: none">
-      <button class="nav-item">
+      <button
+        class="nav-item"
+        onclick={WindowsCommand.openHelpWindow}
+      >
         <QuestionIcon size="24"/>
       </button>
-      <button class="nav-item">
+      <button
+        class="nav-item"
+      >
         <ListBulletsIcon size="24"/>
       </button>
     </nav>
@@ -100,7 +105,8 @@
   <footer class="footbar">
     <div>
       <GearIcon size="14" weight="bold" style="display: none"/>
-      {APP_INFO.version}+{APP_INFO.branch}.{APP_INFO.commit_count}.{APP_INFO.short_hash}#{APP_INFO.commit_time}#{APP_INFO.build_time}
+      {APP_INFO.version}+{APP_INFO.branch}.{APP_INFO.commit_count}.{APP_INFO.short_hash}#{APP_INFO.commit_time}
+      #{APP_INFO.build_time}
     </div>
   </footer>
 </div>
@@ -108,7 +114,7 @@
 <style>
   .shell {
     display: grid;
-    grid-auto-columns: 56px 1fr;
+    grid-auto-columns: 48px 1fr;
     grid-template-rows: 1fr auto;
     grid-template-areas:
     "sidebar content"
