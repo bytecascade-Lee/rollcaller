@@ -229,7 +229,7 @@
                   rowspan={groupInfo[index].rowspan}
                   style:background-color={color}
                   style:border="0px"
-                  style:width="8px"
+                  style:visibility={(sortKey == "rollcall_at") ? "visible" : "hidden"}
                 ></td>
               {/if}
               <td style:display="none"></td>

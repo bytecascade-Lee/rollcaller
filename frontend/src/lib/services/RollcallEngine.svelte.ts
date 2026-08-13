@@ -173,7 +173,7 @@ class RollcallEngine {
       const record: Record = {
         id: null,
         student_id: studentId,
-        attendance_status: 1, // 出勤
+        attendance_status: 2, // 出勤
         remark: null,
         rollcall_at: Date.now(),
         session_id: this.#sessionId,
