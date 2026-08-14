@@ -40,7 +40,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-xxs);
-    width: 100%;
+    margin-inline: var(--space-xxs);
     padding: var(--space-xxs) var(--space-xs);
     border: none;
     border-radius: var(--radius-sm);
@@ -60,6 +60,7 @@
 }
 
 .nav-item.is-active {
-    background: var(--color-primary);
-    color: var(--color-page);
+    background: transparent;
+    color: var(--color-primary);
+    font-weight: var(--font-weight-bold);
 }
