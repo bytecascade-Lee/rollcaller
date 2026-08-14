@@ -81,15 +81,18 @@
         <ClockCounterClockwiseIcon size="24"/>
       </button>
     </nav>
-    <nav style="display: none">
+    <nav>
       <button
         class="nav-item"
+        aria-label="帮助文档"
+        title="帮助文档"
         onclick={WindowsCommand.openHelpWindow}
       >
         <QuestionIcon size="24"/>
       </button>
       <button
         class="nav-item"
+        style:display="none"
       >
         <ListBulletsIcon size="24"/>
       </button>
