@@ -63,11 +63,11 @@
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="tree-node-content"
+      class="nav-item"
+      class:is-active={isActive}
       class:is-leaf={!hasChildren}
       class:is-parent={hasChildren}
       class:is-expanded={isExpanded}
-      class:is-active={isActive}
       style:padding-left={`${level * 20}px`}
       onclick={() => (hasChildren ? toggleExpand(item.id) : handleSelect(item))}
     >
@@ -84,10 +84,6 @@
       {/if}
 
       <span class="title">{item.title}</span>
-
-      <span class="badge">
-        {hasChildren ? '📁' : '📄'}
-      </span>
     </div>
 
     {#if hasChildren && isExpanded}
@@ -101,26 +97,6 @@
 {/snippet}
 
 <style>
-  .tree-node-content {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xxs);
-    padding: var(--space-xxs) var(--space-xs);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    user-select: none;
-    color: var(--text-color-content);
-  }
-
-  .tree-node-content:hover {
-    background: var(--color-hover);
-  }
-
-  .tree-node-content.is-active {
-    background: var(--color-active);
-    color: var(--text-color-primary);
-  }
-
   .arrow,
   .arrow-placeholder {
     width: 14px;
@@ -133,9 +109,5 @@
   .title {
     flex: 1;
     font-size: var(--font-size-sm);
-  }
-
-  .badge {
-    font-size: var(--font-size-xxs);
   }
 </style>
