@@ -140,7 +140,7 @@
     {#if recordStore.isLoading}
       <div class="state">数据加载中...</div>
     {:else if display.length == 0}
-      <div class="state">当前还未点名，暂无记录，请先点名</div>
+      <div class="state">当前暂无记录</div>
     {:else}
       <h3 class="text-title">
         当前点名记录（{display.length}）

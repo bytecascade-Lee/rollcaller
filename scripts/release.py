@@ -131,6 +131,7 @@ def main() -> None:
 
     ensure_windows()
     version = normalize_version(args.version)
+    os.environ["VERSION"] = version
     build_info = get_build_info()
     full_version = f"{version}+{build_info}"
     print(f">> 版本号: {version} | 构建信息: {build_info}")
