@@ -26,7 +26,8 @@
         ],
         resources: {
             "../resources/config/": "config/",
-            "../resources/database/": "database/"
+            "../resources/database/": "database/",
+            "../resources/help/": "help/",
         }
     }
 }
