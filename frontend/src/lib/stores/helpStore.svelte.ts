@@ -5,7 +5,7 @@ const SPECIAL_LOADERS: Record<string, () => Promise<string>> = {
   readme: HelpCommand.readme,
   license: HelpCommand.license,
   changelog: HelpCommand.changelog,
-  release_notes: HelpCommand.releaseNotes,
+  releaseNotes: HelpCommand.releaseNotes,
 };
 
 class HelpStore {
