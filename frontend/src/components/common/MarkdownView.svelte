@@ -44,38 +44,39 @@
   .markdown-body {
     padding: 1.5rem 2rem;
     font-family: var(--font-family-sans);
-    font-size: var(--font-size-lg);
-    line-height: 1.7;
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
     color: var(--text-color-primary);
     background: var(--color-page);
     max-width: 900px;
     margin: 0 auto;
+    overflow-wrap: break-word;
   }
 
   .markdown-body :global(h1) {
-    font-size: 2.2rem;
+    font-size: 1.6rem;
     font-weight: var(--font-weight-bold);
-    margin: 1.8rem 0 1rem;
+    margin: 1.5rem 0 0.9rem;
     padding-bottom: 0.3rem;
     border-bottom: 2px solid var(--border-color-2);
   }
 
   .markdown-body :global(h2) {
-    font-size: 1.6rem;
+    font-size: 1.35rem;
     font-weight: var(--font-weight-bold);
-    margin: 1.5rem 0 0.75rem;
+    margin: 1.3rem 0 0.7rem;
     padding-bottom: 0.3rem;
     border-bottom: 1px solid var(--border-color-2);
   }
 
   .markdown-body :global(h3) {
-    font-size: 1.3rem;
+    font-size: 1.15rem;
     font-weight: var(--font-weight-bold);
-    margin: 1.2rem 0 0.6rem;
+    margin: 1.1rem 0 0.6rem;
   }
 
   .markdown-body :global(h4) {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: var(--font-weight-bold);
     margin: 1rem 0 0.5rem;
   }
@@ -118,17 +119,21 @@
   .markdown-body :global(pre) {
     padding: 1rem 1.2rem;
     border-radius: var(--radius-md);
-    overflow-x: auto;
     margin: 0 0 1rem;
     background: var(--color-hover);
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
 
   .markdown-body :global(pre code) {
     font-family: var(--font-family-mono);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     line-height: 1.6;
     background: transparent;
     padding: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   .markdown-body :global(p code),
@@ -137,7 +142,7 @@
     border-radius: var(--radius-xxs);
     background: var(--color-hover);
     font-family: var(--font-family-mono);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
   }
 
   .markdown-body :global(table) {
