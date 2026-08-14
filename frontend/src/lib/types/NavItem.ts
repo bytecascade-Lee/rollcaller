@@ -3,5 +3,4 @@ export type NavItem = {
   title: string;
   parentId: string | null;
   children: NavItem[];
-  isLeaf: boolean;
 }
