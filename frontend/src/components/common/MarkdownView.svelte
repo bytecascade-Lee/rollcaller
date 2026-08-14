@@ -5,7 +5,7 @@
   import "highlight.js/styles/github.css";
   import {error} from "@fltsci/tauri-plugin-tracing";
 
-  let { markdown = "" }: { markdown?: string } = $props();
+  let {markdown = ""}: { markdown?: string } = $props();
 
   const md = new MarkdownIt({
     html: true,
@@ -47,7 +47,7 @@
     font-size: var(--font-size-lg);
     line-height: 1.7;
     color: var(--text-color-primary);
-    background: var(--color-card);
+    background: var(--color-page);
     max-width: 900px;
     margin: 0 auto;
   }
