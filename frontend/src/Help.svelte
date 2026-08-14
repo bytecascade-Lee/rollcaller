@@ -82,6 +82,11 @@
     font-size: var(--font-size-sm);
   }
 
+  .sidebar {
+    min-height: 0;
+    overflow: auto;
+  }
+
   .empty {
     align-items: center;
     justify-content: center;
