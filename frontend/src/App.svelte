@@ -54,7 +54,7 @@
   <aside class="sidebar">
     <nav class="nav">
       <button
-        class="nav-item"
+        class="nav-icon"
         class:active={currentPage == "rollcall"}
         aria-label="点名"
         title="点名"
@@ -63,7 +63,7 @@
         <DiceFourIcon size="24"/>
       </button>
       <button
-        class="nav-item"
+        class="nav-icon"
         class:active={currentPage == "students"}
         aria-label="学生管理"
         title="学生管理"
@@ -72,7 +72,7 @@
         <UsersIcon size="24"/>
       </button>
       <button
-        class="nav-item"
+        class="nav-icon"
         class:active={currentPage == "records"}
         aria-label="历史记录"
         title="历史记录"
@@ -83,7 +83,7 @@
     </nav>
     <nav>
       <button
-        class="nav-item"
+        class="nav-icon"
         aria-label="帮助文档"
         title="帮助文档"
         onclick={WindowsCommand.openHelpWindow}
@@ -91,7 +91,7 @@
         <QuestionIcon size="24"/>
       </button>
       <button
-        class="nav-item"
+        class="nav-icon"
         style:display="none"
       >
         <ListBulletsIcon size="24"/>

@@ -4,7 +4,7 @@
     gap: var(--space-xs);
 }
 
-.nav-item {
+.nav-icon {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -19,19 +19,19 @@
     transition: background-color var(--transition-duration-md) var(--transition-ease), color var(--transition-duration-md) var(--transition-ease-in);
 }
 
-.nav-item:hover {
+.nav-icon:hover {
     background: var(--color-hover);
     color: var(--color-primary);
 }
 
-.nav-item:disabled {
+.nav-icon:disabled {
     background: var(--color-disabled);
     color: var(--text-color-disabled);
 }
 
-.nav-item:active,
-.nav-item:focus,
-.nav-item.active {
+.nav-icon:active,
+.nav-icon:focus,
+.nav-icon.active {
     background: var(--color-primary);
     color: var(--color-page);
 }
