@@ -1,0 +1,40 @@
+{
+    "nodes": {
+        "quick-start": {
+            "title": "快速开始",
+            "parentId": null
+        },
+        "about": {
+            "title": "关于",
+            "parentId": null
+        },
+        "license": {
+            "title": "许可证",
+            "parentId": "about"
+        },
+        "readme": {
+            "title": "README",
+            "parentId": "about"
+        },
+        "changelog": {
+            "title": "更新日志",
+            "parentId": "about"
+        },
+        "releaseNotes": {
+            "title": "发布说明",
+            "parentId": "about"
+        }
+    },
+    "order": {
+        "root": [
+            "quick-start",
+            "about"
+        ],
+        "about": [
+            "readme",
+            "changelog",
+            "releaseNotes",
+            "license"
+        ]
+    }
+}
