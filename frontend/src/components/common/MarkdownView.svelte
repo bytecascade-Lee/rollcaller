@@ -4,8 +4,33 @@
   import DOMPurify from "dompurify";
   import "highlight.js/styles/github.css";
   import {error} from "@fltsci/tauri-plugin-tracing";
+  import {openUrl} from "@tauri-apps/plugin-opener";
 
-  let {markdown = ""}: { markdown?: string } = $props();
+  let {markdown = "", onnavigate}: { markdown?: string; onnavigate?: (id: string) => void } = $props();
+
+  type LinkAction = { kind: "docs"; id: string } | { kind: "external" } | null;
+
+  /** 特殊文档链接 → helpStore 的 id（与 helpStore 的 SPECIAL_LOADERS 键一致） */
+  const DOC_IDS: Record<string, string> = {
+    README: "readme",
+    CHANGELOG: "changelog",
+    RELEASE_NOTES: "releaseNotes",
+    LICENSE: "license",
+  };
+
+  /** 渲染期链接分类：文档链接 / 外部链接 / 其他。不改动源 md。 */
+  function classifyLink(href: string): LinkAction {
+    if (/^https?:\/\//i.test(href)) return {kind: "external"};
+    //* ../../../README.md / ../../../CHANGELOG.md / ../../../RELEASE_NOTES.md / ../../../LICENSE
+    const special = href.match(/\.\.\/\.\.\/\.\.\/(README|CHANGELOG|RELEASE_NOTES|LICENSE)(?:\.md)?$/i);
+    if (special) {
+      return {kind: "docs", id: DOC_IDS[special[1].toUpperCase()] ?? special[1].toLowerCase()};
+    }
+    //* ../<id>/<file>.md → 提取目录名作为文档 id
+    const doc = href.match(/\.\.\/([^/]+)\/[^/]+\.md$/i);
+    if (doc) return {kind: "docs", id: doc[1]};
+    return null;
+  }
 
   const md = new MarkdownIt({
     html: true,
@@ -16,27 +41,61 @@
         try {
           return hljs.highlight(str, {language: lang}).value;
         } catch (e) {
-          error(e.message);
+          error(e instanceof Error ? e.message : String(e));
           return "";
         }
       }
       try {
         return hljs.highlightAuto(str).value;
       } catch (e) {
-        error(e.message);
+        error(e instanceof Error ? e.message : String(e));
         return "";
       }
     },
   });
+
+  const defaultLinkOpen = md.renderer.rules.link_open ??
+    ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+
+  // 渲染期注入 data-*：docs 链接改 href=# 并带 data-id；external 保留 href 只标记 action
+  md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+    const token = tokens[idx];
+    const href = token.attrGet("href") ?? "";
+    const action = classifyLink(href);
+    if (action?.kind === "docs") {
+      token.attrSet("href", "#");
+      token.attrSet("data-action", "docs");
+      token.attrSet("data-id", action.id);
+    } else if (action?.kind === "external") {
+      token.attrSet("data-action", "external");
+    }
+    return defaultLinkOpen(tokens, idx, options, env, self);
+  };
 
   const rawHtml = $derived(md.render(markdown));
   const safeHtml = $derived(DOMPurify.sanitize(rawHtml, {
     USE_PROFILES: {html: true},
     ADD_ATTR: ["target"],
   }));
+
+  /** 点击只做调度：读 data-action 执行，不参与链接识别 */
+  function handleClick(event: MouseEvent) {
+    const anchor = (event.target as Element).closest("a");
+    if (!anchor) return;
+    const action = anchor.dataset.action;
+    if (!action) return; // 无/未知 action → 忽略，不拦截默认行为
+    event.preventDefault();
+    if (action === "docs") {
+      const id = anchor.dataset.id;
+      if (id) onnavigate?.(id);
+    } else if (action === "external") {
+      const href = anchor.getAttribute("href");
+      if (href) openUrl(href).catch((e) => error(e instanceof Error ? e.message : String(e)));
+    }
+  }
 </script>
 
-<div class="markdown-body" style="background: transparent;">
+<div class="markdown-body" style="background: transparent;" onclick={handleClick}>
   {@html safeHtml}
 </div>
 
