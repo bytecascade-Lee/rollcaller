@@ -85,15 +85,16 @@
       class:is-leaf={!hasChildren}
       class:is-parent={hasChildren}
       class:is-expanded={isExpanded}
+      style:font-weight={level == 0 ? "var(--font-weight-bold)" : "var(--font-weight-medium)"}
       style:padding-left={`${level * 8}px`}
       onclick={() => (hasChildren ? toggleExpand(item.id) : handleSelect(item))}
     >
       {#if hasChildren}
         <span class="arrow">
           {#if isExpanded}
-            <CaretDownIcon size="12"/>
+            <CaretDownIcon size="12" weight="bold"/>
           {:else}
-            <CaretRightIcon size="12"/>
+            <CaretRightIcon size="12" weight="bold"/>
           {/if}
         </span>
       {:else}
