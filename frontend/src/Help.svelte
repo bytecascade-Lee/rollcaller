@@ -17,6 +17,8 @@
   import metaData from "$resources/help/meta.json";
 
   let activeId = $state("overview");
+  let jumpToken = $state(0); // 外部跳转触发信号：自增时 NavTree 折叠到单级
+  let scroller: HTMLDivElement | undefined = $state();
   let APP_INFO = $state<AppInfo>({
     branch: "",
     commit_count: "",
@@ -24,6 +26,19 @@
     commit_time: "",
     version: "",
     build_time: ""
+  });
+
+  /** 内部链接跳转：加载文档，并让左侧树跳转到对应节点（折叠到单级） */
+  function handleNavigate(id: string) {
+    activeId = id;
+    jumpToken += 1;
+    helpStore.load(id);
+  }
+
+  // 切换文档后滚动条回到顶部
+  $effect(() => {
+    helpStore.content;
+    scroller?.scrollTo(0, 0);
   });
 
   onMount(async () => {
@@ -39,6 +54,7 @@
         nodes={metaData.nodes}
         order={metaData.order}
         bind:activeId={activeId}
+        jumpToken={jumpToken}
         onselect={(id) => helpStore.load(id)}
       />
     </nav>
@@ -46,8 +62,8 @@
 
   <main class="content">
     {#if helpStore.content}
-      <div class="active">
-        <MarkdownView markdown={helpStore.content} onnavigate={(id) => helpStore.load(id)}/>
+      <div class="active" bind:this={scroller}>
+        <MarkdownView markdown={helpStore.content} onnavigate={handleNavigate}/>
       </div>
     {:else}
       <div class="empty active">
