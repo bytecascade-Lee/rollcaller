@@ -3,7 +3,7 @@ use std::fs;
 
 #[tauri::command]
 pub async fn help_load_markdown(id: String) -> Result<String, String> {
-    fs::read_to_string(&app_paths::resources_dir().join(format!("help/{0}/{0}_zh-CN.md", id))).map_err(|e| e.to_string())
+    fs::read_to_string(&app_paths::resources_dir().join(format!("help/{0}/{0}-zh-CN.md", id))).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
