@@ -10,7 +10,7 @@ pub fn open(app: tauri::AppHandle) -> anyhow::Result<()> {
         }
         None => {
             WebviewWindowBuilder::new(&app, "help", WebviewUrl::App("help.html".into()))
-                .data_directory(app_paths::webview_dir().to_path_buf())
+                .data_directory(app_paths::webview2_dir().to_path_buf())
                 .inner_size(800.0, 600.0)
                 .auto_resize()
                 .center()

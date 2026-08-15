@@ -4,7 +4,7 @@ use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 pub fn init(app: &mut tauri::App) -> anyhow::Result<()> {
     let _ = WebviewWindowBuilder::new(app, "app", WebviewUrl::App("app.html".into()))
-        .data_directory(app_paths::webview_dir().to_path_buf())
+        .data_directory(app_paths::webview2_dir().to_path_buf())
         .inner_size(900.0, 700.0)
         .auto_resize()
         .center()
