@@ -55,7 +55,7 @@
   {/each}
 </div>
 
-{#snippet treeItem(item, level)}
+{#snippet treeItem(item: NavItem, level: number)}
   {@const hasChildren = item.children.length > 0}
   {@const isExpanded = expandedIds.has(item.id)}
   {@const isActive = activeId === item.id}
