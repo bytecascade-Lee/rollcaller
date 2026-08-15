@@ -28,6 +28,10 @@
             "../resources/config/": "config/",
             "../resources/database/": "database/",
             "../resources/help/": "help/",
+            "../README.md": "README.md",
+            "../LICENSE": "LICENSE",
+            "../CHANGELOG.md": "CHANGELOG.md",
+            "../RELEASE_NOTES.md": "RELEASE_NOTES.md"
         }
     }
 }
