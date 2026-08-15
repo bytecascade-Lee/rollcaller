@@ -47,7 +47,7 @@
   <main class="content">
     {#if helpStore.content}
       <div class="active">
-        <MarkdownView markdown={helpStore.content}/>
+        <MarkdownView markdown={helpStore.content} onnavigate={(id) => helpStore.load(id)}/>
       </div>
     {:else}
       <div class="empty active">
