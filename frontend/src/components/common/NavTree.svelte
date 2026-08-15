@@ -8,12 +8,14 @@
     order,
     onselect,
     activeId = $bindable(null),
+    jumpToken = 0,
     defaultExpanded = []
   }: {
     nodes: Record<string, TreeNode>;
     order: Record<string, string[]>;
     onselect?: (id: string) => void;
     activeId?: string | null;
+    jumpToken?: number;
     defaultExpanded?: string[];
   } = $props();
 
@@ -47,6 +49,21 @@
     }
     onselect?.(item.id);
   }
+
+  // 外部跳转（如内部链接）：折叠全部，仅展开到当前 activeId 的路径。
+  // 用 lastJumpToken 做守卫，避免用户手动点击树（activeId 变化）触发折叠。
+  let lastJumpToken = 0;
+  $effect(() => {
+    if (jumpToken !== lastJumpToken) {
+      lastJumpToken = jumpToken;
+      if (jumpToken > 0 && activeId) {
+        const ancestors = collectAncestors(navTree, activeId);
+        const next = new Set<string>();
+        ancestors?.forEach((id) => next.add(id));
+        expandedIds = next;
+      }
+    }
+  });
 </script>
 
 <div class="tree-nav">
