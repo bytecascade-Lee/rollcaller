@@ -41,7 +41,7 @@
     align-items: center;
     gap: var(--space-xxs);
     margin-inline: var(--space-xxs);
-    padding: var(--space-xxs) var(--space-xs);
+    padding: var(--space-xxs) var(--space-xxs);
     border: none;
     border-radius: var(--radius-sm);
     background: transparent;
