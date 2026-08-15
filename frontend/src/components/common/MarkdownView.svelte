@@ -21,8 +21,8 @@
   /** 渲染期链接分类：文档链接 / 外部链接 / 其他。不改动源 md。 */
   function classifyLink(href: string): LinkAction {
     if (/^https?:\/\//i.test(href)) return {kind: "external"};
-    //* ../../../README.md / ../../../CHANGELOG.md / ../../../RELEASE_NOTES.md / ../../../LICENSE
-    const special = href.match(/\.\.\/\.\.\/\.\.\/(README|CHANGELOG|RELEASE_NOTES|LICENSE)(?:\.md)?$/i);
+    //* README.md / CHANGELOG.md / RELEASE_NOTES.md / LICENSE
+    const special = href.match(/(README|CHANGELOG|RELEASE_NOTES|LICENSE)(?:\.md)?$/i);
     if (special) {
       return {kind: "docs", id: DOC_IDS[special[1].toUpperCase()] ?? special[1].toLowerCase()};
     }
