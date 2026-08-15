@@ -68,15 +68,15 @@
       class:is-leaf={!hasChildren}
       class:is-parent={hasChildren}
       class:is-expanded={isExpanded}
-      style:padding-left={`${level * 20}px`}
+      style:padding-left={`${level * 8}px`}
       onclick={() => (hasChildren ? toggleExpand(item.id) : handleSelect(item))}
     >
       {#if hasChildren}
         <span class="arrow">
           {#if isExpanded}
-            <CaretDownIcon size="14"/>
+            <CaretDownIcon size="12"/>
           {:else}
-            <CaretRightIcon size="14"/>
+            <CaretRightIcon size="12"/>
           {/if}
         </span>
       {:else}
@@ -99,7 +99,7 @@
 <style>
   .arrow,
   .arrow-placeholder {
-    width: 14px;
+    width: 12px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -108,6 +108,6 @@
 
   .title {
     flex: 1;
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
   }
 </style>
