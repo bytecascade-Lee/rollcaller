@@ -4,7 +4,6 @@
   import DOMPurify from "dompurify";
   import "highlight.js/styles/github.css";
   import {error} from "@fltsci/tauri-plugin-tracing";
-  import {openUrl} from "@tauri-apps/plugin-opener";
 
   let {markdown = "", onnavigate}: { markdown?: string; onnavigate?: (id: string) => void } = $props();
 
@@ -18,9 +17,8 @@
     LICENSE: "license",
   };
 
-  /** 渲染期链接分类：文档链接 / 外部链接 / 其他。不改动源 md。 */
+  /** 渲染期链接分类：文档链接 / 特殊链接 / 其他。不改动源 md。 */
   function classifyLink(href: string): LinkAction {
-    if (/^https?:\/\//i.test(href)) return {kind: "external"};
     //* README.md / CHANGELOG.md / RELEASE_NOTES.md / LICENSE
     const special = href.match(/(README|CHANGELOG|RELEASE_NOTES|LICENSE)(?:\.md)?$/i);
     if (special) {
@@ -88,14 +86,13 @@
     if (action === "docs") {
       const id = anchor.dataset.id;
       if (id) onnavigate?.(id);
-    } else if (action === "external") {
-      const href = anchor.getAttribute("href");
-      if (href) openUrl(href).catch((e) => error(e instanceof Error ? e.message : String(e)));
     }
   }
 </script>
 
-<div class="markdown-body" style="background: transparent;" onclick={handleClick}>
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="markdown-body" onclick={handleClick} style="background: transparent;">
   {@html safeHtml}
 </div>
 
@@ -113,6 +110,7 @@
 
   .markdown-body :global(h1) {
     font-size: 1.6rem;
+    padding-top: 0;
     font-weight: var(--font-weight-bold);
   }
 
@@ -205,6 +203,11 @@
     padding: 0.5rem 1rem;
     border: 1px solid var(--border-color-4);
     text-align: left;
+  }
+
+  .markdown-body :global(th li code),
+  .markdown-body :global(td li code) {
+    font-family: var(--font-family-mono);
   }
 
   .markdown-body :global(th) {
