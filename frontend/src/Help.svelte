@@ -16,7 +16,7 @@
   import {GearIcon} from "phosphor-svelte";
   import metaData from "$resources/help/meta.json";
 
-  let activeId = $state<string | null>(null);
+  let activeId = $state("overview");
   let APP_INFO = $state<AppInfo>({
     branch: "",
     commit_count: "",
@@ -28,7 +28,7 @@
 
   onMount(async () => {
     APP_INFO = await AppInfoCommand.app_info();
-    helpStore.load("readme");
+    await helpStore.load(activeId);
   });
 </script>
 
@@ -68,7 +68,7 @@
 <style>
   .shell {
     display: grid;
-    grid-auto-columns: 150px 1fr;
+    grid-auto-columns: 130px 1fr;
     grid-template-rows: 1fr auto;
     grid-template-areas:
       "sidebar content"
