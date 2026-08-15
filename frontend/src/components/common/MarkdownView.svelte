@@ -36,49 +36,40 @@
   }));
 </script>
 
-<div class="markdown-body">
+<div class="markdown-body" style="background: transparent;">
   {@html safeHtml}
 </div>
 
 <style>
   .markdown-body {
-    padding: 1.5rem 2rem;
     font-family: var(--font-family-sans);
     font-size: var(--font-size-sm);
-    line-height: 1.6;
+    line-height: 1.5;
     color: var(--text-color-primary);
+    padding-right: var(--space-sm);
     background: var(--color-page);
-    max-width: 900px;
-    margin: 0 auto;
     overflow-wrap: break-word;
+    user-select: none;
   }
 
   .markdown-body :global(h1) {
     font-size: 1.6rem;
     font-weight: var(--font-weight-bold);
-    margin: 1.5rem 0 0.9rem;
-    padding-bottom: 0.3rem;
-    border-bottom: 2px solid var(--border-color-2);
   }
 
   .markdown-body :global(h2) {
     font-size: 1.35rem;
     font-weight: var(--font-weight-bold);
-    margin: 1.3rem 0 0.7rem;
-    padding-bottom: 0.3rem;
-    border-bottom: 1px solid var(--border-color-2);
   }
 
   .markdown-body :global(h3) {
     font-size: 1.15rem;
     font-weight: var(--font-weight-bold);
-    margin: 1.1rem 0 0.6rem;
   }
 
   .markdown-body :global(h4) {
     font-size: 1rem;
     font-weight: var(--font-weight-bold);
-    margin: 1rem 0 0.5rem;
   }
 
   .markdown-body :global(p) {
@@ -117,10 +108,9 @@
   }
 
   .markdown-body :global(pre) {
-    padding: 1rem 1.2rem;
+    padding: var(--space-xs);
     border-radius: var(--radius-md);
-    margin: 0 0 1rem;
-    background: var(--color-hover);
+    background: var(--color-card);
     white-space: pre-wrap;
     word-break: break-word;
     overflow-wrap: break-word;
@@ -130,7 +120,6 @@
     font-family: var(--font-family-mono);
     font-size: 0.8rem;
     line-height: 1.6;
-    background: transparent;
     padding: 0;
     white-space: pre-wrap;
     word-break: break-word;
@@ -139,8 +128,8 @@
   .markdown-body :global(p code),
   .markdown-body :global(li code) {
     padding: 0.15rem 0.4rem;
-    border-radius: var(--radius-xxs);
-    background: var(--color-hover);
+    border-radius: var(--radius-md);
+    background: var(--color-card);
     font-family: var(--font-family-mono);
     font-size: 0.8rem;
   }
@@ -148,18 +137,18 @@
   .markdown-body :global(table) {
     border-collapse: collapse;
     margin: 0 0 1rem;
+    border-radius: var(--radius-md);
     width: 100%;
   }
 
   .markdown-body :global(th),
   .markdown-body :global(td) {
     padding: 0.5rem 1rem;
-    border: 1px solid var(--border-color-2);
+    border: 1px solid var(--border-color-4);
     text-align: left;
   }
 
   .markdown-body :global(th) {
-    background: var(--color-hover);
     font-weight: var(--font-weight-bold);
   }
 
