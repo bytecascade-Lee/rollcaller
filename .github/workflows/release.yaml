@@ -17,8 +17,8 @@ permissions:
     contents: write
 
 jobs:
-    release:
-        name: Build & publish Windows (${{ matrix.target }})
+    build:
+        name: Build & upload assets (${{ matrix.target }})
         runs-on: windows-latest
         strategy:
             fail-fast: false
@@ -90,13 +90,19 @@ jobs:
                     # 各架构缓存 key 隔离，避免两个矩阵 Job 互相覆盖缓存
                     key: ${{ matrix.target }}
 
+            -   name: Cache tauri-cli
+                id: tauri-cli
+                uses: actions/cache@v6
+                with:
+                    path: cargo-tauri.exe
+                    key: tauri-cli-2.11.4
+
             -   name: Install tauri-cli (prebuilt, no Tauri actions)
+                if: steps.tauri-cli.outputs.cache-hit != 'true'
                 shell: pwsh
                 run: |
                     Invoke-WebRequest -Uri "https://github.com/tauri-apps/tauri/releases/download/tauri-cli-v2.11.4/cargo-tauri-x86_64-pc-windows-msvc.zip" -OutFile cargo-tauri.zip
                     Expand-Archive -Path cargo-tauri.zip -DestinationPath . -Force
-                    Rename-Item -Path ".\cargo-tauri-x86_64-pc-windows-msvc.exe" -NewName "cargo-tauri.exe" -Force
-                    Get-ChildItem -Path . -Filter 'cargo-tauri*.exe'
 
             -   name: Build (cargo tauri build --target)
                 shell: pwsh
@@ -154,6 +160,50 @@ jobs:
                     }
                     Write-Host "Portable package: $portableName"
 
+            -   name: Upload artifacts
+                uses: actions/upload-artifact@v7
+                with:
+                    name: release-assets-${{ matrix.target }}
+                    path: |
+                        rollcaller-*-windows-*-setup.exe
+                        rollcaller-*-windows-*-portable.zip
+                    if-no-files-found: error
+
+    release:
+        name: Publish GitHub release
+        needs: build
+        runs-on: windows-latest
+        steps:
+            -   name: Checkout
+                uses: actions/checkout@v7
+
+            -   name: Determine version
+                id: version
+                shell: pwsh
+                env:
+                    VERSION_INPUT: ${{ inputs.version }}
+                run: |
+                    if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+                      $version = $env:VERSION_INPUT.TrimStart('v')
+                    } else {
+                      $version = $env:GITHUB_REF_NAME.TrimStart('v')
+                    }
+                    if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$') {
+                      throw "Invalid version '$version' - must look like 0.1.0 or 0.1.0-rc.1"
+                    }
+                    if ($version -match '(?i)alpha|beta') {
+                      throw "Version '$version' must not contain alpha or beta"
+                    }
+                    "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+                    "tag=v$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+            -   name: Download build artifacts
+                uses: actions/download-artifact@v7
+                with:
+                    path: assets
+                    pattern: release-assets-*
+                    merge-multiple: true
+
             -   name: Extract release notes
                 shell: pwsh
                 run: |
@@ -178,32 +228,22 @@ jobs:
                     GH_TOKEN: ${{ github.token }}
                     VERSION: ${{ steps.version.outputs.version }}
                     TAG: ${{ steps.version.outputs.tag }}
-                    ARCH: ${{ steps.version.outputs.arch }}
                 run: |
-                    $files = @(
-                      "rollcaller-$($env:VERSION)-windows-$($env:ARCH)-setup.exe",
-                      "rollcaller-$($env:VERSION)-windows-$($env:ARCH)-portable.zip"
-                    )
-                    # 矩阵并行下两个架构可能同时发布：release 可能已被另一架构创建
-                    & gh release view $env:TAG --repo $env:GITHUB_REPOSITORY 2>$null
-                    $exists = ($LASTEXITCODE -eq 0)
-                    if (-not $exists) {
-                      $createArgs = @(
-                        "release", "create", $env:TAG,
-                        "--repo", $env:GITHUB_REPOSITORY,
-                        "--title", $env:VERSION,
-                        "--notes-file", "release_notes.md"
-                      )
-                      # 手动触发时 tag 可能尚不存在，指向本次提交
-                      if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-                        $createArgs += @("--target", $env:GITHUB_SHA)
-                      }
-                      & gh @createArgs
-                      if ($LASTEXITCODE -ne 0) {
-                        # 竞态兜底：另一架构恰好先创建成功，转为上传
-                        & gh release view $env:TAG --repo $env:GITHUB_REPOSITORY 2>$null
-                        if ($LASTEXITCODE -ne 0) { throw "Failed to create release $env:TAG" }
-                      }
+                    $files = @(Get-ChildItem -Path assets -File |
+                      Where-Object { $_.Extension -in '.exe', '.zip' } |
+                      Select-Object -ExpandProperty FullName)
+                    if ($files.Count -ne 4) {
+                      throw "Expected 4 release assets (2 arch x 2 files), found $($files.Count)"
                     }
-                    & gh release upload $env:TAG --repo $env:GITHUB_REPOSITORY --clobber @files
-                    if ($LASTEXITCODE -ne 0) { throw "Failed to upload assets to release $env:TAG" }
+                    $createArgs = @(
+                      "release", "create", $env:TAG,
+                      "--repo", $env:GITHUB_REPOSITORY,
+                      "--title", $env:VERSION,
+                      "--notes-file", "release_notes.md"
+                    )
+                    # 手动触发时 tag 可能尚不存在，指向本次提交
+                    if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+                      $createArgs += @("--target", $env:GITHUB_SHA)
+                    }
+                    & gh @createArgs @files
+                    if ($LASTEXITCODE -ne 0) { throw "Failed to create release $env:TAG" }
