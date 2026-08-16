@@ -27,6 +27,7 @@ BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
 CARGO_RELEASE = BACKEND / "target" / "release"
 OUTPUT_ROOT = ROOT / "release" / "local"
+TAURI_CLI = ROOT / "resources" / "tauri" / "cargo-tauri.exe"
 
 VERSION_PATTERN = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$")
 
@@ -76,6 +77,13 @@ def cargo_tauri_build() -> None:
     """清理旧 bundle 后执行 cargo tauri build。"""
     if not (FRONTEND / "node_modules").exists():
         fail("frontend/node_modules 不存在，请先执行: cd frontend && pnpm install")
+    # 优先使用仓库内置的 tauri-cli（与 CI 同一版本），缺失时回退系统 cargo tauri
+    if TAURI_CLI.exists():
+        cmd = [str(TAURI_CLI), "build"]
+        print(f">> 使用仓库内置 tauri-cli: {TAURI_CLI}")
+    else:
+        cmd = ["cargo", "tauri", "build"]
+        print(f">> 未找到 {TAURI_CLI}，回退系统 cargo tauri")
     # tauri-cli 会把 CI 环境变量当作 --ci 参数的默认值，值为非 true/false（如 CI=1）时 clap 解析失败
     env = os.environ.copy()
     if env.get("CI", "").lower() not in ("", "true", "false"):
@@ -83,7 +91,7 @@ def cargo_tauri_build() -> None:
     # 清掉旧 bundle，保证 nsis 目录下只有一个安装包
     shutil.rmtree(CARGO_RELEASE / "bundle", ignore_errors=True)
     print(">> 正在执行 cargo tauri build ...")
-    proc = subprocess.run(["cargo", "tauri", "build"], cwd=BACKEND, env=env)
+    proc = subprocess.run(cmd, cwd=BACKEND, env=env)
     if proc.returncode != 0:
         fail(f"cargo tauri build 失败，退出码 {proc.returncode}")
 
