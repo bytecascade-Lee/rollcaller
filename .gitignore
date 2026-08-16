@@ -56,3 +56,8 @@ vite.config.ts.timestamp-*
 
 ### Tauri CLI ###
 /resources/tauri/*
+
+### Python Cache ###
+**/__pycache__/
+*.pyc
+*.pyo
