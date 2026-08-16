@@ -1,5 +1,18 @@
 # RELEASE NOTES
 
+## 0.3.0
+
+### 界面
+
+- 调整部分文字说明
+
+### 反馈建议
+
+如有问题或建议，欢迎在 [Issue](https://github.com/bytecascade-Lee/rollcaller/issues) 区提出。
+
+> **本版本包含 v0.3.0-rc.1 和 v0.3.0-rc.2
+的全部功能**，详见[0.3.0-rc.1](RELEASE_NOTES.md#030-rc1)和[0.3.0-rc.2](RELEASE_NOTES.md#030-rc2)。
+
 ## 0.3.0-rc.2
 
 ### 概述
