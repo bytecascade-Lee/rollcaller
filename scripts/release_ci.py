@@ -22,13 +22,14 @@ import tempfile
 from pathlib import Path
 
 from common import builder, packager, targets, tauri_cli, version
+from common.logger import log
 
 ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "backend"
 
 
 def fail(message: str) -> None:
-    print(f"[错误] {message}", file=sys.stderr)
+    log("ERROR", message)
     raise SystemExit(1)
 
 
@@ -57,7 +58,11 @@ def cmd_build(target: str) -> None:
         fail(str(e))
     release_version = ci_version()
     arch = packager.arch_for_target(full_target)
-    print(f">> 版本号: {release_version} | arch: {arch} | target: {full_target}")
+    log("INFO", f"版本号: {release_version} | arch: {arch} | target: {full_target}")
+
+    # 构建前把 5 个版本文件更新为发布版本，使 tauri.conf.json5 与 tag/input 一致。
+    # CI 环境随 job 销毁，无需还原。
+    builder.update_version_files(ROOT, release_version)
 
     cli_label, cli_cmd = tauri_cli.resolve(ROOT)
     release_dir = builder.build(
@@ -135,7 +140,7 @@ def cmd_publish() -> None:
             create_args += ["--target", sha]
         create_args += [str(p) for p in files]
 
-        print(f">> 发布: gh {' '.join(create_args)}")
+        log("INFO", f"发布: gh {' '.join(create_args)}")
         result = subprocess.run(
             ["gh", *create_args],
             capture_output=True,

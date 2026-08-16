@@ -24,17 +24,15 @@ target 支持简化别名与 all：
 """
 
 import argparse
-import re
-import subprocess
 import sys
 from pathlib import Path
 
 from common import builder, git, packager, targets, tauri_cli, version
+from common.logger import log
 
 ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "backend"
 DEFAULT_OUTPUT = ROOT / "release" / "local"
-UPDATE_VERSION = ROOT / "scripts" / "update_version.py"
 
 # update_version.py 维护的版本文件 + 锁文件；本地构建后需还原
 VERSION_FILES = [
@@ -47,26 +45,8 @@ VERSION_FILES = [
 
 
 def fail(message: str) -> None:
-    print(f"[错误] {message}", file=sys.stderr)
+    log("ERROR", message)
     raise SystemExit(1)
-
-
-def read_current_version() -> str:
-    """从 pyproject.toml 读取当前版本号（用于构建后回退还原）。"""
-    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    match = re.search(r'^version\s*=\s*"([^"]*)"', text, re.MULTILINE)
-    if not match:
-        fail("无法从 pyproject.toml 读取当前版本号")
-    return match.group(1)
-
-
-def run_update_version(ver: str) -> None:
-    """以子进程方式调用 update_version.py 更新版本号。"""
-    proc = subprocess.run(
-        [sys.executable, str(UPDATE_VERSION), ver], cwd=ROOT
-    )
-    if proc.returncode != 0:
-        fail(f"update_version.py 执行失败，退出码 {proc.returncode}")
 
 
 def build_targets(target_list, release_version: str, full_version: str, out_dir: Path) -> None:
@@ -83,7 +63,7 @@ def build_targets(target_list, release_version: str, full_version: str, out_dir:
         portable = packager.package_portable(release_dir, full_version, arch, out_dir)
         for artifact in (setup, portable):
             size_mb = artifact.stat().st_size / 1024 / 1024
-            print(f">> 已生成: {artifact} ({size_mb:.1f} MB)")
+            log("INFO", f"已生成: {artifact} ({size_mb:.1f} MB)")
 
 
 def main() -> None:
@@ -126,31 +106,23 @@ def main() -> None:
     build_info = git.get_build_info(cwd=ROOT)
     full_version = f"{release_version}+{build_info}"
     out_dir = Path(args.output_dir) / full_version
-    print(f">> 版本号: {release_version} | 构建信息: {build_info}")
-    print(f">> 目标架构: {', '.join(t or '(本机默认)' for t in target_list)}")
+    log("INFO", f"版本号: {release_version} | 构建信息: {build_info}")
+    log("INFO", f"目标架构: {', '.join(t or '(本机默认)' for t in target_list)}")
 
     version_files = [ROOT / p for p in VERSION_FILES]
-    original_version = read_current_version()
-    clean = git.are_clean(version_files, cwd=ROOT)
-    if not clean:
-        print(
-            ">> 警告: 版本文件存在未提交改动，构建后将用脚本还原版本号"
-            "（可能引入换行符差异），建议先提交或清理工作区"
+    if not git.are_clean(version_files, cwd=ROOT):
+        fail(
+            "版本文件存在未提交改动，请先提交或清理后再构建，"
+            "避免构建后 git 还原误伤你的改动"
         )
 
     try:
         # 构建前统一由 update_version.py 更新版本号（不提交）
-        run_update_version(release_version)
+        builder.update_version_files(ROOT, release_version)
         build_targets(target_list, release_version, full_version, out_dir)
     finally:
-        if clean:
-            git.restore_files(version_files, cwd=ROOT)
-            print(">> 已用 git 还原版本号文件（未提交）")
-        else:
-            run_update_version(original_version)
-            print(
-                ">> 工作区不干净，已用脚本还原版本号，请检查换行符与 uv.lock"
-            )
+        git.restore_files(version_files, cwd=ROOT)
+        log("INFO", "已用 git 还原版本号文件（未提交）")
 
 
 if __name__ == "__main__":

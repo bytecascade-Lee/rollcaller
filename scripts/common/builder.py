@@ -9,12 +9,29 @@ CI 环境变量兼容（CI=1 会导致 tauri-cli clap 解析失败）。
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional
+
+from common.logger import log
 
 
 class BuildError(Exception):
     pass
+
+
+def update_version_files(root: Path, version: str) -> None:
+    """
+    构建前调用 update_version.py，把版本号文件（pyproject / tauri.conf.json5 /
+    Cargo.toml / package.json / uv.lock）临时更新为指定版本（不提交）。
+
+    Raises:
+        BuildError: update_version.py 执行失败
+    """
+    script = root / "scripts" / "update_version.py"
+    proc = subprocess.run([sys.executable, str(script), version], cwd=root)
+    if proc.returncode != 0:
+        raise BuildError(f"update_version.py 执行失败，退出码 {proc.returncode}")
 
 
 def release_dir(backend: Path, target: Optional[str]) -> Path:
@@ -59,8 +76,8 @@ def build(
     if target:
         cmd += ["--target", target]
 
-    print(f">> 使用 tauri-cli: {cli_label}")
-    print(f">> 执行: {' '.join(cmd)} (cwd={backend})")
+    log("INFO", f"使用 tauri-cli: {cli_label}")
+    log("INFO", f"执行: {' '.join(cmd)} (cwd={backend})")
     proc = subprocess.run(cmd, cwd=backend, env=env)
     if proc.returncode != 0:
         raise BuildError(f"cargo tauri build 失败，退出码 {proc.returncode}")
