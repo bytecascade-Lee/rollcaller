@@ -18,14 +18,21 @@ permissions:
 
 jobs:
     release:
-        name: Build & publish Windows x86_64
+        name: Build & publish Windows (${{ matrix.target }})
         runs-on: windows-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                target:
+                    - x86_64-pc-windows-msvc
+                    - aarch64-pc-windows-msvc
         steps:
             -   name: Determine version
                 id: version
                 shell: pwsh
                 env:
                     VERSION_INPUT: ${{ inputs.version }}
+                    TARGET: ${{ matrix.target }}
                 run: |
                     if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
                       $version = $env:VERSION_INPUT.TrimStart('v')
@@ -40,6 +47,13 @@ jobs:
                     }
                     "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
                     "tag=v$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+                    # 架构标识：决定产物文件名后缀
+                    if ($env:TARGET -eq 'aarch64-pc-windows-msvc') {
+                      $arch = 'arm64'
+                    } else {
+                      $arch = 'x86_64'
+                    }
+                    "arch=$arch" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
             -   name: Checkout
                 uses: actions/checkout@v4
@@ -66,40 +80,46 @@ jobs:
 
             -   name: Install Rust toolchain (cargo/rustc)
                 uses: dtolnay/rust-toolchain@stable
+                with:
+                    targets: ${{ matrix.target }}
 
             -   name: Cache cargo
                 uses: Swatinem/rust-cache@v2
                 with:
                     workspaces: backend
+                    # 各架构缓存 key 隔离，避免两个矩阵 Job 互相覆盖缓存
+                    key: ${{ matrix.target }}
 
             -   name: Install tauri-cli (prebuilt, no Tauri actions)
                 shell: pwsh
                 run: |
                     Invoke-WebRequest -Uri "https://github.com/tauri-apps/tauri/releases/download/tauri-cli-v2.11.4/cargo-tauri-x86_64-pc-windows-msvc.zip" -OutFile cargo-tauri.zip
                     Expand-Archive -Path cargo-tauri.zip -DestinationPath . -Force
+                    Rename-Item -Path ".\cargo-tauri-x86_64-pc-windows-msvc.exe" -NewName "cargo-tauri.exe" -Force
                     Get-ChildItem -Path . -Filter 'cargo-tauri*.exe'
 
-            -   name: Build (cargo tauri build)
+            -   name: Build (cargo tauri build --target)
                 shell: pwsh
                 working-directory: backend
                 run: |
                     # 清掉可能从缓存带入的旧 bundle，保证 nsis 目录里只有一个安装包
-                    Remove-Item -Recurse -Force .\target\release\bundle -ErrorAction SilentlyContinue
+                    Remove-Item -Recurse -Force .\target\${{ matrix.target }}\release\bundle -ErrorAction SilentlyContinue
                     # 导出环境变量
                     # 目前只会在master上触发CI，先写死
                     $env:BRANCH_NAME="master"
                     $env:VERSION="${{ steps.version.outputs.version }}"
-                    & "${{ github.workspace }}\cargo-tauri.exe" build
+                    & "${{ github.workspace }}\cargo-tauri.exe" build --target ${{ matrix.target }}
 
             -   name: Package installer (setup.exe)
                 shell: pwsh
                 run: |
                     $version = "${{ steps.version.outputs.version }}"
-                    $setup = @(Get-ChildItem -Path "backend/target/release/bundle/nsis" -Filter *.exe)
+                    $arch = "${{ steps.version.outputs.arch }}"
+                    $setup = @(Get-ChildItem -Path "backend/target/${{ matrix.target }}/release/bundle/nsis" -Filter *.exe)
                     if ($setup.Count -ne 1) {
                       throw "Expected exactly one NSIS installer in bundle/nsis, found $($setup.Count)"
                     }
-                    $setupName = "rollcaller-$version-windows-x86_64-setup.exe"
+                    $setupName = "rollcaller-$version-windows-$arch-setup.exe"
                     Copy-Item $setup[0].FullName -Destination $setupName
                     Write-Host "Setup installer: $setupName"
 
@@ -107,7 +127,8 @@ jobs:
                 shell: pwsh
                 run: |
                     $version = "${{ steps.version.outputs.version }}"
-                    $releaseDir = "backend/target/release"
+                    $arch = "${{ steps.version.outputs.arch }}"
+                    $releaseDir = "backend/target/${{ matrix.target }}/release"
                     foreach ($item in @("rollcaller.exe", "config", "database")) {
                       if (-not (Test-Path (Join-Path $releaseDir $item))) {
                         throw "Missing '$item' in $releaseDir"
@@ -116,7 +137,7 @@ jobs:
                     # 空白文件 portable.mode：不在 release 目录中，必须由这里创建后一并打入
                     $portableMode = Join-Path $releaseDir "portable.mode"
                     [System.IO.File]::WriteAllBytes($portableMode, [byte[]]@())
-                    $portableName = "rollcaller-$version-windows-x86_64-portable.zip"
+                    $portableName = "rollcaller-$version-windows-$arch-portable.zip"
                     # 保存当前目录
                     $originalDir = Get-Location
                     Push-Location $releaseDir
@@ -157,19 +178,32 @@ jobs:
                     GH_TOKEN: ${{ github.token }}
                     VERSION: ${{ steps.version.outputs.version }}
                     TAG: ${{ steps.version.outputs.tag }}
+                    ARCH: ${{ steps.version.outputs.arch }}
                 run: |
-                    $args = @(
-                      "release", "create", $env:TAG,
-                      "--repo", $env:GITHUB_REPOSITORY,
-                      "--title", $env:VERSION,
-                      "--notes-file", "release_notes.md"
+                    $files = @(
+                      "rollcaller-$($env:VERSION)-windows-$($env:ARCH)-setup.exe",
+                      "rollcaller-$($env:VERSION)-windows-$($env:ARCH)-portable.zip"
                     )
-                    # 手动触发时 tag 可能尚不存在，指向本次提交
-                    if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-                      $args += @("--target", $env:GITHUB_SHA)
+                    # 矩阵并行下两个架构可能同时发布：release 可能已被另一架构创建
+                    & gh release view $env:TAG --repo $env:GITHUB_REPOSITORY 2>$null
+                    $exists = ($LASTEXITCODE -eq 0)
+                    if (-not $exists) {
+                      $createArgs = @(
+                        "release", "create", $env:TAG,
+                        "--repo", $env:GITHUB_REPOSITORY,
+                        "--title", $env:VERSION,
+                        "--notes-file", "release_notes.md"
+                      )
+                      # 手动触发时 tag 可能尚不存在，指向本次提交
+                      if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+                        $createArgs += @("--target", $env:GITHUB_SHA)
+                      }
+                      & gh @createArgs
+                      if ($LASTEXITCODE -ne 0) {
+                        # 竞态兜底：另一架构恰好先创建成功，转为上传
+                        & gh release view $env:TAG --repo $env:GITHUB_REPOSITORY 2>$null
+                        if ($LASTEXITCODE -ne 0) { throw "Failed to create release $env:TAG" }
+                      }
                     }
-                    $args += @(
-                      "rollcaller-$($env:VERSION)-windows-x86_64-setup.exe",
-                      "rollcaller-$($env:VERSION)-windows-x86_64-portable.zip"
-                    )
-                    & gh @args
+                    & gh release upload $env:TAG --repo $env:GITHUB_REPOSITORY --clobber @files
+                    if ($LASTEXITCODE -ne 0) { throw "Failed to upload assets to release $env:TAG" }
