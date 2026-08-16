@@ -1,6 +1,8 @@
 use crate::config::app_paths;
 use std::fs;
 
+const LICENSE: &str = include_str!("../../../LICENSE");
+
 #[tauri::command]
 pub async fn help_load_markdown(id: String) -> Result<String, String> {
     fs::read_to_string(&app_paths::resources_dir().join(format!("help/{0}/{0}-zh-CN.md", id))).map_err(|e| e.to_string())
@@ -15,10 +17,7 @@ pub async fn help_load_readme() -> Result<String, String> {
 
 #[tauri::command]
 pub async fn help_load_license() -> Result<String, String> {
-    Ok(fs::read_to_string(&app_paths::root_dir().join("LICENSE"))
-        .map_err(|e| e.to_string())?
-        .replace("MIT License", "### MIT License")
-        .replace("Copyright (c) 2026 Serene Lee", "*Copyright (c) 2026 Serene Lee*"))
+    Ok(String::from(LICENSE))
 }
 
 #[tauri::command]
