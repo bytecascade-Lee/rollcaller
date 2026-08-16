@@ -18,11 +18,9 @@ import sys
 from pathlib import Path
 from typing import List
 
-ROOT = Path(__file__).resolve().parent.parent
+from common import version as version_mod
 
-VERSION_PATTERN = re.compile(
-    r"^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$"
-)
+ROOT = Path(__file__).resolve().parent.parent
 
 # (文件路径, 行匹配正则, 替换后行内容模板)
 # 各文件只替换第一处匹配（均为顶层版本号字段，依赖版本不受影响）
@@ -54,17 +52,12 @@ LOCKS = [
 
 
 def normalize_version(raw: str) -> str:
-    """去除可选的 v 前缀并校验语义化版本格式。"""
-    version = raw.strip()
-    if version.startswith("v"):
-        version = version[1:]
-    if not VERSION_PATTERN.fullmatch(version):
-        print(
-            f"[错误] 非法版本号: {raw!r}，应为 0.1.0 或 0.1.0-beta.2 等语义化版本",
-            file=sys.stderr,
-        )
+    """去除可选的 v 前缀并校验语义化版本格式（复用 common.version）。"""
+    try:
+        return version_mod.validate(raw, strict=False)
+    except version_mod.VersionError as e:
+        print(f"[错误] 非法版本号: {raw!r}：{e}", file=sys.stderr)
         raise SystemExit(1)
-    return version
 
 
 def update_file(path: Path, pattern: re.Pattern, version: str) -> str:
