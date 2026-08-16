@@ -17,6 +17,15 @@ VERSION_PATTERN = re.compile(
     r"(?:\+([0-9A-Za-z.-]+))?$"
 )
 
+# 预发布等级（参考日志等级语义）：值越大越接近正式版
+# alpha < beta < rc < stable(无预发布标识)
+PRERELEASE_LEVELS = {
+    "alpha": 0,
+    "beta": 1,
+    "rc": 2,
+    "stable": 3,
+}
+
 
 class VersionError(Exception):
     """版本号相关错误的基类"""
@@ -50,20 +59,40 @@ def normalize(raw: str) -> str:
     return version
 
 
-def validate(version: str, strict: bool = False) -> str:
+def prerelease_level(version: str) -> int:
     """
-    校验版本号格式，返回规范化后的版本号
+    返回版本号的预发布等级（0-3）：alpha=0, beta=1, rc=2, stable=3。
+
+    预发布标识取点分隔的第一段，按前缀匹配 alpha/beta/rc（不区分大小写）。
+    未知标识（如 dev、preview、纯数字）保守视为 alpha(0)。
+    """
+    _, _, _, prerelease, _ = parse(version)
+    if prerelease is None:
+        return PRERELEASE_LEVELS["stable"]
+    first = prerelease.split(".")[0].lower()
+    for key in ("alpha", "beta", "rc"):
+        if first.startswith(key):
+            return PRERELEASE_LEVELS[key]
+    return PRERELEASE_LEVELS["alpha"]
+
+
+def validate(version: str, min_level: Optional[str] = None) -> str:
+    """
+    校验版本号格式，返回规范化后的版本号。
 
     Args:
         version: 待校验的版本号字符串
-        strict: True 时禁止包含 alpha/beta 预发布标识（rc 等仍允许，与 CI 一致）
+        min_level: 允许的最低预发布等级，取值 "alpha" / "beta" / "rc" / "stable"。
+            - "rc"    → 放行 rc 与 stable，禁止 alpha/beta（与 CI 发布一致）
+            - "stable" → 仅放行无预发布标识的版本
+            - None    → 不限制预发布标识（本地开发）
 
     Returns:
         校验通过后的版本号（去除前导v）
 
     Raises:
         InvalidVersionError: 格式非法
-        PrereleaseDisallowedError: strict模式且包含 alpha/beta 预发布标识
+        PrereleaseDisallowedError: 版本预发布等级低于 min_level
     """
     cleaned = normalize(version)
 
@@ -74,14 +103,15 @@ def validate(version: str, strict: bool = False) -> str:
             f"应符合语义化版本规范，例如 0.1.0 或 0.1.0-rc.1"
         )
 
-    major, minor, patch, prerelease, build = match.groups()
-
-    if strict and prerelease is not None:
-        # 检测是否包含 alpha/beta（不区分大小写）
-        if re.search(r'(?i)alpha|beta', prerelease):
+    if min_level is not None:
+        if min_level not in PRERELEASE_LEVELS:
+            raise ValueError(
+                f"min_level 必须是 {sorted(PRERELEASE_LEVELS)} 之一，得到 {min_level!r}"
+            )
+        if prerelease_level(cleaned) < PRERELEASE_LEVELS[min_level]:
             raise PrereleaseDisallowedError(
-                f"strict 模式下不允许预发布版本: {version!r} "
-                f"(包含 alpha 或 beta)"
+                f"版本号 {version!r} 低于允许的预发布等级 {min_level!r} "
+                f"(等级序: alpha < beta < rc < stable)"
             )
 
     return cleaned
