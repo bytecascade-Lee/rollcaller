@@ -85,7 +85,7 @@
     use:clickOutside={{ callback: close, exclude: anchor}}
   >
     <h3 class="text-title">导出学生</h3>
-    <span class="text-content">选择导出范围，然后指定保存位置（.xlsx）</span>
+    <span class="text-content">选择导出范围</span>
 
     <div
       class="card"
