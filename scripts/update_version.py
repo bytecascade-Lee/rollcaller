@@ -54,7 +54,7 @@ LOCKS = [
 def normalize_version(raw: str) -> str:
     """去除可选的 v 前缀并校验语义化版本格式（复用 common.version）。"""
     try:
-        return version_mod.validate(raw, strict=False)
+        return version_mod.validate(raw, min_level=None)
     except version_mod.VersionError as e:
         print(f"[错误] 非法版本号: {raw!r}：{e}", file=sys.stderr)
         raise SystemExit(1)
@@ -85,20 +85,19 @@ def update_file(path: Path, pattern: re.Pattern, version: str) -> str:
 
 
 def sync_lockfile(workspace: Path, cmd: List[str]) -> bool:
+    """在指定 workspace 目录执行锁文件同步命令，成功返回 True。"""
     try:
-        subprocess.run(["cd", workspace], check=True)
         result = subprocess.run(
             cmd,
+            cwd=workspace,
             capture_output=True,
             text=True,
             encoding='utf-8',
             errors='replace',
-            check=False
+            check=False,
         )
-        if result.returncode != 0:
-            return False
-        return True
-    except Exception as e:
+        return result.returncode == 0
+    except Exception:
         return False
 
 
