@@ -139,7 +139,7 @@ def get_build_info(cwd: Optional[Path] = None) -> str:
     """
     获取构建信息字符串：分支名.提交总数.短哈希
 
-    分支名中的 '/' 替换为 '-'，避免文件路径问题
+    分支名中的 '/' 替换为 '-',避免文件路径问题
 
     Returns:
         格式: "<branch>.<count>.<short_hash>"
@@ -153,6 +153,34 @@ def get_build_info(cwd: Optional[Path] = None) -> str:
     count = get_commit_count(cwd=cwd)
     short_hash = get_head_hash(short=True, cwd=cwd)
     return f"{branch}.{count}.{short_hash}"
+
+
+def are_clean(files, cwd: Optional[Path] = None) -> bool:
+    """
+    判断给定文件在工作区是否无未提交改动（干净）。
+
+    Args:
+        files: 文件路径（Path 或 str）的可迭代对象
+    Returns:
+        True 表示这些文件相对 HEAD 无改动
+    """
+    paths = [str(f) for f in files]
+    output = _run_git(["status", "--porcelain", "--", *paths], cwd=cwd)
+    return output.strip() == ""
+
+
+def restore_files(files, cwd: Optional[Path] = None) -> None:
+    """
+    用 git checkout 还原给定文件到 HEAD 状态（丢弃工作区改动）。
+
+    用于本地构建后还原 update_version 临时改动的版本号文件，避免脚本写文件
+    引入换行符差异。
+
+    Args:
+        files: 文件路径（Path 或 str）的可迭代对象
+    """
+    paths = [str(f) for f in files]
+    _run_git(["checkout", "--", *paths], cwd=cwd)
 
 
 def get_commit_range(
