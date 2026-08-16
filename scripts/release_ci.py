@@ -6,7 +6,7 @@ CI 发布脚本：构建/打包（build）与发布 GitHub Release（publish）�
 用 PowerShell 重复实现）：
     - workflow_dispatch: 从 inputs.version 读取（INPUT_VERSION）
     - push tag: 从 GITHUB_REF_NAME 读取（自动去掉前导 v）
-strict 校验：禁止 alpha/beta。
+等级校验（min_level="rc"）：放行 rc 及以上，禁止 alpha/beta。
 
 用法:
     uv run python scripts/release_ci.py build --target <target>
@@ -21,7 +21,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from common import builder, packager, tauri_cli, version
+from common import builder, packager, targets, tauri_cli, version
 
 ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "backend"
@@ -32,30 +32,38 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
-def ci_version() -> str:
-    """从 GitHub Actions 环境变量提取并校验发布版本号。"""
+def ci_version(min_level: str = "rc") -> str:
+    """
+    从 GitHub Actions 环境变量提取并校验发布版本号。
+
+    min_level: CI 发布默认放行 rc 及以上（禁止 alpha/beta）。
+    """
     if os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch":
         raw = os.environ.get("INPUT_VERSION", "")
     else:
         raw = os.environ.get("GITHUB_REF_NAME", "")
     try:
-        return version.validate(raw, strict=True)
+        return version.validate(raw, min_level=min_level)
     except version.VersionError as e:
         fail(str(e))
 
 
 def cmd_build(target: str) -> None:
     if not target:
-        fail("build 需要 --target（matrix 架构三元组）")
+        fail("build 需要 --target（架构，支持别名或完整三元组）")
+    try:
+        full_target = targets.resolve_target(target)
+    except targets.TargetError as e:
+        fail(str(e))
     release_version = ci_version()
-    arch = packager.arch_for_target(target)
-    print(f">> 版本号: {release_version} | arch: {arch} | target: {target}")
+    arch = packager.arch_for_target(full_target)
+    print(f">> 版本号: {release_version} | arch: {arch} | target: {full_target}")
 
     cli_label, cli_cmd = tauri_cli.resolve(ROOT)
     release_dir = builder.build(
         ROOT,
         BACKEND,
-        target,
+        full_target,
         cli_cmd,
         cli_label,
         # BRANCH_NAME/VERSION 被 backend/build.rs 读取并嵌入二进制
@@ -149,7 +157,8 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     build_p = sub.add_parser("build", help="构建并打包（matrix 中每个架构各跑一次）")
     build_p.add_argument(
-        "--target", required=True, help="Rust target 三元组，如 aarch64-pc-windows-msvc"
+        "--target", required=True,
+        help="架构：完整三元组或别名，如 x86_64-pc-windows-msvc / arm64",
     )
     sub.add_parser("publish", help="汇总产物并发布 GitHub Release")
 
