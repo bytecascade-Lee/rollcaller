@@ -44,6 +44,11 @@ class PrereleaseDisallowedError(VersionError):
     pass
 
 
+class VersionNotFoundError(VersionError):
+    """版本号不存在"""
+    pass
+
+
 def normalize(raw: str) -> str:
     """
     规范化版本号：去除前导 'v'，保留其余部分原样
