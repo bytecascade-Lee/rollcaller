@@ -143,6 +143,15 @@ jobs:
                     pattern: release-assets-*
                     merge-multiple: true
 
+            -   name: List assets
+                shell: pwsh
+                run: |
+                    if (Test-Path assets) {
+                      Get-ChildItem assets -Recurse
+                    } else {
+                      Write-Host "assets directory not found"
+                    }
+
             -   name: Publish GitHub release
                 env:
                     GH_TOKEN: ${{ github.token }}
