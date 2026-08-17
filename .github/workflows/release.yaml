@@ -3,7 +3,7 @@ name: Release
 on:
     push:
         # 只匹配 v 开头的 tag（v0.1.0、v0.1.0-rc.1 等）
-        # 含 alpha/beta 的在 Job 内校验并报错
+        # 含 alpha/beta 的在 release_ci.py 内校验并报错
         tags:
             - 'v*'
     workflow_dispatch:
@@ -12,39 +12,52 @@ on:
                 description: '发布版本号（不带 v），例如 0.1.0 或 0.1.0-rc.1'
                 required: true
                 type: string
+            draft:
+                description: '发布草稿'
+                required: false
+                type: boolean
+                default: false
 
 permissions:
     contents: write
 
+env:
+    PYTHONIOENCODING: utf-8
+
 jobs:
-    release:
-        name: Build & publish Windows x86_64
+    validate:
+        name: Validate version
         runs-on: windows-latest
         steps:
-            -   name: Determine version
-                id: version
-                shell: pwsh
-                env:
-                    VERSION_INPUT: ${{ inputs.version }}
-                run: |
-                    if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-                      $version = $env:VERSION_INPUT.TrimStart('v')
-                    } else {
-                      $version = $env:GITHUB_REF_NAME.TrimStart('v')
-                    }
-                    if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$') {
-                      throw "Invalid version '$version' - must look like 0.1.0 or 0.1.0-rc.1"
-                    }
-                    if ($version -match '(?i)alpha|beta') {
-                      throw "Version '$version' must not contain alpha or beta"
-                    }
-                    "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-                    "tag=v$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            -   name: Checkout
+                uses: actions/checkout@v4
 
+            -   name: Setup uv
+                uses: astral-sh/setup-uv@v5
+
+            -   name: Check version (fail fast on alpha/beta)
+                env:
+                    INPUT_VERSION: ${{ inputs.version }}
+                run: uv run python -c "import sys; sys.path.insert(0, 'scripts'); from release_ci import ci_version; ci_version()"
+
+    build:
+        name: Build & upload assets (${{ matrix.target }})
+        needs: validate
+        runs-on: windows-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                target:
+                    - x86_64-pc-windows-msvc
+                    - aarch64-pc-windows-msvc
+        steps:
             -   name: Checkout
                 uses: actions/checkout@v4
                 with:
                     fetch-depth: 0
+
+            -   name: Setup uv
+                uses: astral-sh/setup-uv@v5
 
             -   name: Setup pnpm
                 uses: pnpm/action-setup@v6
@@ -66,110 +79,82 @@ jobs:
 
             -   name: Install Rust toolchain (cargo/rustc)
                 uses: dtolnay/rust-toolchain@stable
+                with:
+                    targets: ${{ matrix.target }}
 
             -   name: Cache cargo
                 uses: Swatinem/rust-cache@v2
                 with:
                     workspaces: backend
+                    # 各架构缓存 key 隔离，避免两个矩阵 Job 互相覆盖缓存
+                    key: ${{ matrix.target }}
+
+            -   name: Cache tauri-cli
+                id: tauri-cli
+                uses: actions/cache@v6
+                with:
+                    path: cargo-tauri.exe
+                    key: tauri-cli-2.11.4
+
+                # 只在 ARM64 任务中配置 MSVC ARM64 环境
+            -   name: Configure arm64 msvc development environment
+                if: matrix.target == 'aarch64-pc-windows-msvc'
+                uses: step-security/msvc-dev-cmd@v1
+                with:
+                    arch: amd64_arm64
 
             -   name: Install tauri-cli (prebuilt, no Tauri actions)
+                if: steps.tauri-cli.outputs.cache-hit != 'true'
                 shell: pwsh
                 run: |
                     Invoke-WebRequest -Uri "https://github.com/tauri-apps/tauri/releases/download/tauri-cli-v2.11.4/cargo-tauri-x86_64-pc-windows-msvc.zip" -OutFile cargo-tauri.zip
                     Expand-Archive -Path cargo-tauri.zip -DestinationPath . -Force
-                    Get-ChildItem -Path . -Filter 'cargo-tauri*.exe'
 
-            -   name: Build (cargo tauri build)
-                shell: pwsh
-                working-directory: backend
-                run: |
-                    # 清掉可能从缓存带入的旧 bundle，保证 nsis 目录里只有一个安装包
-                    Remove-Item -Recurse -Force .\target\release\bundle -ErrorAction SilentlyContinue
-                    # 导出环境变量
-                    # 目前只会在master上触发CI，先写死
-                    $env:BRANCH_NAME="master"
-                    $env:VERSION="${{ steps.version.outputs.version }}"
-                    & "${{ github.workspace }}\cargo-tauri.exe" build
+                # 版本号/arch/产物命名全部由 release_ci.py 从 GitHub 环境变量推导，workflow 不再重复实现
+            -   name: Build & package
+                env:
+                    INPUT_VERSION: ${{ inputs.version }}
+                run: uv run python scripts/release_ci.py build --target ${{ matrix.target }}
 
-            -   name: Package installer (setup.exe)
-                shell: pwsh
-                run: |
-                    $version = "${{ steps.version.outputs.version }}"
-                    $setup = @(Get-ChildItem -Path "backend/target/release/bundle/nsis" -Filter *.exe)
-                    if ($setup.Count -ne 1) {
-                      throw "Expected exactly one NSIS installer in bundle/nsis, found $($setup.Count)"
-                    }
-                    $setupName = "rollcaller-$version-windows-x86_64-setup.exe"
-                    Copy-Item $setup[0].FullName -Destination $setupName
-                    Write-Host "Setup installer: $setupName"
+            -   name: Upload artifacts
+                uses: actions/upload-artifact@v7
+                with:
+                    name: release-assets-${{ matrix.target }}
+                    path: |
+                        rollcaller-*-windows-*-setup.exe
+                        rollcaller-*-windows-*-portable.zip
+                    if-no-files-found: error
 
-            -   name: Package portable zip
-                shell: pwsh
-                run: |
-                    $version = "${{ steps.version.outputs.version }}"
-                    $releaseDir = "backend/target/release"
-                    foreach ($item in @("rollcaller.exe", "config", "database")) {
-                      if (-not (Test-Path (Join-Path $releaseDir $item))) {
-                        throw "Missing '$item' in $releaseDir"
-                      }
-                    }
-                    # 空白文件 portable.mode：不在 release 目录中，必须由这里创建后一并打入
-                    $portableMode = Join-Path $releaseDir "portable.mode"
-                    [System.IO.File]::WriteAllBytes($portableMode, [byte[]]@())
-                    $portableName = "rollcaller-$version-windows-x86_64-portable.zip"
-                    # 保存当前目录
-                    $originalDir = Get-Location
-                    Push-Location $releaseDir
-                    try {
-                        # 只使用当前目录下的相对名称
-                        Compress-Archive -Path @(
-                            "rollcaller.exe",
-                            "config",
-                            "database",
-                            "portable.mode"
-                        ) -DestinationPath (Join-Path $originalDir $portableName) -CompressionLevel Optimal
-                    } finally {
-                        Pop-Location
-                    }
-                    Write-Host "Portable package: $portableName"
+    release:
+        name: Publish GitHub release
+        needs: build
+        runs-on: windows-latest
+        steps:
+            -   name: Checkout
+                uses: actions/checkout@v4
 
-            -   name: Extract release notes
+            -   name: Setup uv
+                uses: astral-sh/setup-uv@v5
+
+            -   name: Download build artifacts
+                uses: actions/download-artifact@v7
+                with:
+                    path: assets
+                    pattern: release-assets-*
+                    merge-multiple: true
+
+            -   name: List assets
                 shell: pwsh
                 run: |
-                    $version = "${{ steps.version.outputs.version }}"
-                    $escaped = [regex]::Escape($version)
-                    $lines = Get-Content -Path RELEASE_NOTES.md
-                    $inSection = $false
-                    $body = New-Object System.Collections.Generic.List[string]
-                    foreach ($line in $lines) {
-                      if ($line -match "^## $escaped\s*$") { $inSection = $true; continue }
-                      if ($inSection -and $line -match '^##\s') { break }
-                      if ($inSection) { [void]$body.Add($line) }
+                    if (Test-Path assets) {
+                      Get-ChildItem assets -Recurse
+                    } else {
+                      Write-Host "assets directory not found"
                     }
-                    if ($body.Count -eq 0) {
-                      throw "Section '## $version' not found in RELEASE_NOTES.md"
-                    }
-                    (($body -join "`n") + "`n") | Set-Content -Path release_notes.md -Encoding utf8
 
             -   name: Publish GitHub release
-                shell: pwsh
                 env:
                     GH_TOKEN: ${{ github.token }}
-                    VERSION: ${{ steps.version.outputs.version }}
-                    TAG: ${{ steps.version.outputs.tag }}
-                run: |
-                    $args = @(
-                      "release", "create", $env:TAG,
-                      "--repo", $env:GITHUB_REPOSITORY,
-                      "--title", $env:VERSION,
-                      "--notes-file", "release_notes.md"
-                    )
-                    # 手动触发时 tag 可能尚不存在，指向本次提交
-                    if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-                      $args += @("--target", $env:GITHUB_SHA)
-                    }
-                    $args += @(
-                      "rollcaller-$($env:VERSION)-windows-x86_64-setup.exe",
-                      "rollcaller-$($env:VERSION)-windows-x86_64-portable.zip"
-                    )
-                    & gh @args
+                    DRAFT_RELEASE: ${{ inputs.draft }}
+                    INPUT_VERSION: ${{ inputs.version }}
+                run: uv run python scripts/release_ci.py publish

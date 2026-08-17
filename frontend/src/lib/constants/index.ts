@@ -1,1 +1,1 @@
-export * from "./config"
+export * as AppConfigConstants from "./AppConfigKeys"
