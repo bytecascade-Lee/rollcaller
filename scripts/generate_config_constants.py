@@ -155,10 +155,10 @@ def generate_config_constant(
         config_path = Path("resources/develop/config.key")
 
     if rs_output_path is None:
-        rs_output_path = Path("backend/src/common/constant/config.rs")
+        rs_output_path = Path("backend/src/common/constant/app_config_keys.rs")
 
     if ts_output_path is None:
-        ts_output_path = Path("frontend/src/lib/constants/config.ts")
+        ts_output_path = Path("frontend/src/lib/constants/AppConfigKeys.ts")
 
     content = read_config_file(config_path)
     if content is None:

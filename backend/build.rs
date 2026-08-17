@@ -47,6 +47,6 @@ fn generate_config_constant() {
     if !status.success() {
         panic!("Configuration generation failed");
     }
-    println!("cargo:rerun-if-changed=../resources/develop/config-keys");
+    println!("cargo:rerun-if-changed=../resources/develop/config.key");
     println!("cargo:rerun-if-changed=../scripts/generate_config_constants.py");
 }
