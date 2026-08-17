@@ -9,7 +9,7 @@
 - **安装包**：运行安装程序，按照提示完成安装，之后通过桌面或开始菜单的快捷方式启动应用。
 - **便携版**：将压缩包解压到任意目录，直接运行其中的 `rollcaller.exe` 即可，无需安装。
 
-> 便携版无需安装，适合放到 U 盘等便携设备中使用。
+> 便携版无需安装，适合放到 U 盘等便携设备中使用。便携版需要自行安装 WebView2 运行时，可从 [Microsoft WebView2 下载页面](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section) 获取。
 
 ## 2. 准备学生名单
 
@@ -29,8 +29,7 @@
 3. 点击「单次点名」按钮开始点名，名单会持续滚动，需手动点击「停止」，停止后被点到的学生会高亮展示。
 4. 如需连续点名，先设定点名次数，再点击「连续点名」，应用会自动连续点名直到次数完成。
 
-点名结果会自动保存为考勤记录。详见[单次点名](../single-rollcall/single-rollcall-zh-CN.md)
-与[连续点名](../auto-finish/auto-finish-zh-CN.md)。
+点名结果会自动保存为考勤记录。详见[单次点名](../single-rollcall/single-rollcall-zh-CN.md)与[连续点名](../auto-finish/auto-finish-zh-CN.md)。
 
 ## 4. 查看考勤记录
 
@@ -40,8 +39,16 @@
 2. 你可以为记录标记出勤状态（如出勤、缺勤、迟到等）或补充备注，详见[修改记录](../edit-record/edit-record-zh-CN.md)。
 3. 需要留存或上报时，可将记录导出为 Excel 文件，详见[导出记录](../export-record/export-record-zh-CN.md)。
 
-## 常见疑问
+## 常见问题
 
-- **在哪里查看数据？** 所有数据均保存在本机，无需联网。
-- **能不能改学生信息？** 可以，在「学生管理」页面即可编辑，详见[修改学生信息](../edit-student/edit-student-zh-CN.md)。
-- **误删了学生怎么办？** 当前版本删除后不可恢复，删除前请谨慎确认，详见[删除学生](../delete-student/delete-student-zh-CN.md)。
+**问：在哪里查看数据？**
+
+答：所有数据均保存在本机，无需联网。
+
+**问：能不能改学生信息？**
+
+答：可以，在「学生管理」页面即可编辑，详见[修改学生信息](../edit-student/edit-student-zh-CN.md)。
+
+**问：误删了学生怎么办？**
+
+答：当前版本暂无独立的恢复按钮，但可通过「添加学生」功能输入相同的学号和姓名，系统会自动恢复该学生。详见[删除学生](../delete-student/delete-student-zh-CN.md)。
