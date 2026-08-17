@@ -17,8 +17,22 @@ permissions:
     contents: write
 
 jobs:
+    validate:
+        name: Validate version
+        runs-on: windows-latest
+        steps:
+            -   name: Checkout
+                uses: actions/checkout@v4
+
+            -   name: Setup uv
+                uses: astral-sh/setup-uv@v5
+
+            -   name: Check version (fail fast on alpha/beta)
+                run: uv run python -c "import sys; sys.path.insert(0, 'scripts'); from release_ci import ci_version; ci_version()"
+
     build:
         name: Build & upload assets (${{ matrix.target }})
+        needs: validate
         runs-on: windows-latest
         strategy:
             fail-fast: false
