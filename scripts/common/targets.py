@@ -23,6 +23,7 @@ ALIASES = {
     "x64": "x86_64-pc-windows-msvc",
     "x86_64": "x86_64-pc-windows-msvc",
     "x86-64": "x86_64-pc-windows-msvc",
+    "amd64": "x86_64-pc-windows-msvc",
     "arm64": "aarch64-pc-windows-msvc",
     "aarch64": "aarch64-pc-windows-msvc",
 }
