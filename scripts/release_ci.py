@@ -39,9 +39,13 @@ def ci_version(min_level: str = "rc") -> str:
 
     min_level: CI 发布默认放行 rc 及以上（禁止 alpha/beta）。
     """
-    raw = os.environ.get("INPUT_VERSION") or os.environ.get("GITHUB_REF_NAME")
+    if os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch":
+        raw = os.environ.get("INPUT_VERSION")
+    else:
+        raw = os.environ.get("GITHUB_REF_NAME")
     if not raw:
         raise version.VersionNotFoundError("Unable to obtain version, please check the environment variable settings")
+    log("INFO", raw)
     try:
         return version.validate(raw, min_level=min_level)
     except version.VersionError as e:
