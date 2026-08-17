@@ -1,6 +1,6 @@
 {
     "name": "rollcaller",
-    "version": "0.1.0-SNAPSHOT",
+    "version": "0.1.0-dev",
     "description": "",
     "type": "module",
     "scripts": {
