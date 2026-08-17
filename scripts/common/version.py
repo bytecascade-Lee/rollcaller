@@ -17,13 +17,15 @@ VERSION_PATTERN = re.compile(
     r"(?:\+([0-9A-Za-z.-]+))?$"
 )
 
-# 预发布等级（参考日志等级语义）：值越大越接近正式版
-# alpha < beta < rc < stable(无预发布标识)
+# 预发布等级：值越大越接近正式版
+# alpha < beta < rc < stable(无预发布标识) < draft
+# draft 是特殊等级，专门服务于 Github Actions 上面的快速测试
 PRERELEASE_LEVELS = {
     "alpha": 0,
     "beta": 1,
     "rc": 2,
     "stable": 3,
+    "draft": 99
 }
 
 
@@ -61,7 +63,7 @@ def normalize(raw: str) -> str:
 
 def prerelease_level(version: str) -> int:
     """
-    返回版本号的预发布等级（0-3）：alpha=0, beta=1, rc=2, stable=3。
+    返回版本号的预发布等级（0-3, 99）：alpha=0, beta=1, rc=2, stable=3，draft=99
 
     预发布标识取点分隔的第一段，按前缀匹配 alpha/beta/rc（不区分大小写）。
     未知标识（如 dev、preview、纯数字）保守视为 alpha(0)。
@@ -111,7 +113,7 @@ def validate(version: str, min_level: Optional[str] = None) -> str:
         if prerelease_level(cleaned) < PRERELEASE_LEVELS[min_level]:
             raise PrereleaseDisallowedError(
                 f"版本号 {version!r} 低于允许的预发布等级 {min_level!r} "
-                f"(等级序: alpha < beta < rc < stable)"
+                f"(等级序: alpha < beta < rc < stable < draft)"
             )
 
     return cleaned
