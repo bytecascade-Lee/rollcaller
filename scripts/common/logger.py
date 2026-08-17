@@ -15,11 +15,9 @@ Common utilities for JRE build and dependency analysis scripts. \n
 """
 
 import logging
-import shutil
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 # 全局标志，防止重复配置
 _LOGGING_CONFIGURED = False
@@ -71,18 +69,6 @@ def log(level: str, message: str) -> None:
 
     # stacklevel=2 让 logging 记录调用 log() 的调用者的位置
     logging.log(level_value, message, stacklevel=2)
-
-
-def find_exec(name: str) -> Optional[Path]:
-    """Locate an executable (like 'jdeps', 'jlink', 'mvn') in PATH."""
-    path = shutil.which(name)
-    return Path(path) if path else None
-
-
-def is_windows() -> bool:
-    """Return True if running on Windows."""
-    import sys
-    return sys.platform == "win32"
 
 
 if __name__ == '__main__':
