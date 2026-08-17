@@ -14,10 +14,10 @@ CI 发布脚本：构建/打包（build）与发布 GitHub Release（publish）�
 """
 
 import argparse
+import datetime
 import os
 import re
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -81,6 +81,8 @@ def cmd_build(target: str) -> None:
 
 def extract_release_notes(version: str) -> str:
     """从 RELEASE_NOTES.md 提取 '## <version>' 章节。"""
+    if os.environ.get("DRAFT_RELEASE") == "true":
+        return f"## Draft Release At {datetime.datetime.now()}\n\nComplete the draft here."
     notes_file = ROOT / "RELEASE_NOTES.md"
     if not notes_file.exists():
         fail(f"RELEASE_NOTES.md 不存在: {notes_file}")
@@ -134,6 +136,8 @@ def cmd_publish() -> None:
             "--title", release_version,
             "--notes-file", notes_path,
         ]
+        if os.environ.get("DRAFT_RELEASE") == "true":
+            create_args.append("--draft")
         # 手动触发时 tag 可能尚不存在，指向本次提交
         if os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch":
             sha = os.environ.get("GITHUB_SHA", "")
