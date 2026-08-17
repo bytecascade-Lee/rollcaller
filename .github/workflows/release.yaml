@@ -86,6 +86,13 @@ jobs:
                     path: cargo-tauri.exe
                     key: tauri-cli-2.11.4
 
+                # 只在 ARM64 任务中配置 MSVC ARM64 环境
+            -   name: Configure arm64 msvc development environment
+                if: matrix.target == 'aarch64-pc-windows-msvc'
+                uses: step-security/msvc-dev-cmd@v1
+                with:
+                    arch: amd64_arm64
+
             -   name: Install tauri-cli (prebuilt, no Tauri actions)
                 if: steps.tauri-cli.outputs.cache-hit != 'true'
                 shell: pwsh
@@ -93,7 +100,7 @@ jobs:
                     Invoke-WebRequest -Uri "https://github.com/tauri-apps/tauri/releases/download/tauri-cli-v2.11.4/cargo-tauri-x86_64-pc-windows-msvc.zip" -OutFile cargo-tauri.zip
                     Expand-Archive -Path cargo-tauri.zip -DestinationPath . -Force
 
-            # 版本号/arch/产物命名全部由 release_ci.py 从 GitHub 环境变量推导，workflow 不再重复实现
+                # 版本号/arch/产物命名全部由 release_ci.py 从 GitHub 环境变量推导，workflow 不再重复实现
             -   name: Build & package
                 run: uv run python scripts/release_ci.py build --target ${{ matrix.target }}
 
