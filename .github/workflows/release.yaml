@@ -113,7 +113,7 @@ jobs:
                 # 版本号/arch/产物命名全部由 release_ci.py 从 GitHub 环境变量推导，workflow 不再重复实现
             -   name: Build & package
                 env:
-                    INOUT_VERSION: ${{ inputs.version }}
+                    INPUT_VERSION: ${{ inputs.version }}
                 run: uv run python scripts/release_ci.py build --target ${{ matrix.target }}
 
             -   name: Upload artifacts
