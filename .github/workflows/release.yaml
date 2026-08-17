@@ -21,6 +21,9 @@ on:
 permissions:
     contents: write
 
+env:
+    PYTHONIOENCODING: utf-8
+
 jobs:
     validate:
         name: Validate version
