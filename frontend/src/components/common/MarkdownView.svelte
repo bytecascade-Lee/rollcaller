@@ -4,25 +4,19 @@
   import DOMPurify from "dompurify";
   import "highlight.js/styles/github.css";
   import {error} from "@fltsci/tauri-plugin-tracing";
+  import {openUrl} from "@tauri-apps/plugin-opener";
 
   let {markdown = "", onnavigate}: { markdown?: string; onnavigate?: (id: string) => void } = $props();
 
   type LinkAction = { kind: "docs"; id: string } | { kind: "external" } | null;
 
-  /** 特殊文档链接 → helpStore 的 id（与 helpStore 的 SPECIAL_LOADERS 键一致） */
-  const DOC_IDS: Record<string, string> = {
-    README: "readme",
-    CHANGELOG: "changelog",
-    RELEASE_NOTES: "releaseNotes",
-    LICENSE: "license",
-  };
-
-  /** 渲染期链接分类：文档链接 / 特殊链接 / 其他。不改动源 md。 */
+  /** 渲染期链接分类：文档链接 / 特殊文档链接 / 外部链接 / 其他。不改动源 md。 */
   function classifyLink(href: string): LinkAction {
-    //* README.md / CHANGELOG.md / RELEASE_NOTES.md / LICENSE
-    const special = href.match(/(README|CHANGELOG|RELEASE_NOTES|LICENSE)(?:\.md)?$/i);
+    if (/^https?:\/\//i.test(href)) return {kind: "external"};
+    //* README.md / README-en-US.md / CHANGELOG.md / RELEASE_NOTES.md / LICENSE
+    const special = href.match(/(README(?:-en-US)?|CHANGELOG|RELEASE_NOTES|LICENSE)(?:\.md)?$/i);
     if (special) {
-      return {kind: "docs", id: DOC_IDS[special[1].toUpperCase()] ?? special[1].toLowerCase()};
+      return {kind: "docs", id: href};
     }
     //* ../<id>/<file>.md → 提取目录名作为文档 id
     const doc = href.match(/\.\.\/([^/]+)\/[^/]+\.md$/i);
@@ -86,6 +80,9 @@
     if (action === "docs") {
       const id = anchor.dataset.id;
       if (id) onnavigate?.(id);
+    } else if (action === "external") {
+      const href = anchor.getAttribute("href");
+      if (href) openUrl(href).catch((e) => error(e instanceof Error ? e.message : String(e)));
     }
   }
 </script>
