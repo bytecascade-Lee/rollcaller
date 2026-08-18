@@ -39,4 +39,4 @@
 
 - [添加学生](../add-student/add-student-zh-CN.md) — 恢复被删除的学生
 - [批量导入学生](../batch-import/batch-import-zh-CN.md) — 批量恢复多名学生
-- [修改学生信息](../edit-student/edit-student-zh-CN.md)
+- [修改学生信息](../edit-student/edit-student-zh-CN.md) — 修改学生的姓名、学号等信息

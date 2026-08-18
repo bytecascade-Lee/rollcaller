@@ -2,7 +2,7 @@
 
 本指南将带你在几分钟内完成「自动点名程序」的安装、配置学生名单并开始第一次点名。
 
-## 1. 安装应用
+## 安装应用
 
 本应用提供两种使用方式，任选其一：
 
@@ -11,7 +11,7 @@
 
 > 便携版无需安装，适合放到 U 盘等便携设备中使用。便携版需要自行安装 WebView2 运行时，可从 [Microsoft WebView2 下载页面](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section) 获取。
 
-## 2. 准备学生名单
+## 准备学生名单
 
 点名需要先有学生数据。支持两种方式添加学生：
 
@@ -20,7 +20,7 @@
 - **批量导入**：如果你有现成的 Excel
   学生名单，可以通过三步向导快速导入，详见[批量导入学生](../batch-import/batch-import-zh-CN.md)。
 
-## 3. 开始点名
+## 开始点名
 
 学生名单就绪后：
 
@@ -31,7 +31,7 @@
 
 点名结果会自动保存为考勤记录。详见[单次点名](../single-rollcall/single-rollcall-zh-CN.md)与[连续点名](../auto-finish/auto-finish-zh-CN.md)。
 
-## 4. 查看考勤记录
+## 查看考勤记录
 
 点名结束后：
 
