@@ -22,6 +22,7 @@
             "$constants/*": ["./src/lib/constants/*"],
             "$controllers/*": ["./src/lib/controllers/*"],
             "$pages/*": ["./src/pages/*"],
+            "$resources/*": ["./src/lib/resources/*"],
             "$services/*": ["./src/lib/services/*"],
             "$static/*": ["./src/static/*"],
             "$stores/*": ["./src/lib/stores/*"],
@@ -31,7 +32,7 @@
             "$utils/*": ["./src/lib/utils/*"],
         },
         "typeRoots": [
-            "./src/app.d.ts"
+            "./src/types.d.ts"
         ]
     },
     "include": ["src/**/*"],

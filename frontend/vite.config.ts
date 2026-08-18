@@ -8,6 +8,14 @@ const host: string | undefined = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [svelte()],
+  build: {
+    rollupOptions: {
+      input: {
+        app: "app.html",
+        help: "help.html"
+      }
+    }
+  },
   resolve: {
     alias: {
       "$actions": path.resolve(__dirname, "./src/lib/actions"),
@@ -17,6 +25,7 @@ export default defineConfig(async () => ({
       "$constants": path.resolve(__dirname, "./src/lib/constants"),
       "$controllers": path.resolve(__dirname, "./src/lib/controllers"),
       "$pages": path.resolve(__dirname, "./src/pages"),
+      "$resources": path.resolve(__dirname, "./src/lib/resources"),
       "$services": path.resolve(__dirname, "./src/lib/services"),
       "$static": path.resolve(__dirname, "./src/static"),
       "$stores": path.resolve(__dirname, "./src/lib/stores"),

@@ -2,6 +2,11 @@ use crate::config::app_paths;
 use crate::config::app_paths::AppMode;
 
 #[tauri::command]
+pub fn root_dir() -> String {
+    app_paths::root_dir().to_str().unwrap().to_string()
+}
+
+#[tauri::command]
 pub fn data_dir() -> String {
     app_paths::data_dir().to_str().unwrap().to_string()
 }
@@ -27,8 +32,8 @@ pub fn temp_dir() -> String {
 }
 
 #[tauri::command]
-pub fn webview_dir() -> String {
-    app_paths::webview_dir().to_str().unwrap().to_string()
+pub fn webview2_dir() -> String {
+    app_paths::webview2_dir().to_str().unwrap().to_string()
 }
 
 #[tauri::command]

@@ -62,20 +62,21 @@ def package_setup(release_dir_: Path, version: str, arch: str, out_dir: Path) ->
 
 
 def package_portable(release_dir_: Path, version: str, arch: str, out_dir: Path) -> Path:
-    """将 rollcaller.exe、config、database 与新建的空白 portable.mode 压缩为便携版 zip。"""
-    for name in ("rollcaller.exe", "config", "database"):
+    """将 rollcaller.exe、config、database help、READMEmd、LICENSE、CHANGELOG.md、RELEASE_NOTES.md 和新建的空白 portable.mode 压缩为便携版 zip。"""
+    resources_files = ["rollcaller.exe", "README.md", "LICENSE", "CHANGELOG.md", "RELEASE_NOTES.md"]
+    resources_folders = ["config", "database", "help"]
+    for name in resources_files + resources_folders:
         if not (release_dir_ / name).exists():
             raise PackageError(f"release 目录下缺少 {name}，请确认构建产物完整")
-    # 空白文件 portable.mode：不在构建产物中，必须在此创建后一并打入
-    portable_mode = release_dir_ / "portable.mode"
-    portable_mode.write_bytes(b"")
     out_dir.mkdir(parents=True, exist_ok=True)
     dest = out_dir / asset_name(version, arch, "portable", "zip")
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.write(release_dir_ / "rollcaller.exe", "rollcaller.exe")
-        for folder in ("config", "database"):
+        for file in resources_files:
+            zf.write(release_dir_ / file, file)
+        for folder in resources_folders:
             for path in (release_dir_ / folder).rglob("*"):
                 if path.is_file():
                     zf.write(path, path.relative_to(release_dir_).as_posix())
-        zf.write(portable_mode, "portable.mode")
+        # 空白文件 portable.mode：不在构建产物中，必须创建并打入
+        zf.writestr("portable.mode", b"")
     return dest

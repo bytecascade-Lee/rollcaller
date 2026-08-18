@@ -1,4 +1,4 @@
-> [en-US](README_en_US.md)
+*[en-US](README-en-US.md)*
 
 # Rollcaller
 
@@ -50,7 +50,6 @@ cd ..
 cd ./backend && cargo tauri dev
 ```
 
-
 ### 构建
 
 ```bash
@@ -70,7 +69,7 @@ cd backend && cargo tauri build
 V{version}__{description}.sql
 ```
 
-示例：`V1__create_student_table.sql`
+示例：`V1__create-student-table.sql`
 
 应用启动时会自动执行未运行的迁移。
 

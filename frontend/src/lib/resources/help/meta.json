@@ -1,0 +1,123 @@
+{
+    "nodes": {
+        "overview": {
+            "title": "概览",
+            "parentId": null
+        },
+        "quick-start": {
+            "title": "快速开始",
+            "parentId": null
+        },
+        "rollcall": {
+            "title": "自动点名",
+            "parentId": null
+        },
+        "single-rollcall": {
+            "title": "单次点名",
+            "parentId": "rollcall"
+        },
+        "multi-rollcall": {
+            "title": "连续点名",
+            "parentId": "rollcall"
+        },
+        "auto-finish": {
+            "title": "自动结束点名",
+            "parentId": "multi-rollcall"
+        },
+        "manual-pause": {
+            "title": "手动暂停点名",
+            "parentId": "multi-rollcall"
+        },
+        "students": {
+            "title": "学生管理",
+            "parentId": null
+        },
+        "add-student": {
+            "title": "添加学生",
+            "parentId": "students"
+        },
+        "batch-import": {
+            "title": "批量导入学生",
+            "parentId": "students"
+        },
+        "edit-student": {
+            "title": "编辑学生信息",
+            "parentId": "students"
+        },
+        "delete-student": {
+            "title": "删除学生",
+            "parentId": "students"
+        },
+        "export-student": {
+            "title": "导出学生数据",
+            "parentId": "students"
+        },
+        "records": {
+            "title": "历史记录",
+            "parentId": null
+        },
+        "edit-record": {
+            "title": "编辑记录信息",
+            "parentId": "records"
+        },
+        "export-record": {
+            "title": "导出记录数据",
+            "parentId": "records"
+        },
+        "about": {
+            "title": "关于",
+            "parentId": null
+        },
+        "LICENSE": {
+            "title": "开源许可证",
+            "parentId": "about"
+        },
+        "README.md": {
+            "title": "自述文件",
+            "parentId": "about"
+        },
+        "CHANGELOG.md": {
+            "title": "更新日志",
+            "parentId": "about"
+        },
+        "RELEASE_NOTES.md": {
+            "title": "版本发布说明",
+            "parentId": "about"
+        }
+    },
+    "order": {
+        "root": [
+            "overview",
+            "quick-start",
+            "rollcall",
+            "students",
+            "records",
+            "about"
+        ],
+        "rollcall": [
+            "single-rollcall",
+            "multi-rollcall"
+        ],
+        "multi-rollcall": [
+            "auto-finish",
+            "manual-pause"
+        ],
+        "students": [
+            "add-student",
+            "batch-import",
+            "edit-student",
+            "delete-student",
+            "export-student"
+        ],
+        "records": [
+            "edit-record",
+            "export-record"
+        ],
+        "about": [
+            "README.md",
+            "CHANGELOG.md",
+            "RELEASE_NOTES.md",
+            "LICENSE"
+        ]
+    }
+}
