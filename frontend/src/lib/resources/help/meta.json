@@ -68,19 +68,19 @@
             "title": "关于",
             "parentId": null
         },
-        "license": {
+        "LICENSE": {
             "title": "开源许可证",
             "parentId": "about"
         },
-        "readme": {
+        "README.md": {
             "title": "自述文件",
             "parentId": "about"
         },
-        "changelog": {
+        "CHANGELOG.md": {
             "title": "更新日志",
             "parentId": "about"
         },
-        "releaseNotes": {
+        "RELEASE_NOTES.md": {
             "title": "版本发布说明",
             "parentId": "about"
         }
@@ -114,10 +114,10 @@
             "export-record"
         ],
         "about": [
-            "readme",
-            "changelog",
-            "releaseNotes",
-            "license"
+            "README.md",
+            "CHANGELOG.md",
+            "RELEASE_NOTES.md",
+            "LICENSE"
         ]
     }
 }
