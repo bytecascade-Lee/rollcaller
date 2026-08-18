@@ -2,10 +2,10 @@ import {HelpCommand} from "$commands";
 
 /** 特殊节点走独立命令，其余叶子走 help_load_markdown(id)。 */
 const SPECIAL_LOADERS: Record<string, () => Promise<string>> = {
-  readme: HelpCommand.readme,
-  license: HelpCommand.license,
-  changelog: HelpCommand.changelog,
-  releaseNotes: HelpCommand.releaseNotes,
+  "README.md": HelpCommand.readme,
+  "LICENSE": HelpCommand.license,
+  "CHANGELOG.md": HelpCommand.changelog,
+  "RELEASE_NOTES.md": HelpCommand.releaseNotes,
 };
 
 class HelpStore {
