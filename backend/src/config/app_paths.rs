@@ -1,5 +1,7 @@
 use directories::ProjectDirs;
 use serde::Serialize;
+use std::env;
+use std::env::current_dir;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use tracing::info;
@@ -23,6 +25,7 @@ pub enum AppMode {
 #[derive(Debug)]
 struct AppPaths {
     mode: AppMode,
+    root_dir: PathBuf,
     config_dir: PathBuf,
     data_dir: PathBuf,
     cache_dir: PathBuf,
@@ -35,18 +38,24 @@ struct AppPaths {
 /// 懒加载单例
 static PATHS: LazyLock<AppPaths> = LazyLock::new(|| {
     let mode = detect_mode();
-    let base_dir = detect_base_dir(mode);
+    let root_dir = detect_root_dir(mode);
+    let user_data_dir = detect_user_data_dir(mode);
     info!("current mode:{:#?}", &mode);
-    info!("base dir:{:?}", &base_dir);
+    info!("root dir:{:#?}", &root_dir);
+    info!("base dir:{:#?}", &user_data_dir);
     AppPaths {
         mode,
-        config_dir: base_dir.join("config"),
-        data_dir: base_dir.join("data"),
-        cache_dir: base_dir.join("cache"),
-        temp_dir: base_dir.join("temp"),
-        logs_dir: base_dir.join("logs"),
-        webview_dir: base_dir.join("cache/webview2"),
-        resources_dir: detect_resources_dir(mode),
+        root_dir: root_dir.clone(),
+        config_dir: user_data_dir.join("config"),
+        data_dir: user_data_dir.join("data"),
+        cache_dir: user_data_dir.join("cache"),
+        temp_dir: user_data_dir.join("temp"),
+        logs_dir: user_data_dir.join("logs"),
+        webview_dir: user_data_dir.join("cache/webview2"),
+        resources_dir: match mode {
+            AppMode::Develop => root_dir.join("resources"),
+            AppMode::Portable | AppMode::Install => root_dir,
+        },
     }
 });
 
@@ -69,17 +78,15 @@ fn detect_mode() -> AppMode {
 }
 
 /// 获取基础目录
-fn detect_base_dir(mode: AppMode) -> PathBuf {
+fn detect_user_data_dir(mode: AppMode) -> PathBuf {
     match mode {
         // 项目根目录下的 data
         // 此处不能使用 current_exe_dir
         // 因为编译出的二进制文件并不在项目根目录下面
-        AppMode::Develop => dev_dir().join("data"),
+        AppMode::Develop => PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).parent().unwrap().join("data"),
 
         // 可执行文件目录下的 data
-        AppMode::Portable => current_exe_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("data"),
+        AppMode::Portable => current_exe_dir().unwrap_or_else(|| PathBuf::from(".")).join("data"),
         // 使用 directories 库获取各平台规范路径
         // 失败时回退到当前目录
         AppMode::Install => ProjectDirs::from(APP_QUALIFIER, APP_ORG, APP_NAME)
@@ -91,55 +98,21 @@ fn detect_base_dir(mode: AppMode) -> PathBuf {
     }
 }
 
-fn detect_resources_dir(mode: AppMode) -> PathBuf {
-    #[cfg(target_os = "windows")]
+fn detect_root_dir(mode: AppMode) -> PathBuf {
     match mode {
-        AppMode::Develop => dev_dir().join("resources"),
-        // 便携/安装模式下，Tauri 的资源目录就是可执行文件所在目录
-        // （tauri-utils platform::resource_dir 在 Windows 上返回 exe 所在目录，
-        //  打包时 bundle.resources 的 "../resources/xxx/" 会被复制到 exe 旁边）
-        AppMode::Portable | AppMode::Install => current_exe_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .to_path_buf(),
-    }
-    #[cfg(target_os = "macos")]
-    match mode {
-        AppMode::Develop => dev_dir().join("resources"),
-        AppMode::Portable | AppMode::Install => current_exe_dir()
-            .map(|p| p.join("../Resources"))
-            .unwrap_or_else(|| PathBuf::from("."))
-            .to_path_buf(),
-    }
-    #[cfg(target_os = "linux")]
-    match mode {
-        AppMode::Develop => dev_dir().join("resources"),
-        // [TODO]: 随后处理
-        AppMode::Portable | AppMode::Install => PathBuf::from("."),
-    }
-}
-
-/// 开发模式下资源文件的路径
-fn dev_dir() -> PathBuf {
-    match std::env::current_dir() {
-        Ok(cwd) => match cwd.parent() {
-            Some(parent) => parent.to_path_buf(),
-            None => {
-                eprintln!("警告: 当前工作目录 {} 没有父目录，使用当前目录作为开发目录", cwd.display());
-                PathBuf::from(".")
-            }
-        },
-        Err(e) => {
-            eprintln!("警告: 获取当前工作目录失败: {}，使用当前目录作为开发目录", e);
-            PathBuf::from(".")
-        }
+        AppMode::Develop => PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).parent().unwrap().to_path_buf(),
+        AppMode::Portable | AppMode::Install => current_exe_dir().unwrap_or_else(|| PathBuf::from(".")).to_path_buf(),
     }
 }
 
 /// 辅助函数
 fn current_exe_dir() -> Option<PathBuf> {
-    std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+    std::env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf()))
+}
+
+/// 获取项目/软件根目录
+pub fn root_dir() -> &'static Path {
+    &PATHS.root_dir
 }
 
 /// 获取配置目录
@@ -168,7 +141,7 @@ pub fn temp_dir() -> &'static Path {
 }
 
 /// 获取webview目录
-pub fn webview_dir() -> &'static Path {
+pub fn webview2_dir() -> &'static Path {
     &PATHS.webview_dir
 }
 

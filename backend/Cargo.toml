@@ -1,6 +1,6 @@
 [package]
 name = "rollcaller"
-version = "0.3.0"
+version = "0.1.0-dev"
 description = "A feature rich automatic roll-call software"
 authors = ["Serene Lee"]
 edition = "2021"
@@ -21,7 +21,7 @@ hex = "0.4"
 jiff = "0.2"
 parking_lot = "0.12"
 rand = "0.10"
-rbatis = {version = "4.8", features = ["debug_mode"] }
+rbatis = { version = "4.8", features = ["debug_mode"] }
 rbs = "4.8"
 rbdc-sqlite = { version = "4.9", features = ["sqlite-bundled"] }
 rust_xlsxwriter = "0.97"

@@ -16,6 +16,17 @@ use tracing::info;
 /// 任一步骤失败都会返回错误，由调用方（Tauri setup 钩子）弹出原生对话框提示，
 /// 避免打包后应用启动失败却无任何报错输出。
 pub async fn init() -> Result<()> {
+    println!(
+        "root dir = {:?}\nconfig dir = {:?}\ndata dir = {:?}\ncache dir = {:?}\nlogs dir = {:?}\ntemp dir = {:?}\nresources dir = {:?}\nwebview2 dir = {:?}",
+        app_paths::root_dir(),
+        app_paths::config_dir(),
+        app_paths::data_dir(),
+        app_paths::cache_dir(),
+        app_paths::logs_dir(),
+        app_paths::temp_dir(),
+        app_paths::resources_dir(),
+        app_paths::webview2_dir()
+    );
     ensure_directories()?;
     ensure_data_dir_writable()?;
     logger::init();
@@ -31,11 +42,10 @@ fn ensure_directories() -> Result<()> {
         app_paths::cache_dir(),
         app_paths::temp_dir(),
         app_paths::logs_dir(),
-        app_paths::webview_dir(),
+        app_paths::webview2_dir(),
     ];
     for dir in dirs {
-        fs::create_dir_all(dir)
-            .with_context(|| format!("创建目录失败: {}", dir.display()))?;
+        fs::create_dir_all(dir).with_context(|| format!("创建目录失败: {}", dir.display()))?;
         info!("目录已就绪: {}", dir.display());
     }
     Ok(())
@@ -47,13 +57,7 @@ fn ensure_directories() -> Result<()> {
 /// 例如安装模式下应用被装到 Program Files 等不可写目录。
 fn ensure_data_dir_writable() -> Result<()> {
     let probe = app_paths::data_dir().join(".write_probe");
-    ensure_read_write(&probe).map_err(|e| {
-        anyhow!(
-            "数据目录不可读或不可写: {} ({})",
-            app_paths::data_dir().display(),
-            e
-        )
-    })?;
+    ensure_read_write(&probe).map_err(|e| anyhow!("数据目录不可读或不可写: {} ({})", app_paths::data_dir().display(), e))?;
     let _ = fs::remove_file(&probe);
     Ok(())
 }
@@ -83,7 +87,7 @@ pub fn ensure_read_write(path: &Path) -> io::Result<()> {
         Ok(_) => (),
         Err(e) => return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
-            format!("文件不可读: {:?}, 错误: {}", path, e)
+            format!("文件不可读: {:?}, 错误: {}", path, e),
         )),
     }
 
@@ -93,7 +97,7 @@ pub fn ensure_read_write(path: &Path) -> io::Result<()> {
         Ok(_) => Ok(()),
         Err(e) => Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
-            format!("文件不可写: {:?}, 错误: {}", path, e)
+            format!("文件不可写: {:?}, 错误: {}", path, e),
         )),
     }
 }

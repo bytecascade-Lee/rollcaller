@@ -53,3 +53,11 @@ vite.config.ts.timestamp-*
 
 ### Git Commit Message File ###
 /docs/changes/
+
+### Tauri CLI ###
+/resources/tauri/*
+
+### Python Cache ###
+**/__pycache__/
+*.pyc
+*.pyo

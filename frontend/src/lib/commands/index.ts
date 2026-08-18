@@ -1,6 +1,8 @@
 export * as AttendanceStatusCommand from "./attendanceStatus"
 export * as AppInfoCommand from "./app_info"
+export * as HelpCommand from "./help"
 export * as StudentCommand from "./student"
 export * as RecordCommand from "./record"
 export * as RollcallCommand from "./rollcall"
 export * as ImportCommand from "./import"
+export * as WindowsCommand from "./windows"

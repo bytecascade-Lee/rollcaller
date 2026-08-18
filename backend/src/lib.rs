@@ -1,4 +1,5 @@
 use crate::config::{app_config, app_paths, logger};
+use crate::windows::app_window;
 use tauri::WebviewWindowBuilder;
 
 mod bootstrap;
@@ -9,6 +10,7 @@ mod database;
 mod repo;
 mod service;
 mod util;
+mod windows;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub async fn run() {
@@ -23,15 +25,21 @@ pub async fn run() {
             crate::cmd::attendance_status::attendance_status_create,
             crate::cmd::attendance_status::attendance_status_update,
             crate::cmd::app_info::app_info,
-            crate::cmd::app_paths::data_dir,
+            crate::cmd::app_paths::root_dir,
             crate::cmd::app_paths::config_dir,
+            crate::cmd::app_paths::data_dir,
             crate::cmd::app_paths::cache_dir,
             crate::cmd::app_paths::logs_dir,
             crate::cmd::app_paths::temp_dir,
-            crate::cmd::app_paths::webview_dir,
+            crate::cmd::app_paths::webview2_dir,
             crate::cmd::app_paths::resources_dir,
             crate::cmd::app_paths::app_mode,
             crate::cmd::app_paths::is_customized_dir,
+            crate::cmd::help::help_load_markdown,
+            crate::cmd::help::help_load_readme,
+            crate::cmd::help::help_load_license,
+            crate::cmd::help::help_load_changelog,
+            crate::cmd::help::help_load_release_notes,
             crate::cmd::student::student_list,
             crate::cmd::student::student_single_create,
             crate::cmd::student::student_single_update,
@@ -47,6 +55,11 @@ pub async fn run() {
             crate::cmd::import::import_excel,
             crate::cmd::export::student_export,
             crate::cmd::export::record_export,
+            crate::cmd::windows::windows_help_open,
+            crate::cmd::windows::windows_help_hide,
+            crate::cmd::windows::windows_help_close,
+            crate::cmd::windows::windows_help_destroy,
+            crate::cmd::windows::windows_app_open,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -65,16 +78,8 @@ fn init(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    if let Err(e) = WebviewWindowBuilder::new(app, "main", Default::default())
-        .data_directory(app_paths::webview_dir().to_path_buf())
-        .inner_size(900.0, 700.0)
-        .auto_resize()
-        .center()
-        .decorations(true)
-        .title("Rollcaller")
-        .build()
-    {
-        bootstrap::show_fatal_error(app.handle(), anyhow::Error::msg(e.to_string()));
+    if let Err(e) = app_window::init(app) {
+        bootstrap::show_fatal_error(app.handle(), e);
     }
     Ok(())
 }

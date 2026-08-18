@@ -18,11 +18,10 @@ import sys
 from pathlib import Path
 from typing import List
 
-ROOT = Path(__file__).resolve().parent.parent
+from common import version as version_mod
+from common.logger import log
 
-VERSION_PATTERN = re.compile(
-    r"^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$"
-)
+ROOT = Path(__file__).resolve().parent.parent
 
 # (文件路径, 行匹配正则, 替换后行内容模板)
 # 各文件只替换第一处匹配（均为顶层版本号字段，依赖版本不受影响）
@@ -54,58 +53,56 @@ LOCKS = [
 
 
 def normalize_version(raw: str) -> str:
-    """去除可选的 v 前缀并校验语义化版本格式。"""
-    version = raw.strip()
-    if version.startswith("v"):
-        version = version[1:]
-    if not VERSION_PATTERN.fullmatch(version):
-        print(
-            f"[错误] 非法版本号: {raw!r}，应为 0.1.0 或 0.1.0-beta.2 等语义化版本",
-            file=sys.stderr,
-        )
+    """去除可选的 v 前缀并校验语义化版本格式（复用 common.version）。"""
+    try:
+        return version_mod.validate(raw, min_level=None)
+    except version_mod.VersionError as e:
+        log("ERROR", f"非法版本号: {raw!r}：{e}")
         raise SystemExit(1)
-    return version
 
 
 def update_file(path: Path, pattern: re.Pattern, version: str) -> str:
     """行匹配替换文件中的版本号，返回旧版本号。"""
     if not path.exists():
-        print(f"!! [错误] 文件不存在: {path}", file=sys.stderr)
+        log("ERROR", f"文件不存在: {path}")
         raise SystemExit(1)
     content = path.read_text(encoding="utf-8")
     match = pattern.search(content)
     if not match:
-        print(f"!! [错误] 未在 {path} 中找到版本号字段，格式可能已变化", file=sys.stderr)
+        log("ERROR", f"未在 {path} 中找到版本号字段，格式可能已变化")
         raise SystemExit(1)
     old_version = match.group(2)
     new_content, count = pattern.subn(
         lambda m: m.group(1) + version + m.group(3), content, count=1
     )
     if new_content == content:
-        print(f"!! [警告] 版本号相同")
+        log("WARNING", f"版本号相同: {path}")
         return old_version
     if count != 1:
-        print(f"!! [错误] 替换失败: {path}", file=sys.stderr)
+        log("ERROR", f"替换失败: {path}")
         raise SystemExit(1)
     path.write_text(new_content, encoding="utf-8")
     return old_version
 
 
 def sync_lockfile(workspace: Path, cmd: List[str]) -> bool:
+    """在指定 workspace 目录执行锁文件同步命令，成功返回 True。"""
     try:
-        subprocess.run(["cd", workspace], check=True)
         result = subprocess.run(
             cmd,
+            cwd=workspace,
             capture_output=True,
             text=True,
             encoding='utf-8',
             errors='replace',
-            check=False
+            check=False,
         )
         if result.returncode != 0:
+            log("WARNING", f"锁文件同步失败 ({' '.join(cmd)}): {result.stderr.strip()}")
             return False
         return True
     except Exception as e:
+        log("WARNING", f"锁文件同步异常: {e}")
         return False
 
 
@@ -121,16 +118,16 @@ def main() -> None:
 
     version = normalize_version(args.version)
 
-    print(f">> 开始同步版本号: {version}")
+    log("INFO", f"开始同步版本号: {version}")
     for path, pattern in FILES:
         old = update_file(path, pattern, version)
-        print(f">> 同步文件: {path.relative_to(ROOT).as_posix()}: {old} -> {version}")
-    print(f">> 四个文件已同步为版本号: {version}")
-    print(f">> 开始同步锁文件")
+        log("INFO", f"同步文件: {path.relative_to(ROOT).as_posix()}: {old} -> {version}")
+    log("INFO", f"四个文件已同步为版本号: {version}")
+    log("INFO", "开始同步锁文件")
     for workspace, cmd in LOCKS:
         sync_lockfile(workspace, cmd)
-        print(f">> 同步命令: {" ".join(cmd)}")
-    print(f">> 一个锁文件已同步")
+        log("INFO", f"同步命令: {' '.join(cmd)}")
+    log("INFO", "一个锁文件已同步")
 
 
 if __name__ == "__main__":

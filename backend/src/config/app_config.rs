@@ -43,7 +43,7 @@ static INSTANCE: LazyLock<AppConfig> = LazyLock::new(|| {
     {
         let mut keys: Vec<String> = default_config.keys().cloned().collect();
         keys.sort(); // 按字母顺序排序（区分大小写）
-        write_keys_to_file(&keys).expect("构建 config-keys.temp文件失败");
+        write_keys_to_file(&keys).expect("构建 config.key文件失败");
     }
 
     AppConfig {
@@ -97,7 +97,7 @@ fn flush_to_file(inner: &mut Inner, config_path: &PathBuf) -> anyhow::Result<()>
 
 #[cfg(debug_assertions)]
 fn write_keys_to_file(keys: &[String]) -> anyhow::Result<PathBuf> {
-    let file_path = app_paths::resources_dir().join("develop/config-keys");
+    let file_path = app_paths::resources_dir().join("develop/config.key");
 
     // 确保父目录存在
     if let Some(parent) = file_path.parent() {

@@ -25,6 +25,7 @@ User action → Svelte component → invoke("command_name", args)
 - **common/enums/** — Tagged enums (`#[serde(tag="type", content="data")]`) for complex results (StudentSingleCreateResult with 6 variants).
 
 **Key data flow — rollcall**:
+
 1. Frontend passes `student_ids: Vec<i64>` + `session_id: String`
 2. Service picks one via `rand::random_range(0..n)`
 3. `Record::insert` in a transaction → commit → JOIN query for `RollcallRecord`
@@ -78,15 +79,18 @@ cd ./backend && cargo tauri build
 ### Backend (Rust)
 
 - **Module organization**: Root-level aggregator files (`cmd.rs`, `service.rs`, `repo.rs`) declare `pub mod submodule;` — no nested `mod.rs` directories.
-- **Entity dual pattern**: 
-  - `Student` / `Record` — lightweight, `id: Option<i64>`, for INSERT
-  - `StudentTable` / `RecordTable` — all fields including timestamps + soft-delete, for SELECT
-  - `RollcallRecord` — JOIN result type (records + students), not a table
+- **Entity dual pattern**:
+    - `Student` / `Record` — lightweight, `id: Option<i64>`, for INSERT
+    - `StudentTable` / `RecordTable` — all fields including timestamps + soft-delete, for SELECT
+    - `RollcallRecord` — JOIN result type (records + students), not a table
 - **Tagged enums**: Use `#[serde(tag = "type", content = "data")]` for richer return values than `Result<T, String>`.
 - **Error handling**: Services return `anyhow::Result<T>`. Commands convert to `Result<T, String>` for Tauri IPC.
 - **Async**: All service fns are `async`. DB pool is `Arc<RBatis>`.
 - **Transactions**: Write operations use `rb.acquire_begin()` → `&mut RBatisTxExecutor` → `commit()`/`rollback()`. Read operations pass `&dyn Executor` or `&RBatis`.
-- **SQL**: Complex queries use `#[py_sql("...")]` macro with `#{param}` binding and `trim`, `for` directives. Simple queries use auto-generated `crud!()` methods: `insert()`, `insert_batch()`, `select_by_map()`, `update_by_map()`.
+-
+
+**SQL**: Complex queries use `#[py_sql("...")]` macro with `#{param}` binding and `trim`, `for` directives. Simple queries use auto-generated `crud!()` methods: `insert()`, `insert_batch()`, `select_by_map()`, `update_by_map()`.
+
 - **Timestamps**: `jiff::Timestamp`, serialized as millisecond `i64` via custom serde helpers in `util/serde_utils.rs`.
 - **Random selection**: `rand::random_range(0..n)` (rand 0.10 API).
 - **Imports**: `merge_imports = true` in rustfmt config.
@@ -136,21 +140,21 @@ cd ./backend && cargo tauri build
 
 ## Runtime/Tooling Preferences
 
-| Requirement | Value |
-|-------------|-------|
-| Rust edition | 2021 |
-| Tauri | v2.11 |
-| Frontend runtime | SvelteKit SPA (no SSR) |
-| Package manager | pnpm |
-| Frontend build | Vite 6 |
-| Database | SQLite via RBatis 4.x |
-| Excel parsing | calamine |
-| Excel writing | rust_xlsxwriter |
-| Type bridge | ts-rs 12 (Rust → TS) |
-| Date/time | jiff |
-| Random | rand 0.10 (`random_range`) |
-| Dev server port | 14650 |
-| DB path | `data/data/sqlite-develop.db` (dev mode) |
+| Requirement      | Value                                    |
+|------------------|------------------------------------------|
+| Rust edition     | 2021                                     |
+| Tauri            | v2.11                                    |
+| Frontend runtime | SvelteKit SPA (no SSR)                   |
+| Package manager  | pnpm                                     |
+| Frontend build   | Vite 6                                   |
+| Database         | SQLite via RBatis 4.x                    |
+| Excel parsing    | calamine                                 |
+| Excel writing    | rust_xlsxwriter                          |
+| Type bridge      | ts-rs 12 (Rust → TS)                     |
+| Date/time        | jiff                                     |
+| Random           | rand 0.10 (`random_range`)               |
+| Dev server port  | 14650                                    |
+| DB path          | `data/data/sqlite-develop.db` (dev mode) |
 
 ---
 
