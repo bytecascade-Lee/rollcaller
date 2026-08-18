@@ -12,7 +12,10 @@ pub async fn help_load_markdown(id: String) -> Result<String, String> {
 pub async fn help_load_readme() -> Result<String, String> {
     Ok(fs::read_to_string(&app_paths::root_dir().join("README.md"))
         .map_err(|e| e.to_string())?
-        .replace("> [en-US](README_en_US.md)", ""))
+        .lines()
+        .skip(1)
+        .collect::<Vec<_>>()
+        .join("\n"))
 }
 
 #[tauri::command]
