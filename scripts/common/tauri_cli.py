@@ -8,11 +8,9 @@ tauri-cli 查找模块：确定构建时使用的 tauri-cli 来源。
 from pathlib import Path
 from typing import List, Tuple
 
-# 候选顺序：工作区根目录 cargo-tauri.exe（CI 由 workflow 下载并缓存）
-#           → resources/tauri/cargo-tauri.exe（仓库内置，本地优先）
+# 候选顺序：resources/tauri/cargo-tauri.exe（CI 下载到此；仓库内置，本地优先）
 #           → 系统 cargo tauri（回退）
 _CANDIDATES = [
-    ("cargo-tauri.exe",),
     ("resources", "tauri", "cargo-tauri.exe"),
 ]
 
