@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 0.4.1
+
+### Fixed
+
+- 修复 CI 构建时 tauri-cli 预编译包解压至项目根目录导致覆盖仓库 `README.md` 的问题
+- 将 tauri-cli 解压目标从项目根目录改为 `resources/tauri/`，同步更新 `actions/cache` 路径及 `tauri_cli.py` 候选路径
+
+---
+
 ## 0.4.0
 
 ### Breaking Changes
