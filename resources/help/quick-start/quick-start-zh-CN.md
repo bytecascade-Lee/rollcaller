@@ -16,9 +16,9 @@
 点名需要先有学生数据。支持两种方式添加学生：
 
 - **逐个添加**
-  ：进入「学生管理」页面，点击添加按钮，填写学号和姓名后保存。适合学生数量较少的场景，详见[添加单个学生](../add-student/add-student-zh-CN.md)。
+  ：进入「学生管理」页面，点击添加按钮，填写学号和姓名后保存。适合学生数量较少的场景，详见 [添加单个学生](../add-student/add-student-zh-CN.md) 。
 - **批量导入**：如果你有现成的 Excel
-  学生名单，可以通过三步向导快速导入，详见[批量导入学生](../batch-import/batch-import-zh-CN.md)。
+  学生名单，可以通过三步向导快速导入，详见 [批量导入学生](../batch-import/batch-import-zh-CN.md) 。
 
 ## 开始点名
 
@@ -29,15 +29,15 @@
 3. 点击「单次点名」按钮开始点名，名单会持续滚动，需手动点击「停止」，停止后被点到的学生会高亮展示。
 4. 如需连续点名，先设定点名次数，再点击「连续点名」，应用会自动连续点名直到次数完成。
 
-点名结果会自动保存为考勤记录。详见[单次点名](../single-rollcall/single-rollcall-zh-CN.md)与[连续点名](../auto-finish/auto-finish-zh-CN.md)。
+点名结果会自动保存为考勤记录。详见 [单次点名](../single-rollcall/single-rollcall-zh-CN.md) 与 [连续点名](../auto-finish/auto-finish-zh-CN.md) 。
 
 ## 查看考勤记录
 
 点名结束后：
 
 1. 进入「历史记录」页面，可以看到所有点名记录，并按点名轮次自动分组。
-2. 你可以为记录标记出勤状态（如出勤、缺勤、迟到等）或补充备注，详见[修改记录](../edit-record/edit-record-zh-CN.md)。
-3. 需要留存或上报时，可将记录导出为 Excel 文件，详见[导出记录](../export-record/export-record-zh-CN.md)。
+2. 你可以为记录标记出勤状态（如出勤、缺勤、迟到等）或补充备注，详见 [修改记录](../edit-record/edit-record-zh-CN.md) 。
+3. 需要留存或上报时，可将记录导出为 Excel 文件，详见 [导出记录](../export-record/export-record-zh-CN.md) 。
 
 ## 常见问题
 
@@ -47,8 +47,8 @@
 
 **问：能不能改学生信息？**
 
-答：可以，在「学生管理」页面即可编辑，详见[修改学生信息](../edit-student/edit-student-zh-CN.md)。
+答：可以，在「学生管理」页面即可编辑，详见 [修改学生信息](../edit-student/edit-student-zh-CN.md) 。
 
 **问：误删了学生怎么办？**
 
-答：当前版本暂无独立的恢复按钮，但可通过「添加学生」功能输入相同的学号和姓名，系统会自动恢复该学生。详见[删除学生](../delete-student/delete-student-zh-CN.md)。
+答：当前版本暂无独立的恢复按钮，但可通过「添加学生」功能输入相同的学号和姓名，系统会自动恢复该学生。详见 [删除学生](../delete-student/delete-student-zh-CN.md) 。

@@ -39,20 +39,20 @@
 
 - 支持**新版 Windows 10 和 Windows 11**，暂不支持 Windows 7 及以下系统。
 - 应用依赖 WebView2 运行时。若系统未安装，**安装包**会在安装过程中引导你完成安装；
-  **便携版不支持引导安装**，需自行从[Microsoft WebView2 下载页面](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section)获取并安装后方可使用。
+  **便携版不支持引导安装**，需自行从 [Microsoft WebView2 下载页面](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section) 获取并安装后方可使用。
 - 提供安装包和便携版两种使用方式，便携版解压后即可直接运行。
 
 ## 获取与支持
 
-- 下载最新版本：请访问[Latest Releases 页面](https://github.com/bytecascade-Lee/rollcaller/releases/latest)获取最新安装包或便携版压缩包，新版本会持续修复问题并优化体验。
-- 下载以往版本：请访问[Releases 页面](https://github.com/bytecascade-Lee/rollcaller/releases)获取所有已发布的安装包或便携版压缩包。
-- 反馈建议：如果你在使用中遇到问题，或有功能建议，欢迎通过[Issues 页面](https://github.com/bytecascade-Lee/rollcaller/issues)提交反馈，我们会及时跟进处理。
+- 下载最新版本：请访问 [Latest Releases 页面](https://github.com/bytecascade-Lee/rollcaller/releases/latest) 获取最新安装包或便携版压缩包，新版本会持续修复问题并优化体验。
+- 下载以往版本：请访问 [Releases 页面](https://github.com/bytecascade-Lee/rollcaller/releases) 获取所有已发布的安装包或便携版压缩包。
+- 反馈建议：如果你在使用中遇到问题，或有功能建议，欢迎通过 [Issues 页面](https://github.com/bytecascade-Lee/rollcaller/issues) 提交反馈，我们会及时跟进处理。
 
 ## 从这里开始
 
-- 还不熟悉本应用？请阅读[快速开始](../quick-start/quick-start-zh-CN.md)一文，几分钟即可上手。
-- 想了解如何点名？请参考[单次点名](../single-rollcall/single-rollcall-zh-CN.md)和[连续点名](../auto-finish/auto-finish-zh-CN.md)。
-- 想管理学生名单？请从[添加学生](../add-student/add-student-zh-CN.md)或[批量导入学生](../batch-import/batch-import-zh-CN.md)开始。
+- 还不熟悉本应用？请阅读 [快速开始](../quick-start/quick-start-zh-CN.md) 一文，几分钟即可上手。
+- 想了解如何点名？请参考 [单次点名](../single-rollcall/single-rollcall-zh-CN.md) 和 [连续点名](../auto-finish/auto-finish-zh-CN.md) 。
+- 想管理学生名单？请从 [添加学生](../add-student/add-student-zh-CN.md) 或 [批量导入学生](../batch-import/batch-import-zh-CN.md) 开始。
 
 ## 关于
 
