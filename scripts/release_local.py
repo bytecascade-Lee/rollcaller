@@ -110,9 +110,10 @@ def main() -> None:
     log("INFO", f"目标架构: {', '.join(t or '(本机默认)' for t in target_list)}")
 
     version_files = [ROOT / p for p in VERSION_FILES]
-    if not git.are_clean(version_files, cwd=ROOT):
+    clean = git.are_clean(version_files, cwd=ROOT)
+    if not clean[0]:
         fail(
-            "版本文件存在未提交改动，请先提交或清理后再构建，"
+            f"版本文件{clean[1].replace('\n', '、')}存在未提交改动，请先提交或清理后再构建，"
             "避免构建后 git 还原误伤你的改动"
         )
 
