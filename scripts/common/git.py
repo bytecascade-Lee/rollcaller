@@ -7,7 +7,7 @@ Git 操作模块：封装常用 git 命令，返回结构化数据
 
 import subprocess
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 
 class GitError(Exception):
@@ -155,18 +155,19 @@ def get_build_info(cwd: Optional[Path] = None) -> str:
     return f"{branch}.{count}.{short_hash}"
 
 
-def are_clean(files, cwd: Optional[Path] = None) -> bool:
+def are_clean(files, cwd: Optional[Path] = None) -> Tuple[bool, str]:
     """
     判断给定文件在工作区是否无未提交改动（干净）。
 
     Args:
         files: 文件路径（Path 或 str）的可迭代对象
+        cwd: 当前工作目录
     Returns:
         True 表示这些文件相对 HEAD 无改动
     """
     paths = [str(f) for f in files]
     output = _run_git(["status", "--porcelain", "--", *paths], cwd=cwd)
-    return output.strip() == ""
+    return output.strip() == "", output
 
 
 def restore_files(files, cwd: Optional[Path] = None) -> None:
@@ -178,6 +179,7 @@ def restore_files(files, cwd: Optional[Path] = None) -> None:
 
     Args:
         files: 文件路径（Path 或 str）的可迭代对象
+        cwd: 当前工作目录
     """
     paths = [str(f) for f in files]
     _run_git(["checkout", "--", *paths], cwd=cwd)
