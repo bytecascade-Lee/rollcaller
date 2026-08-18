@@ -4,6 +4,75 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 0.4.0
+
+### Breaking Changes
+
+- 重构目录结构，新增 `root_dir` 区分应用根目录与数据目录，`base_dir` 重命名为 `user_data_dir`
+- 重命名 `webview_dir` 为 `webview2_dir`，统一命名规范
+- 配置常量生成改由 Python 脚本 `generate_config_constants.py` 驱动，`build.rs` 不再内联解析逻辑
+
+### Added
+
+- 新增 Windows ARM64 (aarch64-pc-windows-msvc) 架构的 CI 构建与发布支持
+- 新增 Python 构建脚本工具链（`scripts/common/`），包含版本号处理 `version.py`、Git 操作 `git.py`、tauri-cli 查找 `tauri_cli.py`、打包 `packager.py`、构建 `builder.py`、目标解析 `targets.py`、日志 `logger.py` 模块
+- 新增本地构建发布脚本 `release_local.py`，支持指定版本号和多架构（x64/arm64/all）构建
+- 新增 CI 发布脚本 `release_ci.py`，将 GitHub Actions Release workflow 中的构建与发布逻辑迁移至 Python，build 与 publish 职责分离
+- 新增配置常量自动生成脚本 `generate_config_constants.py`，从 `resources/develop/config-keys` 生成 Rust 和 TypeScript 常量
+- 新增帮助窗口系统：
+  - 新增 `app_window.rs` 和 `help_window.rs` 窗口管理模块
+  - 新增 `cmd/windows.rs` 和 `cmd/help.rs`，暴露窗口管理与文档加载 Tauri 命令
+  - 新增 `help.html` 入口页面及 `Help.svelte` 组件
+  - 新增 `MarkdownView.svelte` 通用 Markdown 渲染组件，集成 markdown-it、highlight.js、DOMPurify
+  - 新增 `NavTree.svelte` 通用树形导航组件，支持递归展开、外部跳转自动折叠
+  - 新增 `helpStore` 状态管理，基于 Svelte 5 `$state` 实现文档内容加载与缓存
+  - 新增 `buildNavTree` 工具函数，从 meta.json 构建有序导航树
+  - 新增 `resources/help/meta.json` 导航配置，覆盖应用全部功能模块
+- 新增帮助文档体系（`resources/help/docs/zh-CN/`），包含概览、快速开始、单次点名、自动结束点名、手动暂停点名、添加学生、批量导入、编辑学生、删除学生、导出学生、编辑记录、导出记录共 12 篇中文帮助文档
+- 新增帮助窗口底部信息栏，展示应用版本、分支、提交哈希、构建时间
+- 新增 `TreeNode`、`NavItem` 类型定义
+- 新增 `WindowsCommand`、`HelpCommand` 前端命令调用模块
+- 新增 `AppInfo` 懒加载单例（`LazyLock`），`app_info()` 返回 `&'static AppInfo`
+- 新增 `root_dir()` 公共函数及 Tauri 命令
+- 新增版本校验 job，CI 发布时阻止 alpha/beta 版本发布（仅允许 rc 及以上）
+- 新增草稿 Release 支持，便于正式发布前验证构建产物
+
+### Changed
+
+- 重构 Release workflow，将构建和发布拆分为独立 job，支持多架构并行构建与统一发布
+- 引入 uv 管理 Python 环境，替代系统 Python
+- 重构版本预发布等级评估机制，`version.validate` 的 `strict` 参数改为 `min_level`
+- 重构 `update_version.py`，复用 `common.version` 模块校验版本号
+- 重命名 `config-keys` 为 `config.key`，`config.rs` 为 `app_config_keys.rs`，`config.ts` 为 `AppConfigKeys.ts`
+- 重构 `AppInfo` 从 `entity` 模块移至 `config` 模块，改为 `LazyLock` 懒加载单例
+- 重构 `build.rs`，移除内联配置解析逻辑，改为调用 `generate_config_constants.py`
+- 重构应用入口：`index.html` 重命名为 `app.html`，`main.ts` 重命名为 `app.ts`，`app.d.ts` 重命名为 `types.d.ts`，`main_window.rs` 重命名为 `app_window.rs`
+- 重构文档加载路径统一使用 `root_dir()`
+- 优化帮助文档 Markdown 渲染效果：支持文档内链接跳转、外部链接通过系统浏览器打开、长代码块自动换行
+- 优化 NavTree 导航树样式：箭头图标缩小、第一层级文字加粗、激活态改为透明背景加粗
+- 优化构建脚本：构建前自动同步版本号并校验工作区干净状态、构建后还原版本文件
+- 优化 `git.are_clean` 函数返回类型，新增 git status 原始输出
+
+### Fixed
+
+- 修复版本号占位符不一致问题，统一使用 `0.1.0-dev`
+- 修复 CI workflow 中 `INPUT_VERSION` 环境变量传递缺失、语法错误（等号改冒号）、拼写错误（INOUT → INPUT）
+- 修复 CI Python IO 流编码问题，设置默认 UTF-8 编码
+- 修复 arm64 构建缺少 msvc-dev-cmd 环境配置的问题
+- 修复 `help_load_readme` 中 README 内 en-US 跳转链接导致渲染错误的问题
+- 修复帮助文档文件名格式：下划线改为连字符（`_zh-CN` → `-zh-CN`）
+- 修复 `helpStore` 中 `SPECIAL_LOADERS` 键名与 meta.json 节点 ID 不匹配的问题
+- 修复 MarkdownView 特殊文档链接匹配规则过于严格的问题，支持任意路径引用
+- 修复 `AppInfo` 引用无法直接解引用的问题
+- 修复生成的配置常量文件名错误的问题
+
+### Removed
+
+- 移除旧版构建脚本 `release.py`
+- 移除 `build.rs` 中内联的配置解析逻辑
+
+---
+
 ## 0.3.0
 
 ### Breaking Changes
