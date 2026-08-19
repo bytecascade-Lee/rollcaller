@@ -18,6 +18,7 @@
     border: none;
     border-radius: var(--radius-md);
     font-weight: var(--font-weight-medium);
+    user-select: none;
 }
 
 .badge:hover {
