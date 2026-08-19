@@ -86,7 +86,10 @@
       style:flex-direction="column"
     >
       <span class="field-label">点名次数</span>
-      <div>
+      <div
+        style:display="flex"
+        style:gap="2px"
+      >
         <button
           class="icon-button"
           onclick={() => engine.updateTotalTimes(engine.totalTimes - 1)}
