@@ -1,5 +1,5 @@
 <script lang="ts">
-  import "open-props"
+  import "open-props/style"
   import "$styles/attendance-status-budge.css"
   import "$styles/button.css";
   import "$styles/card.css";
@@ -7,7 +7,6 @@
   import "$styles/popup.css";
   import "$styles/field.css";
   import "$styles/footbar.css";
-  import "$styles/global.css";
   import "$styles/global-form-reset.css";
   import "$styles/icon-button.css"
   import "$styles/nav.css";
