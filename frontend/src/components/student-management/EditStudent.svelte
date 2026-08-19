@@ -75,6 +75,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="overlay" onclick={closeOnOutside ? () => close() : undefined}>
     <div class="popup" onclick={(e) => e.stopPropagation()}>
+      <h3 class="text-title">修改学生</h3>
       {#if selected.size > 1}
         <h3 class="text-title error">仅支持单个修改<br/></h3>
         <span class="text-content">当前选中了 {selected.size} 名学生，请只选择一名后再试</span>
@@ -83,7 +84,6 @@
         <span class="text-content">当前选中id：{Array.from(selected)}</span>
       {:else}
         <form onsubmit={(e) => { e.preventDefault(); edit(); }}>
-          <h3 class="text-title">修改学生</h3>
           <label class="field">
             <span class="field-label">学号</span>
             <input
