@@ -33,6 +33,7 @@ tauri = { version = "2.11", features = ["config-json5", "unstable"] }
 tauri-plugin-dialog = "2.7"
 tauri-plugin-opener = "2.5"
 tauri-plugin-tracing = "0.3"
+tauri-plugin-prevent-default = "5.0"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-core = "0.1.36"
