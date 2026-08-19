@@ -52,7 +52,7 @@
   md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
     const token = tokens[idx];
     const href = token.attrGet("href") ?? "";
-    const action = classifyLink(href);
+    const action = classifyLink(href.toString());
     if (action?.kind === "docs") {
       token.attrSet("href", "#");
       token.attrSet("data-action", "docs");
