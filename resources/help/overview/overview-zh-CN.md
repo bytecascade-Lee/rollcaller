@@ -39,7 +39,7 @@
 
 - 支持**新版 Windows 10 和 Windows 11**，暂不支持 Windows 7 及以下系统。
 - 应用依赖 WebView2 运行时。若系统未安装，**安装包**会在安装过程中引导你完成安装；
-  **便携版不支持引导安装**，需自行从 [Microsoft WebView2 下载页面](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section) 获取并安装后方可使用。
+  **便携版不支持引导安装**，需自行从 [Microsoft WebView2 下载页面](https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/#download-section) 获取并安装后方可使用。
 - 提供安装包和便携版两种使用方式，便携版解压后即可直接运行。
 
 ## 获取与支持

@@ -89,7 +89,7 @@
     {:else}
       <h3 class="text-title">批量修改记录（共 {selected.size} 条）</h3>
     {/if}
-    <label class="field">
+    <div class="field">
       <span class="field-label">
         <input type="checkbox" bind:checked={updateStatus}/>
         状态
@@ -115,10 +115,10 @@
           {/each}
         {/if}
       </span>
-    </label>
+    </div>
 
 
-    <label class="field">
+    <div class="field">
       <span class="field-label">
         <input type="checkbox" bind:checked={updateRemark}/>
         备注
@@ -129,7 +129,7 @@
         placeholder="批量添加备注"
         bind:value={remark}
       />
-    </label>
+    </div>
 
     <div class="button-group">
       <button

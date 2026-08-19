@@ -7,7 +7,7 @@
   import {format} from "$utils/DataTimeUtils";
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
-  import {ArrowDownIcon, ArrowsDownUpIcon, ArrowUpIcon} from "phosphor-svelte";
+  import {ArrowDownIcon, ArrowsDownUpIcon, ArrowUpIcon, MinusIcon, PlusIcon} from "phosphor-svelte";
   import Switch from "$components/common/Switch.svelte";
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
 
@@ -81,20 +81,75 @@
   </section>
 
   <div class="toolbar">
-    <label
+    <div
       class="field"
       style:flex-direction="column"
     >
       <span class="field-label">点名次数</span>
-      <input
-        type="number"
-        min="1"
-        max={studentStore.students.length || 1}
-        value={engine.totalTimes}
-        oninput={(e) => engine.updateTotalTimes(Number(e.currentTarget.value))}
-        disabled={engine.isRolling}
-      />
-    </label>
+      <div
+        style:display="flex"
+        style:gap="2px"
+      >
+        <button
+          class="icon-button"
+          onclick={() => engine.updateTotalTimes(engine.totalTimes - 1)}
+          disabled={engine.isRolling || engine.totalTimes == 1}
+        >
+          <MinusIcon/>
+        </button>
+        <input
+          type="text"
+          inputmode="none"
+          value={engine.totalTimes}
+          disabled={engine.isRolling}
+          oninput={(e) => {
+            const raw = e.currentTarget.value;
+            const cleaned = raw.replace(/[^0-9]/g, '');
+            if (cleaned === '') {
+              // 如果清空了，设为最小值
+              e.currentTarget.value = '1';
+              return;
+            }
+            let val = Number(cleaned);
+            const max = studentStore.students.length || 1;
+            if (val < 1) val = 1;
+            if (val > max) val = max;
+            e.currentTarget.value = String(val);
+            engine.updateTotalTimes(val);
+          }}
+          onblur={(e) => {
+            // 失焦时最终校验
+            const val = Number(e.currentTarget.value);
+            const max = studentStore.students.length || 1;
+            let finalVal = val;
+            if (isNaN(finalVal) || finalVal < 1) finalVal = 1;
+            if (finalVal > max) finalVal = max;
+            e.currentTarget.value = String(finalVal);
+            engine.updateTotalTimes(finalVal);
+          }}
+          onkeydown={e => {
+            if (!/^[0-9]$/.test(e.key) &&
+              e.key !== 'Backspace' &&
+              e.key !== 'Delete' &&
+              e.key !== 'ArrowLeft' &&
+              e.key !== 'ArrowRight' &&
+              e.key !== 'Home' &&
+              e.key !== 'End' &&
+              e.key !== 'Tab'
+              ) {
+                e.preventDefault()
+            }
+          }}
+        />
+        <button
+          class="icon-button"
+          onclick={() => engine.updateTotalTimes(engine.totalTimes + 1)}
+          disabled={engine.isRolling || engine.totalTimes == (studentStore.students.length || 1)}
+        >
+          <PlusIcon/>
+        </button>
+      </div>
+    </div>
 
     <div class="field">
       <span class="field-label">总人数</span>
@@ -110,8 +165,8 @@
       <span class="field-label">允许重复</span>
       <button
         class="switch-button"
-        type="button"
         onclick={() => (engine.allowRepetition = !engine.allowRepetition)}
+        type="button"
       >
         <Switch yes={engine.allowRepetition}/>
       </button>
@@ -252,22 +307,23 @@
 
 <style>
   .result {
-    min-height: 100px;
+    min-height: 150px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: var(--space-sm);
-    padding: var(--space-lg);
+    padding: var(--space-xxs);
     border-radius: var(--radius-md);
     background: var(--color-page);
   }
 
   .result .name {
-    font-size: var(--font-size-fluid-3);
+    font-size: 90px;
     font-weight: var(--font-weight-heavy);
     color: var(--color-text);
     line-height: var(--font-lineheight-1);
+    padding: 0;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -323,7 +379,7 @@
   .field input {
     flex: none;
     height: 28px;
-    width: 64px;
+    width: 48px;
     box-sizing: border-box;
   }
 

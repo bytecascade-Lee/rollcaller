@@ -1,6 +1,6 @@
 <script lang="ts">
+  import "open-props/style"
   import "highlight.js/styles/github.css";
-  import "$styles/global.css";
   import "$styles/tokens.css";
   import "$styles/sidebar.css";
   import "$styles/nav.css";

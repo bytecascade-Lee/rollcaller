@@ -9,7 +9,7 @@
 - **安装包**：运行安装程序，按照提示完成安装，之后通过桌面或开始菜单的快捷方式启动应用。
 - **便携版**：将压缩包解压到任意目录，直接运行其中的 `rollcaller.exe` 即可，无需安装。
 
-> 便携版无需安装，适合放到 U 盘等便携设备中使用。便携版需要自行安装 WebView2 运行时，可从 [Microsoft WebView2 下载页面](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section) 获取。
+> 便携版无需安装，适合放到 U 盘等便携设备中使用。便携版需要自行安装 WebView2 运行时，可从 [Microsoft WebView2 下载页面](https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/#download-section) 获取。
 
 ## 准备学生名单
 

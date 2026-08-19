@@ -1,14 +1,12 @@
 {
     "$schema": "../gen/schemas/desktop-schema.json",
-    "identifier": "default",
-    "description": "Capability for the main window",
+    "identifier": "app",
+    "description": "Capability for the app window",
     "windows": [
-        "main",
-        "help"
+        "app"
     ],
     "permissions": [
         "core:default",
-        "opener:default",
         "dialog:default",
         "tracing:allow-log"
     ]

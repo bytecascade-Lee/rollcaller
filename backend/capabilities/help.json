@@ -1,0 +1,31 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "help",
+    "description": "Capability for the help window",
+    "windows": [
+        "help"
+    ],
+    "permissions": [
+        "core:default",
+        {
+            "identifier": "opener:allow-open-url",
+            "allow": [
+                {
+                    "url": "https://github.com/bytecascade-Lee/rollcaller"
+                },
+                {
+                    "url": "https://github.com/bytecascade-Lee/rollcaller/releases"
+                },
+                {
+                    "url": "https://github.com/bytecascade-Lee/rollcaller/releases/latest"
+                },
+                {
+                    "url": "https://github.com/bytecascade-Lee/rollcaller/issues"
+                },
+                {
+                    "url": "https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/#download-section"
+                }
+            ]
+        }
+    ]
+}
