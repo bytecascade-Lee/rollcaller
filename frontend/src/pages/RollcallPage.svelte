@@ -81,12 +81,12 @@
   </section>
 
   <div class="toolbar">
-    <label
+    <div
       class="field"
       style:flex-direction="column"
     >
       <span class="field-label">点名次数</span>
-      <label>
+      <div>
         <button
           class="icon-button"
           onclick={() => engine.updateTotalTimes(engine.totalTimes - 1)}
@@ -145,8 +145,8 @@
         >
           <PlusIcon/>
         </button>
-      </label>
-    </label>
+      </div>
+    </div>
 
     <div class="field">
       <span class="field-label">总人数</span>

@@ -85,22 +85,22 @@
         <span class="text-content">当前选中id：{Array.from(selected)}</span>
       {:else}
         <form onsubmit={(e) => { e.preventDefault(); edit(); }}>
-          <label class="field">
+          <div class="field">
             <span class="field-label">学号</span>
             <input
               type="text"
               bind:value={localEdit.student_no}
               oninput={() => { if (editResult) editResult = undefined; }}
             />
-          </label>
-          <label class="field">
+          </div>
+          <div class="field">
             <span class="field-label">姓名</span>
             <input
               type="text"
               bind:value={localEdit.name}
               oninput={() => { if (editResult) editResult = undefined; }}
             />
-          </label>
+          </div>
           {#if editResult && editResult.type == "Conflict"}
             <span class="text-subtitle error">学号已被占用<br/></span>
             <span class="text-content">
