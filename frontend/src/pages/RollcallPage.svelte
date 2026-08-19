@@ -252,22 +252,23 @@
 
 <style>
   .result {
-    min-height: 100px;
+    min-height: 150px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: var(--space-sm);
-    padding: var(--space-lg);
+    padding: var(--space-xxs);
     border-radius: var(--radius-md);
     background: var(--color-page);
   }
 
   .result .name {
-    font-size: var(--font-size-fluid-3);
+    font-size: 90px;
     font-weight: var(--font-weight-heavy);
     color: var(--color-text);
     line-height: var(--font-lineheight-1);
+    padding: 0;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
