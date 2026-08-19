@@ -15,6 +15,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 anyhow = "1.0"
+base64 = "0.23"
 calamine = "0.36"
 directories = "6.0"
 hex = "0.4"
@@ -24,7 +25,9 @@ rand = "0.10"
 rbatis = { version = "4.8", features = ["debug_mode"] }
 rbs = "4.8"
 rbdc-sqlite = { version = "4.9", features = ["sqlite-bundled"] }
-rust_xlsxwriter = "0.97"
+reqwest = { version = "0.13", features = ["json"] }
+rodio = { version = "0.22", features = ["symphonia-wav"] }
+rust_xlsxwriter = "0.98"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
