@@ -10,3 +10,8 @@ declare module "$styles/*" {
   const content: string;
   export default content;
 }
+
+declare module "open-props/style" {
+  const content: any;
+  export default content;
+}
