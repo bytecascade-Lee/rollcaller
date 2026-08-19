@@ -15,11 +15,10 @@
     if (/^https?:\/\//i.test(href)) return {kind: "external"};
     //* README.md / README-en-US.md / CHANGELOG.md / RELEASE_NOTES.md / LICENSE
     const special = href.match(/(README(?:-en-US)?|CHANGELOG|RELEASE_NOTES|LICENSE)(?:\.md)?$/i);
-    if (special) {
-      return {kind: "docs", id: href};
-    }
-    //* ../<id>/<file>.md → 提取目录名作为文档 id
-    const doc = href.match(/\.\.\/([^/]+)\/[^/]+\.md$/i);
+    if (special) return {kind: "docs", id: special[0]};
+    //* ../<id>/<id>-zh-CN.md → 提取目录名作为文档 id
+    //* 目录名与文件名前缀必须一致，语言后缀（-zh-CN、-en-US等）可选
+    const doc = href.match(/\.\.\/([^/]+)\/\1(?:-[a-z]{2}-[A-Z]{2})?\.md$/i);
     if (doc) return {kind: "docs", id: doc[1]};
     return null;
   }
@@ -53,7 +52,7 @@
   md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
     const token = tokens[idx];
     const href = token.attrGet("href") ?? "";
-    const action = classifyLink(href);
+    const action = classifyLink(href.toString());
     if (action?.kind === "docs") {
       token.attrSet("href", "#");
       token.attrSet("data-action", "docs");

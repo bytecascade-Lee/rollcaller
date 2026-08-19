@@ -19,6 +19,7 @@ pub async fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_tracing::Builder::new().build())
+        .plugin(tauri_plugin_prevent_default::init_with_manual_injection())
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cmd| {}))
         .invoke_handler(tauri::generate_handler![
             crate::cmd::attendance_status::attendance_status_list,
