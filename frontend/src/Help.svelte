@@ -12,10 +12,14 @@
   import MarkdownView from "$components/common/MarkdownView.svelte";
   import {helpStore} from "$stores/helpStore.svelte";
   import {AppInfoCommand} from "$commands";
-  import type {AppInfo} from "$types";
+  import type {AppInfo, TreeNode} from "$types";
   import {GearIcon} from "phosphor-svelte";
   import metaData from "$resources/help/meta.json";
 
+  const nodes = metaData.nodes as
+    {
+      [K in keyof typeof metaData.nodes]: TreeNode & { id: K }
+    };
   let activeId = $state("overview");
   let jumpToken = $state(0); // 外部跳转触发信号：自增时 NavTree 折叠到单级
   let scroller: HTMLDivElement | undefined = $state();
@@ -51,11 +55,11 @@
   <aside class="sidebar">
     <nav class="nav">
       <NavTree
-        nodes={metaData.nodes}
-        order={metaData.order}
         bind:activeId={activeId}
         jumpToken={jumpToken}
+        nodes={nodes}
         onselect={(id) => helpStore.load(id)}
+        order={metaData.order}
       />
     </nav>
   </aside>
@@ -74,7 +78,7 @@
 
   <footer class="footbar">
     <div>
-      <GearIcon size="14" weight="bold" style="display: none"/>
+      <GearIcon size="14" style="display: none" weight="bold"/>
       {APP_INFO.version}+{APP_INFO.branch}.{APP_INFO.commit_count}.{APP_INFO.short_hash}#{APP_INFO.commit_time}
       #{APP_INFO.build_time}
     </div>
