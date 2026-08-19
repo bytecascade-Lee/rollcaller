@@ -57,7 +57,8 @@
     if (isVisible && selected.size == 1) {
       // 必须拷贝，否则拿到的是引用，表格中的照样会变
       let value = selected.values().next().value;
-      const original = studentStore.get(value ? value : -1n);
+      if (value === undefined || value === null) return;
+      const original = studentStore.get(value);
       localEdit = original ? {...original} : null;
     }
   });
@@ -75,6 +76,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="overlay" onclick={closeOnOutside ? () => close() : undefined}>
     <div class="popup" onclick={(e) => e.stopPropagation()}>
+      <h3 class="text-title">修改学生</h3>
       {#if selected.size > 1}
         <h3 class="text-title error">仅支持单个修改<br/></h3>
         <span class="text-content">当前选中了 {selected.size} 名学生，请只选择一名后再试</span>
@@ -83,23 +85,22 @@
         <span class="text-content">当前选中id：{Array.from(selected)}</span>
       {:else}
         <form onsubmit={(e) => { e.preventDefault(); edit(); }}>
-          <h3 class="text-title">修改学生</h3>
-          <label class="field">
+          <div class="field">
             <span class="field-label">学号</span>
             <input
               type="text"
               bind:value={localEdit.student_no}
               oninput={() => { if (editResult) editResult = undefined; }}
             />
-          </label>
-          <label class="field">
+          </div>
+          <div class="field">
             <span class="field-label">姓名</span>
             <input
               type="text"
               bind:value={localEdit.name}
               oninput={() => { if (editResult) editResult = undefined; }}
             />
-          </label>
+          </div>
           {#if editResult && editResult.type == "Conflict"}
             <span class="text-subtitle error">学号已被占用<br/></span>
             <span class="text-content">

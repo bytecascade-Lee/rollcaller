@@ -21,7 +21,7 @@
     border: none;
     outline: none;
     background: var(--color-page);
-    color: var(--app-color-text);
+    color: var(--text-color-content);
     font-size: var(--font-size-sm);
 }
 

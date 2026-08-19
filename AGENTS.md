@@ -129,7 +129,8 @@ cd ./backend && cargo tauri build
 | `backend/src/repo/student_repo.rs`                          | py_sql for update/delete/restore      |
 | `backend/src/repo/record_repo.rs`                           | py_sql JOIN queries                   |
 | `backend/src/cmd/import.rs`                                 | preview_excel + import_excel commands |
-| `backend/capabilities/default.json`                         | Tauri permissions                     |
+| `backend/capabilities/app.json`                             | Tauri app window permissions          |
+| `backend/capabilities/help.json`                            | Tauri help window permissions         |
 | `backend/resources/database/migrations/V0__init_schema.sql` | Initial schema                        |
 | `frontend/src/routes/+layout.svelte`                        | SPA shell with sidebar nav            |
 | `frontend/src/pages/StudentManagementPage.svelte`           | Student CRUD + import wizard          |
@@ -163,5 +164,5 @@ cd ./backend && cargo tauri build
 - Rust: `cargo test` in `backend/`
 - Frontend: `pnpm check` in `frontend/` (runs svelte-kit sync + svelte-check)
 - No unit test framework established yet — codebase currently relies on manual smoke testing
-- Tauri capabilities/permissions must be updated in `backend/capabilities/default.json` when adding new plugins
+- Tauri capabilities/permissions must be updated in `backend/capabilities/*.json` when adding new plugins
 - ts-rs types are regenerated at compile time — `cargo check` will regenerate `frontend/src/lib/types/*.ts`

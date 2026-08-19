@@ -83,7 +83,7 @@
     <div class="popup" onclick={(e) => e.stopPropagation()}>
       <form onsubmit={(e) => { e.preventDefault(); create(null); }}>
         <h3 class="text-title">添加学生</h3>
-        <label class="field">
+        <div class="field">
           <span class="field-label">学号</span>
           <!-- svelte-ignore a11y_autofocus -->
           <input
@@ -92,15 +92,15 @@
             placeholder="如 1097260001"
             autofocus
           />
-        </label>
-        <label class="field">
+        </div>
+        <div class="field">
           <span class="field-label">姓名</span>
           <input
             type="text"
             bind:value={newStudent.name}
             placeholder="如 张三"
           />
-        </label>
+        </div>
         {#if result != null}
           {#if result.type == "ActiveExists"}
             <span class="text-subtitle error">学号已被占用<br/></span>
@@ -201,15 +201,15 @@
 {/if}
 
 <style>
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
 
-    th, td {
-      border: var(--border-size-xs) solid var(--border-color-5);
-      border-radius:  var(--radius-md);
-      padding: var(--space-xs) var(--space-sm);
-      text-align: center;
-    }
+  th, td {
+    border: var(--border-size-xs) solid var(--border-color-5);
+    border-radius: var(--radius-md);
+    padding: var(--space-xs) var(--space-sm);
+    text-align: center;
+  }
 </style>
