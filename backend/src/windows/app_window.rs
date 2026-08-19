@@ -1,6 +1,7 @@
 use crate::config::app_paths;
 use anyhow::{anyhow, Context};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_prevent_default::PreventDefault;
 
 pub fn init(app: &mut tauri::App) -> anyhow::Result<()> {
     let _ = WebviewWindowBuilder::new(app, "app", WebviewUrl::App("app.html".into()))
@@ -10,7 +11,9 @@ pub fn init(app: &mut tauri::App) -> anyhow::Result<()> {
         .center()
         .decorations(true)
         .title("Rollcaller")
-        .build();
+        .initialization_script(app.prevent_default_script().to_string())
+        .build()
+        .context("Failed to build app window.")?;
     Ok(())
 }
 
