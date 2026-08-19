@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 0.4.2
+
+### Changed
+
+- 重命名 `default.json` 为 `app.json`
+- 重构 help 窗口权限配置，新增 `help.json` 能力文件，与 `app.json` 解耦，help 窗口仅授予 `opener:allow-open-url` 权限并限定白名单，app 窗口仍保留 `dialog:default` 权限
+
+### Fixed
+
+- 修复 `app.json` 能力文件中窗口名称未从 `main` 改为 `app` 导致文件对话框权限不足的问题
+- 修复批量选择学生时弹窗缺少"修改学生"标题的问题
+- 修复 `studentStore.get()` 中 BigInt 类型的 ID 为 0 时被三元表达式误判为假值导致无法编辑学生的问题
+- 优化点名次数输入体验：将输入框改为 `text` 类型并添加 `inputmode="none"` 防止触摸屏弹出软键盘，新增左右加减按钮方便调节次数
+- 修复 `label` 内嵌多个交互元素导致的点击事件错乱和键盘聚焦异常问题，将 `label` 替换为 `div`
+- 修复 `open-props/style` 模块缺少 TypeScript 类型声明导致 Svelte 导入报错的问题
+- 修复 `metaData.nodes` 类型不匹配 `TreeNode` 的问题，添加类型断言确保节点 id 与键名一致
+
+### Removed
+
+- 移除 `global.css`，涉及的样式改为使用 `tokens.css`
+
+---
+
 ## 0.4.1
 
 ### Fixed
@@ -136,6 +159,79 @@ All notable changes to this project will be documented in this file.
 ### Removed
 
 - 移除旧版导入组件，统一使用新导入向导入口
+
+---
+
+## 0.3.0-rc.2
+
+### Added
+
+- 新增版本号统一同步脚本 `sync-version.py`，支持一键同步 `pyproject.toml`、`tauri.conf.json5`、`Cargo.toml`、`package.json` 中的版本号，自动校验语义化版本格式并执行 `uv lock` 同步锁文件
+
+### Changed
+
+- 改为从 `VERSION` 环境变量读取版本号，缺省使用 `CARGO_PKG_VERSION`，并自动去除 `v`/`V` 前缀
+- 调整 `BUILD_TIME` 格式化方式，去除时区括号部分
+- 页脚版本号改用动态获取的 `APP_INFO.version`，替代硬编码值
+- `commit_time` 与 `build_time` 分隔符统一改为 `#`
+- 新增应用信息实体类 `version` 字段，初始化时自动从环境变量获取
+- 添加 ESLint 及 Svelte 相关开发依赖，初始化 ESLint 配置文件 `eslint.config.js`
+- 将 `@eslint/js` 从 `dependencies` 移至 `devDependencies`
+
+### Fixed
+
+- 修复 CI 构建时获取不到版本号的问题，确保 `VERSION` 环境变量正确传递
+
+### Removed
+
+- 移除旧版导入组件，统一使用新导入向导入口
+
+---
+
+## 0.3.0-rc.1
+
+### Breaking Changes
+
+- 迁移出勤状态从硬编码常量至数据库存储，`AttendanceStatusBadge` 组件 `code` 属性重命名为 `id`，前端调用需同步更新 (#34, #36, #41, #45, #48, #49)
+- 移除 `constants/AttendanceStatus.ts`，改由 `types/AttendanceStatus.ts` 导出 (#41)
+- 扩展 `Result` 枚举：新增 `Info`，重命名 `Warn` 为 `Warning`，影响消息处理逻辑 (#22, #23)
+
+### Added
+
+- 新增表格排序功能，学生管理、点名、历史记录三个页面均支持单击表头排序，支持中文拼音排序，排序方向通过图标指示 (#05, #06, #07)
+- 新增 `ArrowsDownUpIcon` 图标标识可排序列 (#11, #12, #13)
+- 新增点名后表格自动滚动到底部功能 (#29, #30)
+- 新增"允许重复点名"开关，关闭后全部点完时自动清空列表 (#25, #26)
+- 新增三步导入向导组件：选择文件 → 配置列映射 → 导入与冲突处理 (#20)
+- 新增 `AttendanceStatusDefinition` 数据库表及历史数据迁移 (#34, #35)
+- 新增出勤状态实体类、Repository、Service、Command 全套后端实现 (#36, #37, #38, #39)
+- 新增三个前端出勤状态接口：创建、更新、获取全部 (#40)
+- 新增 `AttendanceStatusStore.svelte.ts` 全局状态管理 (#44)
+- 新增 `Switch` 通用开关组件 (#26)
+- 新增 `card-group` 类支持横向分散排列 (#17)
+- 新增 `budge-button` 类替代 `budge` 类包裹按钮 (#24)
+- 仅按点名时间排序时显示分组色块，切换其他排序键时自动隐藏 (#52)
+
+### Changed
+
+- 重构 `EditRecord` 组件使用 store 获取状态列表，过滤 id=0 的缺省状态 (#46)
+- 重构出勤状态相关组件统一使用 store 获取数据 (#45, #48, #49)
+- 重构历史记录页面过滤逻辑 (#09)
+- 重构点名页面数组操作，由 `filter` 改为 `[...records]` 避免修改原数组 (#10)
+- 重构点名页面默认排序实现，不再通过 `reverse` 翻转 (#14)
+- 重构导入组件布局：外部遮罩不可点击、移除关闭按钮、调整标题样式 (#16, #18)
+- 提取排序 key 为共享常量 (#08)
+- 提取 `switch` 样式到共享 CSS 文件 (#27)
+
+### Fixed
+
+- 修复 CI 分支名显示为 "HEAD" 及提交数为 1 的问题 (#01)
+- 修复表头文字可被选中的问题 (#03)
+- 修复点名器在动态学生列表下获取空 ID 导致后端 panic 的问题 (#31)
+- 修复 `EditRecord` 未选择更新项时"确定"按钮仍启用的问题 (#47)
+- 修复点到学生状态显示为"缺勤"的问题（状态值统一 +1） (#51)
+- 修复非时间排序时仍然自动滚动到底部的问题 (#30)
+- 修复 `type` 类型的异常导入 (#43)
 
 ---
 
