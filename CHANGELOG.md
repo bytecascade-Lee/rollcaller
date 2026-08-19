@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 0.4.3
+
+### Added
+
+- 集成 `tauri-plugin-prevent-default` 插件，禁用浏览器默认行为（右键菜单、F5/Ctrl+R 等快捷键），在窗口创建时通过手动注入模式注入脚本
+
+### Changed
+
+- 重命名 `git_commit_message.py` 为 `generate_commit_message.py`
+
+### Fixed
+
+- 修复帮助文档链接 ID 提取逻辑，正确匹配特殊文档（README、CHANGELOG、RELEASE_NOTES、LICENSE）及普通文档的多种路径格式
+- 修复帮助文档链接中 `string | number` 联合类型无法赋值给 `string` 类型的 TypeScript 类型错误
+
+---
+
 ## 0.4.2
 
 ### Changed
