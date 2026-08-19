@@ -57,7 +57,8 @@
     if (isVisible && selected.size == 1) {
       // 必须拷贝，否则拿到的是引用，表格中的照样会变
       let value = selected.values().next().value;
-      const original = studentStore.get(value ? value : -1n);
+      if (value === undefined || value === null) return;
+      const original = studentStore.get(value);
       localEdit = original ? {...original} : null;
     }
   });
