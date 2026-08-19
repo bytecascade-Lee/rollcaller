@@ -122,7 +122,6 @@ All notable changes to this project will be documented in this file.
 - 新增三步导入向导组件：选择文件 → 配置列映射 → 导入与冲突处理
 - 新增 `AttendanceStatusDefinition` 数据库表及历史数据迁移
 - 新增出勤状态实体类、Repository、Service、Command 全套后端实现
-
 - 新增三个前端出勤状态接口：创建、更新、获取全部
 - 新增 `AttendanceStatusStore.svelte.ts` 全局状态管理
 - 新增 `Switch` 通用开关组件
@@ -192,46 +191,46 @@ All notable changes to this project will be documented in this file.
 
 ### Breaking Changes
 
-- 迁移出勤状态从硬编码常量至数据库存储，`AttendanceStatusBadge` 组件 `code` 属性重命名为 `id`，前端调用需同步更新 (#34, #36, #41, #45, #48, #49)
-- 移除 `constants/AttendanceStatus.ts`，改由 `types/AttendanceStatus.ts` 导出 (#41)
-- 扩展 `Result` 枚举：新增 `Info`，重命名 `Warn` 为 `Warning`，影响消息处理逻辑 (#22, #23)
+- 迁移出勤状态从硬编码常量至数据库存储，`AttendanceStatusBadge` 组件 `code` 属性重命名为 `id`，前端调用需同步更新
+- 移除 `constants/AttendanceStatus.ts`，改由 `types/AttendanceStatus.ts` 导出
+- 扩展 `Result` 枚举：新增 `Info`，重命名 `Warn` 为 `Warning`，影响消息处理逻辑
 
 ### Added
 
-- 新增表格排序功能，学生管理、点名、历史记录三个页面均支持单击表头排序，支持中文拼音排序，排序方向通过图标指示 (#05, #06, #07)
-- 新增 `ArrowsDownUpIcon` 图标标识可排序列 (#11, #12, #13)
-- 新增点名后表格自动滚动到底部功能 (#29, #30)
-- 新增"允许重复点名"开关，关闭后全部点完时自动清空列表 (#25, #26)
-- 新增三步导入向导组件：选择文件 → 配置列映射 → 导入与冲突处理 (#20)
-- 新增 `AttendanceStatusDefinition` 数据库表及历史数据迁移 (#34, #35)
-- 新增出勤状态实体类、Repository、Service、Command 全套后端实现 (#36, #37, #38, #39)
-- 新增三个前端出勤状态接口：创建、更新、获取全部 (#40)
-- 新增 `AttendanceStatusStore.svelte.ts` 全局状态管理 (#44)
-- 新增 `Switch` 通用开关组件 (#26)
-- 新增 `card-group` 类支持横向分散排列 (#17)
-- 新增 `budge-button` 类替代 `budge` 类包裹按钮 (#24)
-- 仅按点名时间排序时显示分组色块，切换其他排序键时自动隐藏 (#52)
+- 新增表格排序功能，学生管理、点名、历史记录三个页面均支持单击表头排序，支持中文拼音排序，排序方向通过图标指示
+- 新增 `ArrowsDownUpIcon` 图标标识可排序列
+- 新增点名后表格自动滚动到底部功能
+- 新增"允许重复点名"开关，关闭后全部点完时自动清空列表
+- 新增三步导入向导组件：选择文件 → 配置列映射 → 导入与冲突处理
+- 新增 `AttendanceStatusDefinition` 数据库表及历史数据迁移
+- 新增出勤状态实体类、Repository、Service、Command 全套后端实现
+- 新增三个前端出勤状态接口：创建、更新、获取全部
+- 新增 `AttendanceStatusStore.svelte.ts` 全局状态管理
+- 新增 `Switch` 通用开关组件
+- 新增 `card-group` 类支持横向分散排列
+- 新增 `budge-button` 类替代 `budge` 类包裹按钮
+- 仅按点名时间排序时显示分组色块，切换其他排序键时自动隐藏
 
 ### Changed
 
-- 重构 `EditRecord` 组件使用 store 获取状态列表，过滤 id=0 的缺省状态 (#46)
-- 重构出勤状态相关组件统一使用 store 获取数据 (#45, #48, #49)
-- 重构历史记录页面过滤逻辑 (#09)
-- 重构点名页面数组操作，由 `filter` 改为 `[...records]` 避免修改原数组 (#10)
-- 重构点名页面默认排序实现，不再通过 `reverse` 翻转 (#14)
-- 重构导入组件布局：外部遮罩不可点击、移除关闭按钮、调整标题样式 (#16, #18)
-- 提取排序 key 为共享常量 (#08)
-- 提取 `switch` 样式到共享 CSS 文件 (#27)
+- 重构 `EditRecord` 组件使用 store 获取状态列表，过滤 id=0 的缺省状态
+- 重构出勤状态相关组件统一使用 store 获取数据
+- 重构历史记录页面过滤逻辑
+- 重构点名页面数组操作，由 `filter` 改为 `[...records]` 避免修改原数组
+- 重构点名页面默认排序实现，不再通过 `reverse` 翻转
+- 重构导入组件布局：外部遮罩不可点击、移除关闭按钮、调整标题样式
+- 提取排序 key 为共享常量
+- 提取 `switch` 样式到共享 CSS 文件
 
 ### Fixed
 
-- 修复 CI 分支名显示为 "HEAD" 及提交数为 1 的问题 (#01)
-- 修复表头文字可被选中的问题 (#03)
-- 修复点名器在动态学生列表下获取空 ID 导致后端 panic 的问题 (#31)
-- 修复 `EditRecord` 未选择更新项时"确定"按钮仍启用的问题 (#47)
-- 修复点到学生状态显示为"缺勤"的问题（状态值统一 +1） (#51)
-- 修复非时间排序时仍然自动滚动到底部的问题 (#30)
-- 修复 `type` 类型的异常导入 (#43)
+- 修复 CI 分支名显示为 "HEAD" 及提交数为 1 的问题
+- 修复表头文字可被选中的问题
+- 修复点名器在动态学生列表下获取空 ID 导致后端 panic 的问题
+- 修复 `EditRecord` 未选择更新项时"确定"按钮仍启用的问题
+- 修复点到学生状态显示为"缺勤"的问题（状态值统一 + 1）
+- 修复非时间排序时仍然自动滚动到底部的问题 
+- 修复 `type` 类型的异常导入
 
 ---
 
@@ -282,7 +281,7 @@ All notable changes to this project will be documented in this file.
 - 新增布局组件：侧边栏、导航栏、工具栏、页脚、标题栏
 - 新增表单组件：输入框、选择器、文本域及全局重置样式
 - 新增表格组件，支持固定表头、行悬停、自定义滚动条
-- 新增反馈组件：弹窗（Dialog/Popup）、覆盖层（Overlay）、状态徽章（Badge）
+- 新增反馈组件：弹窗（`Dialog`/`Popup`）、覆盖层（`Overlay`）、状态徽章（`Badge`）
 - 新增按钮体系：图标按钮、文字按钮、按钮组，支持 yes/warn/error 类型
 - 新增搜索组件，支持焦点状态交互
 - 新增点名引擎，动画间隔 120ms，持续时间 720ms，结果展示 1200ms
