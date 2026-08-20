@@ -1,3 +1,11 @@
+import { TTSCommand } from "$commands";
+
+/** TTS 模式：local = 浏览器本地合成，cloud = 云端大模型 */
+export type TTSMode = "local" | "cloud";
+
+/** 全局 TTS 模式状态，供组件绑定 */
+export const ttsMode = $state<{ value: TTSMode }>({ value: "local" });
+
 class TTSService {
   #synthesis = window.speechSynthesis;
   #queue = $state<string[]>([]);
@@ -10,6 +18,11 @@ class TTSService {
   #voicesReadyPromise: Promise<void> | null = null;
   #resolveVoicesReady: (() => void) | null = null;
   #currentUtterance: SpeechSynthesisUtterance | null = null;
+
+  /** cloud 模式：当前播放的 Audio 元素 */
+  #cloudAudio: HTMLAudioElement | null = null;
+  /** cloud 模式：等待后端返回的音频数据后立即播放 */
+  #cloudSkip = false;
 
   get speaking() {
     return this.#isSpeaking;
@@ -31,6 +44,14 @@ class TTSService {
     return this.#queue.length > 0;
   }
 
+  get mode(): TTSMode {
+    return ttsMode.value;
+  }
+
+  set mode(v: TTSMode) {
+    ttsMode.value = v;
+  }
+
   constructor() {
     this.#initVoices();
   }
@@ -38,23 +59,17 @@ class TTSService {
   #initVoices() {
     this.#voicesReadyPromise = new Promise<void>((resolve) => {
       this.#resolveVoicesReady = resolve;
-
-      // 如果语音已经加载完成
       if (this.#synthesis.getVoices().length > 0) {
         this.#voicesReady = true;
         resolve();
         return;
       }
-
-      // 监听语音加载事件
       const handler = () => {
         this.#voicesReady = true;
         resolve();
-        this.#synthesis.removeEventListener('voiceschanged', handler);
+        this.#synthesis.removeEventListener("voiceschanged", handler);
       };
-      this.#synthesis.addEventListener('voiceschanged', handler);
-
-      // 超时保护：1秒后如果还没加载完成也继续
+      this.#synthesis.addEventListener("voiceschanged", handler);
       setTimeout(() => {
         if (!this.#voicesReady) {
           this.#voicesReady = true;
@@ -68,17 +83,14 @@ class TTSService {
     return this.#voicesReadyPromise || Promise.resolve();
   }
 
+  // ─── 公共 API ───────────────────────────────────────
 
   /**
    * 追加文本到队列末尾
    */
   speak(text: string, options?: { lang?: string; rate?: number; pitch?: number }) {
     if (!text?.trim()) return;
-
-    // 追加到队尾
     this.#queue.push(text.trim());
-
-    // 如果当前空闲，开始播报
     if (!this.#isSpeaking) {
       this.#processNext(options);
     }
@@ -90,48 +102,54 @@ class TTSService {
   speakNow(text: string, options?: { lang?: string; rate?: number; pitch?: number }) {
     if (!text?.trim()) return;
 
-    // 取消当前播报
+    // 打断本地
     this.#synthesis.cancel();
+    // 打断云端
+    if (this.#cloudAudio) {
+      this.#cloudAudio.pause();
+      this.#cloudAudio.src = "";
+      this.#cloudAudio = null;
+    }
+    this.#cloudSkip = true;
 
-    // 清空队列
     this.#queue = [];
-
-    // 重置状态
     this.#isSpeaking = false;
     this.#isPaused = false;
     this.#retryCount = 0;
     this.#currentUtterance = null;
 
-    // 追加到队列并立即播报
     this.#queue.push(text.trim());
     this.#processNext(options);
   }
 
-  /**
-   * 暂停当前播报
-   */
   pause() {
     if (!this.#isSpeaking) return;
-
-    this.#synthesis.pause();
+    if (this.#cloudAudio) {
+      this.#cloudAudio.pause();
+    } else {
+      this.#synthesis.pause();
+    }
     this.#isPaused = true;
   }
 
-  /**
-   * 恢复暂停的播报
-   */
   resume() {
     if (!this.#isPaused) return;
-
-    this.#synthesis.resume();
+    if (this.#cloudAudio) {
+      this.#cloudAudio.play();
+    } else {
+      this.#synthesis.resume();
+    }
     this.#isPaused = false;
   }
 
-  /**
-   * 停止播报并清空队列
-   */
   cancel() {
     this.#synthesis.cancel();
+    if (this.#cloudAudio) {
+      this.#cloudAudio.pause();
+      this.#cloudAudio.src = "";
+      this.#cloudAudio = null;
+    }
+    this.#cloudSkip = false;
     this.#queue = [];
     this.#isSpeaking = false;
     this.#isPaused = false;
@@ -140,15 +158,13 @@ class TTSService {
     this.#currentUtterance = null;
   }
 
-  /**
-   * 清空队列（不影响当前播报）
-   */
   clearQueue() {
     this.#queue = [];
   }
 
+  // ─── 路由：根据模式分发 ────────────────────────────
+
   #processNext(options?: { lang?: string; rate?: number; pitch?: number }) {
-    // 如果队列为空，回到空闲状态
     if (this.#queue.length === 0) {
       this.#isSpeaking = false;
       this.#isPaused = false;
@@ -157,85 +173,136 @@ class TTSService {
       this.#currentUtterance = null;
       return;
     }
+    if (this.#isPaused) return;
 
-    // 如果处于暂停状态，不播放下一条
-    if (this.#isPaused) {
-      return;
+    if (ttsMode.value === "cloud") {
+      this.#processNextCloud();
+    } else {
+      this.#processNextLocal(options);
     }
+  }
 
-    // 取出第一条
+  // ─── 本地模式（Web Speech API）──────────────────────
+
+  #processNextLocal(options?: { lang?: string; rate?: number; pitch?: number }) {
+    if (this.#queue.length === 0 || this.#isPaused) return;
+
     const text = this.#queue[0];
     this.#currentText = text;
     this.#isSpeaking = true;
 
-    // 确保语音就绪
     this.#ensureVoicesReady().then(() => {
-      // 再次检查队列（可能在等待过程中被取消）
-      if (this.#queue.length === 0 || this.#currentText !== text) {
-        return;
-      }
+      if (this.#queue.length === 0 || this.#currentText !== text) return;
 
-      // 创建 utterance
       const utterance = new SpeechSynthesisUtterance(text);
       this.#currentUtterance = utterance;
 
-      // 配置参数
-      utterance.lang = options?.lang || 'zh-CN';
+      utterance.lang = options?.lang || "zh-CN";
       utterance.rate = options?.rate || 1.0;
       utterance.pitch = options?.pitch || 1.0;
 
-      // 选择中文语音
       const voices = this.#synthesis.getVoices();
-      const zhVoice = voices.find(v => v.lang.startsWith('zh'));
+      const zhVoice = voices.find((v) => v.lang.startsWith("zh"));
       if (zhVoice) utterance.voice = zhVoice;
 
-      // 事件绑定
       utterance.onend = () => {
-        // 播报完成，从队列移除
         if (this.#queue.length > 0 && this.#queue[0] === text) {
           this.#queue.shift();
         }
         this.#retryCount = 0;
         this.#currentUtterance = null;
-        // 播放下一条
         this.#processNext(options);
       };
 
       utterance.onerror = (event) => {
-        // 如果是被取消导致的错误，不处理
-        if (event.error === 'canceled') {
+        if (event.error === "canceled") {
           this.#currentUtterance = null;
           return;
         }
-
-        console.error('TTS Error:', event.error, 'Text:', text);
-
-        // 重试逻辑
+        console.error("TTS Error:", event.error, "Text:", text);
         if (this.#retryCount < this.#maxRetries) {
           this.#retryCount++;
-          // 延迟重试，退避策略：200ms * retryCount
           setTimeout(() => {
-            // 检查是否被取消或状态变化
             if (this.#currentUtterance === utterance && !this.#isPaused) {
               this.#processNext(options);
             }
           }, 200 * this.#retryCount);
         } else {
-          // 重试次数用完，跳过该条
-          console.warn('TTS: Max retries reached, skipping:', text);
+          console.warn("TTS: Max retries reached, skipping:", text);
           if (this.#queue.length > 0 && this.#queue[0] === text) {
             this.#queue.shift();
           }
           this.#retryCount = 0;
           this.#currentUtterance = null;
-          // 继续播放下一条
           this.#processNext(options);
         }
       };
 
-      // 开始播报
       this.#synthesis.speak(utterance);
     });
+  }
+
+  // ─── 云端模式（后端 API + 浏览器播放）─────────────
+
+  async #processNextCloud() {
+    if (this.#queue.length === 0 || this.#isPaused) return;
+
+    const text = this.#queue[0];
+    this.#currentText = text;
+    this.#isSpeaking = true;
+    this.#cloudSkip = false;
+
+    try {
+      // 1. 后端：缓存/获取音频
+      await TTSCommand.speak(text);
+
+      // 2. 被 speakNow/cancel 打断，跳过本次播放
+      if (this.#cloudSkip || this.#queue.length === 0 || this.#currentText !== text) {
+        this.#cloudSkip = false;
+        if (this.#queue.length === 0) {
+          this.#isSpeaking = false;
+          this.#currentText = null;
+        }
+        return;
+      }
+
+      // 3. 获取 Base64 音频并播放
+      const b64 = await TTSCommand.getAudio(text);
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: "audio/wav" });
+      const url = URL.createObjectURL(blob);
+
+      const audio = new Audio(url);
+      this.#cloudAudio = audio;
+
+      await new Promise<void>((resolve, reject) => {
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          this.#cloudAudio = null;
+          resolve();
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(url);
+          this.#cloudAudio = null;
+          reject(new Error("音频播放失败"));
+        };
+        audio.play().catch(reject);
+      });
+
+      // 播放完成，移除队列首项
+      if (this.#queue.length > 0 && this.#queue[0] === text) {
+        this.#queue.shift();
+      }
+      this.#processNext();
+    } catch (e) {
+      console.error("Cloud TTS Error:", e);
+      // 跳过失败项
+      if (this.#queue.length > 0 && this.#queue[0] === text) {
+        this.#queue.shift();
+      }
+      this.#cloudAudio = null;
+      this.#processNext();
+    }
   }
 }
 
