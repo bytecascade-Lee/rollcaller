@@ -1,3 +1,4 @@
+use crate::common::enums::tts::TtsMode;
 use crate::common::ext::hash_ext::HashExt;
 use crate::config::app_paths;
 use anyhow::Context;
@@ -11,10 +12,10 @@ use std::io::Write;
 use tracing::info;
 
 /// 调用云端 TTS API 并缓存音频
-pub async fn api(student_no: &str, name: &str) -> anyhow::Result<()> {
+pub async fn generate_by_cloud_model(student_no: &str, name: &str) -> anyhow::Result<String> {
     if check_cache(student_no, name)? {
         info!("Cache hit for TTS: {} {}", student_no, name);
-        return Ok(());
+        return Ok(base64::engine::general_purpose::STANDARD.encode(get_audio_bytes(student_no, name)?));
     }
     info!("Cache miss for TTS: {} {}, calling API", student_no, name);
 
@@ -63,7 +64,7 @@ pub async fn api(student_no: &str, name: &str) -> anyhow::Result<()> {
     file.write_all(&audio_bytes)?;
 
     info!("TTS audio cached: {:?}", cache_path);
-    Ok(())
+    Ok(audio_b64.to_string())
 }
 
 /// 获取缓存的音频字节数据
