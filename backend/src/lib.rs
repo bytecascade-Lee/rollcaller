@@ -57,7 +57,6 @@ pub async fn run() {
             crate::cmd::export::student_export,
             crate::cmd::export::record_export,
             crate::cmd::tts::tts_speak,
-            crate::cmd::tts::tts_play,
             crate::cmd::tts::tts_get_audio,
             crate::cmd::windows::windows_help_open,
             crate::cmd::windows::windows_help_hide,
