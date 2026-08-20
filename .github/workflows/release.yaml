@@ -86,7 +86,9 @@ jobs:
                 uses: Swatinem/rust-cache@v2
                 with:
                     workspaces: backend
-                    # 各架构缓存 key 隔离，避免两个矩阵 Job 互相覆盖缓存
+                    # 所有架构共享 registry 缓存
+                    shared-key: cargo-registry
+                    # 架构特定的 target 目录缓存
                     key: ${{ matrix.target }}
 
             -   name: Cache tauri-cli
@@ -115,6 +117,7 @@ jobs:
             -   name: Build & package
                 env:
                     INPUT_VERSION: ${{ inputs.version }}
+                    MIMO_TTS_API_KEY: ${{ secrets.MIMO_TTS_API_KEY }}
                 run: uv run python scripts/release_ci.py build --target ${{ matrix.target }}
 
             -   name: Upload artifacts
