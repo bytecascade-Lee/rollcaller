@@ -10,7 +10,8 @@
   import {ArrowDownIcon, ArrowsDownUpIcon, ArrowUpIcon, MinusIcon, PlusIcon} from "phosphor-svelte";
   import Switch from "$components/common/Switch.svelte";
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
-  import { ttsMode } from "$controllers/TtsController.svelte.js";
+  import {ttsStore} from "$stores/TtsStore.svelte.js";
+  import {destroyScheduler, initScheduler} from "$services/TtsScheduler.svelte.js";
 
   const engine = rollcallEngine;
   let {active = $bindable(false)} = $props();
@@ -59,6 +60,12 @@
     if (tableEl && sortKey == "rollcall_at" && isAsc) {
       tableEl.scrollTop = tableEl.scrollHeight;
     }
+  });
+
+  // TTS 调度器生命周期
+  $effect(() => {
+    initScheduler();
+    return () => destroyScheduler();
   });
 </script>
 
@@ -174,14 +181,14 @@
     </div>
 
     <div class="field">
-      <span class="field-label">{ttsMode.value === "cloud" ? "云端语音" : "本地语音"}</span>
+      <span class="field-label">{ttsStore.mode === "AICloud" ? "云端语音" : "本地语音"}</span>
       <button
         class="switch-button"
-        onclick={() => ttsMode.value = ttsMode.value === "local" ? "cloud" : "local"}
+        onclick={() => ttsStore.mode = ttsStore.mode === "SystemNative" ? "AICloud" : "SystemNative"}
         type="button"
         disabled={engine.isRolling}
       >
-        <Switch yes={ttsMode.value === "cloud"}/>
+        <Switch yes={ttsStore.mode === "AICloud"}/>
       </button>
     </div>
 
