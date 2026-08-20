@@ -10,6 +10,7 @@
   import {ArrowDownIcon, ArrowsDownUpIcon, ArrowUpIcon, MinusIcon, PlusIcon} from "phosphor-svelte";
   import Switch from "$components/common/Switch.svelte";
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
+  import {ttsMode} from "$services/TTSService.svelte.js";
 
   const engine = rollcallEngine;
   let {active = $bindable(false)} = $props();
@@ -170,6 +171,19 @@
       >
         <Switch yes={engine.allowRepetition}/>
       </button>
+    </div>
+
+    <div class="field">
+      <span class="field-label">语音模式</span>
+      <button
+        class="switch-button"
+        onclick={() => ttsMode.value = ttsMode.value === "local" ? "cloud" : "local"}
+        type="button"
+        disabled={engine.isRolling}
+      >
+        <Switch yes={ttsMode.value === "cloud"}/>
+      </button>
+      <span class="tts-mode-label">{ttsMode.value === "cloud" ? "云端" : "本地"}</span>
     </div>
 
     <div class="field">
@@ -390,5 +404,12 @@
     box-sizing: border-box;
     font-size: var(--font-size-lg);
     margin-left: 0;
+  }
+
+  .tts-mode-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-color-secondary);
+    line-height: 1;
+    margin-top: 2px;
   }
 </style>
