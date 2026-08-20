@@ -10,7 +10,7 @@
   import {ArrowDownIcon, ArrowsDownUpIcon, ArrowUpIcon, MinusIcon, PlusIcon} from "phosphor-svelte";
   import Switch from "$components/common/Switch.svelte";
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
-  import {ttsMode} from "$services/TtsController.svelte.js";
+  import { ttsMode } from "$controllers/TtsController.svelte.js";
 
   const engine = rollcallEngine;
   let {active = $bindable(false)} = $props();
