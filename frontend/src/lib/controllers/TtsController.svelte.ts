@@ -8,23 +8,25 @@ export type TTSMode = "local" | "cloud";
 export const ttsMode = $state<{ value: TTSMode }>({ value: "local" });
 
 /**
- * TTS 协调控制器
+ * TTS 协调控制器 —— 唯一队列权威
  *
  * 职责：
- * - 对外统一接口：speakNow(studentNo, name) / speak(studentNo, name)
- * - 统一队列：本地模式多条入队，云端模式串行播放
- * - 根据当前模式路由到本地 WebView TTS 或云端 API
+ * - 唯一队列，本地/云端统一调度
+ * - speakNow(studentNo, name) 打断当前，清空队列，立即播报
+ * - speak(studentNo, name) 追加到队列
+ * - 云端串行：await 后端 → await Audio onended → 取下一个
+ * - 本地：await tts.play(name) → onend resolve → 取下一个
  */
 class TtsController {
   /** 统一播报队列 */
   #queue: Array<{ studentNo: string; name: string }> = [];
   /** 是否正在处理队列 */
   #processing = $state(false);
-  /** 当前正在处理的条目（用于打断判断） */
+  /** 当前正在处理的条目 */
   #currentItem: { studentNo: string; name: string } | null = null;
   /** 云端模式：当前 Audio 元素，用于打断 */
   #cloudAudio: HTMLAudioElement | null = null;
-  /** 云端模式：跳过当前播放标记 */
+  /** 打断标记：当前项的 await 链检测到此标记后跳出 */
   #skipCurrent = false;
 
   get mode(): TTSMode {
@@ -146,21 +148,11 @@ class TtsController {
     this.#processNext();
   }
 
-  // ─── 本地模式：WebViewTtsService 包装为 Promise ────
+  // ─── 本地模式 ──────────────────────────────────────
 
-  #speakLocal(name: string): Promise<void> {
-    return new Promise((resolve) => {
-      // 先打断之前的本地播报
-      tts.cancel();
-      tts.speakNow(name);
-      // 轮询等待播报完成（Web Speech API 无可靠的 end 事件队列回调）
-      const check = setInterval(() => {
-        if (!tts.speaking || this.#skipCurrent) {
-          clearInterval(check);
-          resolve();
-        }
-      }, 50);
-    });
+  async #speakLocal(name: string) {
+    tts.cancel();
+    await tts.play(name);
   }
 
   // ─── 云端模式：后端 API + 浏览器 Audio 播放 ────────
@@ -168,12 +160,10 @@ class TtsController {
   async #speakCloud(studentNo: string, name: string) {
     // 1. 后端：检查缓存 / 调用 API / 写入缓存
     await TTSCommand.speak(studentNo, name);
-
     if (this.#skipCurrent) return;
 
     // 2. 获取 Base64 音频数据
     const b64 = await TTSCommand.getAudio(studentNo, name);
-
     if (this.#skipCurrent) return;
 
     // 3. 解码并播放，等待播放完成
