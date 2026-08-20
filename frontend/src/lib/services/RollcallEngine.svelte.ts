@@ -4,7 +4,7 @@ import {RecordCommand, RollcallCommand} from "$commands";
 import {studentStore} from "$stores/studentStore.svelte";
 import {recordStore} from "$stores/recordStore.svelte";
 import {uuid} from "$utils/UuidUtils";
-import {tts} from "$services/TTSService.svelte.js";
+import { ttsController } from "$services/TtsController.svelte.js";
 
 /** 名字滚动切换间隔（ms） */
 const ROLL_INTERVAL = 120;
@@ -181,7 +181,7 @@ class RollcallEngine {
       };
       this.#savedRecord = await RecordCommand.create(record);
       this.#dispatch(RollcallEvent.SaveSuccess);
-      tts.speak(this.currentName)
+      await ttsController.speakNow(studentId, this.currentName!);
     } catch (e) {
       // SaveFailed：撤销展示的名字，重置状态
       this.#savedRecord = null;
