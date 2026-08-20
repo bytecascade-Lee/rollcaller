@@ -26,7 +26,6 @@ rbatis = { version = "4.8", features = ["debug_mode"] }
 rbs = "4.8"
 rbdc-sqlite = { version = "4.9", features = ["sqlite-bundled"] }
 reqwest = { version = "0.13", features = ["json"] }
-rodio = { version = "0.22", features = ["symphonia-wav"] }
 rust_xlsxwriter = "0.98"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

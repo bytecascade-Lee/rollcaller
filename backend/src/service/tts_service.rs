@@ -3,7 +3,6 @@ use crate::common::ext::hash_ext::HashExt;
 use crate::config::app_paths;
 use anyhow::Context;
 use base64::Engine;
-use rodio::{Decoder, DeviceSinkBuilder, Player};
 use serde_json::json;
 use std::env;
 use std::fs::File;
