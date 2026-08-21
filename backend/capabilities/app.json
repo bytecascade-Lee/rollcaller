@@ -18,6 +18,14 @@
         "core:window:allow-toggle-maximize",
         "decorum:allow-show-snap-overlay",
         "dialog:default",
+        {
+            "identifier": "opener:allow-open-url",
+            "allow": [
+                {
+                    "url": "https://github.com/bytecascade-Lee/rollcaller"
+                }
+            ]
+        },
         "tracing:allow-log"
     ]
 }
