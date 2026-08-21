@@ -182,7 +182,7 @@ class RollcallEngine {
       this.#savedRecord = await RecordCommand.create(record);
       this.#dispatch(RollcallEvent.SaveSuccess);
       if (student) {
-        ttsController.speak(student.student_no, student.name);
+        ttsController.speak(student.name);
       }
     } catch (e) {
       // SaveFailed：撤销展示的名字，重置状态
