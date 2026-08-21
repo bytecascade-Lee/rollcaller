@@ -18,6 +18,7 @@ export * from "./StudentSingleCreateResult";
 export * from "./StudentSingleUpdate";
 export * from "./StudentTable";
 export * from "./TreeNode"
+export * from "./TriSwitchState"
 export * from "./TtsMode"
 export * from "./TtsPhase"
 export * from "./TtsQueueItem"
