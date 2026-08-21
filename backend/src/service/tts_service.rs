@@ -95,7 +95,7 @@ fn get_cache_path(student_no: &str, name: &str) -> std::path::PathBuf {
     let hash = format!("{}{}", student_no, name).sha256();
 
     app_paths::cache_dir()
-        .join("tts/api")
+        .join("tts/ai-cloud")
         .join(&hash[0..2])
         .join(format!("{}.wav", hash))
 }
