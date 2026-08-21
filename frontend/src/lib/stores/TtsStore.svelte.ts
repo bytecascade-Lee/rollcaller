@@ -3,7 +3,7 @@ import {TtsMode} from "$types/TtsMode";
 
 export class TtsStore {
   #items = $state<TtsQueueItem[]>([]);
-  #mode = $state<TtsMode>("SystemNative");
+  #mode = $state<TtsMode>("Off");
   #isPaused = $state(false);
   #currentId = $state<string | null>(null);
 
