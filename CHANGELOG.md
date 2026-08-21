@@ -4,6 +4,69 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 0.5.0
+
+### Breaking Changes
+
+- 重构 TTS 服务架构，音频播放由后端迁移至前端控制，移除后端 `play` 函数和 `tts_play` 命令，移除 `rodio` 依赖
+- TTS 后端 API 参数顺序调整为 `(student_no, name)`，`student_no` 改为必选，移除匿名缓存键支持
+- 帮助窗口生命周期管理移交前端，移除 `windows_help_hide`/`close`/`destroy` 三个 Tauri 命令
+
+### Added
+
+- 新增 TTS 语音合成系统：
+  - 新增 `TtsMode` 枚举（`Off`/`SystemNative`/`AICloud`等），支持本地浏览器语音、云端 AI 大模型、完全关闭三种模式
+  - 新增 `TtsStore` 状态管理，实现播报队列的增删改查、模式切换及队列项状态追踪
+  - 新增 `TtsScheduler` 队列调度器，驱动"加载→播放"流水线，支持暂停检测和打断
+  - 新增 `TtsLoader` 异步资源加载器，根据模式分发加载逻辑，AI 模式通过后端 API 获取音频
+  - 新增 `TtsPlayer` 播放控制器，支持 Web Speech API 和 HTMLAudioElement 双引擎，集成 AbortController 中断
+  - 新增 `TtsController` 协调控制器，对外统一 speak/speakNow/pause/resume/cancel 接口
+  - 新增基于 SHA256 哈希的 TTS 音频缓存机制，集成小米 Mimo TTS API，使用冰糖音色
+  - 新增 `tts_cloud_model` 后端命令，合并音频生成与获取，一次调用返回 Base64 音频数据
+  - 新增 `TTSMode`、`TtsPhase`、`TtsQueueItem` 类型定义，由 ts-rs 自动生成
+- 新增 `TriSwitch` 三态开关组件，支持 -1/0/1 三种状态切换，带弹性动画和动态轨道背景色
+- 新增 `TriSwitchState` 枚举及 `STATE_CONFIG` 配置，定义各状态的样式参数与标签映射
+- 新增 `toTtsMode`/`toId` 工具函数，实现 TtsMode 枚举与数值 ID 互转
+- 新增自定义标题栏组件 `Titlebar`：
+  - 支持 Windows 11 贴靠布局（Snap Layout）悬停触发
+  - 集成最小化、最大化/还原、关闭窗口控制按钮
+  - 添加 GitHub 项目主页快捷按钮，通过 opener 插件打开外部链接
+  - 使用 `data-tauri-decorum-tb` 和 `data-tauri-drag-region` 配合 decorum 插件实现拖拽
+- 集成 `tauri-plugin-decorum`，启用 overlay titlebar 支持自定义标题栏
+- 新增窗口管理权限：`core:window` 系列（关闭、居中、最小化、最大化、拖拽、切换最大化）、`decorum:allow-show-snap-overlay`
+- 新增 `opener:allow-open-url` 权限至 app 窗口，支持通过系统浏览器打开外部链接
+- 新增图片资源模块类型声明（`*.png`、`*.ico`）
+
+### Changed
+
+- 重构 TTS 服务为 `TtsController` + `WebViewTtsService` 两层架构，Controller 负责队列调度，WebViewService 简化为无状态播放器原语
+- 重构 `TtsController` 为统一队列调度器，队列管理从 WebViewTtsService 迁移至 Controller
+- 重构点名组件接入新版 TTS 调度架构，新增 TtsScheduler 生命周期管理
+- 重构帮助窗口管理，移除 hide/close/destroy 控制权，集成 decorum 和 prevent 插件
+- 重构主窗口初始化逻辑，移除 `init` 函数改为 `open` 懒加载创建，与帮助窗口保持一致
+- 主窗口和帮助窗口均集成自定义标题栏，调整 Grid 布局行结构适配 titlebar 区域
+- 帮助窗口标题栏显示"主界面"快捷按钮，支持快速返回主应用窗口
+- 优化 CI Cargo 缓存策略，使用 `shared-key` 让不同架构共享 `~/.cargo/registry`
+- 移除前端 `check` 命令中的 `svelte-kit sync`，简化执行流程
+- 重命名 `navTree.ts` 为 `NavTreeUtils.ts`，`DataTimeUtils.ts` 为 `DateTimeUtils.ts`
+- 规范化 `tsconfig.json` 路径别名配置，统一移除末尾多余逗号
+- 应用名称从"自动点名应用"更新为"自动点名"
+
+### Fixed
+
+- 修复最小化窗口无法正常恢复显示的问题，在 `show()` 前调用 `unminimize()`
+- 修复 TTS 播报时学生信息获取错误，改用 `student_no` 作为缓存键
+- 修复语音关闭模式下仍向队列添加任务导致程序卡死的问题
+- 修复 `$asserts` 资源目录别名拼写错误，更正为 `$assets`
+
+### Removed
+
+- 移除旧版 `TTSService` 单文件实现，改用 Store/Loader/Player/Scheduler/Controller 分层架构
+- 移除后端 `tts_play` 命令，播放逻辑迁移至前端
+- 移除 `rodio` 依赖，音频播放改由前端 HTMLAudioElement 处理
+
+---
+
 ## 0.4.3
 
 ### Added

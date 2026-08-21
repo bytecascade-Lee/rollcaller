@@ -18,6 +18,7 @@ pub async fn run() {
         .setup(|app| init(app))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_decorum::init())
         .plugin(tauri_plugin_tracing::Builder::new().build())
         .plugin(tauri_plugin_prevent_default::init_with_manual_injection())
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cmd| {}))
@@ -56,11 +57,9 @@ pub async fn run() {
             crate::cmd::import::import_excel,
             crate::cmd::export::student_export,
             crate::cmd::export::record_export,
-            crate::cmd::windows::windows_help_open,
-            crate::cmd::windows::windows_help_hide,
-            crate::cmd::windows::windows_help_close,
-            crate::cmd::windows::windows_help_destroy,
+            crate::cmd::tts::tts_cloud_model,
             crate::cmd::windows::windows_app_open,
+            crate::cmd::windows::windows_help_open,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -73,13 +72,14 @@ pub async fn run() {
 /// 失败时弹出原生错误对话框提示，解决打包后启动失败无任何报错输出的问题。
 fn init(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let handle = app.handle().clone();
+    let handle2 = app.handle().clone();
     tauri::async_runtime::spawn(async move {
         if let Err(e) = bootstrap::init().await {
             bootstrap::show_fatal_error(&handle, e);
         }
     });
 
-    if let Err(e) = app_window::init(app) {
+    if let Err(e) = app_window::open(handle2) {
         bootstrap::show_fatal_error(app.handle(), e);
     }
     Ok(())

@@ -8,6 +8,8 @@
   import "$styles/footbar.css";
   import "$styles/text.css";
   import {onMount} from "svelte";
+  import TitleBar from "$components/common/TitleBar.svelte";
+  import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
   import NavTree from "$components/common/NavTree.svelte";
   import MarkdownView from "$components/common/MarkdownView.svelte";
   import {helpStore} from "$stores/helpStore.svelte";
@@ -20,6 +22,7 @@
     {
       [K in keyof typeof metaData.nodes]: TreeNode & { id: K }
     };
+  const window = getCurrentWebviewWindow();
   let activeId = $state("overview");
   let jumpToken = $state(0); // 外部跳转触发信号：自增时 NavTree 折叠到单级
   let scroller: HTMLDivElement | undefined = $state();
@@ -52,6 +55,9 @@
 </script>
 
 <div class="shell">
+  <div class="titlebar-slot">
+    <TitleBar window={window} title="自动点名 - 帮助文档" label={window.label}/>
+  </div>
   <aside class="sidebar">
     <nav class="nav">
       <NavTree
@@ -89,8 +95,9 @@
   .shell {
     display: grid;
     grid-auto-columns: 130px 1fr;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: auto 1fr auto;
     grid-template-areas:
+      "titlebar titlebar"
       "sidebar content"
       "footbar footbar";
     width: 100%;
@@ -100,6 +107,10 @@
     color: var(--text-color-content);
     font-family: var(--font-family-sans);
     font-size: var(--font-size-sm);
+  }
+
+  .titlebar-slot {
+    grid-area: titlebar;
   }
 
   .sidebar {

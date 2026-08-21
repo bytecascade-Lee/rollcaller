@@ -34,3 +34,12 @@
     background: var(--color-primary);
     color: var(--color-page);
 }
+
+.icon-button.danger:hover {
+    color: var(--color-error-hover);
+}
+
+.icon-button.danger:active {
+    background: var(--color-error-hover);
+    color: var(--color-page);
+}

@@ -3,7 +3,7 @@
   import {overlayController} from "$controllers/popupController";
   import type {StudentSingleUpdate, StudentTable} from "$types";
   import {StudentCommand} from "$commands"
-  import {format} from "$utils/DataTimeUtils";
+  import {DateTimeUtils} from "$utils";
 
   let {selected = $bindable()}: { selected: Set<bigint> } = $props();
   let localEdit = $state<StudentTable | null>(null);
@@ -105,7 +105,7 @@
             <span class="text-subtitle error">学号已被占用<br/></span>
             <span class="text-content">
                 学号「{editResult.data.student_no}」已被学生<b>{editResult.data.name}</b>使用<br/>
-                （创建于 {format(editResult.data.created_at)}）<br/>
+                （创建于 {DateTimeUtils.format(editResult.data.created_at)}）<br/>
                 请修改学号后重试
               </span>
           {/if}

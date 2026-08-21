@@ -5,3 +5,4 @@ pub mod student_service;
 pub mod import_service;
 pub mod export_service;
 pub mod attendance_status_service;
+pub mod tts_service;
