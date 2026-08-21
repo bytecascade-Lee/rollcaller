@@ -9,6 +9,7 @@
   import "$styles/footbar.css";
   import "$styles/global-form-reset.css";
   import "$styles/icon-button.css"
+  import "$styles/logo.css"
   import "$styles/nav.css";
   import "$styles/overlay.css";
   import "$styles/search.css";
@@ -33,6 +34,8 @@
   import {AppInfoCommand, WindowsCommand} from "$commands";
   import type {AppInfo} from "$types";
   import {onMount} from "svelte";
+  import TitleBar from "$components/common/TitleBar.svelte";
+  import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
 
   let APP_INFO = $state<AppInfo>({
     branch: "",
@@ -42,6 +45,7 @@
     version: "",
     build_time: ""
   })
+  const window = getCurrentWebviewWindow();
   let currentPage: 'rollcall' | 'students' | 'records' = $state("rollcall");
 
   onMount(async () => {
@@ -50,6 +54,9 @@
 </script>
 
 <div class="shell">
+  <div class="titlebar-slot">
+    <TitleBar window={window} title="自动点名应用" label={window.label}/>
+  </div>
   <aside class="sidebar">
     <nav class="nav">
       <button
@@ -117,8 +124,9 @@
   .shell {
     display: grid;
     grid-auto-columns: 48px 1fr;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: auto 1fr auto;
     grid-template-areas:
+    "titlebar titlebar"
     "sidebar content"
     "footbar footbar";
     width: 100%;
@@ -128,5 +136,9 @@
     color: var(--text-color-content);
     font-family: var(--font-family-sans);
     font-size: var(--font-size-sm);
+  }
+
+  .titlebar-slot {
+    grid-area: titlebar;
   }
 </style>

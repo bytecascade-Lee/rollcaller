@@ -1,14 +1,20 @@
 .titlebar {
     height: 32px;
-    background: var(--color-page);
     display: flex;
     align-items: center;
-    padding: 0 8px;
+    background: var(--color-page);
+    border-bottom: var(--border-size-xxs) solid var(--border-color-3);
     user-select: none;
     -webkit-user-select: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 9999;
+}
+
+.titlebar-drag-region {
+    flex: 1;
+    align-self: stretch;
+    cursor: default;
+}
+
+/* 隐藏 decorum 自动注入的窗口控制按钮 —— 使用自绘按钮 */
+[data-tauri-decorum-tb] button.decorum-tb-btn {
+    display: none !important;
 }
