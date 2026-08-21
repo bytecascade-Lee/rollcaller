@@ -79,6 +79,19 @@ export class TtsStore {
     this.#items = [];
     this.#currentId = null;
   }
+
+  nextMode() {
+    switch (this.#mode) {
+      case "Off":
+        this.#mode = "SystemNative"
+        break;
+      case "SystemNative":
+        this.#mode = "AICloud";
+        break;
+      case "AICloud":
+        this.#mode = "Off";
+    }
+  }
 }
 
 export const ttsStore = new TtsStore();
