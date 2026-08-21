@@ -2,8 +2,8 @@
     grid-area: content;
     display: flex;
     flex-direction: column;
-    gap: var(--space-sm);
-    padding: var(--space-sm);
+    gap: var(--space-xs);
+    padding: var(--space-xs);
     overflow: hidden;
 }
 
@@ -12,7 +12,7 @@
     flex: 1;
     min-height: 0;
     flex-direction: column;
-    gap: var(--space-sm);
+    gap: var(--space-xs);
 }
 
 .content > *.active {
