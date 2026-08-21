@@ -12,6 +12,8 @@
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
   import {ttsStore} from "$stores/TtsStore.svelte.js";
   import {destroyScheduler, initScheduler} from "$services/TtsScheduler.svelte.js";
+  import TriSwitch from "$components/common/TriSwitch.svelte";
+  import {TtsModeUtils} from "$utils";
 
   const engine = rollcallEngine;
   let {active = $bindable(false)} = $props();
@@ -181,14 +183,22 @@
     </div>
 
     <div class="field">
-      <span class="field-label">{ttsStore.mode === "AICloud" ? "云端语音" : "本地语音"}</span>
+      <span class="field-label">
+        {#if ttsStore.mode == "Off"}
+          关闭播报
+        {:else if ttsStore.mode == "SystemNative"}
+          本地语音
+        {:else if ttsStore.mode == "AICloud"}
+          云端语音
+        {/if}
+      </span>
       <button
         class="switch-button"
-        onclick={() => ttsStore.mode = ttsStore.mode === "SystemNative" ? "AICloud" : "SystemNative"}
-        type="button"
         disabled={engine.isRolling}
+        onclick={() => ttsStore.nextMode()}
+        type="button"
       >
-        <Switch yes={ttsStore.mode === "AICloud"}/>
+        <TriSwitch value={TtsModeUtils.toId(ttsStore.mode)}/>
       </button>
     </div>
 
