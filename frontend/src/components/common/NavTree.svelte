@@ -1,6 +1,6 @@
 <script lang="ts">
   import type {NavItem, TreeNode} from "$types";
-  import {buildNavTree} from "$utils/navTree";
+  import {NavTreeUtils} from "$utils";
   import {CaretDownIcon, CaretRightIcon} from "phosphor-svelte";
 
   let {
@@ -19,7 +19,7 @@
     defaultExpanded?: string[];
   } = $props();
 
-  const navTree = $derived(buildNavTree(nodes, order));
+  const navTree = $derived(NavTreeUtils.buildNavTree(nodes, order));
   let expandedIds = $derived<Set<string>>(new Set(defaultExpanded));
 
   function toggleExpand(id: string) {
