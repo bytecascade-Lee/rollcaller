@@ -51,6 +51,7 @@ export class TtsStore {
 
   /** 入队 — 自动注入当前全局 mode 为 generatedMode 快照 */
   add(item: Omit<TtsQueueItem, "generatedMode">) {
+    if (this.#mode == "Off") return;
     const full: TtsQueueItem = {...item, generatedMode: this.#mode};
     this.#items = [...this.#items, full];
   }
