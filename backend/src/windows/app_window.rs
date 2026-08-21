@@ -1,33 +1,27 @@
 use crate::config::app_paths;
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_decorum::WebviewWindowExt;
 use tauri_plugin_prevent_default::PreventDefault;
-
-pub fn init(app: &mut tauri::App) -> anyhow::Result<()> {
-    let _ = WebviewWindowBuilder::new(app, "app", WebviewUrl::App("app.html".into()))
-        .data_directory(app_paths::webview2_dir().to_path_buf())
-        .inner_size(900.0, 700.0)
-        .auto_resize()
-        .center()
-        .decorations(true)
-        .title("Rollcaller")
-        .initialization_script(app.prevent_default_script().to_string())
-        .build()
-        .context("Failed to build app window.")?;
-    Ok(())
-}
 
 pub fn open(app: tauri::AppHandle) -> anyhow::Result<()> {
     match app.get_webview_window("app") {
         Some(app_window) => {
-            app_window
-                .show()
-                .context("Failed to show window.")?;
-            app_window
-                .set_focus()
-                .context("Failed to focus window.")?;
-            Ok(())
+            app_window.show().context("Failed to show window.")?;
+            app_window.set_focus().context("Failed to focus window.")?;
         }
-        None => Err(anyhow!("竟然没有main标签的窗口？？？是不是打成mian了？")),
-    }
+        None => {
+            let app_window = WebviewWindowBuilder::new(&app, "app", WebviewUrl::App("app.html".into()))
+                .data_directory(app_paths::webview2_dir().to_path_buf())
+                .inner_size(900.0, 700.0)
+                .auto_resize()
+                .center()
+                .title("app")
+                .initialization_script(app.prevent_default_script().to_string())
+                .build()
+                .context("Failed to build app window.")?;
+            app_window.create_overlay_titlebar().context("Failed to create overlay titlebar.")?;
+        }
+    };
+    Ok(())
 }
