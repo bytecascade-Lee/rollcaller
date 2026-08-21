@@ -2,14 +2,15 @@
   import {invoke} from "@tauri-apps/api/core";
   import type {WebviewWindow} from "@tauri-apps/api/webviewWindow";
   import {openUrl} from "@tauri-apps/plugin-opener";
-  import {CopyIcon, GithubLogoIcon, MinusIcon, SquareIcon, XIcon} from "phosphor-svelte";
+  import {CopyIcon, DiceFourIcon, GithubLogoIcon, MinusIcon, SquareIcon, XIcon} from "phosphor-svelte";
   import {onMount} from "svelte";
   import "$styles/logo.css"
   import "$styles/titlebar.css";
   import "$styles/icon-button.css";
-  import logo from "../../assets/icon.ico";
+  import logo from "$assets/icon.ico";
+  import {WindowsCommand} from "$commands";
 
-  let {window, title}: { window: WebviewWindow, title: string } = $props();
+  let {window, title, label}: { window: WebviewWindow, title: string, label: string } = $props();
   let isMaximized = $state(false);
   let snapTimer: ReturnType<typeof setTimeout> | undefined;
   onMount(() => {
@@ -60,6 +61,16 @@
     class="icon-button-group"
     style:padding-right="12px"
   >
+    {#if label == "help"}
+      <button
+        class="icon-button"
+        title="主界面"
+        aria-label="主界面"
+        onclick={WindowsCommand.openAppWindow}
+      >
+        <DiceFourIcon size="16" weight="bold"/>
+      </button>
+    {/if}
     <button
       aria-label="项目主页"
       class="icon-button"

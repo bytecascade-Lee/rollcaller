@@ -56,7 +56,7 @@
 
 <div class="shell">
   <div class="titlebar-slot">
-    <TitleBar window={window} title="自动点名应用 - 帮助文档"/>
+    <TitleBar window={window} title="自动点名应用 - 帮助文档" label="help"/>
   </div>
   <aside class="sidebar">
     <nav class="nav">
