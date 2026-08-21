@@ -21,7 +21,7 @@ export async function loadItem(store: TtsStore, item: TtsQueueItem): Promise<voi
       case "AICloud":
       case "AIHttp":
       case "AIEmbedded": {
-        const b64 = await TtsCommand.speak(item.studentNo, item.name);
+        const b64 = await TtsCommand.speak(item.name);
         // 校验：item 可能已被 clearAll 移除
         if (!store.items.find((i) => i.id === item.id)) return;
         const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
