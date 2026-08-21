@@ -10,6 +10,7 @@ use std::io::BufReader;
 use std::io::Write;
 use tracing::info;
 
+const API_KEY: &str = env!("MIMO_TTS_API_KEY");
 /// 调用云端 TTS API 并缓存音频
 pub async fn generate_by_cloud_model(student_no: &str, name: &str) -> anyhow::Result<String> {
     if check_cache(student_no, name)? {
@@ -18,13 +19,10 @@ pub async fn generate_by_cloud_model(student_no: &str, name: &str) -> anyhow::Re
     }
     info!("Cache miss for TTS: {} {}, calling API", student_no, name);
 
-    let api_key = env::var("MIMO_TTS_API_KEY")
-        .context("环境变量 MIMO_TTS_API_KEY 未设置，请在 .env 文件中配置云端TTS密钥")?;
-
     let client = reqwest::Client::new();
     let response = client
         .post("https://api.xiaomimimo.com/v1/chat/completions")
-        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Authorization", format!("Bearer {}", API_KEY))
         .header("Content-Type", "application/json")
         .json(&json!({
             "model": "mimo-v2.5-tts",
