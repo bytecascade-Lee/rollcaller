@@ -1,3 +1,4 @@
-export * as DataTime from "./DataTimeUtils";
-export * as UUID from "./UuidUtils";
-export * as navTree from "./navTree";
+export * as DateTimeUtils from "./DateTimeUtils";
+export * as UuidUtils from "./UuidUtils";
+export * as NavTreeUtils from "./NavTreeUtils";
+export * as TtsModeUtils from "./TstModeUtils"

@@ -1,7 +1,7 @@
 <script lang="ts">
 
   import {recordStore} from "$stores/recordStore.svelte";
-  import {format} from "$utils/DataTimeUtils";
+  import {DateTimeUtils} from "$utils";
   import type {RecordGroupMetaData, RollcallRecord} from "$types";
   import {
     ArrowClockwiseIcon,
@@ -32,7 +32,7 @@
         record.student_no.toLowerCase().includes(searchQuery) ||
         record.name.toLowerCase().includes(searchQuery) ||
         record.remark?.toLowerCase().includes(searchQuery) ||
-        format(record.rollcall_at).toLowerCase().includes(searchQuery)
+        DateTimeUtils.format(record.rollcall_at).toLowerCase().includes(searchQuery)
       );
     })
     .sort((a, b) => {
@@ -167,7 +167,8 @@
                 <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
               {/if}
             {:else}
-              <ArrowsDownUpIcon size="14"/>{/if}
+              <ArrowsDownUpIcon size="14"/>
+            {/if}
           </th>
           <th onclick={() => sort("student_no")}>
             学号
@@ -178,7 +179,8 @@
                 <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
               {/if}
             {:else}
-              <ArrowsDownUpIcon size="14"/>{/if}
+              <ArrowsDownUpIcon size="14"/>
+            {/if}
           </th>
           <th onclick={() => sort("attendance_status")}>
             <PencilSimpleIcon size="14" weight="bold"/>
@@ -190,7 +192,8 @@
                 <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
               {/if}
             {:else}
-              <ArrowsDownUpIcon size="14"/>{/if}
+              <ArrowsDownUpIcon size="14"/>
+            {/if}
           </th>
           <th onclick={() => sort("remark")}>
             <PencilSimpleIcon size="14" weight="bold"/>
@@ -251,7 +254,7 @@
             >
               {record.remark}
             </td>
-            <td>{format(record.rollcall_at)}</td>
+            <td>{DateTimeUtils.format(record.rollcall_at)}</td>
           </tr>
         {/each}
         </tbody>

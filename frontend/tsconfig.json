@@ -12,31 +12,88 @@
         "module": "preserve",
         "moduleResolution": "bundler",
         "paths": {
-            "$actions": ["./src/lib/actions"],
-            "$actions/*": ["./src/lib/actions/*"],
-            "$assets/*": ["./src/assets/*"],
-            "$commands": ["./src/lib/commands"],
-            "$commands/*": ["./src/lib/commands/*"],
-            "$components/*": ["./src/components/*"],
-            "$constants": ["./src/lib/constants"],
-            "$constants/*": ["./src/lib/constants/*"],
-            "$controllers/*": ["./src/lib/controllers/*"],
-            "$pages/*": ["./src/pages/*"],
-            "$resources/*": ["./src/lib/resources/*"],
-            "$services/*": ["./src/lib/services/*"],
-            "$static/*": ["./src/static/*"],
-            "$stores/*": ["./src/lib/stores/*"],
-            "$styles/*": ["./src/styles/*"],
-            "$types/*": ["./src/lib/types/*"],
-            "$types": ["./src/lib/types"],
-            "$utils/*": ["./src/lib/utils/*"],
+            "$actions": [
+                "./src/lib/actions"
+            ],
+            "$actions/*": [
+                "./src/lib/actions/*"
+            ],
+            "$assets": [
+                "./src/assets"
+            ],
+            "$assets/*": [
+                "./src/assets/*"
+            ],
+            "$commands": [
+                "./src/lib/commands"
+            ],
+            "$commands/*": [
+                "./src/lib/commands/*"
+            ],
+            "$components/*": [
+                "./src/components/*"
+            ],
+            "$constants": [
+                "./src/lib/constants"
+            ],
+            "$constants/*": [
+                "./src/lib/constants/*"
+            ],
+            "$controllers": [
+                "./src/lib/controllers"
+            ],
+            "$controllers/*": [
+                "./src/lib/controllers/*"
+            ],
+            "$pages/*": [
+                "./src/pages/*"
+            ],
+            "$resources/*": [
+                "./src/lib/resources/*"
+            ],
+            "$services": [
+                "./src/lib/services"
+            ],
+            "$services/*": [
+                "./src/lib/services/*"
+            ],
+            "$static/*": [
+                "./src/static/*"
+            ],
+            "$stores": [
+                "./src/lib/stores"
+            ],
+            "$stores/*": [
+                "./src/lib/stores/*"
+            ],
+            "$styles/*": [
+                "./src/styles/*"
+            ],
+            "$types": [
+                "./src/lib/types"
+            ],
+            "$types/*": [
+                "./src/lib/types/*"
+            ],
+            "$utils": [
+                "./src/lib/utils"
+            ],
+            "$utils/*": [
+                "./src/lib/utils/*"
+            ]
         },
         "typeRoots": [
             "./src/types.d.ts"
         ]
     },
-    "include": ["src/**/*"],
-    "exclude": ["dist", "node_modules", "**/*.spec.js"]
+    "include": [
+        "src/**/*"
+    ],
+    "exclude": [
+        "dist",
+        "node_modules",
+        "**/*.spec.js"
+    ]
     // Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
     // except $lib which is handled by https://svelte.dev/docs/kit/configuration#files
     //

@@ -1,15 +1,15 @@
 <script lang="ts">
-  import {studentStore} from "$stores/studentStore.svelte"
-  import {recordStore} from "$stores/recordStore.svelte"
   import {rollcallEngine} from "$services/RollcallEngine.svelte";
   import type {RecordGroupMetaData, RollcallRecord} from "$types";
   import {RollcallPhase} from "$types";
-  import {format} from "$utils/DataTimeUtils";
+  import {DateTimeUtils, TtsModeUtils} from "$utils";
   import {COLORS, group} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import {ArrowDownIcon, ArrowsDownUpIcon, ArrowUpIcon, MinusIcon, PlusIcon} from "phosphor-svelte";
   import Switch from "$components/common/Switch.svelte";
-  import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
+  import {attendanceStatusStore, recordStore, studentStore, ttsStore} from "$stores";
+  import {destroyScheduler, initScheduler} from "$services/TtsScheduler.svelte.js";
+  import TriSwitch from "$components/common/TriSwitch.svelte";
 
   const engine = rollcallEngine;
   let {active = $bindable(false)} = $props();
@@ -58,6 +58,12 @@
     if (tableEl && sortKey == "rollcall_at" && isAsc) {
       tableEl.scrollTop = tableEl.scrollHeight;
     }
+  });
+
+  // TTS 调度器生命周期
+  $effect(() => {
+    initScheduler();
+    return () => destroyScheduler();
   });
 </script>
 
@@ -162,13 +168,33 @@
     </div>
 
     <div class="field">
-      <span class="field-label">允许重复</span>
+      <span class="field-label">{engine.allowRepetition ? "允许重复" : "禁止重复"}</span>
       <button
         class="switch-button"
         onclick={() => (engine.allowRepetition = !engine.allowRepetition)}
         type="button"
       >
         <Switch yes={engine.allowRepetition}/>
+      </button>
+    </div>
+
+    <div class="field">
+      <span class="field-label">
+        {#if ttsStore.mode == "Off"}
+          关闭播报
+        {:else if ttsStore.mode == "SystemNative"}
+          本地语音
+        {:else if ttsStore.mode == "AICloud"}
+          云端语音
+        {/if}
+      </span>
+      <button
+        class="switch-button"
+        disabled={engine.isRolling}
+        onclick={() => ttsStore.nextMode()}
+        type="button"
+      >
+        <TriSwitch value={TtsModeUtils.toId(ttsStore.mode)}/>
       </button>
     </div>
 
@@ -295,7 +321,7 @@
                 <AttendanceStatusBadge id={record.attendance_status}/>
               </td>
               <td>{record.remark}</td>
-              <td>{format(record.rollcall_at)}</td>
+              <td>{DateTimeUtils.format(record.rollcall_at)}</td>
             </tr>
           {/each}
           </tbody>
@@ -391,4 +417,5 @@
     font-size: var(--font-size-lg);
     margin-left: 0;
   }
+
 </style>

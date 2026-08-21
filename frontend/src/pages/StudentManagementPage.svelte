@@ -1,6 +1,6 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import {format} from "$utils/DataTimeUtils";
+  import {DateTimeUtils} from "$utils";
   import SingleCreateStudent from "$components/student-management/SingleCreateStudent.svelte";
   import DeleteStudents from "$components/student-management/DeleteStudents.svelte";
   import ImportStudents from "$components/student-management/ImportStudents.svelte";
@@ -249,8 +249,8 @@
             <td>{index + 1}</td>
             <td>{student.name}</td>
             <td>{student.student_no}</td>
-            <td>{format(student.created_at)}</td>
-            <td>{format(student.updated_at)}</td>
+            <td>{DateTimeUtils.format(student.created_at)}</td>
+            <td>{DateTimeUtils.format(student.updated_at)}</td>
           </tr>
         {/each}
         </tbody>

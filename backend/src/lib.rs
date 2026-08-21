@@ -56,6 +56,7 @@ pub async fn run() {
             crate::cmd::import::import_excel,
             crate::cmd::export::student_export,
             crate::cmd::export::record_export,
+            crate::cmd::tts::tts_cloud_model,
             crate::cmd::windows::windows_help_open,
             crate::cmd::windows::windows_help_hide,
             crate::cmd::windows::windows_help_close,
