@@ -15,9 +15,8 @@ pub fn open(app: tauri::AppHandle) -> anyhow::Result<()> {
                 .data_directory(app_paths::webview2_dir().to_path_buf())
                 .inner_size(800.0, 600.0)
                 .auto_resize()
-                .title("Rollcaller Help")
+                .title("help")
                 .center()
-                .title("Rollcaller Help")
                 .initialization_script(app.prevent_default_script().to_string())
                 .build()
                 .context("Failed to build help window.")?;

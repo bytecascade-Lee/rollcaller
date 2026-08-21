@@ -15,9 +15,8 @@ pub fn open(app: tauri::AppHandle) -> anyhow::Result<()> {
                 .data_directory(app_paths::webview2_dir().to_path_buf())
                 .inner_size(900.0, 700.0)
                 .auto_resize()
-                .title("Rollcaller App")
-                .center()
                 .title("app")
+                .center()
                 .initialization_script(app.prevent_default_script().to_string())
                 .build()
                 .context("Failed to build app window.")?;
