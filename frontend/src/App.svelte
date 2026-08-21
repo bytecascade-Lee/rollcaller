@@ -55,7 +55,7 @@
 
 <div class="shell">
   <div class="titlebar-slot">
-    <TitleBar window={window} title="自动点名应用" label="app"/>
+    <TitleBar window={window} title="自动点名应用" label={window.label}/>
   </div>
   <aside class="sidebar">
     <nav class="nav">
