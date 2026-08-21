@@ -7,6 +7,7 @@ use tauri_plugin_prevent_default::PreventDefault;
 pub fn open(app: tauri::AppHandle) -> anyhow::Result<()> {
     match app.get_webview_window("help") {
         Some(help_window) => {
+            help_window.unminimize().context("Failed to unminimize window")?;
             help_window.show().context("Failed to show window.")?;
             help_window.set_focus().context("Failed to focus window.")?;
         }
