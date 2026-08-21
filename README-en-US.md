@@ -20,7 +20,7 @@ A classroom random roll call tool built with Tauri + Svelte.
 ## Tech Stack
 
 - Frontend: Svelte 5 + TypeScript + Vite + pnpm
-- Backend: Rust + Tauri 2.x
+- Backend: Rust + Tauri 2.11
 - Database: SQLite + RBatis
 - Styling: Open Props + Phosphor
 
@@ -30,9 +30,9 @@ A classroom random roll call tool built with Tauri + Svelte.
 
 ### Requirements
 
-- Node.js 18+
-- pnpm 8+
-- Rust 1.70+
+- Node.js 22+
+- pnpm 11+
+- Rust 1.80+
 - Tauri CLI
 
 ### Start Dev Server

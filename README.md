@@ -19,7 +19,7 @@
 ## 技术栈
 
 - 前端：Svelte 5 + TypeScript + Vite + pnpm
-- 后端：Rust + Tauri 2.x
+- 后端：Rust + Tauri 2.11
 - 数据库：SQLite + RBatis
 - 样式：Open Props + Phosphor
 
@@ -29,9 +29,9 @@
 
 ### 环境要求
 
-- Node.js 18+
-- pnpm 8+
-- Rust 1.70+
+- Node.js 22+
+- pnpm 11+
+- Rust 1.80+
 - Tauri CLI
 
 ### 启动开发服务
