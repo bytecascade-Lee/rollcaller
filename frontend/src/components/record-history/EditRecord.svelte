@@ -19,8 +19,6 @@
   let remark = $state("");
   let popoverStyle = $state("");
 
-  const statusIds = $derived<number[]>(Array.from(attendanceStatusStore.attendanceStatusMap().keys()).filter(id => id != 0));
-
   async function update() {
     const wantStatus = updateStatus && attendanceStatus != null;
     const wantRemark = updateRemark && remark.trim();
@@ -96,10 +94,10 @@
       </span>
 
       <span class="badge-group">
-        {#if attendanceStatusStore.isLoading() || statusIds == null}
+        {#if attendanceStatusStore.isLoading() || attendanceStatusStore.validStatusIds == null}
           <span class="state">加载中……</span>
         {:else}
-          {#each statusIds as id (id)}
+          {#each attendanceStatusStore.validStatusIds as id (id)}
             <button
               class="badge-button"
               type="button"
@@ -107,7 +105,7 @@
               style:padding="0"
               onclick={(e) => {
               e.stopPropagation();
-              attendanceStatus = attendanceStatus == id ? null : id
+              attendanceStatus = attendanceStatus === id ? null : id
             }}
             >
               <AttendanceStatusBadge id={id} selected={attendanceStatus == id}/>
