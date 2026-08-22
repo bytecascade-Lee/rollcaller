@@ -17,16 +17,16 @@ class TtsController {
   }
 
   /** 追加到队列（队列泵自动触发加载与播放） */
-  speak(studentNo: string, name: string) {
-    ttsStore.add({id: crypto.randomUUID(), studentNo, name, status: "Loading"});
+  speak(name: string) {
+    ttsStore.add({id: crypto.randomUUID(), name, status: "Loading"});
     pumpQueue();
   }
 
   /** 打断当前 → 清空队列 → 立即播报新内容 */
-  speakNow(studentNo: string, name: string) {
+  speakNow(name: string) {
     abortCurrent();
     ttsStore.clearAll();
-    this.speak(studentNo, name);
+    this.speak(name);
   }
 
   /** 暂停 */

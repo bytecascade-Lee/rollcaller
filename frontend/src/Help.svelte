@@ -7,6 +7,10 @@
   import "$styles/content.css";
   import "$styles/footbar.css";
   import "$styles/text.css";
+  import "$styles/global-form-reset.css"
+  import "$styles/popup.css"
+  import "$styles/search.css"
+  import "$styles/state.css"
   import {onMount} from "svelte";
   import TitleBar from "$components/common/TitleBar.svelte";
   import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
@@ -48,9 +52,16 @@
     scroller?.scrollTo(0, 0);
   });
 
-  onMount(async () => {
-    APP_INFO = await AppInfoCommand.app_info();
-    await helpStore.load(activeId);
+  onMount(() => {
+    // 注册跳转回调：搜索结果选中时复用导航逻辑（加载 + 树高亮 + 折叠）
+    helpStore.navigate = handleNavigate;
+    void (async () => {
+      APP_INFO = await AppInfoCommand.app_info();
+      await helpStore.load(activeId);
+    })();
+    return () => {
+      helpStore.navigate = null;
+    };
   });
 </script>
 
