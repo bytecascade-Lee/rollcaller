@@ -3,7 +3,7 @@
   import type {RecordGroupMetaData, RollcallRecord} from "$types";
   import {RollcallPhase} from "$types";
   import {DateTimeUtils, TtsModeUtils} from "$utils";
-  import {COLORS, group} from "$services/RecordService.svelte";
+  import {recordService} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import {ArrowDownIcon, ArrowsDownUpIcon, ArrowUpIcon, MinusIcon, PlusIcon} from "phosphor-svelte";
   import Switch from "$components/common/Switch.svelte";
@@ -34,7 +34,7 @@
       return isAsc ? cmp : -cmp;
     })
   );
-  let groupInfo = $derived<RecordGroupMetaData[]>(group(display));
+  let groupInfo = $derived<RecordGroupMetaData[]>(recordService.group(display));
 
   function sort(key: string) {
     if (sortKey === key) {
@@ -303,7 +303,7 @@
           </thead>
           <tbody>
           {#each display as record, index (record.id)}
-            {@const color = COLORS[groupInfo[index].groupIndex % COLORS.length]}
+            {@const color = recordService.groupColors[groupInfo[index].groupIndex % recordService.groupColors.length]}
             <tr>
               {#if groupInfo[index].isStart}
                 <td
@@ -317,7 +317,7 @@
               <td>{index + 1}</td>
               <td>{record.name}</td>
               <td>{record.student_no}</td>
-              <td>
+              <td onclick={() => recordService.updateToNextStatus(record.id, record.attendance_status)}>
                 <AttendanceStatusBadge id={record.attendance_status}/>
               </td>
               <td>{record.remark}</td>

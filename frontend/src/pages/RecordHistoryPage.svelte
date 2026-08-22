@@ -13,7 +13,7 @@
     PencilIcon,
     PencilSimpleIcon
   } from "phosphor-svelte"
-  import {COLORS, group} from "$services/RecordService.svelte";
+  import {recordService} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import EditRecord from "$components/record-history/EditRecord.svelte";
   import {overlayController} from "$controllers/popupController";
@@ -62,7 +62,7 @@
     }
   }
 
-  let groupInfo = $derived<RecordGroupMetaData[]>(group(display));
+  let groupInfo = $derived<RecordGroupMetaData[]>(recordService.group(display));
   let displaySelectedCount = $derived(display.filter(r => selected.has(r.id)).length)
 
   export function select(id: bigint) {
@@ -94,35 +94,35 @@
   <div class="toolbar">
     <div class="icon-button-group">
       <button
-        class="icon-button"
         aria-label="批量修改记录"
-        title="批量修改记录"
+        class="icon-button"
         disabled={selected.size == 0}
         onclick={e => {
           anchor = e.currentTarget;
           overlayController.open("RecordEdit")
         }}
+        title="批量修改记录"
       >
         <PencilIcon size="24"/>
       </button>
       <button
-        class="icon-button"
         aria-label="导出记录"
-        title="导出记录"
+        class="icon-button"
         disabled={recordStore.isLoading}
         onclick={e => {
           anchor = e.currentTarget;
           overlayController.open("RecordExport")
         }}
+        title="导出记录"
       >
         <FileArrowDownIcon size="24"/>
       </button>
       <button
-        class="icon-button"
         aria-label="刷新"
-        title="刷新"
+        class="icon-button"
         disabled={recordStore.isLoading}
         onclick={() => recordStore.load()}
+        title="刷新"
       >
         <ArrowClockwiseIcon size="24"/>
       </button>
@@ -130,10 +130,10 @@
     <div class="search">
       <MagnifyingGlassIcon size="18"/>
       <input
-        type="search"
+        bind:value={searchQuery}
         disabled={recordStore.isLoading}
         placeholder="搜索学号、姓名或备注"
-        bind:value={searchQuery}
+        type="search"
       />
     </div>
   </div>
@@ -224,7 +224,7 @@
         </thead>
         <tbody>
         {#each display as record, index (record.id)}
-          {@const color = COLORS[groupInfo[index].groupIndex % COLORS.length]}
+          {@const color = recordService.groupColors[groupInfo[index].groupIndex % recordService.groupColors.length]}
           <tr>
             {#if groupInfo[index].isStart}
               <!-- 当按照点名时间排序，或按照默认排序（等于空字符串时），显示分组信息 -->
@@ -245,7 +245,7 @@
             <td>{index + 1}</td>
             <td>{record.name}</td>
             <td>{record.student_no}</td>
-            <td>
+            <td onclick={() => recordService.updateToNextStatus(record.id, record.attendance_status)}>
               <AttendanceStatusBadge id={record.attendance_status}/>
             </td>
             <td
@@ -264,4 +264,4 @@
 </div>
 
 <EditRecord bind:anchor={anchor} bind:selected={selected}/>
-<ExportRecords bind:selected={selected} bind:display={display} bind:anchor={anchor}/>
+<ExportRecords bind:anchor={anchor} bind:display={display} bind:selected={selected}/>
