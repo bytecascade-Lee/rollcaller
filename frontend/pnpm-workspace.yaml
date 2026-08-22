@@ -1,5 +1,8 @@
 packages:
-    - .
+  - .
 
 allowBuilds:
-    esbuild: true
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - flexilexi@0.1.24
