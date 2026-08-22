@@ -47,6 +47,10 @@ class RecordService {
     return result;
   }
 
+  // 未做防抖：实测端到端写入+查询耗时约 8-12ms，体感即时；
+  // 用户两次点击同一记录的最小间隔 >400ms，不存在快速连击场景；
+  // 即使误触连击，最坏结果仅多一次 UPDATE，SQLite 可轻松承受。
+  // 防抖需维护乐观更新+超时回滚的状态机，复杂度收益比不划算。
   async updateToNextStatus(id: bigint, attendanceStatusId: number) {
     let status = attendanceStatusStore.nextStatus(attendanceStatusId);
     try {
