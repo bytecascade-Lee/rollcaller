@@ -17,6 +17,7 @@ pub fn open(app: tauri::AppHandle) -> anyhow::Result<()> {
                 .inner_size(900.0, 700.0)
                 .auto_resize()
                 .title("app")
+                .decorations(false)
                 .center()
                 .initialization_script(app.prevent_default_script().to_string())
                 .build()
