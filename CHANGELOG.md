@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 0.6.0
+
+### Breaking Changes
+
+- TTS 相关接口移除 `student_no` 参数，缓存键仅基于姓名生成，提高缓存命中率；`tts_cloud_model` 命令、`speak`/`speakNow` 方法、`TtsQueueItem` 类型签名全部简化
+
+### Added
+
+- 新增出勤状态点击快速切换，点名页和历史记录页的状态徽章支持点击循环切换下一个有效状态
+- 新增标题栏窗口置顶按钮，点击切换 always-on top 状态，激活时背景高亮
+- 新增帮助文档全文搜索功能：
+  - HelpStore 构建纯文本索引，索引时剥离 Markdown 标记符号，保证搜索和关键词高亮不受格式干扰
+  - 搜索弹层支持实时搜索、关键词主题色加粗高亮、结果片段截断展示
+  - 键盘导航支持 ↑/↓ 移动选中、Enter 打开、Escape 关闭
+- 新增帮助窗口标题栏搜索按钮，开关式交互控制弹层打开/关闭
+
+### Changed
+
+- TTS API Key 改为编译时通过 `env!` 宏嵌入，避免运行时环境变量缺失导致服务不可用
+- 统一 TTS 命令导出命名为 `TtsCommand`（驼峰风格）
+- 隐藏 app/help 窗口 decoration，避免默认标题栏先出现后消失的闪烁
+- 升级前端依赖：Svelte 5.0→5.56、svelte-check 4.0→4.7、dompurify 3.4.13→3.4.14 等
+
+### Fixed
+
+- 修复帮助页面 `onMount` 异步返回 cleanup 导致的类型错误，回调改为同步返回清理函数
+
+---
+
 ## 0.5.0
 
 ### Breaking Changes
