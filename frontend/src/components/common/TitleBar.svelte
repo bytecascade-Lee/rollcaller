@@ -2,7 +2,16 @@
   import {invoke} from "@tauri-apps/api/core";
   import type {WebviewWindow} from "@tauri-apps/api/webviewWindow";
   import {openUrl} from "@tauri-apps/plugin-opener";
-  import {CopyIcon, DiceFourIcon, GithubLogoIcon, MinusIcon, SquareIcon, XIcon} from "phosphor-svelte";
+  import {
+    CopyIcon,
+    DiceFourIcon,
+    GithubLogoIcon,
+    MagnifyingGlassIcon,
+    MinusIcon,
+    PushPinIcon,
+    SquareIcon,
+    XIcon
+  } from "phosphor-svelte";
   import {onMount} from "svelte";
   import "$styles/logo.css"
   import "$styles/titlebar.css";
@@ -13,6 +22,7 @@
   let {window, title, label}: { window: WebviewWindow, title: string, label: string } = $props();
   let isMaximized = $state(false);
   let snapTimer: ReturnType<typeof setTimeout> | undefined;
+  let isAlwaysOnTop = $state(false);
   onMount(() => {
     const refresh = () => window.isMaximized().then((v) => (isMaximized = v));
     refresh();
@@ -61,7 +71,32 @@
     class="icon-button-group"
     style:padding-right="12px"
   >
-    {#if label == "help"}
+    {#if label == "app"}
+      <button
+        class="icon-button"
+        title="置顶"
+        aria-label="置顶"
+        style:background={isAlwaysOnTop ? "var(--color-primary)" : "var(--color-page)"}
+        onclick={async () => {
+        isAlwaysOnTop = !isAlwaysOnTop;
+        await window.setAlwaysOnTop(isAlwaysOnTop)
+      }}
+      >
+        {#if isAlwaysOnTop}
+          <PushPinIcon size="16" weight="bold" color="var(--color-page)"/>
+        {:else}
+          <PushPinIcon size="16" weight="bold"/>
+        {/if}
+      </button>
+    {:else if label == "help"}
+      <button
+        aria-label="搜索"
+        class="icon-button"
+        onclick={() => console.log("搜索功能待实现")}
+        title="搜索"
+      >
+        <MagnifyingGlassIcon size="16" weight="bold"/>
+      </button>
       <button
         class="icon-button"
         title="主界面"
