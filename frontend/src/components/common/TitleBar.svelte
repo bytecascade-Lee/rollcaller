@@ -18,11 +18,14 @@
   import "$styles/icon-button.css";
   import logo from "$assets/icon.ico";
   import {WindowsCommand} from "$commands";
+  import SearchHelpDocs from "$components/help/SearchHelpDocs.svelte";
+  import {overlayController} from "$controllers/popupController";
 
   let {window, title, label}: { window: WebviewWindow, title: string, label: string } = $props();
   let isMaximized = $state(false);
   let snapTimer: ReturnType<typeof setTimeout> | undefined;
   let isAlwaysOnTop = $state(false);
+  let anchor = $state<HTMLElement | null>(null);
   onMount(() => {
     const refresh = () => window.isMaximized().then((v) => (isMaximized = v));
     refresh();
@@ -92,7 +95,10 @@
       <button
         aria-label="搜索"
         class="icon-button"
-        onclick={() => console.log("搜索功能待实现")}
+        onclick={(e) => {
+          anchor = e.currentTarget;
+          overlayController.open("HelpSearch");
+        }}
         title="搜索"
       >
         <MagnifyingGlassIcon size="16" weight="bold"/>
@@ -146,3 +152,7 @@
     </button>
   </div>
 </div>
+
+{#if label == "help"}
+  <SearchHelpDocs bind:anchor={anchor}/>
+{/if}

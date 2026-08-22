@@ -9,4 +9,5 @@ export type PopupName =
   | "RecordEdit"
   | "RecordExport"
   | "RollcallEdit"
-  | "RollcallExport";
+  | "RollcallExport"
+  | "HelpSearch";
