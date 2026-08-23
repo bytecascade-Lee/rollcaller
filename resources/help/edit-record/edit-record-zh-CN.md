@@ -1,4 +1,4 @@
-# 修改考勤记录
+# 编辑记录信息
 
 > 本文介绍如何修改点名产生的考勤记录，包括逐条修改和批量修改，支持调整考勤状态和补充备注。
 
@@ -45,7 +45,7 @@
 ## 延伸阅读
 
 [//]: # (@link: operation-steps)
-- [导出考勤记录](../export-record/export-record-zh-CN.md#操作步骤) — 将记录导出为 Excel
+- [导出记录数据](../export-record/export-record-zh-CN.md#操作步骤) — 将记录导出为 Excel
 [//]: # (@link: operation-steps)
 - [单次点名](../single-rollcall/single-rollcall-zh-CN.md#操作步骤) — 手动控制的点名方式
 [//]: # (@link: operation-steps)

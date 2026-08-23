@@ -13,7 +13,7 @@
 > 便携版无需安装，适合放到 U 盘等便携设备中使用。如果系统无 WebView2 运行时，需自行安装，可从 [Microsoft WebView2 下载页面](https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/#download-section) 获取。
 
 [//]: # (@section: prepare)
-## 准备学生名单
+## 准备名单
 
 点名需要先有学生数据。支持两种方式添加学生：
 
@@ -36,7 +36,7 @@
 [//]: # (@link: operation-steps)
 点名结果会自动保存为考勤记录。详见 [单次点名](../single-rollcall/single-rollcall-zh-CN.md#操作步骤) 与 [连续点名](../auto-finish/auto-finish-zh-CN.md#操作步骤) 。
 
-## 查看考勤记录
+## 查看记录
 
 点名结束后：
 
