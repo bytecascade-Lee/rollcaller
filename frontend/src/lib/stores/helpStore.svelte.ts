@@ -129,6 +129,8 @@ class HelpStore {
   /** 去除 markdown 符号得到纯文本：先清理再命中，链接只保留文字、URL 不参与搜索。 */
   #cleanText(md: string): string {
     return md
+      // 导航锚点注解行（[//]: # (@section: x) / @link），避免污染搜索命中
+      .replace(/^\s*\[\/\/\]:\s*#\s*\(@(?:section|link):[^)]*\)\s*$/gm, "")
       // 代码块围栏整段移除
       .replace(/```[\s\S]*?```/g, " ")
       // 行内代码
