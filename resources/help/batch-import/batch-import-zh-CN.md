@@ -58,6 +58,8 @@
 [//]: # (@link: operation-steps)
 - [添加学生](../add-student/add-student-zh-CN.md#操作步骤) — 逐个添加学生
 [//]: # (@link: operation-steps)
+- [编辑学生信息](../edit-student/edit-student-zh-CN.md#操作步骤) — 修改学生的姓名、学号等信息
+[//]: # (@link: operation-steps)
 - [删除学生](../delete-student/delete-student-zh-CN.md#操作步骤) — 移除不再需要的学生
 [//]: # (@link: operation-steps)
 - [导出学生](../export-student/export-student-zh-CN.md#操作步骤) — 将学生名单导出为 Excel
