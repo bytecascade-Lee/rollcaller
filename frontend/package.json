@@ -9,6 +9,7 @@
         "preview": "vite preview",
         "check": "svelte-check --tsconfig ./tsconfig.json",
         "check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
+        "test:help-annotations": "node --experimental-strip-types tests/help-annotations.test.mjs",
         "tauri": "tauri"
     },
     "license": "MIT",
