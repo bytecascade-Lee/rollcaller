@@ -3,6 +3,8 @@
   import type {WebviewWindow} from "@tauri-apps/api/webviewWindow";
   import {openUrl} from "@tauri-apps/plugin-opener";
   import {
+    ArrowLeftIcon,
+    ArrowRightIcon,
     CopyIcon,
     DiceFourIcon,
     GithubLogoIcon,
@@ -21,7 +23,11 @@
   import SearchHelpDocs from "$components/help/SearchHelpDocs.svelte";
   import {overlayController} from "$controllers/popupController";
 
-  let {window, title, label}: { window: WebviewWindow, title: string, label: string } = $props();
+  let {window, title, label, onback, onforward, canGoBack, canGoForward}: {
+    window: WebviewWindow, title: string, label: string,
+    onback?: () => void, onforward?: () => void,
+    canGoBack?: boolean, canGoForward?: boolean
+  } = $props();
   let isMaximized = $state(false);
   let snapTimer: ReturnType<typeof setTimeout> | undefined;
   let isAlwaysOnTop = $state(false);
@@ -92,6 +98,24 @@
         {/if}
       </button>
     {:else if label == "help"}
+      <button
+        aria-label="返回"
+        class="icon-button"
+        disabled={!canGoBack}
+        onclick={onback}
+        title="返回"
+      >
+        <ArrowLeftIcon size="16" weight="bold"/>
+      </button>
+      <button
+        aria-label="前进"
+        class="icon-button"
+        disabled={!canGoForward}
+        onclick={onforward}
+        title="前进"
+      >
+        <ArrowRightIcon size="16" weight="bold"/>
+      </button>
       <button
         aria-label="搜索"
         class="icon-button"
