@@ -91,22 +91,18 @@ jobs:
                     # 架构特定的 target 目录缓存
                     key: ${{ matrix.target }}
 
-            -   name: Cache tauri-cli
-                id: tauri-cli
-                uses: actions/cache@v6
-                with:
-                    path: resources/tauri/cargo-tauri.exe
-                    key: tauri-cli-2.11.4
-
-                # 只在 ARM64 任务中配置 MSVC ARM64 环境
+            # 只在 ARM64 任务中配置 MSVC ARM64 环境
             -   name: Configure arm64 msvc development environment
                 if: matrix.target == 'aarch64-pc-windows-msvc'
                 uses: step-security/msvc-dev-cmd@v1
                 with:
                     arch: amd64_arm64
 
+            # 6.6MB 的预编译 tauri-cli（固定 2.11.4）直接从 GitHub Releases 下载。
+            # 之前用 actions/cache 缓存同一静态 key：tag 触发的 workflow 缓存按 ref 隔离，
+            # 每次发布都是新 tag → 永远 miss；且两个并行矩阵任务抢同一 key 保存导致 aarch64 保存失败。
+            # 体积太小，缓存无收益，改为始终下载，行为确定。
             -   name: Install tauri-cli (prebuilt, no Tauri actions)
-                if: steps.tauri-cli.outputs.cache-hit != 'true'
                 shell: pwsh
                 run: |
                     Invoke-WebRequest -Uri "https://github.com/tauri-apps/tauri/releases/download/tauri-cli-v2.11.4/cargo-tauri-x86_64-pc-windows-msvc.zip" -OutFile cargo-tauri.zip
