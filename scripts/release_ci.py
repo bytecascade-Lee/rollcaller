@@ -94,6 +94,9 @@ def extract_release_notes(version: str) -> str:
     in_section = False
     body = []
     for line in lines:
+        # 跳过导航锚点注解行（[//]: # (@section: ...) / @link），避免混入发布正文
+        if re.match(r"^\s*\[\/\/\]:\s*#\s*\(", line):
+            continue
         if re.match(rf"^## {escaped}\s*$", line):
             in_section = True
             continue
