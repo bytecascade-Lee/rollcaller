@@ -34,7 +34,7 @@
   import {AppInfoCommand, WindowsCommand} from "$commands";
   import type {AppInfo} from "$types";
   import {onMount} from "svelte";
-  import TitleBar from "$components/common/TitleBar.svelte";
+  import AppTitleBar from "$components/app/AppTitlebar.svelte";
   import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
 
   let APP_INFO = $state<AppInfo>({
@@ -55,7 +55,7 @@
 
 <div class="shell">
   <div class="titlebar-slot">
-    <TitleBar window={window} title="自动点名" label={window.label}/>
+    <AppTitleBar window={window}/>
   </div>
   <aside class="sidebar">
     <nav class="nav">

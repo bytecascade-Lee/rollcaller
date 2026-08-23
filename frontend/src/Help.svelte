@@ -12,7 +12,6 @@
   import "$styles/search.css"
   import "$styles/state.css"
   import {onMount} from "svelte";
-  import TitleBar from "$components/common/TitleBar.svelte";
   import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
   import NavTree from "$components/common/NavTree.svelte";
   import MarkdownView from "$components/common/MarkdownView.svelte";
@@ -21,6 +20,7 @@
   import type {AppInfo, TreeNode} from "$types";
   import {GearIcon} from "phosphor-svelte";
   import metaData from "$resources/help/meta.json";
+  import HelpTitlebar from "$components/help/HelpTitlebar.svelte";
 
   const nodes = metaData.nodes as
     {
@@ -134,8 +134,10 @@
 
 <div class="shell">
   <div class="titlebar-slot">
-    <TitleBar window={window} title="自动点名 - 帮助文档" label={window.label}
-              onback={goBack} onforward={goForward} canGoBack={canGoBack} canGoForward={canGoForward}/>
+    <HelpTitlebar window={window}
+                  onback={goBack} onforward={goForward}
+                  canGoBack={canGoBack} canGoForward={canGoForward}
+    />
   </div>
   <aside class="sidebar">
     <nav class="nav">
