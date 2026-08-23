@@ -28,6 +28,10 @@
             "title": "手动暂停点名",
             "parentId": "multi-rollcall"
         },
+        "tts": {
+            "title": "语音播报",
+            "parentId": "rollcall"
+        },
         "students": {
             "title": "学生管理",
             "parentId": null
@@ -64,6 +68,18 @@
             "title": "导出记录数据",
             "parentId": "records"
         },
+        "ui": {
+            "title": "界面操作",
+            "parentId": null
+        },
+        "app-window": {
+            "title": "主窗口",
+            "parentId": "ui"
+        },
+        "help-window": {
+            "title": "帮助窗口",
+            "parentId": "ui"
+        },
         "about": {
             "title": "关于",
             "parentId": null
@@ -92,11 +108,13 @@
             "rollcall",
             "students",
             "records",
+            "ui",
             "about"
         ],
         "rollcall": [
             "single-rollcall",
-            "multi-rollcall"
+            "multi-rollcall",
+            "tts"
         ],
         "multi-rollcall": [
             "auto-finish",
@@ -112,6 +130,10 @@
         "records": [
             "edit-record",
             "export-record"
+        ],
+        "ui": [
+            "app-window",
+            "help-window"
         ],
         "about": [
             "README.md",
