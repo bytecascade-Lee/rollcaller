@@ -49,6 +49,6 @@
 [//]: # (@link: import-steps)
 - [批量导入学生](../batch-import/batch-import-zh-CN.md#导入步骤) — 批量添加多名学生
 [//]: # (@link: operation-steps)
-- [修改学生信息](../edit-student/edit-student-zh-CN.md#操作步骤) — 修改学生的姓名、学号等信息
+- [编辑学生信息](../edit-student/edit-student-zh-CN.md#操作步骤) — 编辑学生的姓名、学号等信息
 [//]: # (@link: operation-steps)
 - [删除学生](../delete-student/delete-student-zh-CN.md#操作步骤) — 移除不再需要的学生
