@@ -42,10 +42,10 @@
   });
 
   /** 内部链接跳转：加载文档，并让左侧树跳转到对应节点（折叠到单级）；带锚点时滚动到目标章节 */
-  async function handleNavigate(id: string, section?: string) {
+  async function handleNavigate(id: string, link?: string) {
     activeId = id;
     jumpToken += 1;
-    const target = section ?? null;
+    const target = link ?? null;
     pendingSection = target;
     await helpStore.load(id);
     if (pendingSection !== target) return; // 期间已被更新的跳转取代
@@ -57,6 +57,7 @@
   function scrollToSection(section: string | null) {
     if (!scroller) return;
     if (section) {
+      // 只匹配标题上的 data-section（链接不再携带该属性，避免命中目录项自身）
       const el = scroller.querySelector(`[data-section="${section}"]`);
       if (el) {
         const top = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;

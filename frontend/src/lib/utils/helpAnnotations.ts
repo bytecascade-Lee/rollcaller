@@ -3,7 +3,12 @@
  *
  * 渲染管线：
  *   stripAnnotations(md)  逐行扫描、剥离注释行，产出干净 markdown 与注解元数据；
- *   attachAnnotations()   在 markdown-it core 阶段把 data-section 注入标题与链接 token。
+ *   attachAnnotations()   在 markdown-it core 阶段注入导航属性。
+ *
+ * 注入的 data-* 约定（MarkdownView 消费）：
+ *   - 标题：data-section="锚点名"      锚点声明（同一页面唯一，供滚动定位）
+ *   - 链接：data-link="锚点名"         跳转目标锚点（与标题的 data-section 对应）
+ *   链接的 data-action/data-id 由链接分类（helpLinks）另行注入。
  *
  * 注解语法（见 resources/help 下文档约定）：
  *   [//]: # (@section: kebab-name)   // 紧随其后的标题声明逻辑锚点
@@ -131,7 +136,7 @@ export function attachAnnotations(ann: HelpAnnotations, tokens: Token[]): void {
           if (c.type !== "link_open") continue;
           const href = String(c.attrGet("href") ?? "");
           if (!href.includes("#")) continue;
-          if (k < runNames.length) c.attrSet("data-section", runNames[k]);
+          if (k < runNames.length) c.attrSet("data-link", runNames[k]);
           k += 1;
         }
         runNames = [];

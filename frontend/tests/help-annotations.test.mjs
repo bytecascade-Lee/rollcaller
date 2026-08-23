@@ -79,19 +79,19 @@ console.log("— quick-start（temp 版即正式版）—");
   check("@link 注入与顺序对应", () => {
     const links = [...html.matchAll(/<a([^>]*)>([^<]+)<\/a>/g)]
       .map((m) => ({
-        section: /data-section="([^"]+)"/.exec(m[1])?.[1] ?? null,
+        link: /data-link="([^"]+)"/.exec(m[1])?.[1] ?? null,
         text: m[2],
       }))
-      .filter((l) => l.section !== null);
+      .filter((l) => l.link !== null);
     const expected = [
-      {section: "operation-steps", text: "添加单个学生"},
-      {section: "import-steps", text: "批量导入学生"},
-      {section: "operation-steps", text: "单次点名"},
-      {section: "operation-steps", text: "连续点名"},
-      {section: "operation-steps", text: "修改记录"},
-      {section: "operation-steps", text: "导出记录"},
-      {section: "operation-steps", text: "修改学生信息"},
-      {section: "operation-steps", text: "删除学生"},
+      {link: "operation-steps", text: "添加单个学生"},
+      {link: "import-steps", text: "批量导入学生"},
+      {link: "operation-steps", text: "单次点名"},
+      {link: "operation-steps", text: "连续点名"},
+      {link: "operation-steps", text: "修改记录"},
+      {link: "operation-steps", text: "导出记录"},
+      {link: "operation-steps", text: "修改学生信息"},
+      {link: "operation-steps", text: "删除学生"},
     ];
     assert.deepEqual(links, expected);
   });
@@ -135,20 +135,20 @@ console.log("— 完整渲染器集成（MarkdownView 规则）—");
     .filter((m) => m[1].includes('data-action="docs"'))
     .map((m) => ({
       id: /data-id="([^"]+)"/.exec(m[1])?.[1] ?? null,
-      section: /data-section="([^"]+)"/.exec(m[1])?.[1] ?? null,
+      link: /data-link="([^"]+)"/.exec(m[1])?.[1] ?? null,
       href: /href="([^"]*)"/.exec(m[1])?.[1] ?? null,
       text: m[2],
     }));
-  check("docs 链接统一重写为 # 并携带 data-id/data-section", () => {
+  check("docs 链接统一重写为 # 并携带 data-id/data-link", () => {
     assert.deepEqual(anchors, [
-      {id: "add-student", section: "operation-steps", href: "#", text: "添加单个学生"},
-      {id: "batch-import", section: "import-steps", href: "#", text: "批量导入学生"},
-      {id: "single-rollcall", section: "operation-steps", href: "#", text: "单次点名"},
-      {id: "auto-finish", section: "operation-steps", href: "#", text: "连续点名"},
-      {id: "edit-record", section: "operation-steps", href: "#", text: "修改记录"},
-      {id: "export-record", section: "operation-steps", href: "#", text: "导出记录"},
-      {id: "edit-student", section: "operation-steps", href: "#", text: "修改学生信息"},
-      {id: "delete-student", section: "operation-steps", href: "#", text: "删除学生"},
+      {id: "add-student", link: "operation-steps", href: "#", text: "添加单个学生"},
+      {id: "batch-import", link: "import-steps", href: "#", text: "批量导入学生"},
+      {id: "single-rollcall", link: "operation-steps", href: "#", text: "单次点名"},
+      {id: "auto-finish", link: "operation-steps", href: "#", text: "连续点名"},
+      {id: "edit-record", link: "operation-steps", href: "#", text: "修改记录"},
+      {id: "export-record", link: "operation-steps", href: "#", text: "导出记录"},
+      {id: "edit-student", link: "operation-steps", href: "#", text: "修改学生信息"},
+      {id: "delete-student", link: "operation-steps", href: "#", text: "删除学生"},
     ]);
   });
   check("外部链接标记 action 且保留 href", () => {
@@ -162,7 +162,7 @@ console.log("— 完整渲染器集成（MarkdownView 规则）—");
     const a = /<a([^>]*)>说明<\/a>/.exec(out)?.[1] ?? "";
     assert.ok(a.includes('data-action="docs"'));
     assert.ok(a.includes('data-id="add-student"'));
-    assert.ok(!a.includes("data-section"));
+    assert.ok(!a.includes("data-link"));
   });
   check("README 特殊链接归类为文档", () => {
     assert.deepEqual(classifyLink("../../../README.md"), {kind: "docs", id: "README.md"});
@@ -178,9 +178,9 @@ check("同行多链接：无 # 链接不参与计数", () => {
   ].join("\n");
   const html = render(md);
   const anchored = /<a[^>]*>步骤<\/a>/.exec(html)?.[0] ?? "";
-  assert.ok(anchored.includes('data-section="operation-steps"'));
+  assert.ok(anchored.includes('data-link="operation-steps"'));
   const plain = /<a[^>]*>说明<\/a>/.exec(html)?.[0] ?? "";
-  assert.ok(!plain.includes("data-section"));
+  assert.ok(!plain.includes("data-link"));
 });
 check("@section 中间夹正文则失效", () => {
   const md = ["[//]: # (@section: broken)", "正文内容", "## 标题"].join("\n");
@@ -224,16 +224,21 @@ console.log("— RELEASE_NOTES 目录跳转 —");
       assert.ok(html.includes(`<h2 data-section="${v}">`), `缺 ${v}`);
     }
   });
-  check("目录项链接为同文档锚点跳转", () => {
+  check("目录项链接为同文档锚点跳转（data-link，标题独占 data-section）", () => {
     const toc = [...html.matchAll(/<a([^>]*)>([^<]+)<\/a>/g)]
       .map((m) => ({attrs: m[1], text: m[2]}))
       .filter((l) => /^0\.\d/.test(l.text));
     assert.equal(toc.length, 12);
     for (const l of toc) {
       assert.ok(l.attrs.includes('data-id="RELEASE_NOTES.md"'), `${l.text} 缺 data-id`);
-      assert.ok(l.attrs.includes('data-section="v0-'), `${l.text} 缺 data-section`);
+      assert.ok(l.attrs.includes('data-link="v0-'), `${l.text} 缺 data-link`);
+      // 链接不得携带 data-section：否则滚动定位会命中目录项自身（曾经的 bug）
+      assert.ok(!l.attrs.includes("data-section"), `${l.text} 误带 data-section`);
       assert.ok(l.attrs.includes('href="#"'), `${l.text} 未重写 href`);
     }
+    // data-section 只出现在标题上，且数量 = 版本数
+    const headingSections = [...html.matchAll(/<h2[^>]*data-section="([^"]+)"/g)].map((m) => m[1]);
+    assert.equal(headingSections.length, 12);
   });
   check("RELEASE_NOTES 无注释残留", () => assert.ok(!html.includes("[//]: #")));
 }
@@ -278,10 +283,10 @@ console.log("— 交叉链接完整性校验（构建脚本的轻量版）—");
       const attrs = m[1];
       if (!attrs.includes('data-action="docs"')) continue;
       const target = /data-id="([^"]+)"/.exec(attrs)?.[1];
-      const section = /data-section="([^"]+)"/.exec(attrs)?.[1];
-      if (!target || !section) continue;
-      if (!sectionsOf(target).has(section)) {
-        broken.push(`${id} → ${target}#${section}（链接文字：${m[2]}）`);
+      const link = /data-link="([^"]+)"/.exec(attrs)?.[1];
+      if (!target || !link) continue;
+      if (!sectionsOf(target).has(link)) {
+        broken.push(`${id} → ${target}#${link}（链接文字：${m[2]}）`);
       }
     }
   }

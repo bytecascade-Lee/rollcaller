@@ -10,9 +10,10 @@
 
   let {markdown = "", docId, onnavigate}: {
     markdown?: string;
-    /** 当前文档 id：使 #fragment 链接可识别为同文档锚点跳转（如发布说明的目录） */
+    /** 当前文档 id：使 #fragment 链接可识别为同文档锚点跳转（对任意文档生效，如发布说明的目录） */
     docId?: string;
-    onnavigate?: (id: string, section?: string) => void;
+    /** 跳转回调：目标文档 id + 目标锚点名（data-link，可选） */
+    onnavigate?: (id: string, link?: string) => void;
   } = $props();
 
   const md = new MarkdownIt({
@@ -80,7 +81,7 @@
     event.preventDefault();
     if (action === "docs") {
       const id = anchor.dataset.id;
-      if (id) onnavigate?.(id, anchor.dataset.section);
+      if (id) onnavigate?.(id, anchor.dataset.link);
     } else if (action === "external") {
       const href = anchor.getAttribute("href");
       if (href) openUrl(href).catch((e) => error(e instanceof Error ? e.message : String(e)));
