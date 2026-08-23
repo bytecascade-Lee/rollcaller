@@ -5,23 +5,15 @@
   import "highlight.js/styles/github.css";
   import {error} from "@fltsci/tauri-plugin-tracing";
   import {openUrl} from "@tauri-apps/plugin-opener";
+  import {attachAnnotations, stripAnnotations, type HelpAnnotations} from "$utils/helpAnnotations";
+  import {classifyLink} from "$utils/helpLinks";
 
-  let {markdown = "", onnavigate}: { markdown?: string; onnavigate?: (id: string) => void } = $props();
-
-  type LinkAction = { kind: "docs"; id: string } | { kind: "external" } | null;
-
-  /** 渲染期链接分类：文档链接 / 特殊文档链接 / 外部链接 / 其他。不改动源 md。 */
-  function classifyLink(href: string): LinkAction {
-    if (/^https?:\/\//i.test(href)) return {kind: "external"};
-    //* README.md / README-en-US.md / CHANGELOG.md / RELEASE_NOTES.md / LICENSE
-    const special = href.match(/(README(?:-en-US)?|CHANGELOG|RELEASE_NOTES|LICENSE)(?:\.md)?$/i);
-    if (special) return {kind: "docs", id: special[0]};
-    //* ../<id>/<id>-zh-CN.md → 提取目录名作为文档 id
-    //* 目录名与文件名前缀必须一致，语言后缀（-zh-CN、-en-US等）可选
-    const doc = href.match(/\.\.\/([^/]+)\/\1(?:-[a-z]{2}-[A-Z]{2})?\.md$/i);
-    if (doc) return {kind: "docs", id: doc[1]};
-    return null;
-  }
+  let {markdown = "", docId, onnavigate}: {
+    markdown?: string;
+    /** 当前文档 id：使 #fragment 链接可识别为同文档锚点跳转（如发布说明的目录） */
+    docId?: string;
+    onnavigate?: (id: string, section?: string) => void;
+  } = $props();
 
   const md = new MarkdownIt({
     html: true,
@@ -52,7 +44,7 @@
   md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
     const token = tokens[idx];
     const href = token.attrGet("href") ?? "";
-    const action = classifyLink(href.toString());
+    const action = classifyLink(href.toString(), docId);
     if (action?.kind === "docs") {
       token.attrSet("href", "#");
       token.attrSet("data-action", "docs");
@@ -63,11 +55,21 @@
     return defaultLinkOpen(tokens, idx, options, env, self);
   };
 
-  const rawHtml = $derived(md.render(markdown));
-  const safeHtml = $derived(DOMPurify.sanitize(rawHtml, {
-    USE_PROFILES: {html: true},
-    ADD_ATTR: ["target"],
-  }));
+  // 渲染前剥离 [//]: # 注解行，再在 core 阶段向 token 注入 data-section
+  let pendingAnnotations: HelpAnnotations | null = null;
+  md.core.ruler.push("help-annotations", (state) => {
+    if (pendingAnnotations) attachAnnotations(pendingAnnotations, state.tokens);
+  });
+
+  const safeHtml = $derived.by(() => {
+    const annotations = stripAnnotations(markdown);
+    pendingAnnotations = annotations;
+    const rawHtml = md.render(annotations.clean);
+    return DOMPurify.sanitize(rawHtml, {
+      USE_PROFILES: {html: true},
+      ADD_ATTR: ["target"],
+    });
+  });
 
   /** 点击只做调度：读 data-action 执行，不参与链接识别 */
   function handleClick(event: MouseEvent) {
@@ -78,7 +80,7 @@
     event.preventDefault();
     if (action === "docs") {
       const id = anchor.dataset.id;
-      if (id) onnavigate?.(id);
+      if (id) onnavigate?.(id, anchor.dataset.section);
     } else if (action === "external") {
       const href = anchor.getAttribute("href");
       if (href) openUrl(href).catch((e) => error(e instanceof Error ? e.message : String(e)));
