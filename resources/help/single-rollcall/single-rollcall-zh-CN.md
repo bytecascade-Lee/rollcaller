@@ -4,6 +4,7 @@
 
 点名开始后，名单会持续滚动抽取，直到你手动停止，停止时被点到的学生才会高亮展示并保存记录。
 
+[//]: # (@section: operation-steps)
 ## 操作步骤
 
 1. 点击左侧导航栏进入「点名」页面。
@@ -22,7 +23,8 @@
 
 **问：能连续抽取多名学生吗？**
 
-答：可以。使用 [连续点名](../auto-finish/auto-finish-zh-CN.md) 功能，设定次数后程序会自动连续抽取，无需手动停止。
+[//]: # (@link: operation-steps)
+答：可以。使用 [连续点名](../auto-finish/auto-finish-zh-CN.md#操作步骤) 功能，设定次数后程序会自动连续抽取，无需手动停止。
 
 **问：点名结果可以排序吗？**
 
@@ -30,8 +32,13 @@
 
 ## 延伸阅读
 
-- [添加学生](../add-student/add-student-zh-CN.md) — 添加单个学生
-- [批量导入学生](../batch-import/batch-import-zh-CN.md) — 批量添加多名学生
-- [连续点名 - 自动结束点名](../auto-finish/auto-finish-zh-CN.md) — 设定次数后自动连续点名
-- [连续点名 - 手动暂停点名](../manual-pause/manual-pause-zh-CN.md) — 中途手动暂停
-- [修改考勤记录](../edit-record/edit-record-zh-CN.md) — 批量修改记录状态
+[//]: # (@link: operation-steps)
+- [添加学生](../add-student/add-student-zh-CN.md#操作步骤) — 添加单个学生
+[//]: # (@link: import-steps)
+- [批量导入学生](../batch-import/batch-import-zh-CN.md#导入步骤) — 批量添加多名学生
+[//]: # (@link: operation-steps)
+- [连续点名 - 自动结束点名](../auto-finish/auto-finish-zh-CN.md#操作步骤) — 设定次数后自动连续点名
+[//]: # (@link: operation-steps)
+- [连续点名 - 手动暂停点名](../manual-pause/manual-pause-zh-CN.md#操作步骤) — 中途手动暂停
+[//]: # (@link: operation-steps)
+- [修改考勤记录](../edit-record/edit-record-zh-CN.md#操作步骤) — 批量修改记录状态

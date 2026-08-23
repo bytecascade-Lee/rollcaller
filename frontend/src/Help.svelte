@@ -30,6 +30,8 @@
   let activeId = $state("overview");
   let jumpToken = $state(0); // 外部跳转触发信号：自增时 NavTree 折叠到单级
   let scroller: HTMLDivElement | undefined = $state();
+  /** 待滚动的锚点名（普通变量，不参与响应式）：锚点跳转由 handleNavigate 的续段负责 */
+  let pendingSection: string | null = null;
   let APP_INFO = $state<AppInfo>({
     branch: "",
     commit_count: "",
@@ -39,16 +41,37 @@
     build_time: ""
   });
 
-  /** 内部链接跳转：加载文档，并让左侧树跳转到对应节点（折叠到单级） */
-  function handleNavigate(id: string) {
+  /** 内部链接跳转：加载文档，并让左侧树跳转到对应节点（折叠到单级）；带锚点时滚动到目标章节 */
+  async function handleNavigate(id: string, link?: string) {
     activeId = id;
     jumpToken += 1;
-    helpStore.load(id);
+    const target = link ?? null;
+    pendingSection = target;
+    await helpStore.load(id);
+    if (pendingSection !== target) return; // 期间已被更新的跳转取代
+    scrollToSection(target);
+    pendingSection = null;
   }
 
-  // 切换文档后滚动条回到顶部
+  /** 滚动到锚点标题（缺失时回退到顶部）。滚动容器是 .content > .active，window 不参与滚动 */
+  function scrollToSection(section: string | null) {
+    if (!scroller) return;
+    if (section) {
+      // 只匹配标题上的 data-section（链接不再携带该属性，避免命中目录项自身）
+      const el = scroller.querySelector(`[data-section="${section}"]`);
+      if (el) {
+        const top = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+        scroller.scrollTo({top, behavior: "smooth"});
+        return;
+      }
+    }
+    scroller.scrollTo(0, 0);
+  }
+
+  // 切换文档后滚动条回到顶部（锚点跳转在途时跳过，避免与平滑滚动打架）
   $effect(() => {
     helpStore.content;
+    if (pendingSection) return;
     scroller?.scrollTo(0, 0);
   });
 
@@ -84,7 +107,7 @@
   <main class="content">
     {#if helpStore.content}
       <div class="active" bind:this={scroller}>
-        <MarkdownView markdown={helpStore.content} onnavigate={handleNavigate}/>
+        <MarkdownView markdown={helpStore.content} docId={activeId} onnavigate={handleNavigate}/>
       </div>
     {:else}
       <div class="empty active">

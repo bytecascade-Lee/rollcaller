@@ -10,6 +10,7 @@
 - **导出筛选后的记录**：先按学号/姓名等条件筛选出需要的记录，再导出筛选结果，适合按班级或范围导出。
 - **导出选中的记录**：先在列表中勾选需要导出的记录，再导出所选部分，适合只导出个别记录。
 
+[//]: # (@section: operation-steps)
 ## 操作步骤
 
 1. 点击左侧导航栏进入「历史记录」页面。
@@ -39,5 +40,7 @@
 
 ## 延伸阅读
 
-- [修改考勤记录](../edit-record/edit-record-zh-CN.md) — 批量修改记录状态
-- [导出学生](../export-student/export-student-zh-CN.md) — 导出学生名单
+[//]: # (@link: operation-steps)
+- [修改考勤记录](../edit-record/edit-record-zh-CN.md#操作步骤) — 批量修改记录状态
+[//]: # (@link: operation-steps)
+- [导出学生](../export-student/export-student-zh-CN.md#操作步骤) — 导出学生名单

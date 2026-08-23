@@ -4,6 +4,7 @@
 
 每个学生包含两个关键信息： **学号** 和 **姓名**。
 
+[//]: # (@section: operation-steps)
 ## 操作步骤
 
 1. 点击左侧导航栏进入「学生管理」页面。
@@ -26,7 +27,8 @@
 
 - **学号和姓名必填**：未填完整时「确定」按钮会处于禁用状态。
 - **搜索定位**：添加完成后，可在页面顶部搜索框中按学号或姓名快速找到该学生。
-- **批量添加**：如果学生数量较多，推荐使用 [批量导入学生](../batch-import/batch-import-zh-CN.md) 一次性导入。
+[//]: # (@link: import-steps)
+- **批量添加**：如果学生数量较多，推荐使用 [批量导入学生](../batch-import/batch-import-zh-CN.md#导入步骤) 一次性导入。
 
 ## 常见问题
 
@@ -44,6 +46,9 @@
 
 ## 延伸阅读
 
-- [批量导入学生](../batch-import/batch-import-zh-CN.md) — 批量添加多名学生
-- [修改学生信息](../edit-student/edit-student-zh-CN.md) — 修改学生的姓名、学号等信息
-- [删除学生](../delete-student/delete-student-zh-CN.md) — 移除不再需要的学生
+[//]: # (@link: import-steps)
+- [批量导入学生](../batch-import/batch-import-zh-CN.md#导入步骤) — 批量添加多名学生
+[//]: # (@link: operation-steps)
+- [修改学生信息](../edit-student/edit-student-zh-CN.md#操作步骤) — 修改学生的姓名、学号等信息
+[//]: # (@link: operation-steps)
+- [删除学生](../delete-student/delete-student-zh-CN.md#操作步骤) — 移除不再需要的学生
