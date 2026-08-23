@@ -16,11 +16,10 @@
   import NavTree from "$components/common/NavTree.svelte";
   import MarkdownView from "$components/common/MarkdownView.svelte";
   import {helpStore} from "$stores/helpStore.svelte";
-  import {AppInfoCommand} from "$commands";
-  import type {AppInfo, TreeNode} from "$types";
-  import {GearIcon} from "phosphor-svelte";
+  import type {TreeNode} from "$types";
   import metaData from "$resources/help/meta.json";
   import HelpTitlebar from "$components/help/HelpTitlebar.svelte";
+  import {CaretRightIcon, CircleIcon} from "phosphor-svelte";
 
   const nodes = metaData.nodes as
     {
@@ -36,13 +35,17 @@
   let scroller: HTMLDivElement | undefined = $state();
   /** 待滚动的锚点名（普通变量，不参与响应式）：锚点跳转由 handleNavigate 的续段负责 */
   let pendingSection: string | null = null;
-  let APP_INFO = $state<AppInfo>({
-    branch: "",
-    commit_count: "",
-    short_hash: "",
-    commit_time: "",
-    version: "",
-    build_time: ""
+  /** 从 activeId 沿 parentId 回溯，生成面包屑路径（根→当前） */
+  let breadcrumbCrumb = $derived.by(() => {
+    const trail: string[] = [];
+    let cur: string | null = activeId;
+    while (cur && cur in nodes) {
+      const node = nodes[cur as keyof typeof nodes] as TreeNode;
+      trail.push(node.title);
+      cur = node.parentId;
+    }
+    trail.reverse();
+    return trail;
   });
 
   /** 内部链接跳转：加载文档，并让左侧树跳转到对应节点（折叠到单级）；带锚点时滚动到目标章节 */
@@ -123,7 +126,6 @@
     // 注册跳转回调：搜索结果选中时复用导航逻辑（加载 + 树高亮 + 折叠）
     helpStore.navigate = handleNavigate;
     void (async () => {
-      APP_INFO = await AppInfoCommand.app_info();
       await helpStore.load(activeId);
     })();
     return () => {
@@ -165,9 +167,15 @@
 
   <footer class="footbar">
     <div>
-      <GearIcon size="14" style="display: none" weight="bold"/>
-      {APP_INFO.version}+{APP_INFO.branch}.{APP_INFO.commit_count}.{APP_INFO.short_hash}#{APP_INFO.commit_time}
-      #{APP_INFO.build_time}
+      <CircleIcon size="7" weight="fill"/>
+      {#each breadcrumbCrumb as crumb, i}
+        {#if i > 0}
+          <CaretRightIcon size="7" weight="bold"/>
+        {/if}
+        <span>
+          {crumb}
+        </span>
+      {/each}
     </div>
   </footer>
 </div>
