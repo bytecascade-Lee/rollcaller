@@ -51,8 +51,12 @@
 ## 从这里开始
 
 - 还不熟悉本应用？请阅读 [快速开始](../quick-start/quick-start-zh-CN.md) 一文，几分钟即可上手。
-- 想了解如何点名？请参考 [单次点名](../single-rollcall/single-rollcall-zh-CN.md) 和 [连续点名](../auto-finish/auto-finish-zh-CN.md) 。
-- 想管理学生名单？请从 [添加学生](../add-student/add-student-zh-CN.md) 或 [批量导入学生](../batch-import/batch-import-zh-CN.md) 开始。
+[//]: # (@link: operation-steps)
+[//]: # (@link: operation-steps)
+- 想了解如何点名？请参考 [单次点名](../single-rollcall/single-rollcall-zh-CN.md#操作步骤) 和 [连续点名](../auto-finish/auto-finish-zh-CN.md#操作步骤) 。
+[//]: # (@link: operation-steps)
+[//]: # (@link: import-steps)
+- 想管理学生名单？请从 [添加学生](../add-student/add-student-zh-CN.md#操作步骤) 或 [批量导入学生](../batch-import/batch-import-zh-CN.md#导入步骤) 开始。
 
 ## 关于
 

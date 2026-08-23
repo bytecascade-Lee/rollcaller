@@ -4,6 +4,7 @@
 
 导出时系统会弹出保存对话框，让你选择保存位置和文件名。
 
+[//]: # (@section: operation-steps)
 ## 操作步骤
 
 1. 点击左侧导航栏进入「学生管理」页面。
@@ -32,5 +33,7 @@
 
 ## 延伸阅读
 
-- [批量导入学生](../batch-import/batch-import-zh-CN.md) — 从 Excel 导入学生
-- [导出考勤记录](../export-record/export-record-zh-CN.md) — 导出考勤记录
+[//]: # (@link: import-steps)
+- [批量导入学生](../batch-import/batch-import-zh-CN.md#导入步骤) — 从 Excel 导入学生
+[//]: # (@link: operation-steps)
+- [导出考勤记录](../export-record/export-record-zh-CN.md#操作步骤) — 导出考勤记录
