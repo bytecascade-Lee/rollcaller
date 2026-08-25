@@ -15,6 +15,7 @@ CI 发布脚本：构建/打包（build）与发布 GitHub Release（publish）�
 
 import argparse
 import datetime
+import json
 import os
 import re
 import subprocess
@@ -109,6 +110,30 @@ def extract_release_notes(version: str) -> str:
     return "\n".join(body).rstrip() + "\n"
 
 
+def build_latest_json(release_version: str, notes: str, signatures: dict, repo: str) -> dict:
+    """按 latest.json.example 模板生成自动更新清单（GitHub 版 latest-github.json）。
+
+    结构严格遵守模板：version / notes / pub_date(RFC 3339) /
+    platforms{windows-x86_64, windows-aarch64}，每平台含 signature 与 url。
+    signature 取自打包阶段生成的 .sig 文件（base64），url 指向 GitHub Release 附件直链。
+    """
+    platforms = {}
+    for arch, sig in signatures.items():
+        asset = f"rollcaller-{release_version}-windows-{arch}-setup.exe"
+        platform_key = "windows-aarch64" if arch == "arm64" else f"windows-{arch}"
+        platforms[platform_key] = {
+            "signature": sig,
+            "url": f"https://github.com/{repo}/releases/download/v{release_version}/{asset}",
+        }
+    pub_date = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return {
+        "version": release_version,
+        "notes": notes,
+        "pub_date": pub_date,
+        "platforms": platforms,
+    }
+
+
 def cmd_publish() -> None:
     release_version = ci_version()
     tag = f"v{release_version}"
@@ -135,6 +160,29 @@ def cmd_publish() -> None:
         repo = os.environ.get("GITHUB_REPOSITORY", "")
         if not repo:
             fail("缺少 GITHUB_REPOSITORY 环境变量")
+
+        # 收集 .sig 签名（仅用于生成 latest-github.json，不发布为 Release 附件）
+        signatures = {}
+        for arch in ("x86_64", "arm64"):
+            sig_files = sorted(
+                assets_dir.glob(f"rollcaller-{release_version}-windows-{arch}-setup.exe.sig")
+            )
+            if len(sig_files) != 1:
+                fail(
+                    f"缺少 {arch} 的签名文件 "
+                    f"rollcaller-{release_version}-windows-{arch}-setup.exe.sig，"
+                    f"实际 {len(sig_files)} 个: {[p.name for p in sig_files]}"
+                )
+            signatures[arch] = sig_files[0].read_text(encoding="utf-8").strip()
+
+        # 生成自动更新清单并随 Release 发布
+        latest_json = build_latest_json(release_version, notes, signatures, repo)
+        latest_path = assets_dir / "latest-github.json"
+        latest_path.write_text(
+            json.dumps(latest_json, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        log("INFO", f"已生成 latest-github.json: {latest_path}")
+        files.append(latest_path)
 
         create_args = [
             "release", "create", tag,
