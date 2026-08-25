@@ -114,8 +114,12 @@ jobs:
                 env:
                     INPUT_VERSION: ${{ inputs.version }}
                     MIMO_TTS_API_KEY: ${{ secrets.MIMO_TTS_API_KEY }}
+                    TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+                    TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
                 run: uv run python scripts/release_ci.py build --target ${{ matrix.target }}
 
+            # sig 签名文件不发布为 Release 附件，仅经 artifact 传递到 publish job，
+            # 用于生成自动更新清单 latest-github.json（见 release_ci.py publish）
             -   name: Upload artifacts
                 uses: actions/upload-artifact@v7
                 with:
@@ -123,6 +127,7 @@ jobs:
                     path: |
                         rollcaller-*-windows-*-setup.exe
                         rollcaller-*-windows-*-portable.zip
+                        rollcaller-*-windows-*-setup.exe.sig
                     if-no-files-found: error
 
     release:
