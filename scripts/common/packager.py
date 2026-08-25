@@ -47,17 +47,30 @@ def asset_name(version: str, arch: str, kind: str, ext: str) -> str:
 
 
 def package_setup(release_dir_: Path, version: str, arch: str, out_dir: Path) -> Path:
-    """将 bundle/nsis 下唯一的安装包重命名并拷贝到 out_dir。"""
+    """将 bundle/nsis 下的安装包重命名并拷贝到 out_dir，同时拷贝同名 .sig 签名文件。
+
+    启用 createUpdaterArtifacts 后，bundle/nsis 下会多出与安装包同名的
+    `<setup>.sig` 签名文件（供自动更新 latest.json 使用）。该目录不再只有
+    安装包一个文件，检测逻辑按 `*-setup.exe` 精确匹配安装包，签名文件单独处理。
+    签名文件不发布为 Release 附件，仅拷贝到 out_dir 由 CI artifact 传递。
+    """
     nsis_dir = release_dir_ / "bundle" / "nsis"
-    setups = list(nsis_dir.glob("*.exe"))
+    setups = [p for p in nsis_dir.glob("*.exe") if p.name.endswith("-setup.exe")]
     if len(setups) != 1:
         names = [p.name for p in setups]
         raise PackageError(
-            f"bundle/nsis 下应恰好有一个安装包，实际有 {len(setups)} 个: {names}"
+            f"bundle/nsis 下应恰好有一个安装包（*-setup.exe），实际有 {len(setups)} 个: {names}"
         )
     out_dir.mkdir(parents=True, exist_ok=True)
     dest = out_dir / asset_name(version, arch, "setup", "exe")
     shutil.copy2(setups[0], dest)
+    # 自动更新签名文件：与安装包同名 + .sig（重命名前），缺失即视为构建配置错误
+    sig = setups[0].with_name(setups[0].name + ".sig")
+    if not sig.exists():
+        raise PackageError(
+            f"bundle/nsis 下缺少自动更新签名文件 {sig.name}（请确认 tauri.conf.json5 已启用 createUpdaterArtifacts）"
+        )
+    shutil.copy2(sig, dest.with_suffix(".exe.sig"))
     return dest
 
 
