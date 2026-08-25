@@ -16,6 +16,7 @@
     },
     bundle: {
         active: true,
+        createUpdaterArtifacts: true,
         targets: "all",
         icon: [
             "icons/32x32.png",
@@ -32,6 +33,15 @@
             "../LICENSE": "LICENSE",
             "../CHANGELOG.md": "CHANGELOG.md",
             "../RELEASE_NOTES.md": "RELEASE_NOTES.md"
+        }
+    },
+    plugins: {
+        "updater": {
+            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDA0RTkzMTA5QTZGREZDNzkKUldSNS9QMm1DVEhwQkRCdjlXV2JVb1FLWFZ2cEMrMWcralhVWTViRkFQcGdGTUxPL2gwZ1V0WEQK",
+            "endpoints": [
+                "https://github.com/bytecascade-Lee/rollcaller/releases/latest/download/latest-github.json",
+                "https://cnb.cool/ordinary-glory/rollcaller/-/releases/latest/download/latest-cnb.json"
+            ]
         }
     }
 }
