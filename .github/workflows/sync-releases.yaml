@@ -1,0 +1,86 @@
+name: Sync Releases to CNB
+
+# Release 镜像：GitHub Release 发布后，把附件与 latest-cnb.json 同步到 CNB Release
+# （https://cnb.cool/ordinary-glory/rollcaller），供国内用户走 CNB 端点自动更新。
+# 依赖 sync-mirrors.yaml 先把 tag 同步到 CNB。
+
+on:
+    release:
+        types: [published]
+    workflow_dispatch:
+        inputs:
+            tag:
+                description: '要同步的 GitHub Release 标签（如 v0.1.0）'
+                required: true
+                type: string
+
+permissions:
+    contents: read
+
+env:
+    PYTHONIOENCODING: utf-8
+
+jobs:
+    sync:
+        name: Sync release to CNB
+        runs-on: ubuntu-latest
+        steps:
+            -   name: Checkout
+                uses: actions/checkout@v4
+
+            -   name: Resolve tag
+                id: tag
+                shell: bash
+                run: |
+                    if [ "${{ github.event_name }}" = "release" ]; then
+                      echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+                    else
+                      echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+                    fi
+
+            -   name: Resolve release commit
+                id: release
+                shell: bash
+                env:
+                    GH_TOKEN: ${{ github.token }}
+                    TAG: ${{ steps.tag.outputs.tag }}
+                run: |
+                    echo "commitish=$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json targetCommitish --jq .targetCommitish)" >> "$GITHUB_OUTPUT"
+
+            -   name: Setup uv
+                uses: astral-sh/setup-uv@v5
+
+            # CNB Release 依赖 tag 已同步（sync-mirrors.yaml）；未同步前等待，
+            # 避免走 API 自动打 tag（此时目标 commit 可能尚未存在于 CNB）
+            -   name: Wait for CNB tag sync
+                shell: bash
+                env:
+                    CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+                    TAG: ${{ steps.tag.outputs.tag }}
+                run: |
+                    for i in $(seq 1 30); do
+                      if git ls-remote "https://cnb:${CNB_TOKEN}@cnb.cool/ordinary-glory/rollcaller.git" "refs/tags/${TAG}" | grep -q .; then
+                        echo "CNB 已同步 tag ${TAG}"
+                        exit 0
+                      fi
+                      echo "等待 tag ${TAG} 同步到 CNB（${i}/30）..."
+                      sleep 10
+                    done
+                    echo "tag ${TAG} 未在 5 分钟内同步到 CNB，请检查 sync-mirrors 工作流" >&2
+                    exit 1
+
+            -   name: Download GitHub release assets
+                shell: bash
+                env:
+                    GH_TOKEN: ${{ github.token }}
+                    TAG: ${{ steps.tag.outputs.tag }}
+                run: gh release download "${TAG}" --repo "${GITHUB_REPOSITORY}" --dir assets --clobber
+
+            -   name: Sync release to CNB
+                shell: bash
+                env:
+                    CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+                    CNB_REPO: ordinary-glory/rollcaller
+                    TAG: ${{ steps.tag.outputs.tag }}
+                    COMMITISH: ${{ steps.release.outputs.commitish }}
+                run: uv run python scripts/sync_cnb.py --tag "${TAG}" --commitish "${COMMITISH}" --assets-dir assets
