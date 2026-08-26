@@ -56,7 +56,9 @@ def package_setup(release_dir_: Path, version: str, arch: str, out_dir: Path) ->
     exe_src = setups[0]
     sig_src = exe_src.with_suffix(".exe.sig")
     exe_dst = out_dir / asset_name(version, arch, "setup", "exe")
-    sig_dst = sig_src.with_suffix(".exe.sig")
+    # 签名文件与重命名后的安装包同名（rollcaller-<version>-windows-<arch>-setup.exe.sig），
+    # 供 publish.py 生成 latest.json 时按该命名收集
+    sig_dst = exe_dst.with_suffix(".exe.sig")
     shutil.copy2(exe_src, exe_dst)
     if not sig_src.exists():
         raise PackageError(
