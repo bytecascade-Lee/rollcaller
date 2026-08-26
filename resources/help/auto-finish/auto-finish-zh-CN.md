@@ -4,6 +4,7 @@
 
 适合需要按固定次数连续点名、期间不需要干预的场景，例如按名单依次核对、多轮随机抽查等。
 
+[//]: # (@section: operation-steps)
 ## 操作步骤
 
 1. 点击左侧导航栏进入「点名」页面，确认学生列表非空。
@@ -17,13 +18,15 @@
 
 - **自动运行**：整个过程无需干预，程序会按设定次数依次点完。
 - **全部点完后自动重置**：若关闭了「允许重复点名」，当所有学生都被点到后，列表会自动清空并重置，方便开始下一轮。
-- **想提前结束？**可以在中途 [手动暂停点名](../manual-pause/manual-pause-zh-CN.md) ，暂停后剩余次数不再执行，只保留已点到的记录。
+[//]: # (@link: operation-steps)
+- **想提前结束？** 可以在中途 [手动暂停点名](../manual-pause/manual-pause-zh-CN.md#操作步骤) ，暂停后剩余次数不再执行，只保留已点到的记录。
 
 ## 常见问题
 
 **问：连续点名可以中途停止吗？**
 
-答：可以。在点名进行中点击「暂停」即可提前结束，详见 [手动暂停点名](../manual-pause/manual-pause-zh-CN.md) 。
+[//]: # (@link: operation-steps)
+答：可以。在点名进行中点击「暂停」即可提前结束，详见 [手动暂停点名](../manual-pause/manual-pause-zh-CN.md#操作步骤) 。
 
 **问：关闭「允许重复点名」后，所有学生都被点到会怎样？**
 
@@ -31,5 +34,7 @@
 
 ## 延伸阅读
 
-- [单次点名](../single-rollcall/single-rollcall-zh-CN.md) — 手动控制的点名方式
-- [手动暂停点名](../manual-pause/manual-pause-zh-CN.md) — 中途手动暂停
+[//]: # (@link: operation-steps)
+- [单次点名](../single-rollcall/single-rollcall-zh-CN.md#操作步骤) — 手动控制的点名方式
+[//]: # (@link: operation-steps)
+- [手动暂停点名](../manual-pause/manual-pause-zh-CN.md#操作步骤) — 中途手动暂停

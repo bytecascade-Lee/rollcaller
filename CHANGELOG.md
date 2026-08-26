@@ -4,6 +4,52 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 0.7.0
+
+### Breaking Changes
+
+- CI 发布流程迁移至统一 `publish.py` 脚本，`release_ci.py` 仅保留构建职责，删除 `sync-releases.yaml` 和 `sync_cnb.py`
+- 启用 `createUpdaterArtifacts`，构建产物新增 `.sig` 签名文件
+
+### Added
+
+- 新增应用自更新系统：
+  - 集成 `tauri-plugin-updater` 和 `tauri-plugin-process`，支持检查、下载、安装、重启完整更新流程
+  - 新增 `Updater.svelte` 组件，集成至 AppTitlebar，支持 idle/checking/available/downloading/downloaded/upToDate/error 七种状态
+  - 更新弹窗展示当前版本与最新版本对比、更新日志（Markdown 渲染）、下载进度条，支持取消下载和失败重试
+  - 生成 `latest-github.json` 和 `latest-cnb.json` 自动更新清单，随 GitHub Release 发布
+  - 配置更新器签名密钥，构建时生成 `.sig` 签名文件用于校验
+- 新增帮助文档锚点导航系统：
+  - 新增 `helpAnnotations.ts` 注解预处理工具，支持 `@section` 和 `@link` 注解指令
+  - 新增 `helpLinks.ts` 链接分类工具，识别外部链接、文档链接、同文档锚点
+  - 集成至 MarkdownView 渲染管线，在 markdown-it core 阶段注入 `data-section`/`data-link` 属性
+  - 支持文档内锚点平滑滚动定位，`$effect` 感知 pendingSection 避免与文档切换冲突
+- 新增帮助文档前进/后退导航，标题栏集成前进/后退按钮，支持浏览历史栈，裁剪前进栈后追加
+- 新增帮助文档：主窗口（`app-window-zh-CN.md`）、帮助窗口（`help-window-zh-CN.md`）、语音播报（`tts-zh-CN.md`）
+- 新增帮助文档底部面包屑导航，替代原有版本信息展示
+- 新增图标按钮颜色变体样式（`primary`/`info`/`success`/`warn`/`error`）
+- 新增通用进度条组件样式 `progress.css`
+- 新增 CNB 镜像同步：`sync-mirrors.yaml` 工作流将 GitHub 分支和 tag 同步至 CNB，`publish.py` 统一发布至 GitHub 和 CNB 双平台
+
+### Changed
+
+- 重构构建脚本：`update_version` 提取为独立模块，`builder` 移除版本同步职责，`targets` 模块重命名 `resolve_target`→`to_target` 并新增 `to_alise` 反向查询
+- 重构标题栏为 `AppTitlebar` 和 `HelpTitlebar` 两个独立组件，移除 `label` 条件判断
+- 更新器端点优先使用 CNB 镜像（`cnb.cool`），GitHub 作为备用
+- 帮助文档导航结构优化，新增"界面操作"分组和语音播报节点
+- 帮助文档搜索索引过滤 `@section`/`@link` 注解行，提升搜索准确性
+- CI tauri-cli 移除缓存机制，改为始终从 GitHub Releases 下载
+
+### Fixed
+
+- 修复镜像同步工作流中 `git push <repo> <local>:<origin>` 参数顺序错误导致同步失败的问题
+
+### Removed
+
+- 移除 `sync-releases.yaml` 和 `sync_cnb.py`，发布逻辑由 `publish.py` 统一接管
+
+---
+
 ## 0.6.0
 
 ### Breaking Changes
@@ -338,7 +384,7 @@ All notable changes to this project will be documented in this file.
 - 修复点名器在动态学生列表下获取空 ID 导致后端 panic 的问题
 - 修复 `EditRecord` 未选择更新项时"确定"按钮仍启用的问题
 - 修复点到学生状态显示为"缺勤"的问题（状态值统一 + 1）
-- 修复非时间排序时仍然自动滚动到底部的问题 
+- 修复非时间排序时仍然自动滚动到底部的问题
 - 修复 `type` 类型的异常导入
 
 ---

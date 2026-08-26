@@ -1,0 +1,34 @@
+name: Sync Mirrors
+
+# 代码镜像：GitHub 任意分支/tag 推送后，直接同步推送到 CNB（https://cnb.cool/ordinary-glory/rollcaller）
+# 以便 CNB 侧创建 Release 时 tag/commit 已存在；GitHub 是唯一数据源，CNB 为只读镜像。
+
+on:
+    push:
+        branches:
+            - '**'
+        tags:
+            - '**'
+
+permissions:
+    contents: read
+
+jobs:
+    sync:
+        name: Sync code to CNB
+        runs-on: ubuntu-latest
+        steps:
+            -   name: Checkout
+                uses: actions/checkout@v4
+                with:
+                    fetch-depth: 0
+
+            -   name: Push branches and tags to CNB
+                shell: bash
+                env:
+                    CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+                run: |
+                    git push --prune \
+                      "https://cnb:${CNB_TOKEN}@cnb.cool/ordinary-glory/rollcaller.git" \
+                      "+refs/heads/*:refs/heads/*" \
+                      "+refs/tags/*:refs/tags/*"

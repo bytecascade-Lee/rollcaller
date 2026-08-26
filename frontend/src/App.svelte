@@ -4,7 +4,6 @@
   import "$styles/button.css";
   import "$styles/card.css";
   import "$styles/content.css";
-  import "$styles/popup.css";
   import "$styles/field.css";
   import "$styles/footbar.css";
   import "$styles/global-form-reset.css";
@@ -12,6 +11,8 @@
   import "$styles/logo.css"
   import "$styles/nav.css";
   import "$styles/overlay.css";
+  import "$styles/popup.css";
+  import "$styles/progress.css";
   import "$styles/search.css";
   import "$styles/sidebar.css";
   import "$styles/state.css";
@@ -34,7 +35,7 @@
   import {AppInfoCommand, WindowsCommand} from "$commands";
   import type {AppInfo} from "$types";
   import {onMount} from "svelte";
-  import TitleBar from "$components/common/TitleBar.svelte";
+  import AppTitleBar from "$components/app/AppTitlebar.svelte";
   import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
 
   let APP_INFO = $state<AppInfo>({
@@ -55,7 +56,7 @@
 
 <div class="shell">
   <div class="titlebar-slot">
-    <TitleBar window={window} title="自动点名" label={window.label}/>
+    <AppTitleBar window={window}/>
   </div>
   <aside class="sidebar">
     <nav class="nav">

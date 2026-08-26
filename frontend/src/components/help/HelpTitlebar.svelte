@@ -1,31 +1,38 @@
 <script lang="ts">
-  import {invoke} from "@tauri-apps/api/core";
   import type {WebviewWindow} from "@tauri-apps/api/webviewWindow";
   import {openUrl} from "@tauri-apps/plugin-opener";
   import {
+    ArrowLeftIcon,
+    ArrowRightIcon,
     CopyIcon,
     DiceFourIcon,
     GithubLogoIcon,
     MagnifyingGlassIcon,
     MinusIcon,
-    PushPinIcon,
     SquareIcon,
     XIcon
   } from "phosphor-svelte";
   import {onMount} from "svelte";
-  import "$styles/logo.css"
+  import "$styles/logo.css";
   import "$styles/titlebar.css";
   import "$styles/icon-button.css";
   import logo from "$assets/icon.ico";
   import {WindowsCommand} from "$commands";
   import SearchHelpDocs from "$components/help/SearchHelpDocs.svelte";
   import {overlayController} from "$controllers/popupController";
+  import {invoke} from "@tauri-apps/api/core";
 
-  let {window, title, label}: { window: WebviewWindow, title: string, label: string } = $props();
+  let {window, onback, onforward, canGoBack, canGoForward}: {
+    window: WebviewWindow,
+    onback?: () => void,
+    onforward?: () => void,
+    canGoBack?: boolean,
+    canGoForward?: boolean
+  } = $props();
   let isMaximized = $state(false);
   let snapTimer: ReturnType<typeof setTimeout> | undefined;
-  let isAlwaysOnTop = $state(false);
   let anchor = $state<HTMLElement | null>(null);
+
   onMount(() => {
     const refresh = () => window.isMaximized().then((v) => (isMaximized = v));
     refresh();
@@ -67,51 +74,50 @@
       class="text-subtitle"
       style:padding-top="6px"
     >
-      {title}
+      自动点名 - 帮助文档
     </div>
   </div>
   <div
     class="icon-button-group"
     style:padding-right="12px"
   >
-    {#if label == "app"}
-      <button
-        class="icon-button"
-        title="置顶"
-        aria-label="置顶"
-        style:background={isAlwaysOnTop ? "var(--color-primary)" : "var(--color-page)"}
-        onclick={async () => {
-        isAlwaysOnTop = !isAlwaysOnTop;
-        await window.setAlwaysOnTop(isAlwaysOnTop)
+    <button
+      aria-label="返回"
+      class="icon-button"
+      disabled={!canGoBack}
+      onclick={onback}
+      title="返回"
+    >
+      <ArrowLeftIcon size="16" weight="bold"/>
+    </button>
+    <button
+      aria-label="前进"
+      class="icon-button"
+      disabled={!canGoForward}
+      onclick={onforward}
+      title="前进"
+    >
+      <ArrowRightIcon size="16" weight="bold"/>
+    </button>
+    <button
+      aria-label="搜索"
+      class="icon-button"
+      onclick={(e) => {
+        anchor = e.currentTarget;
+        overlayController.open("HelpSearch");
       }}
-      >
-        {#if isAlwaysOnTop}
-          <PushPinIcon size="16" weight="bold" color="var(--color-page)"/>
-        {:else}
-          <PushPinIcon size="16" weight="bold"/>
-        {/if}
-      </button>
-    {:else if label == "help"}
-      <button
-        aria-label="搜索"
-        class="icon-button"
-        onclick={(e) => {
-          anchor = e.currentTarget;
-          overlayController.open("HelpSearch");
-        }}
-        title="搜索"
-      >
-        <MagnifyingGlassIcon size="16" weight="bold"/>
-      </button>
-      <button
-        class="icon-button"
-        title="主界面"
-        aria-label="主界面"
-        onclick={WindowsCommand.openAppWindow}
-      >
-        <DiceFourIcon size="16" weight="bold"/>
-      </button>
-    {/if}
+      title="搜索"
+    >
+      <MagnifyingGlassIcon size="16" weight="bold"/>
+    </button>
+    <button
+      class="icon-button"
+      title="主界面"
+      aria-label="主界面"
+      onclick={WindowsCommand.openAppWindow}
+    >
+      <DiceFourIcon size="16" weight="bold"/>
+    </button>
     <button
       aria-label="项目主页"
       class="icon-button"
@@ -153,6 +159,4 @@
   </div>
 </div>
 
-{#if label == "help"}
-  <SearchHelpDocs bind:anchor={anchor}/>
-{/if}
+<SearchHelpDocs bind:anchor={anchor}/>

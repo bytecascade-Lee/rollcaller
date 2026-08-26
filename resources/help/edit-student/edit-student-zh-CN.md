@@ -1,9 +1,10 @@
-# 修改学生信息
+# 编辑学生信息
 
 > 本文介绍如何修改已有学生的基本信息（学号、姓名），适用于学生学号或姓名发生变更的场景。
 
 应用会实时检测学号是否与其他学生重复，确保学号始终唯一。
 
+[//]: # (@section: operation-steps)
 ## 操作步骤
 
 1. 点击左侧导航栏进入「学生管理」页面。
@@ -29,5 +30,7 @@
 
 ## 延伸阅读
 
-- [添加学生](../add-student/add-student-zh-CN.md) — 新增学生到名单
-- [删除学生](../delete-student/delete-student-zh-CN.md) — 移除不再需要的学生
+[//]: # (@link: operation-steps)
+- [添加学生](../add-student/add-student-zh-CN.md#操作步骤) — 新增学生到名单
+[//]: # (@link: operation-steps)
+- [删除学生](../delete-student/delete-student-zh-CN.md#操作步骤) — 移除不再需要的学生

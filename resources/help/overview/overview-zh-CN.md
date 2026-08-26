@@ -6,7 +6,7 @@
 
 本应用围绕三个核心页面展开，所有操作都可以通过左侧导航栏快速切换：
 
-- **自动点名**：从学生名单中随机抽取学生，支持单次点名和连续点名两种模式，点名结果自动保存为考勤记录。
+- **自动点名**：从学生名单中随机抽取学生，支持单次点名和连续点名两种模式，点名结果自动保存为考勤记录。支持语音播报，点名后自动朗读学生姓名。
 - **学生管理**：维护班级的学生名单，支持添加、编辑、删除、批量导入和导出学生。
 - **历史记录**：查看全部点名记录，支持批量修改考勤状态和备注，并可将记录导出为 Excel 文件。
 
@@ -16,6 +16,7 @@
 - 支持**单次点名**（手动开始、手动停止）和**连续点名**（设定次数后自动连续点名）。
 - 可控制是否允许重复点名，避免或允许同一学生被多次点到。
 - 点名结果自动保存，并按点名轮次分组展示。
+- 支持**语音播报**，点名后自动朗读学生姓名，支持本地语音和云端 AI 两种模式。详见 [语音播报](../tts/tts-zh-CN.md)。
 
 ### 学生管理
 
@@ -51,8 +52,15 @@
 ## 从这里开始
 
 - 还不熟悉本应用？请阅读 [快速开始](../quick-start/quick-start-zh-CN.md) 一文，几分钟即可上手。
-- 想了解如何点名？请参考 [单次点名](../single-rollcall/single-rollcall-zh-CN.md) 和 [连续点名](../auto-finish/auto-finish-zh-CN.md) 。
-- 想管理学生名单？请从 [添加学生](../add-student/add-student-zh-CN.md) 或 [批量导入学生](../batch-import/batch-import-zh-CN.md) 开始。
+[//]: # (@link: operation-steps)
+[//]: # (@link: operation-steps)
+- 想了解如何点名？请参考 [单次点名](../single-rollcall/single-rollcall-zh-CN.md#操作步骤) 和 [连续点名](../auto-finish/auto-finish-zh-CN.md#操作步骤) 。
+[//]: # (@link: operation-steps)
+[//]: # (@link: import-steps)
+- 想管理学生名单？请从 [添加学生](../add-student/add-student-zh-CN.md#操作步骤) 或 [批量导入学生](../batch-import/batch-import-zh-CN.md#导入步骤) 开始。
+[//]: # (@link: modes)
+- 想开启语音播报？请参考 [语音播报](../tts/tts-zh-CN.md#播报模式)。
+- 想了解窗口操作？请参考 [主窗口](../app-window/app-window-zh-CN.md) 和 [帮助窗口](../help-window/help-window-zh-CN.md)。
 
 ## 关于
 

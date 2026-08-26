@@ -69,7 +69,3 @@ def log(level: str, message: str) -> None:
 
     # stacklevel=2 让 logging 记录调用 log() 的调用者的位置
     logging.log(level_value, message, stacklevel=2)
-
-
-if __name__ == '__main__':
-    print("Cannot run utilities.")

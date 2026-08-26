@@ -39,7 +39,102 @@
     color: var(--color-error-hover);
 }
 
-.icon-button.danger:active {
-    background: var(--color-error-hover);
+.icon-button.danger:disabled {
+    color: var(--text-color-disabled);
+    cursor: not-allowed;
+}
+
+.icon-button.danger:active:not(:disabled) {
+    background: var(--color-error);
+    color: var(--color-page);
+}
+
+.icon-button.primary {
+    color: var(--color-primary);
+}
+
+.icon-button.primary:hover {
+    color: var(--color-primary-hover);
+}
+
+.icon-button.primary:disabled {
+    color: var(--text-color-disabled);
+    cursor: not-allowed;
+}
+
+.icon-button.primary:active:not(:disabled) {
+    background: var(--color-primary);
+    color: var(--color-page);
+}
+
+.icon-button.info {
+    color: var(--color-info);
+}
+
+.icon-button.info:hover {
+    color: var(--color-info-hover);
+}
+
+.icon-button.info:disabled {
+    color: var(--text-color-disabled);
+    cursor: not-allowed;
+}
+
+.icon-button.info:active:not(:disabled) {
+    background: var(--color-info);
+    color: var(--color-page);
+}
+
+.icon-button.success {
+    color: var(--color-success);
+}
+
+.icon-button.success:hover {
+    color: var(--color-success-hover);
+}
+
+.icon-button.success:disabled {
+    color: var(--text-color-disabled);
+    cursor: not-allowed;
+}
+
+.icon-button.success:active:not(:disabled) {
+    background: var(--color-success);
+    color: var(--color-page);
+}
+
+.icon-button.warn {
+    color: var(--color-warn);
+}
+
+.icon-button.warn:hover {
+    color: var(--color-warn-hover);
+}
+
+.icon-button.warn:disabled {
+    color: var(--text-color-disabled);
+    cursor: not-allowed;
+}
+
+.icon-button.warn:active:not(:disabled) {
+    background: var(--color-warn);
+    color: var(--color-page);
+}
+
+.icon-button.error {
+    color: var(--color-error);
+}
+
+.icon-button.error:hover {
+    color: var(--color-error-hover);
+}
+
+.icon-button.error:disabled {
+    color: var(--text-color-disabled);
+    cursor: not-allowed;
+}
+
+.icon-button.error:active:not(:disabled) {
+    background: var(--color-error);
     color: var(--color-page);
 }

@@ -91,22 +91,18 @@ jobs:
                     # 架构特定的 target 目录缓存
                     key: ${{ matrix.target }}
 
-            -   name: Cache tauri-cli
-                id: tauri-cli
-                uses: actions/cache@v6
-                with:
-                    path: resources/tauri/cargo-tauri.exe
-                    key: tauri-cli-2.11.4
-
-                # 只在 ARM64 任务中配置 MSVC ARM64 环境
+            # 只在 ARM64 任务中配置 MSVC ARM64 环境
             -   name: Configure arm64 msvc development environment
                 if: matrix.target == 'aarch64-pc-windows-msvc'
                 uses: step-security/msvc-dev-cmd@v1
                 with:
                     arch: amd64_arm64
 
+            # 6.6MB 的预编译 tauri-cli（固定 2.11.4）直接从 GitHub Releases 下载。
+            # 之前用 actions/cache 缓存同一静态 key：tag 触发的 workflow 缓存按 ref 隔离，
+            # 每次发布都是新 tag → 永远 miss；且两个并行矩阵任务抢同一 key 保存导致 aarch64 保存失败。
+            # 体积太小，缓存无收益，改为始终下载，行为确定。
             -   name: Install tauri-cli (prebuilt, no Tauri actions)
-                if: steps.tauri-cli.outputs.cache-hit != 'true'
                 shell: pwsh
                 run: |
                     Invoke-WebRequest -Uri "https://github.com/tauri-apps/tauri/releases/download/tauri-cli-v2.11.4/cargo-tauri-x86_64-pc-windows-msvc.zip" -OutFile cargo-tauri.zip
@@ -118,8 +114,12 @@ jobs:
                 env:
                     INPUT_VERSION: ${{ inputs.version }}
                     MIMO_TTS_API_KEY: ${{ secrets.MIMO_TTS_API_KEY }}
+                    TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+                    TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
                 run: uv run python scripts/release_ci.py build --target ${{ matrix.target }}
 
+            # exe.sig 签名文件不发布为 Release 附件，仅经 artifact 传递到 release job，
+            # 供 publish.py 生成自动更新清单 latest-github.json / latest-cnb.json
             -   name: Upload artifacts
                 uses: actions/upload-artifact@v7
                 with:
@@ -127,10 +127,11 @@ jobs:
                     path: |
                         rollcaller-*-windows-*-setup.exe
                         rollcaller-*-windows-*-portable.zip
+                        rollcaller-*-windows-*-setup.exe.sig
                     if-no-files-found: error
 
     release:
-        name: Publish GitHub release
+        name: Publish GitHub & CNB releases
         needs: build
         runs-on: windows-latest
         steps:
@@ -139,6 +140,10 @@ jobs:
 
             -   name: Setup uv
                 uses: astral-sh/setup-uv@v5
+
+            -   name: Install cnb cli
+                shell: pwsh
+                run: npm install -g @cnbcool/cnb-cli
 
             -   name: Download build artifacts
                 uses: actions/download-artifact@v7
@@ -156,9 +161,13 @@ jobs:
                       Write-Host "assets directory not found"
                     }
 
-            -   name: Publish GitHub release
+            # 先发布 GitHub Release，后同步发布 CNB Release（含自动更新清单），
+            # 逻辑集中在 scripts/publish.py
+            -   name: Publish GitHub & CNB releases
                 env:
                     GH_TOKEN: ${{ github.token }}
+                    CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+                    CNB_REPO: ordinary-glory/rollcaller
                     DRAFT_RELEASE: ${{ inputs.draft }}
                     INPUT_VERSION: ${{ inputs.version }}
-                run: uv run python scripts/release_ci.py publish
+                run: uv run python scripts/publish.py

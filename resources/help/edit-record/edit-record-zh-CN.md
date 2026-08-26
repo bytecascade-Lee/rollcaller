@@ -1,4 +1,4 @@
-# 修改考勤记录
+# 编辑记录信息
 
 > 本文介绍如何修改点名产生的考勤记录，包括逐条修改和批量修改，支持调整考勤状态和补充备注。
 
@@ -7,6 +7,7 @@
 - **考勤状态**：为记录标记状态，例如出勤、缺勤、迟到、早退、请假等。
 - **备注**：补充说明信息，如缺勤原因、特殊情况等。
 
+[//]: # (@section: operation-steps)
 ## 操作步骤
 
 1. 点击左侧导航栏进入「历史记录」页面。
@@ -43,6 +44,9 @@
 
 ## 延伸阅读
 
-- [导出考勤记录](../export-record/export-record-zh-CN.md) — 将记录导出为 Excel
-- [单次点名](../single-rollcall/single-rollcall-zh-CN.md) — 手动控制的点名方式
-- [自动结束点名](../auto-finish/auto-finish-zh-CN.md) — 连续点名
+[//]: # (@link: operation-steps)
+- [导出记录数据](../export-record/export-record-zh-CN.md#操作步骤) — 将记录导出为 Excel
+[//]: # (@link: operation-steps)
+- [单次点名](../single-rollcall/single-rollcall-zh-CN.md#操作步骤) — 手动控制的点名方式
+[//]: # (@link: operation-steps)
+- [自动结束点名](../auto-finish/auto-finish-zh-CN.md#操作步骤) — 连续点名

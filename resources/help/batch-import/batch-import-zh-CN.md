@@ -8,6 +8,7 @@
 
 准备一份包含**学号和姓名两列数据**的 Excel 文件即可。
 
+[//]: # (@section: import-steps)
 ## 导入步骤
 
 ### 步骤一：选择文件
@@ -38,7 +39,8 @@
 
 - **冲突必须处理完才能导入**：存在未决策的冲突时无法执行导入，避免误操作。
 - **列映射或表头行数改动后**，已做的冲突决策会被清空，请重新确认。
-- 学生数量较少、不想准备 Excel 时，也可以直接 [添加学生](../add-student/add-student-zh-CN.md) 。
+[//]: # (@link: operation-steps)
+- 学生数量较少、不想准备 Excel 时，也可以直接 [添加学生](../add-student/add-student-zh-CN.md#操作步骤) 。
 - 目前仅支持加载第一个工作表，如果提供的 Excel 文件有多个工作表，请确保待导入的数据位于第一个，后续会支持选择指定工作表。
 
 ## 常见问题
@@ -53,6 +55,11 @@
 
 ## 延伸阅读
 
-- [添加学生](../add-student/add-student-zh-CN.md) — 逐个添加学生
-- [删除学生](../delete-student/delete-student-zh-CN.md) — 移除不再需要的学生
-- [导出学生](../export-student/export-student-zh-CN.md) — 将学生名单导出为 Excel
+[//]: # (@link: operation-steps)
+- [添加学生](../add-student/add-student-zh-CN.md#操作步骤) — 逐个添加学生
+[//]: # (@link: operation-steps)
+- [编辑学生信息](../edit-student/edit-student-zh-CN.md#操作步骤) — 修改学生的姓名、学号等信息
+[//]: # (@link: operation-steps)
+- [删除学生](../delete-student/delete-student-zh-CN.md#操作步骤) — 移除不再需要的学生
+[//]: # (@link: operation-steps)
+- [导出学生](../export-student/export-student-zh-CN.md#操作步骤) — 将学生名单导出为 Excel

@@ -14,7 +14,6 @@
 import argparse
 import re
 import subprocess
-import sys
 from pathlib import Path
 from typing import List
 
@@ -50,15 +49,6 @@ LOCKS = [
         ["uv", "lock"]
     )
 ]
-
-
-def normalize_version(raw: str) -> str:
-    """去除可选的 v 前缀并校验语义化版本格式（复用 common.version）。"""
-    try:
-        return version_mod.validate(raw, min_level=None)
-    except version_mod.VersionError as e:
-        log("ERROR", f"非法版本号: {raw!r}：{e}")
-        raise SystemExit(1)
 
 
 def update_file(path: Path, pattern: re.Pattern, version: str) -> str:
@@ -106,18 +96,8 @@ def sync_lockfile(workspace: Path, cmd: List[str]) -> bool:
         return False
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="统一同步 pyproject.toml / tauri.conf.json5 / Cargo.toml / package.json 的版本号"
-    )
-    parser.add_argument(
-        "version",
-        help="语义化版本号，可带 v 也可不带，例如 v0.1.0-beta.2 或 0.1.0-rc.1",
-    )
-    args = parser.parse_args()
-
-    version = normalize_version(args.version)
-
+def sync(version: str) -> None:
+    version = version_mod.validate(version)
     log("INFO", f"开始同步版本号: {version}")
     for path, pattern in FILES:
         old = update_file(path, pattern, version)
@@ -131,4 +111,12 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="统一同步 pyproject.toml / tauri.conf.json5 / Cargo.toml / package.json 的版本号"
+    )
+    parser.add_argument(
+        "version",
+        help="语义化版本号，可带 v 也可不带，例如 v0.1.0-beta.2 或 0.1.0-rc.1",
+    )
+    args = parser.parse_args()
+    sync(args.version)
