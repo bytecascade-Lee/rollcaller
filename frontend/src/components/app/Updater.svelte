@@ -263,6 +263,7 @@
       </h3>
 
       {#if status == 'Available'}
+        <span class="text-content">发布于：{update?.date}</span>
         <div class="changelog">
           <MarkdownView markdown={update?.body ?? ''}/>
         </div>
@@ -299,6 +300,7 @@
 
         <!-- 主要操作按钮 -->
         {#if status == 'Available'}
+          <button class="button warn" onclick={checkForUpdates}>重新获取更新</button>
           <button class="button yes" onclick={() => void download()}>下载</button>
         {:else if status == 'Downloading'}
           <!-- 下载中，显示取消按钮（已在上面），此处不重复，但也可保留一个禁用状态 -->
