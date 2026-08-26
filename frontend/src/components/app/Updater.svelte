@@ -191,7 +191,7 @@
     aria-label="发现新版本"
     class="icon-button primary"
     title="发现新版本"
-    onclick={download}
+    onclick={openPopup}
   >
     <CloudWarningIcon size="16" weight="bold"/>
   </button>
