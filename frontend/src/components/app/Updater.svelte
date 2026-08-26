@@ -1,7 +1,7 @@
 <script lang="ts">
-  import {onMount} from "svelte";
-  import {check, type Update} from "@tauri-apps/plugin-updater";
-  import {relaunch} from "@tauri-apps/plugin-process";
+  import {onDestroy, onMount} from 'svelte';
+  import {check, type Update} from '@tauri-apps/plugin-updater';
+  import {relaunch} from '@tauri-apps/plugin-process';
   import {
     CircleNotchIcon,
     CloudArrowDownIcon,
@@ -9,229 +9,309 @@
     CloudIcon,
     CloudWarningIcon,
     CloudXIcon,
-  } from "phosphor-svelte";
-  import MarkdownView from "$components/common/MarkdownView.svelte";
+  } from 'phosphor-svelte';
+  import MarkdownView from '$components/common/MarkdownView.svelte';
+  import {AppInfoCommand} from '$commands';
+
+  let {autoCheck = true}: { autoCheck?: boolean } = $props();
 
   type UpdaterStatus =
-    | "idle"
-    | "checking"
-    | "available"
-    | "downloading"
-    | "downloaded"
-    | "error";
+    | 'Idle'
+    | 'Checking'
+    | 'Available'
+    | 'UpToDate'
+    | 'Downloading'
+    | 'Downloaded'
+    | 'Error';
 
-  /** 当前状态：决定图标、title 与点击行为 */
-  let status = $state<UpdaterStatus>("idle");
-  /** 检查到的最新版本信息（含下载/安装句柄） */
+  let status = $state<UpdaterStatus>('Idle');
   let update = $state<Update | null>(null);
-  /** 下载/安装失败信息 */
-  let error = $state("");
-  /** 是否已完成下载（区分下载失败后重试目标是下载还是安装） */
-  let downloaded = $state(false);
-  /** 安装中（禁用按钮，防重复点击） */
+  let errorMessage = $state('');
   let installing = $state(false);
-
-  /** 下载进度 */
+  let isVisible = $state(false);
+  let currentVersion = $state('');
   let downloadedBytes = $state(0);
   let totalBytes = $state(0);
+  let cancelRequested = $state(false);
+
+  // 计算进度百分比
   let percent = $derived(
-    totalBytes > 0 ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)) : 0
+    totalBytes > 0 ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)) : 0,
   );
 
-  /** 模态弹窗开关（点击周围阴影关闭） */
-  let dialogOpen = $state(false);
-
-  onMount(() => {
-    // 启动时静默检查一次
-    void checkForUpdates();
-  });
-
-  /** 检查更新：失败静默回到 idle（无网络 / 尚未发布 latest.json 等） */
   async function checkForUpdates() {
-    if (status === "checking") return;
-    status = "checking";
+    if (status === 'Checking') return;
+    status = 'Checking';
+    errorMessage = '';
     try {
       const result = await check();
       if (result) {
         update = result;
-        downloaded = false;
-        error = "";
         downloadedBytes = 0;
         totalBytes = 0;
-        status = "available";
+        status = 'Available';
       } else {
-        status = "idle";
+        status = 'UpToDate';
       }
-    } catch {
-      status = "idle";
+    } catch (e) {
+      status = 'Error';
+      errorMessage = e instanceof Error ? e.message : String(e);
     }
   }
 
-  /** 下载新版本。后台进行：关闭弹窗不中断下载，完成后按钮转为就绪态 */
-  async function startDownload() {
-    if (!update || status === "downloading") return;
-    status = "downloading";
-    error = "";
-    downloaded = false;
+  async function download() {
+    if (!update || status === 'Downloading') return;
+    // 重置取消标志和进度
+    cancelRequested = false;
+    status = 'Downloading';
+    errorMessage = '';
     downloadedBytes = 0;
     totalBytes = 0;
+
     try {
       await update.download((event) => {
-        if (event.event === "Started") {
+        // 在每次回调中检查是否被取消
+        if (cancelRequested) {
+          throw new Error('CANCELLED');
+        }
+
+        if (event.event === 'Started') {
           totalBytes = event.data.contentLength ?? 0;
-        } else if (event.event === "Progress") {
+        } else if (event.event === 'Progress') {
           downloadedBytes += event.data.chunkLength;
-        } else if (event.event === "Finished") {
-          downloaded = true;
         }
       });
-      status = "downloaded";
+
+      // 下载完成，检查是否在下载过程中被取消（以防最后一个回调未触发）
+      if (cancelRequested) {
+        throw new Error('CANCELLED');
+      }
+
+      status = 'Downloaded';
     } catch (e) {
-      status = "error";
-      error = e instanceof Error ? e.message : String(e);
+      // 处理取消请求
+      if (e instanceof Error && e.message === 'CANCELLED') {
+        // 静默回退到 Available 状态，保留更新信息
+        status = 'Available';
+        downloadedBytes = 0;
+        totalBytes = 0;
+        return;
+      }
+
+      // 其他错误
+      status = 'Error';
+      errorMessage = e instanceof Error ? e.message : String(e);
     }
   }
 
-  /** 安装并重启（仅下载完成后可用） */
+  /** 取消下载 */
+  function cancelDownload() {
+    if (status === 'Downloading') {
+      cancelRequested = true;
+    }
+  }
+
+  /** 安装并重启 */
   async function installAndRestart() {
-    if (!update || !downloaded || installing) return;
+    if (!update || installing) return;
     installing = true;
     try {
       await update.install();
       await relaunch();
     } catch (e) {
       installing = false;
-      status = "error";
-      error = e instanceof Error ? e.message : String(e);
+      status = 'Error';
+      errorMessage = e instanceof Error ? e.message : String(e);
     }
   }
 
-  function closeDialog() {
-    dialogOpen = false;
-  }
-
-  /** 按钮点击分流：idle 触发检查；其余状态打开弹窗 */
-  function onButtonClick() {
-    if (status === "checking") return;
-    if (status === "idle") {
-      void checkForUpdates();
-      return;
-    }
-    dialogOpen = true;
-  }
-
-  /** 弹窗底部「重试」：下载失败重下，安装失败重装 */
   function retry() {
-    if (downloaded) {
-      void installAndRestart();
+    if (status !== 'Error') return;
+    // 判断错误来源：如果没有 update 信息，说明是检查阶段错误
+    if (!update) {
+      void checkForUpdates();
     } else {
-      void startDownload();
+      void download();
     }
   }
 
-  const dialogTitle = $derived(
-    status === "downloaded"
-      ? "更新已就绪"
-      : status === "downloading"
-        ? "正在下载更新"
-        : status === "error"
-          ? "更新失败"
-          : "发现新版本"
-  );
+  /** 打开弹窗 */
+  function openPopup() {
+    isVisible = true;
+  }
+
+  /** 关闭弹窗 */
+  function closePopup() {
+    if (installing) return; // 安装中不允许关闭
+    isVisible = false;
+  }
+
+  onMount(async () => {
+    // 并行获取当前版本和检查更新
+    const tasks: Promise<any>[] = [
+      AppInfoCommand.app_info().then((info) => {
+        currentVersion = info.version;
+      }),
+    ];
+
+    if (autoCheck) {
+      tasks.push(checkForUpdates());
+    }
+
+    await Promise.allSettled(tasks); // 使用 allSettled 避免一个失败影响另一个
+  });
+
+  onDestroy(() => {
+    // 如果组件卸载时正在下载，自动取消
+    if (status === 'Downloading') {
+      cancelRequested = true;
+    }
+  });
 </script>
 
-<button
-  aria-label={status === "checking"
-    ? "检查更新中"
-    : status === "available"
-      ? "发现新版本"
-      : status === "downloading"
-        ? "正在下载"
-        : status === "downloaded"
-          ? "新版本已就绪，重启以应用更新"
-          : status === "error"
-            ? "更新失败，点击重试"
-            : "检查更新"}
-  class="icon-button {status === 'available' || status === 'downloading' ? 'primary' : status === 'downloaded' ? 'success' : status === 'error' ? 'error' : ''}"
-  title={status === "checking"
-    ? "检查更新中"
-    : status === "available"
-      ? "发现新版本"
-      : status === "downloading"
-        ? "正在下载"
-        : status === "downloaded"
-          ? "新版本已就绪，重启以应用更新"
-          : status === "error"
-            ? "更新失败，点击重试"
-            : "检查更新"}
-  onclick={onButtonClick}
->
-  {#if status === "checking"}
+{#if status == 'Idle'}
+  <button
+    aria-label="检查更新"
+    class="icon-button"
+    title="检查更新"
+    onclick={checkForUpdates}
+  >
+    <CloudIcon size="16" weight="bold"/>
+  </button>
+{:else if status == 'Checking'}
+  <button
+    aria-label="检查更新中"
+    class="icon-button"
+    title="检查更新中"
+  >
     <CircleNotchIcon size="16" style="animation: spin 1.5s linear infinite" weight="bold"/>
-  {:else if status === "available"}
+  </button>
+{:else if status == 'Available'}
+  <button
+    aria-label="发现新版本"
+    class="icon-button primary"
+    title="发现新版本"
+    onclick={download}
+  >
     <CloudWarningIcon size="16" weight="bold"/>
-  {:else if status === "downloading"}
+  </button>
+{:else if status == 'UpToDate'}
+  <button
+    aria-label="已是最新版"
+    class="icon-button"
+    title="已是最新版"
+    onclick={openPopup}
+  >
+    <CloudCheckIcon size="16" weight="bold"/>
+  </button>
+{:else if status == 'Downloading'}
+  <button
+    aria-label="正在下载"
+    class="icon-button primary"
+    title="正在下载"
+    onclick={openPopup}
+  >
     <CloudArrowDownIcon
       size="16"
       style="animation: pulse 1.5s var(--transition-ease-in-out) infinite, blink 1.5s var(--transition-ease-in-out) infinite"
       weight="bold"
     />
-  {:else if status === "downloaded"}
+  </button>
+{:else if status == 'Downloaded'}
+  <button
+    aria-label="新版本已就绪，重启以应用更新"
+    class="icon-button success"
+    title="新版本已就绪，重启以应用更新"
+    onclick={openPopup}
+  >
     <CloudCheckIcon size="16" weight="bold"/>
-  {:else if status === "error"}
+  </button>
+{:else if status == 'Error'}
+  <button
+    aria-label="下载失败"
+    class="icon-button error"
+    title="下载失败"
+    onclick={openPopup}
+  >
     <CloudXIcon size="16" weight="bold"/>
-  {:else}
-    <CloudIcon size="16" weight="bold"/>
-  {/if}
-</button>
+  </button>
+{/if}
 
-{#if dialogOpen && update}
+{#if isVisible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <!-- 点击周围阴影可关闭，弹窗内部阻止冒泡 -->
-  <div class="overlay" onclick={closeDialog}>
-    <div class="popup updater-dialog" onclick={(e) => e.stopPropagation()}>
-      <h3 class="text-title">{dialogTitle}</h3>
-      <div class="version-row">
-        <span class="text-content">当前版本 <b>{update.currentVersion}</b></span>
-        <span class="arrow">→</span>
-        <span class="text-content">最新版本 <b>{update.version}</b></span>
-      </div>
+  <div class="overlay" onclick={closePopup}>
+    <div class="popup" onclick={(e) => e.stopPropagation()}>
+      <h3 class="text-title">
+        {#if status == 'Idle'}
+          检查更新
+        {:else if status == 'Checking'}
+          正在检查更新，请稍候……
+        {:else if status == 'Available'}
+          发现新版本 v{update?.version}
+        {:else if status == 'UpToDate'}
+          已是最新版本
+        {:else if status == 'Downloading'}
+          正在下载更新
+        {:else if status == 'Downloaded'}
+          更新已就绪
+        {:else if status == 'Error'}
+          更新出错
+        {:else}
+          更新
+        {/if}
+      </h3>
 
-      {#if status === "downloading"}
+      {#if status == 'Available'}
+        <div class="changelog">
+          <MarkdownView markdown={update?.body ?? ''}/>
+        </div>
+      {:else if status == 'Downloading'}
         <div class="progress">
           <div class="progress-bar">
             <div class="progress-fill" style:width="{percent}%"></div>
           </div>
           <span class="progress-text">{percent}%</span>
         </div>
-      {:else if status === "error"}
-        <div class="error-text">{error}</div>
-      {:else if status === "downloaded"}
+        <p class="text-content" style="margin-top: var(--space-xs);">
+          正在下载 {update?.version}，请稍候…
+        </p>
+      {:else if status == 'Downloaded'}
         <p class="text-content">
           新版本已下载完成，点击「重启并更新」应用更新（应用将自动关闭并重新打开）。
         </p>
-      {:else}
-        <div class="changelog">
-          <MarkdownView markdown={update.body ?? ""}/>
-        </div>
+      {:else if status == 'Error'}
+        <div class="text-content" style="color: var(--color-error)">{errorMessage}</div>
+      {:else if status == 'UpToDate'}
+        <p class="text-content">当前版本 <b>{currentVersion}</b> 已是最新版本。</p>
       {/if}
 
+      <!-- 按钮组 -->
       <div class="button-group">
-        <button class="button" onclick={closeDialog} disabled={installing}>取消</button>
-        {#if status === "available"}
-          <button class="button yes" onclick={() => void startDownload()}>下载</button>
-        {:else if status === "downloading"}
+        <!-- 取消按钮：下载中显示为“取消下载”，其他状态为“关闭” -->
+        <button class="button" onclick={closePopup} disabled={installing}>
+          {#if status == 'Downloading'}
+            取消下载
+          {:else}
+            关闭
+          {/if}
+        </button>
+
+        <!-- 主要操作按钮 -->
+        {#if status == 'Available'}
+          <button class="button yes" onclick={() => void download()}>下载</button>
+        {:else if status == 'Downloading'}
+          <!-- 下载中，显示取消按钮（已在上面），此处不重复，但也可保留一个禁用状态 -->
           <button class="button yes" disabled>下载中…</button>
-        {:else if status === "downloaded"}
+        {:else if status == 'Downloaded'}
           <button
             class="button yes"
             onclick={() => void installAndRestart()}
             disabled={installing}
           >
-            {installing ? "重启中…" : "重启并更新"}
+            {installing ? '重启中…' : '重启并更新'}
           </button>
-        {:else if status === "error"}
+        {:else if status == 'Error'}
           <button class="button warn" onclick={retry}>重试</button>
         {/if}
       </div>
@@ -240,22 +320,6 @@
 {/if}
 
 <style>
-  .updater-dialog {
-    min-width: 26rem;
-    max-width: 34rem;
-  }
-
-  .version-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-    padding-bottom: var(--space-xs);
-  }
-
-  .arrow {
-    color: var(--text-color-secondary);
-  }
-
   .changelog {
     max-height: 16rem;
     overflow-y: auto;
@@ -263,40 +327,5 @@
     background: var(--color-card);
     border: var(--border-size-xxs) solid var(--border-color-3);
     border-radius: var(--radius-sm);
-  }
-
-  .progress {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-xs) 0;
-  }
-
-  .progress-bar {
-    flex: 1;
-    height: 0.5rem;
-    background: var(--color-surface);
-    border-radius: var(--radius-round);
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: var(--color-primary);
-    border-radius: var(--radius-round);
-    transition: width 150ms var(--transition-ease);
-  }
-
-  .progress-text {
-    min-width: 2.5rem;
-    text-align: right;
-    color: var(--text-color-secondary);
-    font-size: var(--font-size-xs);
-  }
-
-  .error-text {
-    color: var(--color-error);
-    padding: var(--space-xs) 0;
-    word-break: break-all;
   }
 </style>
