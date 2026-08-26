@@ -22,6 +22,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import update_version
 from common import builder, packager, targets, tauri_cli, version
 from common.logger import log
 
@@ -57,7 +58,7 @@ def cmd_build(target: str) -> None:
     if not target:
         fail("build 需要 --target（架构，支持别名或完整三元组）")
     try:
-        full_target = targets.resolve_target(target)
+        full_target = targets.to_target(target)
     except targets.TargetError as e:
         fail(str(e))
     release_version = ci_version()
@@ -66,7 +67,7 @@ def cmd_build(target: str) -> None:
 
     # 构建前把 5 个版本文件更新为发布版本，使 tauri.conf.json5 与 tag/input 一致。
     # CI 环境随 job 销毁，无需还原。
-    builder.update_version_files(ROOT, release_version)
+    update_version.sync(release_version)
 
     cli_label, cli_cmd = tauri_cli.resolve(ROOT)
     release_dir = builder.build(
