@@ -20,7 +20,7 @@ class NotInRepoError(GitError):
     pass
 
 
-def _run_git(args: List[str], cwd: Optional[Path] = None) -> str:
+def git(args: List[str], cwd: Optional[Path] = None) -> str:
     """
     执行 git 命令，返回 stdout 字符串
 
@@ -43,8 +43,8 @@ def _run_git(args: List[str], cwd: Optional[Path] = None) -> str:
 
     if result.returncode != 0:
         stderr = result.stderr.strip()
-        if "not a git repository" in stderr.lower():
-            raise NotInRepoError("当前目录不在 Git 仓库中")
+        if not is_repo(cwd):
+            raise NotInRepoError(f"当前目录{cwd}不在 Git 仓库中")
         raise GitError(f"git {' '.join(args)} 失败: {stderr}")
 
     return result.stdout.strip()
@@ -53,7 +53,7 @@ def _run_git(args: List[str], cwd: Optional[Path] = None) -> str:
 def is_repo(cwd: Optional[Path] = None) -> bool:
     """检查当前目录是否在 Git 仓库中"""
     try:
-        _run_git(["rev-parse", "--git-dir"], cwd=cwd)
+        git(["rev-parse", "--git-dir"], cwd)
         return True
     except GitError:
         return False
@@ -68,8 +68,8 @@ def get_head_hash(short: bool = False, cwd: Optional[Path] = None) -> str:
         cwd: 当前工作目录
     """
     if short:
-        return _run_git(["rev-parse", "--short", "HEAD"], cwd=cwd)
-    return _run_git(["rev-parse", "HEAD"], cwd=cwd)
+        return git(["rev-parse", "--short", "HEAD"], cwd)
+    return git(["rev-parse", "HEAD"], cwd)
 
 
 def get_branch(cwd: Optional[Path] = None) -> str:
@@ -79,22 +79,22 @@ def get_branch(cwd: Optional[Path] = None) -> str:
     如果处于 detached HEAD 状态，返回 "detached"
     """
     try:
-        branch = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], cwd=cwd)
+        branch = git(["rev-parse", "--abbrev-ref", "HEAD"], cwd)
         if branch == "HEAD":
             # detached HEAD 状态，尝试获取 tag 或 fallback
             try:
-                tag = _run_git(["describe", "--tags", "--exact-match"], cwd=cwd)
+                tag = git(["describe", "--tags", "--exact-match"], cwd)
                 return f"detached@{tag}"
             except GitError:
                 # 没有 tag 指向当前 commit
-                short_hash = get_head_hash(short=True, cwd=cwd)
+                short_hash = get_head_hash(True, cwd)
                 return f"detached@{short_hash}"
         return branch
     except GitError:
         # 某些 edge case 下 rev-parse 返回 HEAD 但实际是 detached
         # 用 symbolic-ref 再确认一次
         try:
-            branch = _run_git(["symbolic-ref", "--short", "HEAD"], cwd=cwd)
+            branch = git(["symbolic-ref", "--short", "HEAD"], cwd)
             return branch
         except GitError:
             return "detached"
@@ -102,7 +102,7 @@ def get_branch(cwd: Optional[Path] = None) -> str:
 
 def get_commit_count(cwd: Optional[Path] = None) -> int:
     """获取当前分支的 commit 总数（从初始提交到 HEAD）"""
-    output = _run_git(["rev-list", "--count", "HEAD"], cwd=cwd)
+    output = git(["rev-list", "--count", "HEAD"], cwd)
     return int(output)
 
 
@@ -113,7 +113,7 @@ def get_latest_tag(cwd: Optional[Path] = None) -> Optional[str]:
     Returns:
         最新的 tag 名称，如果没有 tag 则返回 None
     """
-    output = _run_git(["tag", "--sort=-creatordate"], cwd=cwd)
+    output = git(["tag", "--sort=-creatordate"], cwd)
     if not output:
         return None
     return output.split("\n")[0]
@@ -125,11 +125,12 @@ def get_tags_since(commit: str, cwd: Optional[Path] = None) -> List[str]:
 
     Args:
         commit: 起始 commit（不包含该 commit 本身）
+        cwd: 当前工作目录
 
     Returns:
         tag 列表，按创建时间从新到旧排序
     """
-    output = _run_git(["tag", "--sort=-creatordate", f"--contains={commit}"], cwd=cwd)
+    output = git(["tag", "--sort=-creatordate", f"--contains={commit}"], cwd)
     if not output:
         return []
     return output.split("\n")
@@ -149,9 +150,9 @@ def get_build_info(cwd: Optional[Path] = None) -> str:
         NotInRepoError: 不在 git 仓库中
         GitError: git 命令执行失败
     """
-    branch = get_branch(cwd=cwd).replace("/", "-")
-    count = get_commit_count(cwd=cwd)
-    short_hash = get_head_hash(short=True, cwd=cwd)
+    branch = get_branch(cwd).replace("/", "-")
+    count = get_commit_count(cwd)
+    short_hash = get_head_hash(True, cwd)
     return f"{branch}.{count}.{short_hash}"
 
 
@@ -166,7 +167,7 @@ def are_clean(files, cwd: Optional[Path] = None) -> Tuple[bool, str]:
         True 表示这些文件相对 HEAD 无改动
     """
     paths = [str(f) for f in files]
-    output = _run_git(["status", "--porcelain", "--", *paths], cwd=cwd)
+    output = git(["status", "--porcelain", "--", *paths], cwd=cwd)
     return output.strip() == "", output
 
 
@@ -182,7 +183,7 @@ def restore_files(files, cwd: Optional[Path] = None) -> None:
         cwd: 当前工作目录
     """
     paths = [str(f) for f in files]
-    _run_git(["checkout", "--", *paths], cwd=cwd)
+    git(["checkout", "--", *paths], cwd)
 
 
 def get_commit_range(
@@ -196,6 +197,7 @@ def get_commit_range(
     Args:
         start: 起始 commit/tag（不包含），None 表示从 root 开始
         end: 结束 commit/tag（包含），None 表示 HEAD
+        cwd: 当前工作目录
 
     Returns:
         提交列表，每个提交包含以下字段：
@@ -221,7 +223,7 @@ def get_commit_range(
         "--reverse",
     ]
 
-    output = _run_git(cmd, cwd=cwd)
+    output = git(cmd, cwd=cwd)
     if not output:
         return []
 
@@ -244,16 +246,3 @@ def get_commit_range(
 
     commits.sort(key=lambda x: x["timestamp"])
     return commits
-
-
-if __name__ == "__main__":
-    # 简单的自测
-    try:
-        print(f"当前仓库: {is_repo()}")
-        print(f"分支: {get_branch()}")
-        print(f"提交数: {get_commit_count()}")
-        print(f"最新tag: {get_latest_tag()}")
-        print(f"构建信息: {get_build_info()}")
-        print("✅ git.py 自测通过")
-    except GitError as e:
-        print(f"❌ {e}")

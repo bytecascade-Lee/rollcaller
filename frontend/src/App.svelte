@@ -4,7 +4,6 @@
   import "$styles/button.css";
   import "$styles/card.css";
   import "$styles/content.css";
-  import "$styles/popup.css";
   import "$styles/field.css";
   import "$styles/footbar.css";
   import "$styles/global-form-reset.css";
@@ -12,6 +11,8 @@
   import "$styles/logo.css"
   import "$styles/nav.css";
   import "$styles/overlay.css";
+  import "$styles/popup.css";
+  import "$styles/progress.css";
   import "$styles/search.css";
   import "$styles/sidebar.css";
   import "$styles/state.css";

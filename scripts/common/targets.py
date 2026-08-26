@@ -19,7 +19,7 @@ ALL_TARGETS = (
 )
 
 # 简化别名 → 完整三元组（不区分大小写）
-ALIASES = {
+ALIAS_TO_TARGET = {
     "x64": "x86_64-pc-windows-msvc",
     "x86_64": "x86_64-pc-windows-msvc",
     "x86-64": "x86_64-pc-windows-msvc",
@@ -28,21 +28,41 @@ ALIASES = {
     "aarch64": "aarch64-pc-windows-msvc",
 }
 
+TARGET_TO_ALISE = {
+    "aarch64-pc-windows-msvc": "arm64",
+    "x86_64-pc-windows-msvc": "x86_64",
+}
 
-def resolve_target(raw: str) -> str:
+
+def to_target(alise: str) -> str:
     """
     将别名或完整三元组解析为完整 Rust 三元组。
 
     Raises:
         TargetError: 无法识别的 target
     """
-    key = raw.strip().lower()
-    if key in ALIASES:
-        return ALIASES[key]
+    key = alise.strip().lower()
+    if key in ALIAS_TO_TARGET:
+        return ALIAS_TO_TARGET[key]
     if key in ALL_TARGETS:
         return key
     raise TargetError(
-        f"无法识别的 target: {raw!r}，可用: all, {', '.join(ALIASES)}"
+        f"无法识别的 target: {alise!r}，可用: all, {', '.join(ALIAS_TO_TARGET)}"
+    )
+
+
+def to_alise(target: str) -> str:
+    """
+    将完整三元组解析为标准别名。
+
+    Raises:
+        TargetError: 无法转换的 target
+    """
+    key = target.strip().lower()
+    if key in TARGET_TO_ALISE:
+        return TARGET_TO_ALISE[key]
+    raise TargetError(
+        f"无法转换的 target: {target!r}，可用: all, {', '.join(TARGET_TO_ALISE)}"
     )
 
 
@@ -61,4 +81,4 @@ def targets_for(raw: Optional[str]) -> List[Optional[str]]:
         return [None]
     if raw.strip().lower() == "all":
         return list(ALL_TARGETS)
-    return [resolve_target(raw)]
+    return [to_target(raw)]

@@ -47,7 +47,7 @@
     --color-warn-disabled: color-mix(in srgb, var(--color-warn), #fff 50%);
     --color-warn-active: color-mix(in srgb, var(--color-warn), #000 30%);
     --color-error: var(--red-7);
-    --color-error-hover:color-mix(in srgb, var(--color-error), #000 15%);
+    --color-error-hover: color-mix(in srgb, var(--color-error), #000 15%);
     --color-error-disabled: color-mix(in srgb, var(--color-error), #000 50%);
     --color-error-active: color-mix(in srgb, var(--color-error), #000 30%);
 
@@ -61,12 +61,12 @@
     --space-lg: var(--size-5);
     --space-xl: var(--size-6);
 
-    --size-xxs : var(--size-1);
-    --size-xs : var(--size-2);
-    --size-sm : var(--size-4);
-    --size-md : var(--size-6);
-    --size-lg : var(--size-8);
-    --size-xl : var(--size-10);
+    --size-xxs: var(--size-1);
+    --size-xs: var(--size-2);
+    --size-sm: var(--size-4);
+    --size-md: var(--size-6);
+    --size-lg: var(--size-8);
+    --size-xl: var(--size-10);
 
     --font-size-xxs: 10px;
     --font-size-xs: 12px;
@@ -101,6 +101,7 @@
     --transition-ease: var(--ease-3);
     --transition-ease-in: var(--ease-in-2);
     --transition-ease-out: var(--ease-out-3);
+    --transition-ease-in-out: var(--ease-in-out-3);
 
     --shadow-xxs: var(--shadow-1);
     --shadow-xs: var(--shadow-2);

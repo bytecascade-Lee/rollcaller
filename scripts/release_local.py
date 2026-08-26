@@ -27,6 +27,7 @@ import argparse
 import sys
 from pathlib import Path
 
+import update_version
 from common import builder, git, packager, targets, tauri_cli, version
 from common.logger import log
 
@@ -39,6 +40,7 @@ VERSION_FILES = [
     "pyproject.toml",
     "backend/tauri.conf.json5",
     "backend/Cargo.toml",
+    "backend/Cargo.lock",
     "frontend/package.json",
     "uv.lock",
 ]
@@ -119,7 +121,7 @@ def main() -> None:
 
     try:
         # 构建前统一由 update_version.py 更新版本号（不提交）
-        builder.update_version_files(ROOT, release_version)
+        update_version.sync(release_version)
         build_targets(target_list, release_version, full_version, out_dir)
     finally:
         git.restore_files(version_files, cwd=ROOT)

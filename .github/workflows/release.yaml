@@ -114,8 +114,12 @@ jobs:
                 env:
                     INPUT_VERSION: ${{ inputs.version }}
                     MIMO_TTS_API_KEY: ${{ secrets.MIMO_TTS_API_KEY }}
+                    TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+                    TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
                 run: uv run python scripts/release_ci.py build --target ${{ matrix.target }}
 
+            # exe.sig 签名文件不发布为 Release 附件，仅经 artifact 传递到 release job，
+            # 供 publish.py 生成自动更新清单 latest-github.json / latest-cnb.json
             -   name: Upload artifacts
                 uses: actions/upload-artifact@v7
                 with:
@@ -123,10 +127,11 @@ jobs:
                     path: |
                         rollcaller-*-windows-*-setup.exe
                         rollcaller-*-windows-*-portable.zip
+                        rollcaller-*-windows-*-setup.exe.sig
                     if-no-files-found: error
 
     release:
-        name: Publish GitHub release
+        name: Publish GitHub & CNB releases
         needs: build
         runs-on: windows-latest
         steps:
@@ -135,6 +140,10 @@ jobs:
 
             -   name: Setup uv
                 uses: astral-sh/setup-uv@v5
+
+            -   name: Install cnb cli
+                shell: pwsh
+                run: npm install -g @cnbcool/cnb-cli
 
             -   name: Download build artifacts
                 uses: actions/download-artifact@v7
@@ -152,9 +161,13 @@ jobs:
                       Write-Host "assets directory not found"
                     }
 
-            -   name: Publish GitHub release
+            # 先发布 GitHub Release，后同步发布 CNB Release（含自动更新清单），
+            # 逻辑集中在 scripts/publish.py
+            -   name: Publish GitHub & CNB releases
                 env:
                     GH_TOKEN: ${{ github.token }}
+                    CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+                    CNB_REPO: ordinary-glory/rollcaller
                     DRAFT_RELEASE: ${{ inputs.draft }}
                     INPUT_VERSION: ${{ inputs.version }}
-                run: uv run python scripts/release_ci.py publish
+                run: uv run python scripts/publish.py
