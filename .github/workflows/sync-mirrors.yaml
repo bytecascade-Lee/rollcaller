@@ -29,6 +29,6 @@ jobs:
                     CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
                 run: |
                     git push --prune \
+                      "https://cnb:${CNB_TOKEN}@cnb.cool/ordinary-glory/rollcaller.git" \
                       "+refs/heads/*:refs/heads/*" \
-                      "+refs/tags/*:refs/tags/*" \
-                      "https://cnb:${CNB_TOKEN}@cnb.cool/ordinary-glory/rollcaller.git"
+                      "+refs/tags/*:refs/tags/*"
