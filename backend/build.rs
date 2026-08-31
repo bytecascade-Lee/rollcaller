@@ -15,10 +15,6 @@ fn generate_build_info() {
     let commit_count = get_git_output(&["rev-list", "--count", "HEAD"]);
     let short_hash = get_git_output(&["rev-parse", "--short", "HEAD"]);
     let commit_time = get_git_output(&["log", "-1", "--format=%cd", "--date=iso-strict"]);
-    let version = env::var("VERSION")
-        .unwrap_or_else(|_| env!("CARGO_PKG_VERSION").to_string())
-        .trim_start_matches(|c: char| c == 'v' || c == 'V')
-        .to_string();
     let time_string = format!("{:.0}", Timestamp::now().to_zoned(TimeZone::system()));
     let build_time = time_string.split('[').next().unwrap_or(time_string.as_str());
 
@@ -26,7 +22,6 @@ fn generate_build_info() {
     println!("cargo:rustc-env=GIT_COMMIT_COUNT={}", commit_count);
     println!("cargo:rustc-env=GIT_SHORT_HASH={}", short_hash);
     println!("cargo:rustc-env=GIT_COMMIT_TIME={}", commit_time);
-    println!("cargo:rustc-env=VERSION={}", version);
     println!("cargo:rustc-env=BUILD_TIME={}", build_time);
 }
 
