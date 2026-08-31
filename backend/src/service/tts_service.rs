@@ -1,6 +1,7 @@
 use crate::common::enums::tts::TtsMode;
 use crate::common::ext::hash_ext::HashExt;
 use crate::config::app_paths;
+use crate::state::http_client;
 use anyhow::Context;
 use base64::Engine;
 use serde_json::json;
@@ -19,8 +20,7 @@ pub async fn generate_by_cloud_model(name: String) -> anyhow::Result<String> {
     }
     info!("Cache miss for TTS: {}, calling API", &name);
 
-    let client = reqwest::Client::new();
-    let response = client
+    let response = http_client::get_client()
         .post("https://api.xiaomimimo.com/v1/chat/completions")
         .header("Authorization", format!("Bearer {}", API_KEY))
         .header("Content-Type", "application/json")
@@ -45,7 +45,7 @@ pub async fn generate_by_cloud_model(name: String) -> anyhow::Result<String> {
         .await
         .context("请求云端TTS API失败")?;
 
-    let data: serde_json::Value = response.json().await.context("解析TTS API响应失败")?;
+    let data = response.json::<serde_json::Value>().await.context("解析TTS API响应失败")?;
     let audio_b64 = data["choices"][0]["message"]["audio"]["data"]
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("TTS API返回数据中缺少音频字段"))?;
