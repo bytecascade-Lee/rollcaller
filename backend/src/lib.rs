@@ -9,6 +9,7 @@ mod config;
 mod database;
 mod repo;
 mod service;
+mod state;
 mod util;
 mod windows;
 
