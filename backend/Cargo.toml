@@ -57,3 +57,6 @@ codegen-units = 256
 debug = 1
 lto = false
 opt-level = 0
+
+[dev-dependencies]
+tiny_http = "0.12"
