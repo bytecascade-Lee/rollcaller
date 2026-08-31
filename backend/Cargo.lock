@@ -4009,6 +4009,7 @@ dependencies = [
  "rbs",
  "reqwest",
  "rust_xlsxwriter",
+ "semver",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -4029,6 +4030,7 @@ dependencies = [
  "tracing-log",
  "tracing-subscriber",
  "ts-rs",
+ "url",
 ]
 
 [[package]]
