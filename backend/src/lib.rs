@@ -10,6 +10,7 @@ mod database;
 mod repo;
 mod service;
 mod state;
+mod updater;
 mod util;
 mod windows;
 
