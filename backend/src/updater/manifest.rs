@@ -7,6 +7,19 @@ use serde::{Deserialize, Deserializer, Serialize};
 use ts_rs::TS;
 use url::Url;
 
+/// 更新严重程度：只影响「是否可见/通知」，不绕过用户确认（`force` 才绕过确认）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize, TS)]
+#[serde(rename_all = "lowercase")]
+pub enum Severity {
+    /// 普通更新（默认）：受用户设置的更新策略（幅度门槛/通道）约束
+    #[default]
+    Normal,
+    /// 重要更新（如严重 bug 修复）：豁免用户的幅度门槛，通知所有用户
+    Important,
+    /// 紧急更新（如安全漏洞）：豁免用户的幅度门槛；唯一可配合 `force=true` 的档位
+    Critical,
+}
+
 /// 自定义更新清单：描述一个可发布版本及其各平台载荷
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -22,6 +35,14 @@ pub struct UpdateManifest {
     #[serde(serialize_with = "crate::util::serde_utils::serialize_optional_timestamp_to_millisecond_i64")]
     #[ts(type = "number")]
     pub publish_date: Option<jiff::Timestamp>,
+    /// 更新严重程度（可选，默认 normal）：normal 之外的版本豁免用户的幅度门槛（floor），
+    /// 仅影响"是否可见/通知"，不绕过用户确认
+    #[serde(default)]
+    pub severity: Severity,
+    /// 是否强制更新（可选，默认 false）：绕过用户确认，在会话结束后/下次启动前安装。
+    /// 约束：仅 `severity=critical` 时合法，否则客户端应忽略或校验报错
+    #[serde(default)]
+    pub force: bool,
     /// 各平台载荷
     #[serde(default)]
     pub platforms: Platforms,
@@ -261,6 +282,61 @@ mod tests {
             manifest.publish_date,
             Some("2026-08-01T00:00:00Z".parse::<jiff::Timestamp>().unwrap())
         );
+    }
+
+    #[test]
+    fn test_severity_and_force_defaults() {
+        // 老清单没有 severity/force 字段 → 解析为默认值（normal / false），不破坏兼容
+        let json = r#"{
+            "version": "1.2.0",
+            "platforms": {
+                "windows": {
+                    "x86_64": {
+                        "nsis": {
+                            "url": "https://example.com/app.exe",
+                            "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                            "signature": "c2ln",
+                            "size": 100
+                        }
+                    }
+                }
+            }
+        }"#;
+        let manifest: UpdateManifest = serde_json::from_str(json).expect("老清单应解析成功");
+        assert_eq!(manifest.severity, Severity::Normal);
+        assert!(!manifest.force);
+    }
+
+    #[test]
+    fn test_severity_and_force_parsed() {
+        let json = r#"{
+            "version": "1.2.1",
+            "severity": "critical",
+            "force": true,
+            "platforms": {
+                "windows": {
+                    "x86_64": {
+                        "nsis": {
+                            "url": "https://example.com/app.exe",
+                            "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                            "signature": "c2ln",
+                            "size": 100
+                        }
+                    }
+                }
+            }
+        }"#;
+        let manifest: UpdateManifest = serde_json::from_str(json).expect("新清单应解析成功");
+        assert_eq!(manifest.severity, Severity::Critical);
+        assert!(manifest.force);
+        // 非 critical 配 force=true 仍能解析（校验交给上层，模型层不拦截）
+        let json2 = json.replace("\"severity\": \"critical\"", "\"severity\": \"important\"");
+        let manifest2: UpdateManifest = serde_json::from_str(&json2).unwrap();
+        assert_eq!(manifest2.severity, Severity::Important);
+        assert!(manifest2.force);
+        // 非法 severity 值应解析失败（防止发布端拼错）
+        let json3 = json.replace("\"severity\": \"critical\"", "\"severity\": \"fatal\"");
+        assert!(serde_json::from_str::<UpdateManifest>(&json3).is_err());
     }
 
     #[test]
