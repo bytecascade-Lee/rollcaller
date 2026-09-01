@@ -2,8 +2,9 @@
 //!
 //! - 任务 01：manifest 解析与版本策略（纯数据层）
 //! - 任务 02：check（拉取清单 + 版本判定）与 download（流式下载 + 进度）
+//! - 任务 03：verify（sha256 完整性 + minisign 验签）
 //!
-//! 本模块暂不涉及验签（任务 03）与安装（任务 04-06）。
+//! 本模块暂不涉及安装（任务 04-06）。
 //! 数据层类型与重导出暂由后续任务消费，在消费者接入前允许
 //! dead_code / unused_imports，避免 clippy 误报。
 #![allow(dead_code)]
@@ -12,7 +13,9 @@
 pub mod check;
 pub mod download;
 pub mod manifest;
+pub mod verify;
 pub mod version_policy;
 
 pub use check::{UpdateInfo, UpdateKind};
 pub use download::DownloadProgress;
+pub use verify::{pubkey, verify_artifact, verify_sha256, verify_signature};
