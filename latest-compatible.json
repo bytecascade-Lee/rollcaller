@@ -1,0 +1,49 @@
+{
+    "version": "",
+    "notes": "",
+    "pub_date": "ISO 8601",
+    "releaseNotes": "",
+    "publishDate": "ISO 8601",
+    "severity": "normal",
+    "force": false,
+    "platforms": {
+        "windows-x86_64": {
+            "signature": "",
+            "url": ""
+        },
+        "windows-aarch64": {
+            "signature": "",
+            "url": ""
+        },
+        "windows": {
+            "x86_64": {
+                "nsis": {
+                    "url": "",
+                    "sha256": "",
+                    "signature": "",
+                    "size": "bytes"
+                },
+                "portable": {
+                    "url": "",
+                    "sha256": "",
+                    "signature": "",
+                    "size": "bytes"
+                }
+            },
+            "arm64": {
+                "nsis": {
+                    "url": "",
+                    "sha256": "",
+                    "signature": "",
+                    "size": "bytes"
+                },
+                "portable": {
+                    "url": "",
+                    "sha256": "",
+                    "signature": "",
+                    "size": "bytes"
+                }
+            }
+        }
+    }
+}

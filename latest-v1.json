@@ -1,0 +1,15 @@
+{
+    "version": "",
+    "notes": "",
+    "pub_date": "ISO 8601",
+    "platforms": {
+        "windows-x86_64": {
+            "signature": "",
+            "url": ""
+        },
+        "windows-aarch64": {
+            "signature": "",
+            "url": ""
+        }
+    }
+}
