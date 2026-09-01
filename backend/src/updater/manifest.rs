@@ -3,11 +3,11 @@
 //! 对应 `latest-expected.json` 的结构（契约 A），后续更新管线任务均依赖此结构。
 
 use semver::Version;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use url::Url;
 
 /// 自定义更新清单：描述一个可发布版本及其各平台载荷
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateManifest {
     /// 目标版本，如 "1.2.0"（非法版本会使整条清单解析失败）
@@ -35,14 +35,14 @@ impl UpdateManifest {
 }
 
 /// 平台分组（预留 macos/linux，本任务只实现 windows）
-#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
 pub struct Platforms {
     pub windows: Option<WindowsPlatforms>,
 }
 
 /// Windows 架构分组
-#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
 pub struct WindowsPlatforms {
     pub x86_64: Option<ArchPayloads>,
@@ -50,7 +50,7 @@ pub struct WindowsPlatforms {
 }
 
 /// 单架构下的载荷分组
-#[derive(Debug, Clone, Default, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
 pub struct ArchPayloads {
     /// NSIS 安装包（无 WiX，只有 NSIS）
@@ -60,7 +60,7 @@ pub struct ArchPayloads {
 }
 
 /// 单个下载产物
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Artifact {
     pub url: Url,
     /// 十六进制小写 sha256
