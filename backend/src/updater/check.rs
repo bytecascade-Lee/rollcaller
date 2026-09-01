@@ -6,9 +6,11 @@ use crate::updater::version_policy::{decide, UpdateDecision};
 use anyhow::anyhow;
 use reqwest::Client;
 use semver::Version;
+use serde::Serialize;
 
-/// 安装形态，前端展示用
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// 安装形态，前端展示用（序列化为 `"nsis"` | `"portable"`，任务 04 命令契约）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum UpdateKind {
     /// NSIS 安装包
     Nsis,
@@ -16,8 +18,8 @@ pub enum UpdateKind {
     Portable,
 }
 
-/// 更新信息（check 的返回值）
-#[derive(Debug, Clone)]
+/// 更新信息（check 的返回值；经 Tauri 命令序列化透传给前端）
+#[derive(Debug, Clone, Serialize)]
 pub struct UpdateInfo {
     pub version: Version,
     /// releaseNotes
