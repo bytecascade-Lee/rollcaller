@@ -3,6 +3,7 @@
 //! - 任务 01：manifest 解析与版本策略（纯数据层）
 //! - 任务 02：check（拉取清单 + 版本判定）与 download（流式下载 + 进度）
 //! - 任务 03：verify（sha256 完整性 + minisign 验签）
+//! - 任务 04：commands（Tauri 命令 + 防重入）+ state（共享状态）编排服务
 //! - 任务 05：installer/nsis（NSIS 安装包识别/解压/ShellExecuteW 启动）
 //! - 任务 06：installer/portable（便携版 zip 解压 + Go updater 编排）
 //!
@@ -12,13 +13,16 @@
 #![allow(unused_imports)]
 
 pub mod check;
+pub mod commands;
 pub mod download;
 pub mod installer;
 pub mod manifest;
+pub mod state;
 pub mod verify;
 pub mod version_policy;
 
 pub use check::{UpdateInfo, UpdateKind};
+pub use commands::DownloadEvent;
 pub use download::DownloadProgress;
 pub use installer::nsis::{NsisInstallMode, NsisOptions};
 pub use installer::portable::PortableOptions;

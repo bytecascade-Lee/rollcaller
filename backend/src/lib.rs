@@ -1,4 +1,5 @@
 use crate::config::{app_config, app_paths, logger};
+use crate::updater::state::UpdaterState;
 use crate::windows::app_window;
 use tauri::WebviewWindowBuilder;
 
@@ -17,6 +18,8 @@ mod windows;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub async fn run() {
     tauri::Builder::default()
+        // 更新管线共享状态（最近一次 check 结果 + 防重入标志）
+        .manage(UpdaterState::default())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| init(app))
@@ -64,6 +67,8 @@ pub async fn run() {
             crate::cmd::tts::tts_cloud_model,
             crate::cmd::windows::windows_app_open,
             crate::cmd::windows::windows_help_open,
+            crate::updater::commands::check_update,
+            crate::updater::commands::download_and_install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
