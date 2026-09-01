@@ -6,9 +6,12 @@
     1. 从 CI 环境提取并校验版本号（复用 release_ci.ci_version）
     2. 从 RELEASE_NOTES.md 提取对应章节作为发布说明（草稿时为占位内容）
     3. 收集构建产物 .sig 签名，一次生成 latest-github.json 与 latest-cnb.json
-       （同一份 latest.json 模板，仅附件 URL 指向各自平台的附件直链）
-    4. 发布 GitHub Release（gh cli）：2 setup + 2 portable + latest-github.json
-    5. 发布 CNB Release（cnb cli）：2 setup + 2 portable + latest-cnb.json
+       （同一份 latest.json 模板，仅附件 URL 指向各自平台的附件直链；
+       severity/force 取自仓库维护的 resources/update/versions.json）
+    4. 生成 versions.json 索引附件（版本号 → severity/force，随双平台 Release 发布，
+       客户端据此做坏版本/历史严重级别检测）
+    5. 发布 GitHub Release（gh cli）：2 setup + 2 portable + latest-github.json + versions.json
+    6. 发布 CNB Release（cnb cli）：2 setup + 2 portable + latest-cnb.json + versions.json
        - 先等待 sync-mirrors 把 tag 同步到 CNB（dispatch 触发的 tag 需时间推送）
        - tag 已有 Release 则更新（patch），否则创建（post）
        - 支持 --draft 与预发布标记（rc 等不置为 latest）
@@ -50,6 +53,10 @@ ASSET_ARCH_MAP = {"windows-x86_64": "x86_64", "windows-aarch64": "arm64"}
 ASSET_SUFFIXES = (".exe", ".zip")
 # 等待 sync-mirrors 把 tag 同步到 CNB 的超时（秒）
 CNB_TAG_SYNC_TIMEOUT = 300
+# severity 合法档位（与后端 manifest.rs 的 Severity 枚举一致）
+SEVERITY_LEVELS = ("normal", "important", "critical")
+# 版本索引源文件（仓库维护，发布期唯一标定 severity/force 的地方）
+VERSIONS_INDEX_PATH = ROOT / "resources" / "update" / "versions.json"
 
 
 def fail(message: str) -> None:
@@ -221,11 +228,69 @@ def extract_release_notes(version: str) -> str:
     return "\n".join(body).rstrip() + "\n"
 
 
-def build_latest_json(release_version: str, notes: str, signatures: dict, make_url) -> dict:
+def load_versions_index() -> dict:
+    """读取仓库维护的版本索引（resources/update/versions.json）。
+
+    索引是发布期唯一标定 severity/force 的地方：发布时用当前版本条目丰富 latest-*.json，
+    并把整个索引作为 versions.json 附件随 Release 发布（客户端据此做坏版本/历史严重级别检测）。
+
+    Returns:
+        {版本号: {"severity": str, "force": bool}}，版本号已规范化（去除前导 v）
+    """
+    if not VERSIONS_INDEX_PATH.exists():
+        fail(f"缺少版本索引源文件: {VERSIONS_INDEX_PATH}（发布前应维护，标注各版本 severity/force）")
+    try:
+        data = json.loads(VERSIONS_INDEX_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        fail(f"versions.json 解析失败: {e}")
+    entries = data.get("versions")
+    if not isinstance(entries, list):
+        fail("versions.json 缺少 versions 数组")
+    index = {}
+    for item in entries:
+        raw = item.get("version")
+        if not raw:
+            fail("versions.json 中存在缺少 version 的条目")
+        ver = version.validate(raw)
+        severity = item.get("severity", "normal")
+        if severity not in SEVERITY_LEVELS:
+            fail(f"版本 {raw} 的 severity={severity!r} 非法（应为 normal/important/critical）")
+        index[ver] = {"severity": severity, "force": bool(item.get("force", False))}
+    return index
+
+
+def version_severity(index: dict, release_version: str) -> tuple:
+    """当前发布版本的 (severity, force)；未在索引中标定时按 normal/false 兜底并告警。"""
+    entry = index.get(release_version)
+    if entry is None:
+        log("WARN", f"versions.json 未标定 {release_version}，本次按 severity=normal 发布；"
+                    f"如需标定重要/紧急级别，请先在 {VERSIONS_INDEX_PATH} 中添加")
+        return "normal", False
+    return entry["severity"], entry["force"]
+
+
+def build_versions_asset(index: dict, release_version: str, severity: str, force: bool) -> dict:
+    """构建随 Release 发布的 versions.json：源索引 + 当前版本兜底（normal），按版本号倒序。
+
+    索引内容不含任何 URL——客户端凭版本号即可拼接出对应 Release 的 latest-*.json 地址。
+    """
+    versions = [
+        {"version": ver, "severity": entry["severity"], "force": entry["force"]}
+        for ver, entry in index.items()
+    ]
+    if release_version not in index:
+        versions.append({"version": release_version, "severity": severity, "force": force})
+    versions.sort(key=lambda x: version.parse(x["version"])[:3], reverse=True)
+    return {"versions": versions}
+
+
+def build_latest_json(release_version: str, notes: str, signatures: dict, make_url,
+                      severity: str = "normal", force: bool = False) -> dict:
     """生成自动更新清单。
 
     同一结构同时用于 latest-github.json 与 latest-cnb.json，仅附件 URL 不同：
     make_url(asset_name) 返回该平台下的附件直链。
+    severity/force 来自仓库维护的 versions.json 索引，随清单下发给客户端。
     """
     platforms = {}
     for arch, sig in signatures.items():
@@ -240,6 +305,8 @@ def build_latest_json(release_version: str, notes: str, signatures: dict, make_u
         "version": release_version,
         "notes": notes,
         "pub_date": pub_date,
+        "severity": severity,
+        "force": force,
         "platforms": platforms,
     }
 
@@ -371,6 +438,10 @@ def main() -> None:
             fail("缺少 GITHUB_REPOSITORY 环境变量")
         cnb_repo = os.environ.get("CNB_REPO", "ordinary-glory/rollcaller")
 
+        # 读取版本索引：标定当前版本的 severity/force，并生成随 Release 发布的 versions.json
+        index = load_versions_index()
+        severity, force = version_severity(index, release_version)
+
         # 一次生成两个自动更新清单（同一模板，附件 URL 指向不同平台）
         latest_github = assets_dir / "latest-github.json"
         latest_github.write_text(
@@ -378,6 +449,7 @@ def main() -> None:
                 build_latest_json(
                     release_version, notes, signatures,
                     lambda asset: f"https://github.com/{gh_repo}/releases/download/{tag}/{asset}",
+                    severity, force,
                 ),
                 ensure_ascii=False, indent=2,
             ),
@@ -390,6 +462,7 @@ def main() -> None:
                 build_latest_json(
                     release_version, notes, signatures,
                     lambda asset: f"https://cnb.cool/{cnb_repo}/-/releases/download/{tag}/{asset}",
+                    severity, force,
                 ),
                 ensure_ascii=False, indent=2,
             ),
@@ -397,12 +470,23 @@ def main() -> None:
         )
         log("INFO", f"已生成 {latest_cnb.name}")
 
+        # 版本索引附件：两平台同名 versions.json，内容一致（无 URL，仅 版本号 → 严重级别）
+        versions_asset = assets_dir / "versions.json"
+        versions_asset.write_text(
+            json.dumps(
+                build_versions_asset(index, release_version, severity, force),
+                ensure_ascii=False, indent=2,
+            ),
+            encoding="utf-8",
+        )
+        log("INFO", f"已生成 {versions_asset.name}")
+
         # 1. GitHub Release（先）
-        publish_github(release_version, tag, Path(notes_path), files + [latest_github])
+        publish_github(release_version, tag, Path(notes_path), files + [latest_github, versions_asset])
 
         # 2. CNB Release（后）：dispatch 触发的 tag 需等待 sync-mirrors 推送完成
         wait_for_cnb_tag(cnb_repo, tag)
-        publish_cnb(release_version, tag, Path(notes_path), cnb_repo, files + [latest_cnb])
+        publish_cnb(release_version, tag, Path(notes_path), cnb_repo, files + [latest_cnb, versions_asset])
     finally:
         os.unlink(notes_path)
 
