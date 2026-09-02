@@ -67,6 +67,31 @@ impl Default for UpdateChannel {
 pub const DEFAULT_LEVEL: UpdateLevel = UpdateLevel::Patch;
 pub const DEFAULT_CHANNEL: UpdateChannel = UpdateChannel::Stable;
 
+/// 用户更新策略（判定输入的统一载体）
+///
+/// 由用户设置构造（设置存储落地前的占位默认见 [`Default`]）。
+/// `level` 为 `None` 表示用户关闭了所有更新；`channel` 只在 `level` 非 `None`
+/// 时有意义（与 [`validate`] 的归一语义一致：关闭更新时通道一律视作 Stable）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, TS)]
+pub struct Policy {
+    /// 幅度门槛（`None` = 禁止所有更新）
+    pub level: Option<UpdateLevel>,
+    /// 发布通道
+    pub channel: UpdateChannel,
+    /// 是否允许降级
+    pub allow_downgrade: bool,
+}
+
+impl Default for Policy {
+    fn default() -> Self {
+        Self {
+            level: Some(DEFAULT_LEVEL),
+            channel: DEFAULT_CHANNEL,
+            allow_downgrade: false,
+        }
+    }
+}
+
 /// 设置加载/保存时的合法性校验。
 ///
 /// - 若 `level` 为 `None`（禁止更新），则 `channel` 无任何作用，统一修正为 `Stable`，防止脏数据进入逻辑判定；
