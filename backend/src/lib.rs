@@ -68,7 +68,8 @@ pub async fn run() {
             crate::cmd::windows::windows_app_open,
             crate::cmd::windows::windows_help_open,
             crate::updater::commands::check_update,
-            crate::updater::commands::download_and_install_update,
+            crate::updater::commands::download_update,
+            crate::updater::commands::install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
