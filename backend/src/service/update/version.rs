@@ -31,14 +31,14 @@ enum VersionChange {
 /// - `channel`：发布阶段（Stable / Prerelease），只负责"预发布版本是否可见"的门禁
 ///
 /// # 决策流程：
-/// 1. `level` 为 `None` → `Skip`；
+/// 1. `level` 为 `Never` → `Skip`；
 /// 2. 稳定通道下 `latest` 为预发布 → `Skip`；
-/// 3. `latest < current`→ 仅当 `allow_downgrade` 为真才 `Update`；
+/// 3. `latest <= current`（同版本或低于当前版本）→ `Skip`；
 /// 4. `current` 为预发布、`latest` 为稳定版（逃逸通道）→ `Update`；
 /// 5. `current`、`latest` 均为预发布（通道内递进）→ `Update`；
 /// 6. 其余（稳定→稳定，或稳定→预发布切换）→ 按 `level` 阈值判断数字变化幅度。
 pub fn decide(current: &Version, latest: &Version, level: UpdateLevel, channel: UpdateChannel) -> UpdateDecision {
-    // 1. level 为 None：无条件跳过
+    // 1. level 为 Never：无条件跳过
     if level == UpdateLevel::Never {
         return UpdateDecision::Skip;
     };
@@ -48,7 +48,7 @@ pub fn decide(current: &Version, latest: &Version, level: UpdateLevel, channel: 
         return UpdateDecision::Skip;
     }
 
-    // 3. 版本比较
+    // 3. 版本比较：同版本或低于当前版本一律跳过，仅更高版本进入升级决策
     match latest.cmp(current) {
         Ordering::Equal => UpdateDecision::Skip,
         Ordering::Less => UpdateDecision::Skip,
@@ -126,22 +126,20 @@ mod tests {
     #[test]
     fn level_none_disables_all_updates() {
         for channel in [Stable, Prerelease] {
-            for downgrade in [false, true] {
-                // 升级主版本
-                assert_decide("1.2.1", "2.0.0", Never, channel, UpdateDecision::Skip);
-                // 升级次版本
-                assert_decide("1.2.1", "1.3.0", Never, channel, UpdateDecision::Skip);
-                // 升级补丁
-                assert_decide("1.2.1", "1.2.2", Never, channel, UpdateDecision::Skip);
-                // 同版本
-                assert_decide("1.2.3", "1.2.3", Never, channel, UpdateDecision::Skip);
-                // 预发布通道切换
-                assert_decide("1.2.0", "1.3.0-rc.1", Never, channel, UpdateDecision::Skip);
-                // 预发布通道逃逸
-                assert_decide("1.2.0-rc.1", "1.2.0", Never, channel, UpdateDecision::Skip);
-                // 预发布通道递进
-                assert_decide("1.2.0-rc.1", "1.2.0-rc.2", Never, channel, UpdateDecision::Skip);
-            }
+            // 升级主版本
+            assert_decide("1.2.1", "2.0.0", Never, channel, UpdateDecision::Skip);
+            // 升级次版本
+            assert_decide("1.2.1", "1.3.0", Never, channel, UpdateDecision::Skip);
+            // 升级补丁
+            assert_decide("1.2.1", "1.2.2", Never, channel, UpdateDecision::Skip);
+            // 同版本
+            assert_decide("1.2.3", "1.2.3", Never, channel, UpdateDecision::Skip);
+            // 预发布通道切换
+            assert_decide("1.2.0", "1.3.0-rc.1", Never, channel, UpdateDecision::Skip);
+            // 预发布通道逃逸
+            assert_decide("1.2.0-rc.1", "1.2.0", Never, channel, UpdateDecision::Skip);
+            // 预发布通道递进
+            assert_decide("1.2.0-rc.1", "1.2.0-rc.2", Never, channel, UpdateDecision::Skip);
         }
     }
 
@@ -149,14 +147,12 @@ mod tests {
     #[test]
     fn stable_channel_blocks_prerelease() {
         for level in [Patch, Minor, Major] {
-            for downgrade in [false, true] {
-                // 升级：稳定 → 预发布（通道切换被拦）
-                assert_decide("1.2.1", "1.3.0-rc.1", level, Stable, UpdateDecision::Skip);
-                // 预发布 → 预发布（递进也被拦：latest 是预发布即不可见）
-                assert_decide("1.2.0-rc.1", "1.2.0-rc.2", level, Stable, UpdateDecision::Skip);
-                // 同号稳定 → 预发布（semver 中 1.2.0-rc.1 < 1.2.0，属降级路径，门禁同样先拦）
-                assert_decide("1.2.0", "1.2.0-rc.1", level, Stable, UpdateDecision::Skip);
-            }
+            // 升级：稳定 → 预发布（通道切换被拦）
+            assert_decide("1.2.1", "1.3.0-rc.1", level, Stable, UpdateDecision::Skip);
+            // 预发布 → 预发布（递进也被拦：latest 是预发布即不可见）
+            assert_decide("1.2.0-rc.1", "1.2.0-rc.2", level, Stable, UpdateDecision::Skip);
+            // 同号稳定 → 预发布（semver 中 1.2.0-rc.1 < 1.2.0，latest 低于 current，门禁同样先拦）
+            assert_decide("1.2.0", "1.2.0-rc.1", level, Stable, UpdateDecision::Skip);
         }
     }
 
@@ -165,7 +161,6 @@ mod tests {
     fn equal_versions_always_skip() {
         for level in [Patch, Minor, Major, Never] {
             for channel in [Stable, Prerelease] {
-                assert_decide("1.2.3", "1.2.3", level, channel, UpdateDecision::Skip);
                 assert_decide("1.2.3", "1.2.3", level, channel, UpdateDecision::Skip);
                 assert_decide("1.2.3-alpha", "1.2.3-alpha", level, channel, UpdateDecision::Skip);
             }
