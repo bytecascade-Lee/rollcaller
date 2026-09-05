@@ -1,4 +1,4 @@
-//! 下载更新产物：流式下载到临时文件（.part）→ 校验（sha256 + 签名）→ 重命名为正式文件名
+//! 下载更新产物：流式下载到临时文件（.part）→ 校验 → 重命名为正式文件名
 //!
 //! # 落盘策略
 //!
@@ -13,19 +13,18 @@
 //!
 //! # 校验
 //!
-//! sha256 流式读文件比对；`artifact.signature` 非空时再做 minisign 签名验证（公钥来自 `verify::pubkey()`）。
-//! 主包产物带签名；Go updater（更新器）目前只有 sha256，走同一函数（signature 为空即跳过签名）。
+//! 校验逻辑在 [`verify_artifact_path`]：整段读入已落盘的 .part 后
+//! sha256 必验；`signature` 非空时再做 minisign 签名验证（双重 base64 处理见该模块）。
+//! 主包产物带签名；Go updater（更新器）目前只有 sha256（signature 为空即跳过签名）。
 
 use crate::common::entity::update::Artifact;
 use crate::state::http_client;
-use crate::updater::verify::{pubkey, verify_signature};
+use crate::updater::verify::verify_artifact_path;
 use anyhow::{anyhow, Context};
-use sha2::{Digest, Sha256};
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
 
 /// 下载进度
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,8 +45,8 @@ fn random_part_name() -> String {
 /// # 流程
 /// 1. 目标文件名取 url 最后一段（与发布清单中的产物名一致）；
 /// 2. 下载全程写入 `target_dir/{随机id}.part`（每 chunk 写盘、上报进度、检查 `cancel`）；
-/// 3. 下载完成对**文件**流式校验：sha256 必验；`signature` 非空时再验 minisign 签名；
-/// 4. 通过后 `rename` 为正式名（已存在同名先删除），失败/取消即删除 `.part`。
+/// 3. 下载完成调用 `verify::verify_artifact_path` 对 .part 整读校验（sha256 必验；`signature` 非空再验 minisign 签名），失败删除 .part；
+/// 4. 通过后 `rename` 为正式名（已存在同名先删除）。
 ///
 /// # 取消
 /// `cancel` 由调用方持有（前端 `cancel_update` 置位）。下载中途发现置位 → 清理 `.part`
@@ -97,8 +96,8 @@ pub async fn download(
     }
     drop(file);
 
-    // 3. 校验（文件流式）；失败删除 .part，不留下任何未验证产物
-    verify_file(&part_path, artifact).map_err(|e| {
+    // 3. 校验（verify 模块 path 入口：整读后 sha256 + 可选签名）；失败删除 .part
+    verify_artifact_path(&part_path, artifact).map_err(|e| {
         let _ = std::fs::remove_file(&part_path);
         e.context(anyhow!("下载内容校验失败"))
     })?;
@@ -117,35 +116,10 @@ pub async fn download(
     Ok(final_path)
 }
 
-/// 对已落盘的临时文件做校验：sha256 流式（必验）+ minisign 签名（signature 非空时）
-fn verify_file(path: &Path, artifact: &Artifact) -> anyhow::Result<()> {
-    let mut file = File::open(path).map_err(|e| anyhow!("读取下载产物失败（{}）：{e}", path.display()))?;
-    let mut hasher = Sha256::new();
-    let mut buf = [0u8; 64 * 1024];
-    loop {
-        let n = file.read(&mut buf).map_err(|e| anyhow!("计算下载产物哈希失败：{e}"))?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buf[..n]);
-    }
-    let actual = hex::encode(hasher.finalize());
-    if actual != artifact.sha256.to_ascii_lowercase() {
-        anyhow::bail!("sha256 不匹配: 期望 {}, 实际 {}", artifact.sha256, actual);
-    }
-
-    // 签名验证：minisign-verify 该版本仅支持整段字节（&[u8]），此处一次性读入；
-    // 主包产物带签名，Go updater（更新器）signature 为空则跳过。
-    if !artifact.signature.is_empty() {
-        let data = std::fs::read(path).map_err(|e| anyhow!("读取下载产物失败（{}）：{e}", path.display()))?;
-        verify_signature(&data, &artifact.signature, pubkey())?;
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sha2::{Digest, Sha256};
     use std::sync::atomic::AtomicBool;
     use std::thread::JoinHandle;
     use std::time::Duration;
