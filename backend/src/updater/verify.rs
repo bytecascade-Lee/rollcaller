@@ -50,8 +50,8 @@ pub fn verify_signature(
     release_signature: &str,
     pub_key_b64: &str,
 ) -> anyhow::Result<()> {
-    let public_key = minisign_verify::PublicKey::decode(&pub_key_b64.base64_decode().unwrap());
-    let signature = minisign_verify::Signature::decode(&release_signature.base64_decode().unwrap());
+    let public_key = minisign_verify::PublicKey::decode(&pub_key_b64.base64_decode().map_err("公钥解码失败"))?;
+    let signature = minisign_verify::Signature::decode(&release_signature.base64_decode().map_err("签名解码失败"))?;
     // true = 兼容 legacy 预哈希签名
     public_key.verify(data, &signature, true)?;
     Ok(())
