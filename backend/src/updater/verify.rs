@@ -31,15 +31,10 @@ use crate::common::constant::secrets::ROLLCALLER_UPDATE_PUBKEY;
 use crate::common::entity::update::Artifact;
 use crate::common::ext::encode_ext::Base64Ext;
 use crate::common::ext::hash_ext::HashExt;
+use anyhow::anyhow;
 use base64::Engine;
 use sha2::Digest;
 use std::path::Path;
-
-/// 外层 base64 → UTF-8 文本（minisign 的公钥/签名均为文本格式，先解 base64）
-pub fn base64_to_string(b64: &str) -> anyhow::Result<String> {
-    let decoded = base64::engine::general_purpose::STANDARD.decode(b64)?;
-    Ok(String::from_utf8(decoded)?)
-}
 
 /// 与官方插件 verify_signature 逐行一致：先解 base64，再解析 minisign 文本并验证
 ///
@@ -50,8 +45,8 @@ pub fn verify_signature(
     release_signature: &str,
     pub_key_b64: &str,
 ) -> anyhow::Result<()> {
-    let public_key = minisign_verify::PublicKey::decode(&pub_key_b64.base64_decode().map_err("公钥解码失败"))?;
-    let signature = minisign_verify::Signature::decode(&release_signature.base64_decode().map_err("签名解码失败"))?;
+    let public_key = minisign_verify::PublicKey::decode(&pub_key_b64.base64_decode()?)?;
+    let signature = minisign_verify::Signature::decode(&release_signature.base64_decode()?)?;
     // true = 兼容 legacy 预哈希签名
     public_key.verify(data, &signature, true)?;
     Ok(())
@@ -90,7 +85,7 @@ pub fn verify_artifact(data: &[u8], artifact: &Artifact) -> anyhow::Result<()> {
 /// 行为一致，见 [`verify_signature`]）。
 pub fn verify_artifact_path(path: &Path, artifact: &Artifact) -> anyhow::Result<()> {
     let data = std::fs::read(path)
-        .map_err(|e| anyhow::anyhow!("读取下载产物失败（{}）：{e}", path.display()))?;
+        .map_err(|e| anyhow!("读取下载产物失败（{}）：{e}", path.display()))?;
     verify_sha256(&data, &artifact.sha256)?;
     if !artifact.signature.is_empty() {
         verify_signature(&data, &artifact.signature, ROLLCALLER_UPDATE_PUBKEY)?;
