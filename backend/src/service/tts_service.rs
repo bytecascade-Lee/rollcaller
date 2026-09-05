@@ -20,7 +20,7 @@ pub async fn generate_by_cloud_model(name: String) -> anyhow::Result<String> {
     }
     info!("Cache miss for TTS: {}, calling API", &name);
 
-    let response = http_client::get_client()
+    let response = http_client::client()
         .post("https://api.xiaomimimo.com/v1/chat/completions")
         .header("Authorization", format!("Bearer {}", API_KEY))
         .header("Content-Type", "application/json")
