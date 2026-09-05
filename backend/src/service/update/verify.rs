@@ -45,8 +45,16 @@ pub fn verify_signature(
     release_signature: &str,
     pub_key_b64: &str,
 ) -> anyhow::Result<()> {
-    let public_key = minisign_verify::PublicKey::decode(&pub_key_b64.base64_decode()?)?;
-    let signature = minisign_verify::Signature::decode(&release_signature.base64_decode()?)?;
+    let public_key = minisign_verify::PublicKey::decode(
+        &pub_key_b64
+            .base64_decode()
+            .map_err(|e| anyhow!("签名公钥 base64 解码失败：{e}"))?,
+    )?;
+    let signature = minisign_verify::Signature::decode(
+        &release_signature
+            .base64_decode()
+            .map_err(|e| anyhow!("签名 base64 解码失败：{e}"))?,
+    )?;
     // true = 兼容 legacy 预哈希签名
     public_key.verify(data, &signature, true)?;
     Ok(())
