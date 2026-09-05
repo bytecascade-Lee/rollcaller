@@ -18,8 +18,8 @@
 //! 主包产物带签名；Go updater（更新器）目前只有 sha256（signature 为空即跳过签名）。
 
 use crate::common::entity::update::Artifact;
+use crate::service::update::verify::verify_artifact_path;
 use crate::state::http_client;
-use crate::updater::verify::verify_artifact_path;
 use anyhow::{anyhow, Context};
 use std::fs::File;
 use std::io::Write;
