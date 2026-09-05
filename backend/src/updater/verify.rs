@@ -1,8 +1,9 @@
-//! 下载字节的签名验证（minisign / Ed25519）与 sha256 完整性校验
+//! 下载产物的签名验证（minisign / Ed25519）与 sha256 完整性校验
 //!
 //! 本模块纯逻辑 + 测试，不涉及安装（安装分派在任务 04-06）。
-//! 调用时机：`download` 完成后、任何写盘/安装前，对整个下载字节调用
-//! [`verify_artifact`]；失败即中止，不进入安装阶段。
+//! 调用时机：下载完成后、任何写盘/安装前调用 [`verify_artifact`]（bytes 形态，供
+//! install 阶段对读入内存的产物复验）或 [`verify_artifact_path`]（path 形态，供
+//! download 阶段对已落盘的 .part 校验）；失败即中止，不进入安装阶段。
 //!
 //! # 双重 base64
 //!
@@ -26,20 +27,13 @@
 //! 5. 运行互操作测试 `cargo test updater::verify::interop` 验证（本机无 tauri CLI 时
 //!    自动跳过并打印提示，此时可依上述步骤手动验证）。
 
-use super::manifest::Artifact;
+use crate::common::constant::secrets::ROLLCALLER_UPDATE_PUBKEY;
+use crate::common::entity::update::Artifact;
+use crate::common::ext::encode_ext::Base64Ext;
 use crate::common::ext::hash_ext::HashExt;
 use base64::Engine;
 use sha2::Digest;
-
-/// 公钥文件 = `tauri signer generate` 产出的 `.pub`（外层 base64 文本）
-///
-/// 仓库作者放真公钥前为占位内容；未替换前所有真实验签都会失败（fail-closed）。
-const UPDATER_PUBKEY: &[u8] = include_bytes!("../../../resources/secrets/rollcaller.pub.key");
-
-/// 返回嵌入的更新公钥（外层 base64 文本）
-pub fn pubkey() -> &'static str {
-    std::str::from_utf8(UPDATER_PUBKEY).expect("updater.pub 必须是 UTF-8 文本")
-}
+use std::path::Path;
 
 /// 外层 base64 → UTF-8 文本（minisign 的公钥/签名均为文本格式，先解 base64）
 pub fn base64_to_string(b64: &str) -> anyhow::Result<String> {
@@ -50,15 +44,16 @@ pub fn base64_to_string(b64: &str) -> anyhow::Result<String> {
 /// 与官方插件 verify_signature 逐行一致：先解 base64，再解析 minisign 文本并验证
 ///
 /// - `release_signature`：base64(minisign 签名文本)，即 `Artifact.signature`
-/// - `pub_key_b64`：base64(minisign 公钥文本)，即 [`pubkey()`] 的返回值
+/// - `pub_key_b64`：base64(minisign 公钥文本)，即 [`ROLLCALLER_UPDATE_PUBKEY`]
 pub fn verify_signature(
     data: &[u8],
     release_signature: &str,
     pub_key_b64: &str,
 ) -> anyhow::Result<()> {
-    let public_key = minisign_verify::PublicKey::decode(&base64_to_string(pub_key_b64)?)?;
-    let signature = minisign_verify::Signature::decode(&base64_to_string(release_signature)?)?;
-    public_key.verify(data, &signature, true)?; // true = 兼容 legacy 预哈希签名
+    let public_key = minisign_verify::PublicKey::decode(&pub_key_b64.base64_decode().unwrap());
+    let signature = minisign_verify::Signature::decode(&release_signature.base64_decode().unwrap());
+    // true = 兼容 legacy 预哈希签名
+    public_key.verify(data, &signature, true)?;
     Ok(())
 }
 
@@ -71,10 +66,35 @@ pub fn verify_sha256(data: &[u8], expected_hex: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// 下载字节的统一校验入口：先 sha256（完整性），再 minisign 签名（真实性）
+/// 下载字节的统一校验入口（bytes 形态）：先 sha256（完整性），再 minisign 签名（真实性）
 pub fn verify_artifact(data: &[u8], artifact: &Artifact) -> anyhow::Result<()> {
     verify_sha256(data, &artifact.sha256)?;
-    verify_signature(data, &artifact.signature, pubkey())?;
+    verify_signature(data, &artifact.signature, ROLLCALLER_UPDATE_PUBKEY)?;
+    Ok(())
+}
+
+/// 已落盘文件的统一校验入口（path 形态）：整段读入后 sha256 + 可选签名
+///
+/// # 内存语义
+/// minisign-verify 仅支持整段字节（`&[u8]`），签名验证必须一次性读入文件；sha256
+/// 因此也基于同一份字节整段计算（复用 [`verify_sha256`]，适配 `hash_ext`），不再对
+/// 文件自维护流式哈希——两种方式的峰值内存相同（都被签名步骤的整读决定）。
+///
+/// # 签名可空
+/// `artifact.signature` 为空时只校验 sha256（Go updater 更新器仅发布 sha256、无
+/// minisign 签名）；主包产物带签名，走完整双校验。
+///
+/// # 双重 base64（勿改）
+/// `manifest.signature` 与公钥文件内容均为 base64(minisign 文本)：先经
+/// [`Base64Ext::base64_decode`] 解外层，再交 minisign-verify 解析内层文本（与官方插件
+/// 行为一致，见 [`verify_signature`]）。
+pub fn verify_artifact_path(path: &Path, artifact: &Artifact) -> anyhow::Result<()> {
+    let data = std::fs::read(path)
+        .map_err(|e| anyhow::anyhow!("读取下载产物失败（{}）：{e}", path.display()))?;
+    verify_sha256(&data, &artifact.sha256)?;
+    if !artifact.signature.is_empty() {
+        verify_signature(&data, &artifact.signature, ROLLCALLER_UPDATE_PUBKEY)?;
+    }
     Ok(())
 }
 
@@ -161,11 +181,11 @@ mod tests {
     fn base64_roundtrip() {
         let s = "hello";
         let b64 = base64::engine::general_purpose::STANDARD.encode(s);
-        assert_eq!(base64_to_string(&b64).unwrap(), s);
+        assert_eq!(b64.base64_decode().unwrap(), s);
         // 非法 base64 与解码后非 UTF-8 都报错
-        assert!(base64_to_string("!!!").is_err());
+        assert!("!!!".base64_decode().is_err());
         let non_utf8 = base64::engine::general_purpose::STANDARD.encode([0xFF, 0xFE]);
-        assert!(base64_to_string(&non_utf8).is_err());
+        assert!(non_utf8.base64_decode().is_err());
     }
 
     #[test]
@@ -194,7 +214,7 @@ mod tests {
     #[test]
     fn embedded_pubkey_readable() {
         // 占位阶段内容是说明文本；作者替换后是 base64(minisign 公钥文本)。两者都必须是 UTF-8。
-        let pk = pubkey();
+        let pk = ROLLCALLER_UPDATE_PUBKEY;
         assert!(!pk.is_empty());
     }
 
