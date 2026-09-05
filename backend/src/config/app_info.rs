@@ -1,3 +1,4 @@
+use crate::common::{constant, enums};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::string::ToString;
@@ -7,8 +8,8 @@ use ts_rs::TS;
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, Hash, PartialEq, TS)]
 #[ts(export)]
 pub struct AppInfo {
-    pub os: String,
-    pub arch: String,
+    pub os: enums::sys::OS,
+    pub arch: enums::sys::Arch,
     pub branch: String,
     pub commit_count: String,
     pub short_hash: String,
@@ -18,8 +19,8 @@ pub struct AppInfo {
 }
 
 static APP_INFO: LazyLock<AppInfo> = LazyLock::new(|| AppInfo {
-    os: env::consts::OS.to_string(),
-    arch: (if env::consts::ARCH == "aarch64" { "arm64" } else { "x86_64" }).to_string(),
+    os: constant::sys::OS,
+    arch: constant::sys::ARCH,
     branch: env!("GIT_BRANCH").to_string(),
     commit_count: env!("GIT_COMMIT_COUNT").to_string(),
     short_hash: env!("GIT_SHORT_HASH").to_string(),
