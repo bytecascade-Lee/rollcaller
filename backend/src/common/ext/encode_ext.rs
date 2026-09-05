@@ -4,6 +4,7 @@
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+use std::error::Error;
 
 /// base64 便捷扩展
 ///
@@ -15,8 +16,14 @@ pub trait Base64Ext: AsRef<[u8]> {
         STANDARD.encode(self.as_ref())
     }
 
-    /// base64 解码;输入不是合法 base64 时返回 [`DecodeError`](base64::DecodeError)
-    fn base64_decode(&self) -> Result<Vec<u8>, base64::DecodeError> {
+    /// base64 解码为 String，失败时返回 [`Error`]
+    fn base64_decode(&self) -> Result<String, Box<dyn Error>> {
+        let bytes = self.base64_decode_bytes()?;
+        Ok(String::from_utf8(bytes)?)
+    }
+
+    /// base64 解码为 Vec<u8>，输入不是合法 base64 时返回 [`DecodeError`](base64::DecodeError)
+    fn base64_decode_bytes(&self) -> Result<Vec<u8>, base64::DecodeError> {
         STANDARD.decode(self.as_ref())
     }
 }
