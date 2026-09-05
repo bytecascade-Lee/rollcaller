@@ -53,7 +53,7 @@ ASSET_ARCH_MAP = {"windows-x86_64": "x86_64", "windows-aarch64": "arm64"}
 ASSET_SUFFIXES = (".exe", ".zip")
 # 等待 sync-mirrors 把 tag 同步到 CNB 的超时（秒）
 CNB_TAG_SYNC_TIMEOUT = 300
-# severity 合法档位（与后端 manifest.rs 的 Severity 枚举一致）
+# severity 合法档位（与后端 common/entity/update.rs 的 Severity 枚举一致）
 SEVERITY_LEVELS = ("normal", "important", "critical")
 # 版本索引源文件（仓库维护，发布期唯一标定 severity/force 的地方）
 VERSIONS_INDEX_PATH = ROOT / "resources" / "update" / "versions.json"
