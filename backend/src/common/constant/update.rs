@@ -5,11 +5,13 @@ pub const DEFAULT_UPDATE_LEVEL: UpdateLevel = UpdateLevel::Patch;
 /// 默认更新渠道策略：`channel = Stable`。
 pub const DEFAULT_UPDATE_CHANNEL: UpdateChannel = UpdateChannel::Stable;
 
-pub const LATEST_FILE_START_GITHUB: &str = "0.8.0";
-pub const LATEST_FILE_START_CNB: &str = "0.8.0";
+pub const LATEST_MANIFEST_START_GITHUB: &str = "0.8.0";
+pub const LATEST_MANIFEST_START_CNB: &str = "0.8.0";
 
-pub const VERSIONS_FILE_START_GITHUB: &str = "0.8.0";
-pub const VERSIONS_FILE_START_CNB: &str = "0.8.0";
+pub const VERSIONS_INDEX_START_GITHUB: &str = "0.8.0";
+pub const VERSIONS_INDEX_START_CNB: &str = "0.8.0";
+
+pub const PLACEHOLDER: &str = "__VERSION__";
 
 pub const GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller";
 pub const CNB: &str = "https://cnb.cool/ordinary-glory/rollcaller";
@@ -20,11 +22,14 @@ pub const CNB_PORTABLE_UPDATER: &str = "https://cnb.cool/ordinary-glory/updater"
 pub const RELEASE_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/releases/tag/v__VERSION__/";
 pub const RELEASE_CNB: &str = "https://cnb.cool/ordinary-glory/rollcaller/-/releases/tag/v__VERSION__/";
 
-pub const LATEST_FILE_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/releases/latest/download/latest-github.json";
-pub const LATEST_FILE_CNB: &str = "https://cnb.cool/ordinary-glory/rollcaller/-/releases/latest/download/latest-cnb.json";
+pub const LATEST_MANIFEST_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/releases/latest/download/latest-github.json";
+pub const LATEST_MANIFEST_CNB: &str = "https://cnb.cool/ordinary-glory/rollcaller/-/releases/latest/download/latest-cnb.json";
 
-pub const VERSIONS_FILE_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/releases/latest/download/versions.json";
-pub const VERSIONS_FILE_CNB: &str = "https://cnb.cool/ordinary-glory/rollcaller/-/releases/latest/download/versions.json";
+pub const VERSIONS_INDEX_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/releases/latest/download/versions.json";
+pub const VERSIONS_INDEX_CNB: &str = "https://cnb.cool/ordinary-glory/rollcaller/-/releases/latest/download/versions.json";
+
+pub const SPECIFIED_LATEST_MANIFEST_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/releases/download/v__VERSION__/latest-github.json";
+pub const SPECIFIED_LATEST_MANIFEST_CNB: &str = "https://cnb.cool/ordinary-glory/rollcaller/-/releases/download/v__VERSION__/latest-cnb.json";
 
 pub const PORTABLE_UPDATER_GITHUB: &str = "https://github.com/bytecascade-Lee/updater";
 pub const PORTABLE_UPDATER_CNB: &str = "https://cnb.cool/ordinary-glory/updater";
@@ -32,8 +37,11 @@ pub const PORTABLE_UPDATER_CNB: &str = "https://cnb.cool/ordinary-glory/updater"
 pub const PORTABLE_UPDATE_RELEASE_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/releases/tag/v__VERSION__/";
 pub const PORTABLE_UPDATE_RELEASE_CNB: &str = "https://cnb.cool/ordinary-glory/updater/-/releases/tag/v__VERSION__/";
 
-pub const PORTABLE_UPDATER_LATEST_FILE_GITHUB: &str = "https://github.com/bytecascade-Lee/updater/-/releases/latest/download/latest-github.json";
-pub const PORTABLE_UPDATER_LATEST_FILE_CNB: &str = "https://cnb.cool/ordinary-glory/updater/-/releases/latest/download/latest-cnb.json";
+pub const SPECIFIED_PORTABLE_UPDATE_RELEASE_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/releases/tag/v__VERSION__/latest-github.json";
+pub const SPECIFIED_PORTABLE_UPDATE_RELEASE_CNB: &str = "https://cnb.cool/ordinary-glory/updater/-/releases/tag/v__VERSION__/latest-cnb.json";
+
+pub const PORTABLE_UPDATER_LATEST_MANIFEST_GITHUB: &str = "https://github.com/bytecascade-Lee/updater/-/releases/latest/download/latest-github.json";
+pub const PORTABLE_UPDATER_LATEST_MANIFEST_CNB: &str = "https://cnb.cool/ordinary-glory/updater/-/releases/latest/download/latest-cnb.json";
 
 #[cfg(test)]
 mod tests {
@@ -50,14 +58,16 @@ mod tests {
             CNB_PORTABLE_UPDATER,
             RELEASE_GITHUB,
             RELEASE_CNB,
-            LATEST_FILE_GITHUB,
-            LATEST_FILE_CNB,
-            VERSIONS_FILE_GITHUB,
-            VERSIONS_FILE_CNB,
+            LATEST_MANIFEST_GITHUB,
+            LATEST_MANIFEST_CNB,
+            VERSIONS_INDEX_GITHUB,
+            VERSIONS_INDEX_CNB,
+            SPECIFIED_LATEST_MANIFEST_GITHUB,
+            SPECIFIED_LATEST_MANIFEST_CNB,
             PORTABLE_UPDATER_GITHUB,
             PORTABLE_UPDATER_CNB,
-            PORTABLE_UPDATER_LATEST_FILE_GITHUB,
-            PORTABLE_UPDATER_LATEST_FILE_CNB,
+            PORTABLE_UPDATER_LATEST_MANIFEST_GITHUB,
+            PORTABLE_UPDATER_LATEST_MANIFEST_CNB,
         ];
 
         for url_str in urls {
