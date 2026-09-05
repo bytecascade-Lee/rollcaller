@@ -30,54 +30,14 @@ use crate::common::constant::sys::{ARCH, OS};
 use crate::common::constant::update::{
     PLACEHOLDER, SPECIFIED_LATEST_MANIFEST_CNB, SPECIFIED_LATEST_MANIFEST_GITHUB, VERSIONS_INDEX_CNB, VERSIONS_INDEX_GITHUB,
 };
-use crate::common::entity::update::{Artifact, HistoryVersion, Policy, UpdateManifest};
+use crate::common::entity::update::{Artifact, FoundUpdate, HistoryVersion, Policy, UpdateInfo, UpdateManifest};
 use crate::common::enums::update::{Severity, UpdateDecision, UpdateLevel, UpdateSource};
 use crate::config::app_paths::AppMode;
 use crate::service::update::version::decide;
 use anyhow::{anyhow, Context};
 use reqwest::Client;
 use semver::Version;
-use serde::Serialize;
-use std::fmt;
 use std::path::{Path, PathBuf};
-use ts_rs::TS;
-
-/// 更新信息
-///
-/// `severity` / `force` 为清单字段的透传：前端据此决定徽标与"是否提供忽略/稍后"的交互，真正的强制安装流程属于后续 force 任务。
-#[derive(Debug, Clone, Serialize, TS)]
-pub struct UpdateInfo {
-    #[ts(type = "string")]
-    pub version: Version,
-    /// releaseNotes
-    pub notes: Option<String>,
-    /// publishDate（格式化后的字符串，供前端展示）
-    pub date: Option<String>,
-    /// 本次要下载的产物（nsis 或 portable 之一）
-    pub artifact: Artifact,
-    /// 更新严重程度（默认 normal；normal 之外的版本已豁免幅度门槛才会走到这里）
-    pub severity: Severity,
-    /// 是否强制（默认 false；仅 critical 合法）
-    pub force: bool,
-}
-
-/// 一次更新检查的对外结果（service 层组装，供命令层/前端区分四态）
-///
-/// 前端可按类型区分三种情形：`NoUpdate`（含"策略不符 / 当前形态无产物"，不打扰）、
-/// `Available`（展示更新信息）、网络/清单失败（提示"检查失败"而非"无更新"）。
-/// 四态语义尚不完善，后续重构——届时只调整本类型与 service 边界。
-#[derive(Debug, Clone, Serialize, TS)]
-#[serde(tag = "type", content = "data")]
-pub enum CheckOutcome {
-    /// 无可用更新（无更高版本 / 策略不符 / 当前运行形态无对应产物）
-    NoUpdate,
-    /// 有可用更新，完整信息见 `info`
-    Available(UpdateInfo),
-    /// 网络层失败：连不上 / HTTP 错误 / 响应读取失败
-    NetworkError(String),
-    /// 版本索引或清单内容非法（JSON 格式 / 字段冲突 / 索引与清单不一致）
-    InvalidManifest(String),
-}
 
 /// 版本索引地址：`releases/latest/download/versions.json`
 fn versions_index_url(source: UpdateSource) -> &'static str {
@@ -161,7 +121,7 @@ fn parse_manifest(text: &str) -> anyhow::Result<UpdateManifest> {
     serde_json::from_str(text).context(anyhow!("清单格式不符合规范"))
 }
 
-/// 一致性复判 + 取产物 + 组装更新信息。
+/// 一致性复判 + 取产物 + 组装检查命中。
 ///
 /// 索引只做预筛选，清单才是该版本的最终发布数据：版本号必须与索引一致，且以**清单
 /// 自身**的 severity/force 复判一次；不一致视为发布端错误（宁可暴露也不静默降级）。
@@ -172,7 +132,7 @@ fn validate_manifest(
     expected: &Version,
     manifest: &UpdateManifest,
     mode: AppMode,
-) -> anyhow::Result<Option<UpdateInfo>> {
+) -> anyhow::Result<Option<FoundUpdate>> {
     if manifest.version != *expected {
         return Err(anyhow!(
             "版本索引与清单不一致：索引指向 {expected}，清单返回 {}",
@@ -193,13 +153,15 @@ fn validate_manifest(
         return Ok(None);
     };
 
-    Ok(Some(UpdateInfo {
-        version: manifest.version.clone(),
-        notes: manifest.release_notes.clone(),
-        date: manifest.publish_date.map(|d| d.to_string()),
-        artifact,
+    Ok(Some(FoundUpdate {
+        info: UpdateInfo {
+            version: manifest.version.clone(),
+            notes: manifest.release_notes.clone(),
+            date: manifest.publish_date.map(|d| d.to_string()),
+        },
         severity: manifest.severity,
         force: manifest.force,
+        artifact,
     }))
 }
 
@@ -213,7 +175,8 @@ fn validate_manifest(
 /// - `cache_dir`：缓存根目录（目标版本清单按版本号落盘于此，避免重复拉取）。
 ///
 /// # 返回
-/// - `anyhow::Ok(Some(info))`：有可用更新；
+/// - `anyhow::Ok(Some(found))`：命中目标更新（展示信息 + 下载凭据，见 [`FoundUpdate`]），
+///   service 层拆包：凭据与展示信息一并存入会话，展示信息组装对外结果；
 /// - `anyhow::Ok(None)`：无更新（无更高版本 / 策略不符 / 当前形态无产物 / 开发模式）；
 /// - `anyhow::Err`：检查失败（网络或清单非法）。
 pub async fn check(
@@ -223,7 +186,7 @@ pub async fn check(
     policy: &Policy,
     mode: AppMode,
     cache_dir: &Path,
-) -> anyhow::Result<Option<UpdateInfo>> {
+) -> anyhow::Result<Option<FoundUpdate>> {
     // 开发模式不更新（不发起任何网络请求）
     if matches!(mode, AppMode::Develop) {
         return Ok(None);
