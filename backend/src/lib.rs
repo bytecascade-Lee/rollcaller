@@ -10,6 +10,7 @@ mod config;
 mod database;
 mod repo;
 mod service;
+mod shutdown_hooks;
 mod state;
 mod updater;
 mod util;
