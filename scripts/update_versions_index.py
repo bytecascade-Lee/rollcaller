@@ -42,10 +42,9 @@ def load_index() -> list:
     if not VERSIONS_INDEX_PATH.exists():
         fail(f"缺少版本索引源文件: {VERSIONS_INDEX_PATH}")
     try:
-        data = json.loads(VERSIONS_INDEX_PATH.read_text(encoding="utf-8"))
+        entries = json.loads(VERSIONS_INDEX_PATH.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
         fail(f"versions.json 解析失败: {e}")
-    entries = data.get("versions")
     if not isinstance(entries, list):
         fail("versions.json 缺少 versions 数组")
     for item in entries:
@@ -67,7 +66,7 @@ def write_index(entries: list) -> None:
         reverse=True,
     )
     VERSIONS_INDEX_PATH.write_text(
-        json.dumps({"versions": entries}, ensure_ascii=False, indent=4) + "\n",
+        json.dumps(entries, ensure_ascii=False, indent=4) + "\n",
         encoding="utf-8",
     )
 

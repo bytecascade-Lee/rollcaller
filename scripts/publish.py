@@ -240,10 +240,9 @@ def load_versions_index() -> dict:
     if not VERSIONS_INDEX_PATH.exists():
         fail(f"缺少版本索引源文件: {VERSIONS_INDEX_PATH}（发布前应维护，标注各版本 severity/force）")
     try:
-        data = json.loads(VERSIONS_INDEX_PATH.read_text(encoding="utf-8"))
+        entries = json.loads(VERSIONS_INDEX_PATH.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
         fail(f"versions.json 解析失败: {e}")
-    entries = data.get("versions")
     if not isinstance(entries, list):
         fail("versions.json 缺少 versions 数组")
     index = {}
@@ -269,7 +268,7 @@ def version_severity(index: dict, release_version: str) -> tuple:
     return entry["severity"], entry["force"]
 
 
-def build_versions_asset(index: dict, release_version: str, severity: str, force: bool) -> dict:
+def build_versions_asset(index: dict, release_version: str, severity: str, force: bool) -> list:
     """构建随 Release 发布的 versions.json：源索引 + 当前版本兜底（normal），按版本号倒序。
 
     索引内容不含任何 URL——客户端凭版本号即可拼接出对应 Release 的 latest-*.json 地址。
@@ -281,7 +280,7 @@ def build_versions_asset(index: dict, release_version: str, severity: str, force
     if release_version not in index:
         versions.append({"version": release_version, "severity": severity, "force": force})
     versions.sort(key=lambda x: version.parse(x["version"])[:3], reverse=True)
-    return {"versions": versions}
+    return versions
 
 
 def build_latest_json(release_version: str, notes: str, signatures: dict, make_url,
