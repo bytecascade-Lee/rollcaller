@@ -12,23 +12,23 @@
 //! `busy` 标志配合 [`BusyGuard`] 实现 check / download / install 期间防重入：
 //! 命令入口先 `try_enter`，拿不到执行权说明已有更新操作在进行，直接拒绝重复触发。
 
-use crate::updater::check::{UpdateInfo, UpdateKind};
-use crate::updater::manifest::{Artifact, Severity};
+use crate::common::entity::update::FoundUpdate;
+use crate::common::entity::update::{Artifact, UpdateInfo};
+use crate::common::enums::update::Severity;
 use semver::Version;
 use std::path::PathBuf;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// 一次更新会话（跨 check → download → install 共享的唯一凭据）
 ///
-/// 内容限定为"各步共享、一变就乱套的不变事实"：判定基线（current_version）、
-/// 批准下载的产物（artifact）与安装形态（kind/severity/force）。notes/date/raw_json
-/// 等纯展示字段不进会话（前端由 check 返回值直接持有）。
+/// 内容限定为"各步共享、一变就乱套的不变事实"：展示信息（info，含目标版本）、
+/// 批准下载的产物（artifact）与发布属性（severity/force，download 复核与强制语义依赖）。
+/// 会话由 check 命中的 [`FoundUpdate`] 构造（展示信息与凭据一并存入）。
 #[derive(Debug, Clone)]
 pub struct PendingUpdate {
-    /// 目标版本
-    pub version: Version,
-    /// 安装形态（决定 install 走 NSIS 还是 Portable 安装器）
-    pub kind: UpdateKind,
+    /// 展示信息（含目标版本；download 复核 / 前端"已下载"展示依赖）
+    pub info: UpdateInfo,
     /// 严重程度（download 复核 / force 语义依赖）
     pub severity: Severity,
     /// 是否强制
@@ -42,14 +42,13 @@ pub struct PendingUpdate {
 }
 
 impl PendingUpdate {
-    /// 由 check 返回值构造会话（下载前的初始形态）
-    pub fn from_update(info: &UpdateInfo, current_version: Version) -> Self {
+    /// 由 check 命中的更新构造会话（下载前的初始形态）
+    pub fn from_found(found: &FoundUpdate, current_version: Version) -> Self {
         Self {
-            version: info.version.clone(),
-            kind: info.kind,
-            severity: info.severity,
-            force: info.force,
-            artifact: info.artifact.clone(),
+            info: found.info.clone(),
+            severity: found.severity,
+            force: found.force,
+            artifact: found.artifact.clone(),
             current_version,
             downloaded_path: None,
         }
@@ -62,6 +61,8 @@ pub struct UpdaterState {
     pending: Mutex<Option<PendingUpdate>>,
     /// 防重入：check / download / install 进行中为 `true`
     busy: Mutex<bool>,
+    /// 下载取消请求：前端 `cancel_update` 置位，download 每 chunk 检查，结束后复位
+    cancel: AtomicBool,
 }
 
 impl Default for UpdaterState {
@@ -69,6 +70,7 @@ impl Default for UpdaterState {
         Self {
             pending: Mutex::new(None),
             busy: Mutex::new(false),
+            cancel: AtomicBool::new(false),
         }
     }
 }
@@ -101,6 +103,21 @@ impl UpdaterState {
         let mut slot = self.pending.lock().unwrap_or_else(|e| e.into_inner());
         *slot = session;
         Ok(())
+    }
+
+    /// 下载取消标志的共享引用（download 每 chunk 检查）
+    pub fn cancel_flag(&self) -> &AtomicBool {
+        &self.cancel
+    }
+
+    /// 请求取消当前下载（前端调用；仅置位，不触碰下载本身）
+    pub fn request_cancel(&self) {
+        self.cancel.store(true, Ordering::Relaxed);
+    }
+
+    /// 复位取消标志（download 结束后由命令层调用，成功/失败/取消均复位）
+    pub fn reset_cancel(&self) {
+        self.cancel.store(false, Ordering::Relaxed);
     }
 }
 

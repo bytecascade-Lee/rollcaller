@@ -1,30 +1,10 @@
-//! 统一更新管线（自研，替代前端 tauri-plugin-updater 驱动）
+//! 更新管线（自研，替代前端 tauri-plugin-updater 驱动）——Tauri 侧编排模块
 //!
-//! - 任务 01：manifest 解析与版本策略（纯数据层）
-//! - 任务 02：check（拉取清单 + 版本判定）与 download（流式下载 + 进度）
-//! - 任务 03：verify（sha256 完整性 + minisign 验签）
-//! - 任务 04：commands（Tauri 命令 + 防重入）+ state（共享状态）编排服务
-//! - 任务 05：installer/nsis（NSIS 安装包识别/解压/ShellExecuteW 启动）
-//! - 任务 06：installer/portable（便携版 zip 解压 + Go updater 编排）
+//! 领域实现（check / download / verify / install / version）已收敛到
+//! `service/update`，本模块只保留"贴近 Tauri 运行时"的部分：
 //!
-//! 数据层类型与重导出暂由后续任务消费，在消费者接入前允许
-//! dead_code / unused_imports，避免 clippy 误报。
-#![allow(dead_code)]
-#![allow(unused_imports)]
+//! - [`commands`]：更新命令（check / download / cancel / install），防重入 + 事件上报；
+//! - [`state`]：更新会话（PendingUpdate）+ 防重入守卫；
 
-pub mod check;
 pub mod commands;
-pub mod download;
-pub mod installer;
-pub mod manifest;
 pub mod state;
-pub mod verify;
-pub mod version_policy;
-
-pub use check::{UpdateInfo, UpdateKind};
-pub use commands::DownloadEvent;
-pub use download::DownloadProgress;
-pub use installer::nsis::{NsisInstallMode, NsisOptions};
-pub use installer::portable::PortableOptions;
-pub use installer::{install, InstallKind, InstallOptions};
-pub use verify::{pubkey, verify_artifact, verify_sha256, verify_signature};
