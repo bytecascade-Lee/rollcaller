@@ -5,7 +5,9 @@
 //! 1. 解压已下载并校验的 portable zip 到 `temp_dir()/update/{目标版本}/`；
 //! 2. 组装 Go updater 的 config.json 写盘；
 //! 3. 分离式 spawn `updater.exe`（`CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`），传入 config.json 路径；
-//! 4. spawn 成功 → `exit(0)`，由 updater 执行 wait → update → launch → (rollback)。
+//! 4. spawn 成功后返回 `Ok(())`——由调用方执行退出前清理
+//!    （`shutdown_hooks::run_all()`，如关闭数据库）后 `exit(0)`，
+//!    由 updater 执行 wait → update → launch → (rollback)。
 //!
 //! # 约定
 //!
@@ -22,39 +24,15 @@ use serde_json::json;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-/// 安装入口：分离式 spawn updater.exe → 钩子 → `exit(0)`
-///
-/// spawn 失败返回 `Err`；成功路径由 updater 接管，本进程正常流程不可到达 `exit(0)` 之后。
-#[cfg(target_os = "windows")]
-pub fn install(
-    exec_path: &Path,
-    config_path: &Path,
-    on_before_exit: &mut Option<Box<dyn FnOnce() + Send>>,
-) -> anyhow::Result<()> {
-    spawn_updater(exec_path, config_path)?;
-    if let Some(hook) = on_before_exit.take() {
-        hook();
-    }
-    std::process::exit(0);
-}
-
-/// 非 Windows 平台：便携版安装不可用
-#[cfg(not(target_os = "windows"))]
-pub fn install(
-    _exec_path: &Path,
-    _config_path: &Path,
-    _on_before_exit: &mut Option<Box<dyn FnOnce() + Send>>,
-) -> anyhow::Result<()> {
-    anyhow::bail!("便携版安装仅支持 Windows")
-}
-
-/// 便携版完整安装编排：解压 zip → 组装 config → spawn updater → `exit(0)`
+/// 便携版完整安装编排：解压 zip → 组装 config → spawn updater（不 `exit`）
 ///
 /// - `zip_path`：已下载并校验通过的 portable zip（`downloaded_path`）；
 /// - `from` / `to`：当前版本与目标版本（用于命名 config 与日志，标识一次安装）。
 ///
-/// 成功路径在 [`install`] 内 `exit(0)`（不返回）；任一准备步骤失败返回 `Err`，
-/// 进程保持存活以便上层提示重试。
+/// 成功路径 = 更新器已分离式启动（返回 `Ok(())`），**本进程应随即退出**：调用方需
+/// 先执行 `shutdown_hooks::run_all().await`（关闭数据库等）再 `std::process::exit(0)`；
+/// 任一准备步骤或 spawn 失败返回 `Err`，进程保持存活以便上层提示重试
+/// （失败路径不触发退出清理）。
 #[cfg(target_os = "windows")]
 pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow::Result<()> {
     // 1. 更新器：本地 cache 中取最新。便携版更新器必须有，自动下载属 download.rs 的任务
@@ -89,8 +67,8 @@ pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow
     std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)
         .map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", config_path.display()))?;
 
-    // 6. spawn updater 传 config 路径 → 成功后由 install 内 exit(0)
-    install(&updater_exe, &config_path, &mut None)
+    // 6. 分离式 spawn updater（成功后由调用方执行退出清理并 exit(0)）
+    spawn_updater(&updater_exe, &config_path)
 }
 
 /// 非 Windows 平台：便携版安装不可用

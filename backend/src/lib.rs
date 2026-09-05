@@ -70,6 +70,7 @@ pub async fn run() {
             crate::cmd::windows::windows_help_open,
             crate::updater::commands::check_update,
             crate::updater::commands::download_update,
+            crate::updater::commands::cancel_update,
             crate::updater::commands::install_update,
         ])
         .run(tauri::generate_context!())
