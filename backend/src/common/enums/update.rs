@@ -1,10 +1,21 @@
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use ts_rs::TS;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, TS)]
 pub enum UpdateSource {
-    GITHUB,
+    Github,
     CNB,
+}
+
+impl fmt::Display for UpdateSource {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            UpdateSource::Github => "Github",
+            UpdateSource::CNB => "CNB"
+        };
+        write!(f, "{}", s)
+    }
 }
 
 /// 幅度门槛：最少需要多大的数字变化才触发更新。
