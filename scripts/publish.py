@@ -41,7 +41,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from common import version
+from common import manifest, version
 from common.logger import log
 from release_ci import ci_version
 
@@ -283,30 +283,44 @@ def build_versions_asset(index: dict, release_version: str, severity: str) -> li
     return versions
 
 
-def build_latest_json(release_version: str, notes: str, signatures: dict, make_url,
-                      severity: str = "normal") -> dict:
-    """生成自动更新清单。
+def build_platform_manifests(
+    assets_dir: Path,
+    release_version: str,
+    notes: str,
+    signatures: dict,
+    make_url,
+    severity: str = "normal",
+) -> dict:
+    """生成双写兼容的 latest.json（旧组 + 新组，见 common/manifest.py）。
 
-    同一结构同时用于 latest-github.json 与 latest-cnb.json，仅附件 URL 不同：
-    make_url(asset_name) 返回该平台下的附件直链。
-    severity 来自仓库维护的 versions.json 索引，随清单下发给客户端（critical 即强制更新）。
+    每个架构下 setup.exe → 新组 nsis（带 minisign 签名），portable.zip → 新组
+    portable（签名留空，便携版只验 sha256）；旧组 platform 沿用历史结构
+    （url + signature 原文），signature 语义与新组不同，勿混用。
+
+    signatures: {arch: `.sig` 全文（strip 后）}，来自 collect_assets
     """
-    platforms = {}
-    for arch, sig in signatures.items():
-        asset = f"rollcaller-{release_version}-windows-{arch}-setup.exe"
-        platform_key = "windows-aarch64" if arch == "arm64" else f"windows-{arch}"
-        platforms[platform_key] = {
-            "signature": sig,
-            "url": make_url(asset),
+    payloads = {}
+    for arch in ("x86_64", "arm64"):
+        asset = f"rollcaller-{release_version}-windows-{arch}"
+        setup = assets_dir / f"{asset}-setup.exe"
+        portable = assets_dir / f"{asset}-portable.zip"
+        if not setup.is_file():
+            fail(f"缺少安装包 {setup.name}，无法生成 {release_version} 的清单")
+        sig_raw = signatures.get(arch, "")
+        payloads[arch] = {
+            "nsis": manifest.build_artifact(make_url(setup.name), setup, sig_raw),
         }
-    pub_date = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    return {
-        "version": release_version,
-        "notes": notes,
-        "pub_date": pub_date,
-        "severity": severity,
-        "platforms": platforms,
-    }
+        if portable.is_file():
+            payloads[arch]["portable"] = manifest.build_artifact(
+                make_url(portable.name), portable, ""
+            )
+    return manifest.build_latest_json(
+        version=release_version,
+        notes=notes,
+        severity=severity,
+        payloads=payloads,
+        legacy_sigs=signatures,
+    )
 
 
 def collect_assets(assets_dir: Path, release_version: str) -> tuple[list, dict]:
@@ -444,8 +458,8 @@ def main() -> None:
         latest_github = assets_dir / "latest-github.json"
         latest_github.write_text(
             json.dumps(
-                build_latest_json(
-                    release_version, notes, signatures,
+                build_platform_manifests(
+                    assets_dir, release_version, notes, signatures,
                     lambda asset: f"https://github.com/{gh_repo}/releases/download/{tag}/{asset}",
                     severity,
                 ),
@@ -457,8 +471,8 @@ def main() -> None:
         latest_cnb = assets_dir / "latest-cnb.json"
         latest_cnb.write_text(
             json.dumps(
-                build_latest_json(
-                    release_version, notes, signatures,
+                build_platform_manifests(
+                    assets_dir, release_version, notes, signatures,
                     lambda asset: f"https://cnb.cool/{cnb_repo}/-/releases/download/{tag}/{asset}",
                     severity,
                 ),
