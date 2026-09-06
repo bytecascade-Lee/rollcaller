@@ -1,11 +1,5 @@
 //! 更新检查：拉版本索引（versions.json）挑"最高可安装版本" → 决策目标 → 拉该版本清单（本地缓存优先）→ 判定 → 返回更新信息
 //!
-//! # versions.json 在 check 流程里的职责
-//!
-//! 版本索引随每次发布附带全部历史版本的 severity。check 据此在 `(current, latest]`
-//! 区间内**从高到低**扫描，取首个被 [`evaluate`] 放行的版本作为目标版本。
-//! - 例：latest 0.4.6 是 normal 补丁被 Minor 门槛挡下时，0.4.5 important 通过豁免入选。
-//!
 //! # 判定语义分层
 //!
 //! - 纯策略判定在 `service/update/version.rs::decide`（不认识 severity，保持纯粹"通道门禁 + 幅度门槛"语义）；
@@ -17,16 +11,19 @@
 //!
 //! - `versions.json` 每次发布都会新增条目，缓存无意义，**每次检查都拉取**
 //!   `releases/latest/download/versions.json`（URL 见 [`versions_index_url`]）；
-//! - 目标版本的清单 `latest-{github|cnb|dev}.json` 以固定文件名挂在**对应版本**的 Release 下
-//!   （URL 模板见 [`latest_manifest_url`]，[`PLACEHOLDER`] 占位替换），拉取后落盘缓存
-//!   `cache_dir/update/{source}/{version}.json`（按版本号命名、不含 v）。下次检查再次选中同一
-//!   目标版本时直接读缓存，不再走网络；versions.json 仍照常拉取以感知新版本。
-//! - 本地联调：设置 `ROLLCALLER_UPDATE_BASE`（如 `http://127.0.0.1:14652`）后数据源切到
-//!   本地 HTTP 服务，URL 形状与远端同构；缓存落在独立子目录 `dev`
-//!   （`cache_dir/update/dev/{version}.json`），与 github/cnb 真实缓存互不污染。
+//! - 目标版本的清单 `latest-{github|cnb|develop}.json` 以固定文件名挂在**对应版本**的 Release 下
+//!   （URL 模板见 [`latest_manifest_url`]，[`PLACEHOLDER`] 占位替换），
+//!   拉取后落盘缓存 `cache_dir/update/{source}/{version}.json`（按版本号命名、不含 v）。
+//!   下次检查再次选中同一目标版本时直接读缓存，不再走网络；versions.json 仍照常拉取以感知新版本。
 //! - 起始版本语义：版本索引/清单/签名自 `common::constant::update::*_FILE_START_*`
-//!   标定的版本起才存在，更早的历史版本在 GitHub/CNB 上均无对应文件。由于目标版本恒
-//!   不低于起始版本（索引候选均在其上），本流程无需对起始版本做特判。
+//!   标定的版本起才存在，更早的历史版本在 GitHub/CNB 上均无对应文件。
+//!   由于目标版本恒不低于起始版本（索引候选均在其上），本流程无需对起始版本做特判。
+//!
+//! # `versions.json` 在 [`check`] 流程里的职责
+//!
+//! 版本索引随每次发布附带全部历史版本的 severity。
+//! [`check`] 据此在 `(current, latest]` 区间内**从高到低**扫描，取首个被 [`evaluate`] 放行的版本作为目标版本。
+//! - 例：latest 0.4.6 是 normal 补丁，被 Minor 门槛挡下时，0.4.5 important 通过豁免入选。
 //!
 
 use crate::common::constant::sys::{ARCH, OS};
@@ -43,6 +40,98 @@ use reqwest::Client;
 use semver::Version;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+/// 检查是否有可用更新
+///
+/// # 参数
+/// - `current`：当前版本，由调用方从 [`crate::config::app_info::AppInfo`] 的 `version` 字段解析后传入；
+/// - `policy`：当前用户策略，目前固定为 [`Policy::default`]，后期开放设置后可以让用户选择；
+/// - `source`：源，目前固定为 [`UpdateSource::CNB`]，后期开放设置后可以让用户选择；
+/// - `mode`：运行模式；
+/// - `cache_dir`：缓存根目录（目标版本清单按版本号落盘于此，避免重复拉取）。
+///
+/// # 返回
+/// - `anyhow::Ok(Some(found))`：命中目标更新（展示信息 + 下载凭据，见 [`FoundUpdate`]），
+///   service 层拆包：凭据与展示信息一并存入会话，展示信息组装对外结果；
+/// - `anyhow::Ok(None)`：无更新（无更高版本 / 策略不符 / 当前形态无产物）；
+/// - `anyhow::Err`：检查失败（网络或清单非法）。
+pub async fn check(
+    client: &Client,
+    source: UpdateSource,
+    current: &Version,
+    policy: &Policy,
+    mode: AppMode,
+    cache_dir: &Path,
+) -> anyhow::Result<Option<FoundUpdate>> {
+    // 1. 拉版本索引；versions.json 每次发布都有新增，不缓存
+    let index_text = fetch_json_text(client, &versions_index_url(source)).await?;
+    let candidates = parse_index(&index_text)?;
+
+    // 2. 决策目标版本；无放行版本 → 无更新
+    let Some(target) = pick_target(current, &candidates, policy)? else {
+        return Ok(None);
+    };
+
+    // 3. 目标版本清单：缓存优先（命中则免网络）；缺失或缓存损坏则拉取并写缓存
+    let cache_path = manifest_cache_path(cache_dir, source, &target.version);
+    let cache_content = fs::read_to_string(&cache_path).ok();
+    let manifest = match cache_content.clone().and_then(|t| parse_manifest(&t).ok()) {
+        Some(pair) => pair,
+        None => {
+            // 缓存存在但解析失败 → 视为损坏，清除后回源
+            if cache_content.is_some() {
+                let _ = fs::remove_file(&cache_path);
+            }
+            let text = fetch_json_text(client, &latest_manifest_url(source, &target.version)).await?;
+            // 避免父目录不存在
+            if let Some(parent) = cache_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            if let Err(e) = fs::write(&cache_path, &text) {
+                tracing::warn!("写入更新清单缓存失败（{}）：{e}", cache_path.display());
+            }
+            parse_manifest(&text)?
+        }
+    };
+
+    // 4. 一致性复判 + 按运行形态取产物；无产物视为无更新
+    validate_manifest(current, policy, &target.version, &manifest, mode)
+}
+
+/// 版本判定 + severity 融合
+///
+/// # severity 语义
+///
+/// | decide 返回 Skip 的原因 | normal | important | critical |
+/// |---|---|---|---|
+/// | 幅度不足 | 不通知 | **豁免 → 通知** | 豁免 → 通知 |
+/// | 用户关闭更新 | 不通知 | 不通知 | **穿透 → 通知（强制更新）** |
+/// | Stable 通道拦预发布 | 不豁免 | 不豁免 | 不豁免 |
+/// | 同版本 / 降级 | 不豁免 | 不豁免 | 不豁免 |
+///
+/// 实现方式：
+/// - 豁免 = 仅把幅度门槛临时降到 `Patch`（等价"无视幅度门槛"），
+/// 其余门禁原样交给 `decide`——因此无需给 `decide` 增加 Skip 原因，
+/// 也不破坏其纯 Copy 枚举形态。
+/// - 强制更新 = critical，即使 level=Never 也穿透放行。
+pub fn evaluate(current: &Version, latest: &Version, policy: &Policy, severity: Severity) -> UpdateDecision {
+    // 用户关闭更新（level=UpdateLevel::Never）：仅 critical（强制更新）穿透放行
+    if policy.level == UpdateLevel::Never {
+        return if severity == Severity::Critical {
+            UpdateDecision::Update
+        } else {
+            UpdateDecision::Skip
+        };
+    }
+    // severity 豁免：normal 之外把幅度门槛降到 Patch，等价"无视幅度门槛"；
+    // 通道门禁 / 同版本 / 降级 / 逃逸 / 递进由 decide 原样保留
+    let level = if severity == Severity::Normal {
+        policy.level
+    } else {
+        UpdateLevel::Patch
+    };
+    decide(current, latest, level, policy.channel)
+}
 
 /// 版本索引地址：`releases/latest/download/versions.json`
 ///
@@ -157,99 +246,4 @@ fn validate_manifest(
         severity: manifest.severity,
         artifact,
     }))
-}
-
-/// 检查是否有可用更新
-///
-/// # 参数
-/// - `current`：当前版本，由调用方从 `app_info().version` 解析后传入；
-/// - `policy`：当前用户策略（设置存储落地前由调用方提供默认值）；
-/// - `source`：拉 GitHub 还是 CNB（URL 统一取自 common 常量并由本模块映射）；
-/// - `mode`：运行形态（Develop 短路不发起请求；Install/Portable 决定取哪类产物）；
-/// - `cache_dir`：缓存根目录（目标版本清单按版本号落盘于此，避免重复拉取）。
-///
-/// # 返回
-/// - `anyhow::Ok(Some(found))`：命中目标更新（展示信息 + 下载凭据，见 [`FoundUpdate`]），
-///   service 层拆包：凭据与展示信息一并存入会话，展示信息组装对外结果；
-/// - `anyhow::Ok(None)`：无更新（无更高版本 / 策略不符 / 当前形态无产物 / 开发模式）；
-/// - `anyhow::Err`：检查失败（网络或清单非法）。
-pub async fn check(
-    client: &Client,
-    source: UpdateSource,
-    current: &Version,
-    policy: &Policy,
-    mode: AppMode,
-    cache_dir: &Path,
-) -> anyhow::Result<Option<FoundUpdate>> {
-    // 开发模式不更新（不发起任何网络请求）
-    if matches!(mode, AppMode::Develop) {
-        return Ok(None);
-    }
-
-    // 1. 拉版本索引（不缓存：versions.json 每次发布都有新增）
-    let index_text = fetch_json_text(client, &versions_index_url(source)).await?;
-    let candidates = parse_index(&index_text)?;
-
-    // 2. 决策目标版本；无放行版本 → 无更新
-    let Some(target) = pick_target(current, &candidates, policy)? else {
-        return Ok(None);
-    };
-
-    // 3. 目标版本清单：缓存优先（命中则免网络）；缺失或缓存损坏则拉取并写缓存
-    let cache_path = manifest_cache_path(cache_dir, source, &target.version);
-    let cache = fs::read_to_string(&cache_path).ok();
-    let manifest = match cache.and_then(|t| parse_manifest(&t).ok()) {
-        Some(pair) => pair,
-        None => {
-            // 缓存存在但解析失败 → 视为损坏，清除后回源
-            if cache.is_some() {
-                let _ = fs::remove_file(&cache_path);
-            }
-            let text = fetch_json_text(client, &latest_manifest_url(source, &target.version)).await?;
-            // 避免父目录不存在
-            if let Some(parent) = cache_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            if let Err(e) = fs::write(&cache_path, &text) {
-                tracing::warn!("写入更新清单缓存失败（{}）：{e}", cache_path.display());
-            }
-            parse_manifest(&text)?
-        }
-    };
-
-    // 4. 一致性复判 + 按运行形态取产物；无产物视为无更新
-    validate_manifest(current, policy, &target.version, &manifest, mode)
-}
-
-/// 版本判定 + severity 融合
-///
-/// # severity 语义
-///
-/// | decide 返回 Skip 的原因 | normal | important | critical |
-/// |---|---|---|---|
-/// | 幅度不足（被 Minor/Major 门槛挡） | 不通知 | **豁免 → 通知** | 豁免 → 通知 |
-/// | 用户关闭更新（level=None） | 不通知 | 不通知 | **穿透 → 通知（强制更新）** |
-/// | Stable 通道拦预发布 | 不豁免 | 不豁免 | 不豁免 |
-/// | 同版本 / 降级 | 不豁免 | 不豁免 | 不豁免 |
-///
-/// 实现方式：豁免 = 仅把幅度门槛临时降到 `Patch`（等价"无视幅度门槛"），其余
-/// 门禁原样交给 `decide`——因此无需给 `decide` 增加 Skip 原因，也不破坏其纯
-/// Copy 枚举形态。critical 即强制更新：即使 level=Never 也穿透放行。
-pub fn evaluate(current: &Version, latest: &Version, policy: &Policy, severity: Severity) -> UpdateDecision {
-    // 用户关闭更新（level=UpdateLevel::Never）：仅 critical（强制更新）穿透放行
-    if policy.level == UpdateLevel::Never {
-        return if severity == Severity::Critical {
-            UpdateDecision::Update
-        } else {
-            UpdateDecision::Skip
-        };
-    }
-    // severity 豁免：normal 之外把幅度门槛降到 Patch，等价"无视幅度门槛"；
-    // 通道门禁 / 同版本 / 降级 / 逃逸 / 递进由 decide 原样保留
-    let level = if severity == Severity::Normal {
-        policy.level
-    } else {
-        UpdateLevel::Patch
-    };
-    decide(current, latest, level, policy.channel)
 }
