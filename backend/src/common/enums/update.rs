@@ -94,7 +94,6 @@ pub enum UpdateKind {
 /// （`"idle"` / `"checking"` / `"upToDate"` / `"available"` / `"downloading"` /
 /// `"downloaded"` / `"error"`），供前端直接消费。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, TS)]
-#[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub enum UpdateStatus {
     /// 初始：尚未检查

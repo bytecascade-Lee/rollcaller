@@ -25,5 +25,4 @@ export * from "./TtsQueueItem"
 export * from "./Severity";
 export * from "./UpdateErrorKind";
 export * from "./UpdateInfo";
-export * from "./UpdateState";
-export * from "./UpdateStatus";
+export * from "./UpdateView";

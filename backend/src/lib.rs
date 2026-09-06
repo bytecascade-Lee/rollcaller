@@ -67,11 +67,11 @@ pub async fn run() {
             crate::cmd::tts::tts_cloud_model,
             crate::cmd::windows::windows_app_open,
             crate::cmd::windows::windows_help_open,
-            crate::cmd::update::update_check,
-            crate::cmd::update::update_download,
-            crate::cmd::update::update_cancel_download,
-            crate::cmd::update::update_install,
-            crate::cmd::update::update_state,
+            crate::cmd::update::check,
+            crate::cmd::update::download,
+            crate::cmd::update::cancel,
+            crate::cmd::update::install,
+            crate::cmd::update::state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

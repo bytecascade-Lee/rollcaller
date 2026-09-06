@@ -1,56 +1,36 @@
-import {Channel, invoke} from "@tauri-apps/api/core";
-import type {UpdateState} from "$types/UpdateState";
+import {invoke} from "@tauri-apps/api/core";
+import type {UpdateView} from "$types/UpdateView";
 
-/** 下载进度事件（与后端 `DownloadEvent` 契约一致） */
-export type DownloadEvent =
-  | { event: "Started"; data: { contentLength: number | null } }
-  | { event: "Progress"; data: { chunkLength: number } }
-  | { event: "Finished" };
-
-/** 下载进度回调（后端返回累计值换算后的本块增量；由命令层累加为已下载量） */
-export type DownloadProgressFn = (downloaded: number, total: number | null) => void;
-
-/** 检查是否有可用更新（后端推进状态，返回最新快照） */
-export async function check(): Promise<UpdateState> {
-  return await invoke<UpdateState>("update_check");
-}
+/** 展示视图广播事件名（与后端 `cmd::update::UPDATE_VIEW_EVENT` 一致） */
+export const UPDATE_VIEW_EVENT = "update://view";
 
 /**
- * 下载已批准产物（进度经 Channel 上报，结束后返回最终快照）。
- * `onProgress` 可选：不传则进度只由返回快照校准。
+ * 更新命令统一封装：所有命令返回裁剪的展示视图 [`UpdateView`]。
+ * 业务失败折叠为视图的 `error` 变体；`Err` 仅用于防重入/环境拒绝，
+ * 前端捕获后直接提示即可（不影响 store 视图）。
  */
-export async function download(onProgress?: DownloadProgressFn): Promise<UpdateState> {
-  const channel = new Channel<DownloadEvent>();
-  let downloaded = 0;
-  let total: number | null = null;
-  channel.onmessage = (e) => {
-    switch (e.event) {
-      case "Started":
-        total = e.data.contentLength ?? null;
-        onProgress?.(0, total);
-        break;
-      case "Progress":
-        downloaded += e.data.chunkLength;
-        onProgress?.(downloaded, total);
-        break;
-      case "Finished":
-        break;
-    }
-  };
-  return await invoke<UpdateState>("update_download", {onEvent: channel});
+
+/** 检查是否有可用更新 */
+export async function check(): Promise<UpdateView> {
+  return await invoke<UpdateView>("check");
 }
 
-/** 取消下载 / 放弃已下载产物（返回最新快照） */
-export async function cancel(): Promise<UpdateState> {
-  return await invoke<UpdateState>("update_cancel_download");
+/** 下载已批准产物（进度经后端广播实时上报） */
+export async function download(): Promise<UpdateView> {
+  return await invoke<UpdateView>("download");
+}
+
+/** 取消下载 / 放弃已下载产物 */
+export async function cancel(): Promise<UpdateView> {
+  return await invoke<UpdateView>("cancel");
 }
 
 /** 安装已下载产物（成功路径进程退出，安装器接管） */
-export async function install(): Promise<UpdateState> {
-  return await invoke<UpdateState>("update_install");
+export async function install(): Promise<UpdateView> {
+  return await invoke<UpdateView>("install");
 }
 
-/** 查询当前状态快照（页面挂载初始化用） */
-export async function state(): Promise<UpdateState> {
-  return await invoke<UpdateState>("update_state");
+/** 查询当前展示视图（页面挂载初始化用） */
+export async function state(): Promise<UpdateView> {
+  return await invoke<UpdateView>("state");
 }

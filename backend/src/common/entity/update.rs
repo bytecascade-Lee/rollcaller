@@ -141,44 +141,53 @@ pub struct FoundUpdate {
     pub artifact: Artifact,
 }
 
-/// 一次更新检查的对外快照（命令返回 / 前端 store 镜像的统一载体）
+/// 对外展示视图：命令返回值与广播的**统一裁剪契约**
 ///
-/// 后端 `state::update::UpdaterState` 是权威执行状态，内部另持下载凭据
-/// （[`Artifact`]、产物路径等，见 [`UpdateSession`]）；本结构只含展示所需的
-/// 简单数据，随命令返回值回传，前端据 `status` 渲染、按 `errorKind` 提供重试。
+/// 每个变体只携带该阶段前端真正需要渲染的字段；凭据（artifact、产物路径等）
+/// 一律留在后端会话里，不出现于此。`status` 为 tag、载荷在 `data` 中，
+/// 前端 store 对"命令返回"与"广播事件"用同一个类型与同一个 apply 逻辑。
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateState {
-    /// 当前所处阶段
-    pub status: UpdateStatus,
-    /// 目标更新信息（`Available` / `Downloading` / `Downloaded` 等阶段存在）
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub info: Option<UpdateInfo>,
-    /// 严重程度（有更新时才有意义；`critical` 表示强制更新，前端不应提供忽略/稍后）
-    #[serde(default)]
-    pub severity: Severity,
-    /// 已下载字节数（`Downloading` 阶段，进度条用）
-    #[ts(type = "number")]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub downloaded: Option<u64>,
-    /// 总字节数（`Downloading` 阶段）
-    #[ts(type = "number")]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub total: Option<u64>,
-    /// 错误消息（`status == Error` 时存在）
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-    /// 错误来源（前端据此处决定"重试"按钮对应哪个命令）
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub error_kind: Option<UpdateErrorKind>,
+#[serde(tag = "status", content = "data", rename_all = "camelCase")]
+pub enum UpdateView {
+    /// 空闲（尚未检查 / 无会话）
+    Idle,
+    /// 检查进行中
+    Checking,
+    /// 检查完，已是最新
+    UpToDate,
+    /// 有可用更新（severity=critical 即强制更新，前端不应提供忽略/稍后）
+    Available {
+        info: UpdateInfo,
+        severity: Severity,
+    },
+    /// 下载中（进度）
+    Downloading {
+        info: UpdateInfo,
+        #[ts(type = "number")]
+        downloaded: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        #[ts(type = "number")]
+        total: Option<u64>,
+    },
+    /// 已下载待安装
+    Downloaded {
+        info: UpdateInfo,
+        severity: Severity,
+    },
+    /// 出错（message 供展示；retry 供前端决定重试按钮对应的命令）
+    Error {
+        message: String,
+        retry: Option<UpdateErrorKind>,
+    },
 }
 
 /// 后端权威会话（Tauri manage 注入，跨命令共享）
 ///
-/// 与对外快照 [`UpdateState`] 的区别：额外持有不暴露给前端的下载凭据
-/// `artifact`（url/sha256/签名）与 `current_version` / `downloaded_path`，
-/// download 消费凭据、install 消费落盘产物；快照只是它的展示投影。
+/// 持凭据（`artifact` / `current_version` / `downloaded_path`）与展示所需事实，
+/// 仅为后端内部状态，不 Serialize、不导出；对外只经 [`UpdateSession::view`]
+/// 投影为裁剪的 [`UpdateView`]。
 #[derive(Debug, Clone)]
 pub struct UpdateSession {
     /// 当前所处阶段
@@ -221,16 +230,33 @@ impl Default for UpdateSession {
 }
 
 impl UpdateSession {
-    /// 投影对外快照（丢弃内部凭据）
-    pub fn snapshot(&self) -> UpdateState {
-        UpdateState {
-            status: self.status,
-            info: self.info.clone(),
-            severity: self.severity,
-            downloaded: (self.status == UpdateStatus::Downloading).then_some(self.downloaded),
-            total: (self.status == UpdateStatus::Downloading).then_some(self.total).flatten(),
-            error: self.error.clone(),
-            error_kind: self.error_kind,
+    /// 投影对外展示视图（丢弃凭据，只带当前阶段必要的展示字段）
+    pub fn view(&self) -> UpdateView {
+        let info = |i: &Option<UpdateInfo>| i.clone();
+        match self.status {
+            UpdateStatus::Idle => UpdateView::Idle,
+            UpdateStatus::Checking => UpdateView::Checking,
+            UpdateStatus::UpToDate => UpdateView::UpToDate,
+            UpdateStatus::Available => match info(&self.info) {
+                Some(info) => UpdateView::Available { info, severity: self.severity },
+                None => UpdateView::UpToDate,
+            },
+            UpdateStatus::Downloading => match info(&self.info) {
+                Some(info) => UpdateView::Downloading {
+                    info,
+                    downloaded: self.downloaded,
+                    total: self.total,
+                },
+                None => UpdateView::Checking,
+            },
+            UpdateStatus::Downloaded => match info(&self.info) {
+                Some(info) => UpdateView::Downloaded { info, severity: self.severity },
+                None => UpdateView::UpToDate,
+            },
+            UpdateStatus::Error => UpdateView::Error {
+                message: self.error.clone().unwrap_or_default(),
+                retry: self.error_kind,
+            },
         }
     }
 }
