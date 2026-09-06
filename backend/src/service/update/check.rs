@@ -31,8 +31,8 @@
 
 use crate::common::constant::sys::{ARCH, OS};
 use crate::common::constant::update::{
-    LATEST_MANIFEST_LOCAL, LOCAL_CACHE_SUBDIR, PLACEHOLDER, SPECIFIED_LATEST_MANIFEST_CNB,
-    SPECIFIED_LATEST_MANIFEST_GITHUB, UPDATE_BASE_ENV, VERSIONS_INDEX_CNB, VERSIONS_INDEX_GITHUB,
+    PLACEHOLDER, SPECIFIED_LATEST_MANIFEST_CNB, SPECIFIED_LATEST_MANIFEST_DEVELOP, SPECIFIED_LATEST_MANIFEST_GITHUB,
+    VERSIONS_INDEX_CNB, VERSIONS_INDEX_DEVELOP, VERSIONS_INDEX_GITHUB,
 };
 use crate::common::entity::update::{Artifact, FoundUpdate, HistoryVersion, Policy, UpdateInfo, UpdateManifest};
 use crate::common::enums::update::{Severity, UpdateDecision, UpdateLevel, UpdateSource};
@@ -41,76 +41,40 @@ use crate::service::update::version::decide;
 use anyhow::{anyhow, Context};
 use reqwest::Client;
 use semver::Version;
+use std::fs;
 use std::path::{Path, PathBuf};
-
-/// 本地数据源 base（`ROLLCALLER_UPDATE_BASE`，如 `http://127.0.0.1:14652`）
-///
-/// 返回规范化后的 base（去首尾空白与结尾 `/`）；未设置或为空返回 `None`。
-/// 存在时更新链路数据源切到本地（URL 与远端同构，见模块文档），生产零影响。
-fn local_base() -> Option<String> {
-    std::env::var(UPDATE_BASE_ENV)
-        .ok()
-        .map(|s| s.trim().trim_end_matches('/').to_string())
-        .filter(|s| !s.is_empty())
-}
 
 /// 版本索引地址：`releases/latest/download/versions.json`
 ///
 /// 本地数据源存在时指向本地服务的同构路径；否则按 source 返回远端常量。
 fn versions_index_url(source: UpdateSource) -> String {
-    if let Some(base) = local_base() {
-        return format!("{base}/releases/latest/download/versions.json");
-    }
     match source {
         UpdateSource::Github => VERSIONS_INDEX_GITHUB,
         UpdateSource::CNB => VERSIONS_INDEX_CNB,
+        UpdateSource::Develop => VERSIONS_INDEX_DEVELOP,
     }
         .to_string()
 }
 
 /// 指定版本 Release 的清单地址
 ///
-/// 本地数据源存在时指向本地服务的同构路径（清单文件名 `latest-dev.json`，
-/// 挂在该版本的 Release 资产下，与远端 latest-{github|cnb}.json 一致）；
-/// 否则按 source 返回远端模板并替换 [`PLACEHOLDER`]。
+/// 按 source 返回远端模板并替换 [`PLACEHOLDER`]。
 fn latest_manifest_url(source: UpdateSource, version: &Version) -> String {
-    if let Some(base) = local_base() {
-        return format!("{base}/releases/download/v{version}/{LATEST_MANIFEST_LOCAL}");
-    }
     match source {
         UpdateSource::Github => SPECIFIED_LATEST_MANIFEST_GITHUB,
         UpdateSource::CNB => SPECIFIED_LATEST_MANIFEST_CNB,
+        UpdateSource::Develop => SPECIFIED_LATEST_MANIFEST_DEVELOP,
     }
         .replace(PLACEHOLDER, &version.to_string())
 }
 
-/// 目标版本清单的本地缓存路径：`cache_dir/update/{source}/{version}.json`
+/// 目标版本清单的本地缓存路径：`cache_dir/update/{source.to_string().to_lowercase()}/{version}.json`
 ///
-/// 本地数据源（dev 通道）使用独立子目录 `dev`，与 github/cnb 区分——
-/// 本地联调反复改清单/换版本时不会命中真实缓存的旧文件。
+/// - [`UpdateSource::Github`] -> `'github'`
+/// - [`UpdateSource::CNB`] -> `'cnb'`
+/// - [`UpdateSource::Develop`] -> `'develop'`
 fn manifest_cache_path(cache_dir: &Path, source: UpdateSource, version: &Version) -> PathBuf {
-    let subdir = if local_base().is_some() {
-        LOCAL_CACHE_SUBDIR.to_string()
-    } else {
-        source.to_string().to_ascii_lowercase()
-    };
-    cache_dir
-        .join("update")
-        .join(subdir)
-        .join(format!("{version}.json"))
-}
-
-/// 读缓存文件；不存在或读取失败返回 `None`
-fn read_cached(path: &Path) -> Option<String> {
-    std::fs::read_to_string(path).ok()
-}
-
-/// 写缓存文件（自动创建父目录）；失败由调用方决定是否阻断
-fn write_cached(path: &Path, text: &str) -> std::io::Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    std::fs::write(path, text)
+    cache_dir.join(format!("update/{}/{version}.json", source.to_string().to_lowercase()))
 }
 
 /// 拉取远程文本
@@ -125,10 +89,7 @@ async fn fetch_json_text(client: &Client, url: &str) -> anyhow::Result<String> {
     if !status.is_success() {
         return Err(anyhow!("检查更新失败：{url}服务器返回 HTTP {status}"));
     }
-    response
-        .text()
-        .await
-        .context(anyhow!("检查更新失败：读取响应失败"))
+    response.text().await.context(anyhow!("检查更新失败：读取响应失败"))
 }
 
 /// 解析版本索引 JSON 为候选列表（顺序与合法性由调用方把关）
@@ -236,15 +197,20 @@ pub async fn check(
 
     // 3. 目标版本清单：缓存优先（命中则免网络）；缺失或缓存损坏则拉取并写缓存
     let cache_path = manifest_cache_path(cache_dir, source, &target.version);
-    let manifest = match read_cached(&cache_path).and_then(|t| parse_manifest(&t).ok()) {
+    let cache = fs::read_to_string(&cache_path).ok();
+    let manifest = match cache.and_then(|t| parse_manifest(&t).ok()) {
         Some(pair) => pair,
         None => {
             // 缓存存在但解析失败 → 视为损坏，清除后回源
-            if read_cached(&cache_path).is_some() {
-                let _ = std::fs::remove_file(&cache_path);
+            if cache.is_some() {
+                let _ = fs::remove_file(&cache_path);
             }
             let text = fetch_json_text(client, &latest_manifest_url(source, &target.version)).await?;
-            if let Err(e) = write_cached(&cache_path, &text) {
+            // 避免父目录不存在
+            if let Some(parent) = cache_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            if let Err(e) = fs::write(&cache_path, &text) {
                 tracing::warn!("写入更新清单缓存失败（{}）：{e}", cache_path.display());
             }
             parse_manifest(&text)?
@@ -269,12 +235,7 @@ pub async fn check(
 /// 实现方式：豁免 = 仅把幅度门槛临时降到 `Patch`（等价"无视幅度门槛"），其余
 /// 门禁原样交给 `decide`——因此无需给 `decide` 增加 Skip 原因，也不破坏其纯
 /// Copy 枚举形态。critical 即强制更新：即使 level=Never 也穿透放行。
-pub fn evaluate(
-    current: &Version,
-    latest: &Version,
-    policy: &Policy,
-    severity: Severity,
-) -> UpdateDecision {
+pub fn evaluate(current: &Version, latest: &Version, policy: &Policy, severity: Severity) -> UpdateDecision {
     // 用户关闭更新（level=UpdateLevel::Never）：仅 critical（强制更新）穿透放行
     if policy.level == UpdateLevel::Never {
         return if severity == Severity::Critical {
