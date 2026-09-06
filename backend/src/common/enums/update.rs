@@ -58,6 +58,7 @@ pub enum UpdateChannel {
 
 /// 更新严重程度
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize, TS)]
+#[ts(export)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
     /// 普通更新：受用户设置的更新策略约束
@@ -86,4 +87,43 @@ pub enum UpdateKind {
     Nsis,
     /// 便携版 zip
     Portable,
+}
+
+/// 当前更新所处的阶段（对外快照的阶段标记）
+///
+/// 状态机由后端推进、以快照返回，前端 store 只做镜像。序列化为小写驼峰
+/// （`"idle"` / `"checking"` / `"upToDate"` / `"available"` / `"downloading"` /
+/// `"downloaded"` / `"error"`），供前端直接消费。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub enum UpdateStatus {
+    /// 初始：尚未检查
+    #[default]
+    Idle,
+    /// 检查进行中（防重入：此阶段拒绝再次 check）
+    Checking,
+    /// 检查完，无可用更新
+    UpToDate,
+    /// 有可用更新（含 force=true 的强制更新；由快照的 force 字段表达）
+    Available,
+    /// 下载中（防重入：此阶段拒绝再次 check/download）
+    Downloading,
+    /// 已下载待安装
+    Downloaded,
+    /// 出错（恢复入口见 [`UpdateErrorKind`]）
+    Error,
+}
+
+/// 出错阶段对应的可恢复操作（前端据此给"重试"按钮）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub enum UpdateErrorKind {
+    /// 检查失败 → 重试 check
+    Check,
+    /// 下载失败 → 重试 download（后端保留凭据）
+    Download,
+    /// 安装失败 → 重试 install（后端保留产物路径）
+    Install,
 }
