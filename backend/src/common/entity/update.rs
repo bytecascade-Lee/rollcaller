@@ -26,9 +26,6 @@ pub struct UpdateManifest {
     pub severity: Severity,
 
     #[serde(default)]
-    pub force: bool,
-
-    #[serde(default)]
     pub platforms: OS,
 }
 
@@ -117,9 +114,6 @@ pub struct HistoryVersion {
     /// 缺省视为 normal（老索引未标定时兼容，语义与 manifest 的 severity 默认一致）
     #[serde(default)]
     pub severity: Severity,
-    /// 缺省视为 false
-    #[serde(default)]
-    pub force: bool,
 }
 
 /// 展示给用户的更新信息
@@ -136,15 +130,13 @@ pub struct UpdateInfo {
 
 /// 一次成功的检查命中：展示信息 + 下载凭据（`service/update/check` 的内部结果）
 ///
-/// 由编排层拆包：展示信息（`info`）投影到快照展示；`artifact` / `severity` /
-/// `force` 与展示信息一并写入后端会话（[`UpdateSession`]），供 download 消费与复核。
+/// 由编排层拆包：展示信息（`info`）投影到快照展示；`artifact` / `severity`
+/// 与展示信息一并写入后端会话（[`UpdateSession`]），供 download 消费与复核。
 pub struct FoundUpdate {
     /// 展示信息（version / notes / date）
     pub info: UpdateInfo,
-    /// 严重程度（组装对外结果 / 下载复核依赖）
+    /// 严重程度（组装对外结果 / 下载复核依赖；critical 即强制更新）
     pub severity: Severity,
-    /// 是否强制（true 时对外结果应为强制更新）
-    pub force: bool,
     /// 批准下载的产物（download 消费）
     pub artifact: Artifact,
 }
@@ -163,12 +155,9 @@ pub struct UpdateState {
     /// 目标更新信息（`Available` / `Downloading` / `Downloaded` 等阶段存在）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub info: Option<UpdateInfo>,
-    /// 严重程度（有更新时才有意义）
+    /// 严重程度（有更新时才有意义；`critical` 表示强制更新，前端不应提供忽略/稍后）
     #[serde(default)]
     pub severity: Severity,
-    /// 是否强制更新（force=true 时前端不应提供忽略/稍后）
-    #[serde(default)]
-    pub force: bool,
     /// 已下载字节数（`Downloading` 阶段，进度条用）
     #[ts(type = "number")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -196,10 +185,8 @@ pub struct UpdateSession {
     pub status: UpdateStatus,
     /// 目标更新信息（展示）
     pub info: Option<UpdateInfo>,
-    /// 严重程度（下载复核 / 展示）
+    /// 严重程度（下载复核 / 展示；critical 即强制）
     pub severity: Severity,
-    /// 是否强制（下载复核 / 展示）
-    pub force: bool,
     /// 已批准下载的产物凭据（download 消费；check 命中后写入）
     pub artifact: Option<Artifact>,
     /// 判定时的基线版本（download 入口复核对照）
@@ -222,7 +209,6 @@ impl Default for UpdateSession {
             status: UpdateStatus::Idle,
             info: None,
             severity: Severity::Normal,
-            force: false,
             artifact: None,
             current_version: None,
             downloaded_path: None,
@@ -241,7 +227,6 @@ impl UpdateSession {
             status: self.status,
             info: self.info.clone(),
             severity: self.severity,
-            force: self.force,
             downloaded: (self.status == UpdateStatus::Downloading).then_some(self.downloaded),
             total: (self.status == UpdateStatus::Downloading).then_some(self.total).flatten(),
             error: self.error.clone(),

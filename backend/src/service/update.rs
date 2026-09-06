@@ -65,7 +65,7 @@ pub fn current_policy() -> Policy {
 /// 检查是否有可用更新（编排）
 ///
 /// 阶段守卫：`Checking` / `Downloading` 拒绝重入。结果一律以快照返回：
-/// 命中 → `Available`（force=true 由快照 `force` 表达）；无更新 → `UpToDate`；
+/// 命中 → `Available`（severity=critical 即强制更新）；无更新 → `UpToDate`；
 /// 失败 → `Error(Check)`（保留原会话内容，供重试后覆盖）。
 pub async fn check_update(app: &AppHandle) -> Result<UpdateState, String> {
     let state = app.state::<UpdaterState>();
@@ -130,7 +130,6 @@ pub async fn check_update(app: &AppHandle) -> Result<UpdateState, String> {
                 };
                 s.info = Some(found.info.clone());
                 s.severity = found.severity;
-                s.force = found.force;
                 s.artifact = Some(found.artifact.clone());
                 s.current_version = Some(current_version.clone());
                 s.downloaded_path = downloaded_path;
@@ -144,7 +143,6 @@ pub async fn check_update(app: &AppHandle) -> Result<UpdateState, String> {
                 s.status = UpdateStatus::UpToDate;
                 s.info = None;
                 s.severity = Default::default();
-                s.force = false;
                 s.artifact = None;
                 s.current_version = None;
                 s.downloaded_path = None;
@@ -211,7 +209,7 @@ pub async fn download_update(
 
     let session = state.session();
     // 入口复核：策略变更 → 旧凭据作废，落 Error(Check) 要求重查
-    let approval = match (
+    let decision = match (
         session.current_version.as_ref(),
         session.info.as_ref().map(|i| &i.version),
     ) {
@@ -220,30 +218,17 @@ pub async fn download_update(
             target,
             &current_policy(),
             session.severity,
-            session.force,
         ),
         _ => return Err("更新凭据不完整，请重新执行 check".to_string()),
     };
-    match approval {
-        Err(e) => {
-            state.mutate(|s| {
-                s.status = UpdateStatus::Error;
-                s.error = Some(e);
-                s.error_kind = Some(UpdateErrorKind::Check);
-                Ok(())
-            })?;
-            return Ok(state.snapshot());
-        }
-        Ok(UpdateDecision::Skip) => {
-            state.mutate(|s| {
-                s.status = UpdateStatus::Error;
-                s.error = Some("更新设置已变更，请重新执行 check_update".to_string());
-                s.error_kind = Some(UpdateErrorKind::Check);
-                Ok(())
-            })?;
-            return Ok(state.snapshot());
-        }
-        Ok(UpdateDecision::Update) => {}
+    if decision != UpdateDecision::Update {
+        state.mutate(|s| {
+            s.status = UpdateStatus::Error;
+            s.error = Some("更新设置已变更，请重新执行 check_update".to_string());
+            s.error_kind = Some(UpdateErrorKind::Check);
+            Ok(())
+        })?;
+        return Ok(state.snapshot());
     }
     let artifact = session.artifact.clone().ok_or_else(|| "更新凭据不完整，请重新执行 check".to_string())?;
 

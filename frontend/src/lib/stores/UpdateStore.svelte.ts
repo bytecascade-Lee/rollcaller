@@ -8,7 +8,6 @@ function idleSnapshot(): UpdateState {
     status: "idle",
     info: null,
     severity: "normal",
-    force: false,
     downloaded: undefined,
     total: undefined,
     error: null,

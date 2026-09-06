@@ -66,8 +66,7 @@ pub enum Severity {
     Normal,
     /// 重要更新：豁免用户的幅度门槛，通知所有用户
     Important,
-    /// 紧急更新：豁免用户的幅度门槛，如不升级则无法使用
-    /// 唯一可配合 `force=true` 的档位
+    /// 紧急更新：豁免用户的幅度门槛并强制更新，如不升级则无法使用
     Critical,
 }
 
@@ -105,7 +104,7 @@ pub enum UpdateStatus {
     Checking,
     /// 检查完，无可用更新
     UpToDate,
-    /// 有可用更新（含 force=true 的强制更新；由快照的 force 字段表达）
+    /// 有可用更新（severity=critical 即强制更新，前端不应提供忽略/稍后）
     Available,
     /// 下载中（防重入：此阶段拒绝再次 check/download）
     Downloading,

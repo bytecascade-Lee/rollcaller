@@ -2,16 +2,16 @@
 //!
 //! # versions.json 在 check 流程里的职责
 //!
-//! 版本索引随每次发布附带全部历史版本的 severity/force。check 据此在 `(current, latest]`
+//! 版本索引随每次发布附带全部历史版本的 severity。check 据此在 `(current, latest]`
 //! 区间内**从高到低**扫描，取首个被 [`evaluate`] 放行的版本作为目标版本。
 //! - 例：latest 0.4.6 是 normal 补丁被 Minor 门槛挡下时，0.4.5 important 通过豁免入选。
 //!
 //! # 判定语义分层
 //!
 //! - 纯策略判定在 `service/update/version.rs::decide`（不认识 severity，保持纯粹"通道门禁 + 幅度门槛"语义）；
-//! - severity 豁免与 force 合法性在 [`evaluate`] 融合（本模块 check 与 download 入口复核共用同一个纯函数，判定语义只写一次）；
+//! - severity 豁免与 critical 强制在 [`evaluate`] 融合（本模块 check 与 download 入口复核共用同一个纯函数，判定语义只写一次）；
 //! - 索引 ↔ 清单的一致性复判暂在本模块实现（见 [`validate_manifest`]）。
-//!   该职责的归宿是version.rs——后期在 version 中新增函数统一处理 severity/force 后迁走。
+//!   该职责的归宿是 version.rs——后期在 version 中新增函数统一处理 severity 后迁走。
 //!
 //! # 数据获取与缓存
 //!
@@ -107,10 +107,9 @@ fn pick_target(current: &Version, candidates: &[HistoryVersion], policy: &Policy
     let mut newer: Vec<&HistoryVersion> = candidates.iter().filter(|hv| hv.version > *current).collect();
     newer.sort_by(|a, b| b.version.cmp(&a.version));
     for hv in newer {
-        match evaluate(current, &hv.version, policy, hv.severity, hv.force) {
-            Ok(UpdateDecision::Update) => return Ok(Some(hv.clone())),
-            Ok(UpdateDecision::Skip) => continue,
-            Err(e) => return Err(anyhow!("版本索引不合法（{}）：{e}", hv.version)),
+        match evaluate(current, &hv.version, policy, hv.severity) {
+            UpdateDecision::Update => return Ok(Some(hv.clone())),
+            UpdateDecision::Skip => continue,
         }
     }
     Ok(None)
@@ -124,7 +123,7 @@ fn parse_manifest(text: &str) -> anyhow::Result<UpdateManifest> {
 /// 一致性复判 + 取产物 + 组装检查命中。
 ///
 /// 索引只做预筛选，清单才是该版本的最终发布数据：版本号必须与索引一致，且以**清单
-/// 自身**的 severity/force 复判一次；不一致视为发布端错误（宁可暴露也不静默降级）。
+/// 自身**的 severity 复判一次；不一致视为发布端错误（宁可暴露也不静默降级）。
 /// 当前运行形态无对应产物时返回 `Ok(None)`（无更新，不打扰用户）。
 fn validate_manifest(
     current: &Version,
@@ -139,15 +138,14 @@ fn validate_manifest(
             manifest.version
         ));
     }
-    match evaluate(current, &manifest.version, policy, manifest.severity, manifest.force) {
-        Err(e) => return Err(anyhow!("清单不合法（{}）：{e}", manifest.version)),
-        Ok(UpdateDecision::Skip) => {
+    match evaluate(current, &manifest.version, policy, manifest.severity) {
+        UpdateDecision::Skip => {
             return Err(anyhow!(
-                "版本索引与清单不一致：{} 的清单标注的 severity/force 不足以放行本次更新",
+                "版本索引与清单不一致：{} 的清单标注的 severity 不足以放行本次更新",
                 manifest.version
             ))
         }
-        Ok(UpdateDecision::Update) => {}
+        UpdateDecision::Update => {}
     }
     let Some(artifact) = manifest.get_artifact(OS, ARCH, mode) else {
         return Ok(None);
@@ -160,7 +158,6 @@ fn validate_manifest(
             date: manifest.publish_date.map(|d| d.to_string()),
         },
         severity: manifest.severity,
-        force: manifest.force,
         artifact,
     }))
 }
@@ -222,42 +219,33 @@ pub async fn check(
     validate_manifest(current, policy, &target.version, &manifest, mode)
 }
 
-/// 版本判定 + severity/force 融合
+/// 版本判定 + severity 融合
 ///
-/// # severity 豁免语义
+/// # severity 语义
 ///
-/// | decide 返回 Skip 的原因 | normal | important / critical & force=false | critical & force=true |
+/// | decide 返回 Skip 的原因 | normal | important | critical |
 /// |---|---|---|---|
 /// | 幅度不足（被 Minor/Major 门槛挡） | 不通知 | **豁免 → 通知** | 豁免 → 通知 |
-/// | 用户关闭更新（level=None） | 不通知 | 不通知 | **穿透 → 通知** |
+/// | 用户关闭更新（level=None） | 不通知 | 不通知 | **穿透 → 通知（强制更新）** |
 /// | Stable 通道拦预发布 | 不豁免 | 不豁免 | 不豁免 |
 /// | 同版本 / 降级 | 不豁免 | 不豁免 | 不豁免 |
 ///
 /// 实现方式：豁免 = 仅把幅度门槛临时降到 `Patch`（等价"无视幅度门槛"），其余
 /// 门禁原样交给 `decide`——因此无需给 `decide` 增加 Skip 原因，也不破坏其纯
-/// Copy 枚举形态。`force=true` 且 `severity != Critical` 视为清单非法（Err），
-/// 宁可暴露发布端错误也不静默降级。
+/// Copy 枚举形态。critical 即强制更新：即使 level=Never 也穿透放行。
 pub fn evaluate(
     current: &Version,
     latest: &Version,
     policy: &Policy,
     severity: Severity,
-    force: bool,
-) -> Result<UpdateDecision, String> {
-    // 0. force 合法性：仅 critical 可强制（发布端错误，check 阶段直接报错）
-    if force && severity != Severity::Critical {
-        return Err(format!(
-            "清单不合法：force=true 仅允许 severity=critical（当前 {severity:?}）"
-        ));
-    }
-    // 用户关闭更新（level=UpdateLevel::Never）：normal / important / 非强制的 critical 均不打扰；
-    // 唯一例外 = critical + force（发布方明确"必须更新"）
+) -> UpdateDecision {
+    // 用户关闭更新（level=UpdateLevel::Never）：仅 critical（强制更新）穿透放行
     if policy.level == UpdateLevel::Never {
-        return Ok(if severity == Severity::Critical && force {
+        return if severity == Severity::Critical {
             UpdateDecision::Update
         } else {
             UpdateDecision::Skip
-        });
+        };
     }
     // severity 豁免：normal 之外把幅度门槛降到 Patch，等价"无视幅度门槛"；
     // 通道门禁 / 同版本 / 降级 / 逃逸 / 递进由 decide 原样保留
@@ -266,5 +254,5 @@ pub fn evaluate(
     } else {
         UpdateLevel::Patch
     };
-    Ok(decide(current, latest, level, policy.channel))
+    decide(current, latest, level, policy.channel)
 }
