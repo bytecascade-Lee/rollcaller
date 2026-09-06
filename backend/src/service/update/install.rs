@@ -7,7 +7,7 @@
 //! - [`finish_and_exit`]：安装器接管后的统一收尾——执行退出前清理
 //!   （`shutdown_hooks::run_all()`，如关闭数据库）并 `exit(0)`（永不返回）。
 //!
-//! 编排方（`service/update_service.rs::install_downloaded`）只需：
+//! 编排方（`service/update.rs::install_update`）只需：
 //! `launch(...)?` → `finish_and_exit().await`；失败路径不触发清理，进程存活可重试。
 
 pub mod nsis;

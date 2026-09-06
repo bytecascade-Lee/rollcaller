@@ -49,7 +49,7 @@ fn random_part_name() -> String {
 /// 4. 通过后 `rename` 为正式名（已存在同名先删除）。
 ///
 /// # 取消
-/// `cancel` 由调用方持有（前端 `cancel_update` 置位）。下载中途发现置位 → 清理 `.part`
+/// `cancel` 由调用方持有（前端 `cancel` 命令置位）。下载中途发现置位 → 清理 `.part`
 /// 并返回错误（文案 `CANCELLED`，前端可据此静默回到可重下状态）。下载完成后置位
 /// 无效——产物已落盘，由调用方的取消流程另行删除。
 pub async fn download(
