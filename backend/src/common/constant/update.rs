@@ -13,6 +13,28 @@ pub const VERSIONS_INDEX_START_CNB: &str = "0.8.0";
 
 pub const PLACEHOLDER: &str = "__VERSION__";
 
+// ---------------------------------------------------------------------------
+// 本地联调（dev 通道）
+//
+// 通过环境变量 ROLLCALLER_UPDATE_BASE（如 http://127.0.0.1:14652）把更新链路
+// 的数据源切到本地 HTTP 服务，URL 形状与远端 GitHub/CNB Release 资产同构
+// （/releases/latest/download/versions.json、/releases/download/v<ver>/latest-dev.json），
+// 便于未来"特殊渠道"直接复用同一套拼 URL 逻辑。生产环境不设置该变量，零影响。
+//
+// 本地清单文件名的 latest-{source} 命名延续远端约定：远端是 latest-github/cnb，
+// 本地是 latest-dev；manifest 缓存子目录也因此用 "dev"（cache/update/dev/<ver>.json），
+// 与 github/cnb 区分，避免本地联调污染真实缓存。
+// ---------------------------------------------------------------------------
+
+/// 本地联调（dev 通道）清单文件名
+pub const LATEST_MANIFEST_LOCAL: &str = "latest-dev.json";
+/// 本地联调清单缓存的子目录名（`cache_dir/update/dev/`）
+pub const LOCAL_CACHE_SUBDIR: &str = "dev";
+/// 本地数据源环境变量：http(s) base，如 `http://127.0.0.1:14652`
+pub const UPDATE_BASE_ENV: &str = "ROLLCALLER_UPDATE_BASE";
+/// 本地更新形态环境变量：`install` | `portable`，覆盖真实运行形态（仅更新链路）
+pub const UPDATE_MODE_ENV: &str = "ROLLCALLER_UPDATE_MODE";
+
 pub const GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller";
 pub const CNB: &str = "https://cnb.cool/ordinary-glory/rollcaller";
 

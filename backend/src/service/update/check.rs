@@ -17,10 +17,13 @@
 //!
 //! - `versions.json` 每次发布都会新增条目，缓存无意义，**每次检查都拉取**
 //!   `releases/latest/download/versions.json`（URL 见 [`versions_index_url`]）；
-//! - 目标版本的清单 `latest-{github|cnb}.json` 以固定文件名挂在**对应版本**的 Release 下
+//! - 目标版本的清单 `latest-{github|cnb|dev}.json` 以固定文件名挂在**对应版本**的 Release 下
 //!   （URL 模板见 [`latest_manifest_url`]，[`PLACEHOLDER`] 占位替换），拉取后落盘缓存
 //!   `cache_dir/update/{source}/{version}.json`（按版本号命名、不含 v）。下次检查再次选中同一
 //!   目标版本时直接读缓存，不再走网络；versions.json 仍照常拉取以感知新版本。
+//! - 本地联调：设置 `ROLLCALLER_UPDATE_BASE`（如 `http://127.0.0.1:14652`）后数据源切到
+//!   本地 HTTP 服务，URL 形状与远端同构；缓存落在独立子目录 `dev`
+//!   （`cache_dir/update/dev/{version}.json`），与 github/cnb 真实缓存互不污染。
 //! - 起始版本语义：版本索引/清单/签名自 `common::constant::update::*_FILE_START_*`
 //!   标定的版本起才存在，更早的历史版本在 GitHub/CNB 上均无对应文件。由于目标版本恒
 //!   不低于起始版本（索引候选均在其上），本流程无需对起始版本做特判。
@@ -28,7 +31,8 @@
 
 use crate::common::constant::sys::{ARCH, OS};
 use crate::common::constant::update::{
-    PLACEHOLDER, SPECIFIED_LATEST_MANIFEST_CNB, SPECIFIED_LATEST_MANIFEST_GITHUB, VERSIONS_INDEX_CNB, VERSIONS_INDEX_GITHUB,
+    LATEST_MANIFEST_LOCAL, LOCAL_CACHE_SUBDIR, PLACEHOLDER, SPECIFIED_LATEST_MANIFEST_CNB,
+    SPECIFIED_LATEST_MANIFEST_GITHUB, UPDATE_BASE_ENV, VERSIONS_INDEX_CNB, VERSIONS_INDEX_GITHUB,
 };
 use crate::common::entity::update::{Artifact, FoundUpdate, HistoryVersion, Policy, UpdateInfo, UpdateManifest};
 use crate::common::enums::update::{Severity, UpdateDecision, UpdateLevel, UpdateSource};
@@ -39,16 +43,40 @@ use reqwest::Client;
 use semver::Version;
 use std::path::{Path, PathBuf};
 
+/// 本地数据源 base（`ROLLCALLER_UPDATE_BASE`，如 `http://127.0.0.1:14652`）
+///
+/// 返回规范化后的 base（去首尾空白与结尾 `/`）；未设置或为空返回 `None`。
+/// 存在时更新链路数据源切到本地（URL 与远端同构，见模块文档），生产零影响。
+fn local_base() -> Option<String> {
+    std::env::var(UPDATE_BASE_ENV)
+        .ok()
+        .map(|s| s.trim().trim_end_matches('/').to_string())
+        .filter(|s| !s.is_empty())
+}
+
 /// 版本索引地址：`releases/latest/download/versions.json`
-fn versions_index_url(source: UpdateSource) -> &'static str {
+///
+/// 本地数据源存在时指向本地服务的同构路径；否则按 source 返回远端常量。
+fn versions_index_url(source: UpdateSource) -> String {
+    if let Some(base) = local_base() {
+        return format!("{base}/releases/latest/download/versions.json");
+    }
     match source {
         UpdateSource::Github => VERSIONS_INDEX_GITHUB,
         UpdateSource::CNB => VERSIONS_INDEX_CNB,
     }
+        .to_string()
 }
 
 /// 指定版本 Release 的清单地址
+///
+/// 本地数据源存在时指向本地服务的同构路径（清单文件名 `latest-dev.json`，
+/// 挂在该版本的 Release 资产下，与远端 latest-{github|cnb}.json 一致）；
+/// 否则按 source 返回远端模板并替换 [`PLACEHOLDER`]。
 fn latest_manifest_url(source: UpdateSource, version: &Version) -> String {
+    if let Some(base) = local_base() {
+        return format!("{base}/releases/download/v{version}/{LATEST_MANIFEST_LOCAL}");
+    }
     match source {
         UpdateSource::Github => SPECIFIED_LATEST_MANIFEST_GITHUB,
         UpdateSource::CNB => SPECIFIED_LATEST_MANIFEST_CNB,
@@ -57,10 +85,18 @@ fn latest_manifest_url(source: UpdateSource, version: &Version) -> String {
 }
 
 /// 目标版本清单的本地缓存路径：`cache_dir/update/{source}/{version}.json`
+///
+/// 本地数据源（dev 通道）使用独立子目录 `dev`，与 github/cnb 区分——
+/// 本地联调反复改清单/换版本时不会命中真实缓存的旧文件。
 fn manifest_cache_path(cache_dir: &Path, source: UpdateSource, version: &Version) -> PathBuf {
+    let subdir = if local_base().is_some() {
+        LOCAL_CACHE_SUBDIR.to_string()
+    } else {
+        source.to_string().to_ascii_lowercase()
+    };
     cache_dir
         .join("update")
-        .join(source.to_string().to_ascii_lowercase())
+        .join(subdir)
         .join(format!("{version}.json"))
 }
 
@@ -190,7 +226,7 @@ pub async fn check(
     }
 
     // 1. 拉版本索引（不缓存：versions.json 每次发布都有新增）
-    let index_text = fetch_json_text(client, versions_index_url(source)).await?;
+    let index_text = fetch_json_text(client, &versions_index_url(source)).await?;
     let candidates = parse_index(&index_text)?;
 
     // 2. 决策目标版本；无放行版本 → 无更新

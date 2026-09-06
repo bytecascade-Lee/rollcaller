@@ -35,6 +35,7 @@ pub mod verify;
 pub mod download;
 pub mod install;
 
+use crate::common::constant::update::{UPDATE_BASE_ENV, UPDATE_MODE_ENV};
 use crate::common::entity::update::{Artifact, Policy, UpdateView};
 use crate::common::enums::update::{UpdateDecision, UpdateErrorKind, UpdateSource, UpdateStatus};
 use crate::config::app_paths::{current_mode, AppMode};
@@ -55,6 +56,39 @@ const PROGRESS_BROADCAST_INTERVAL: Duration = Duration::from_millis(100);
 /// 返回出厂默认（Patch + Stable）。接入设置后只需改这一处。
 pub fn current_policy() -> Policy {
     Policy::default()
+}
+
+/// 更新链路的运行形态（可被环境变量覆盖；**只影响更新模块**，不动全局目录/DB 语义）
+///
+/// 优先级（从高到低）：
+/// 1. `ROLLCALLER_UPDATE_MODE=install|portable`：显式指定形态（本地联调分别测安装/便携形态）；
+/// 2. 未显式指定、但设置了 `ROLLCALLER_UPDATE_BASE`（本地联调）且真实形态为 Develop：
+///    **Develop 并入 Install**，按安装形态处理（取 NSIS 产物、launch 走 NSIS）——
+///    否则 Develop 短路（check 不发请求 / `get_artifact` 无产物），本地永远联不起来；
+/// 3. 其余情况回落真实形态（生产零影响；Develop 保持"开发模式不更新"短路）。
+pub fn update_mode() -> AppMode {
+    if let Ok(raw) = std::env::var(UPDATE_MODE_ENV) {
+        let v = raw.trim();
+        let parsed = if v.eq_ignore_ascii_case("install") {
+            Some(AppMode::Install)
+        } else if v.eq_ignore_ascii_case("portable") {
+            Some(AppMode::Portable)
+        } else if v.eq_ignore_ascii_case("develop") || v.eq_ignore_ascii_case("dev") {
+            Some(AppMode::Develop)
+        } else {
+            None
+        };
+        if let Some(mode) = parsed {
+            return mode;
+        }
+        tracing::warn!("未知的更新形态 {UPDATE_MODE_ENV}={raw:?}，回落真实形态");
+    }
+    let mode = current_mode();
+    let base_ok = std::env::var(UPDATE_BASE_ENV).is_ok_and(|b| !b.trim().is_empty());
+    if base_ok && matches!(mode, AppMode::Develop) {
+        return AppMode::Install;
+    }
+    mode
 }
 
 /// 下载产物根目录：`temp/update/downloads/<version>/`（按版本分目录存放）
@@ -125,7 +159,7 @@ pub async fn check_update(state: &UpdaterState, current_version: &Version) -> Re
     })?;
 
     let policy = current_policy();
-    let mode = current_mode();
+    let mode = update_mode();
     let cache_dir = crate::config::app_paths::cache_dir();
     let outcome = updater_check::check(
         http_client::client(),
@@ -215,7 +249,7 @@ pub async fn download_update(
     state: &UpdaterState,
     on_view: impl Fn(&UpdateView),
 ) -> Result<UpdateView, String> {
-    if matches!(current_mode(), AppMode::Develop) {
+    if matches!(update_mode(), AppMode::Develop) {
         return Err("开发模式不更新".to_string());
     }
 
@@ -396,7 +430,7 @@ pub fn cancel_update(state: &UpdaterState) -> Result<UpdateView, String> {
 /// 读盘 → 整体验签（对完整安装包二次校验）→ 启动安装器（成功即退出）；
 /// 失败落 `Error(Install)`，产物路径保留，可重试。
 pub async fn install_update(state: &UpdaterState) -> Result<UpdateView, String> {
-    if matches!(current_mode(), AppMode::Develop) {
+    if matches!(update_mode(), AppMode::Develop) {
         return Err("开发模式不更新".to_string());
     }
     let session = state.session();
@@ -442,7 +476,7 @@ pub async fn install_update(state: &UpdaterState) -> Result<UpdateView, String> 
     drop(bytes);
 
     // 启动安装器（成功即接管；失败则进程存活、产物保留可重试）
-    if let Err(e) = install::launch(current_mode(), &path, &current, &target) {
+    if let Err(e) = install::launch(update_mode(), &path, &current, &target) {
         state.mutate(|s| {
             s.status = UpdateStatus::Error;
             s.error = Some(e.to_string());
