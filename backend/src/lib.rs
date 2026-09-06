@@ -1,5 +1,5 @@
 use crate::config::{app_config, app_paths, logger};
-use crate::updater::state::UpdaterState;
+use crate::state::update::UpdaterState;
 use crate::windows::app_window;
 use tauri::WebviewWindowBuilder;
 
@@ -12,7 +12,6 @@ mod repo;
 mod service;
 mod shutdown_hooks;
 mod state;
-mod updater;
 mod util;
 mod windows;
 
@@ -68,10 +67,11 @@ pub async fn run() {
             crate::cmd::tts::tts_cloud_model,
             crate::cmd::windows::windows_app_open,
             crate::cmd::windows::windows_help_open,
-            crate::updater::commands::check_update,
-            crate::updater::commands::download_update,
-            crate::updater::commands::cancel_update,
-            crate::updater::commands::install_update,
+            crate::cmd::update::update_check,
+            crate::cmd::update::update_download,
+            crate::cmd::update::update_cancel_download,
+            crate::cmd::update::update_install,
+            crate::cmd::update::update_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

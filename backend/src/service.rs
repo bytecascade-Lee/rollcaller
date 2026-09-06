@@ -7,4 +7,3 @@ pub mod rollcall_service;
 pub mod student_service;
 pub mod tts_service;
 pub mod update;
-pub mod update_service;
