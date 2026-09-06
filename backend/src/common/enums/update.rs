@@ -6,13 +6,15 @@ use ts_rs::TS;
 pub enum UpdateSource {
     Github,
     CNB,
+    Develop,
 }
 
 impl fmt::Display for UpdateSource {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
             UpdateSource::Github => "Github",
-            UpdateSource::CNB => "CNB"
+            UpdateSource::CNB => "CNB",
+            UpdateSource::Develop => "Develop",
         };
         write!(f, "{}", s)
     }
