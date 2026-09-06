@@ -5,7 +5,6 @@
     "releaseNotes": "",
     "publishDate": "ISO 8601",
     "severity": "normal",
-    "force": false,
     "platforms": {
         "windows-x86_64": {
             "signature": "",

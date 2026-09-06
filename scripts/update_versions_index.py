@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
 """
-更新版本索引 resources/update/versions.json：添加或修改某个版本的 severity/force。
+更新版本索引 resources/update/versions.json：添加或修改某个版本的 severity。
 
 用法:
-    uv run scripts/update_versions_index.py <版本号> [--severity normal|important|critical] [--force]
+    uv run scripts/update_versions_index.py <版本号> [--severity normal|important|critical]
 
 版本号可带 v 也可不带（内部自动去除前导 v，与 versions.json 存储格式一致）。
-- 版本已存在：更新其 severity/force
+- 版本已存在：更新其 severity
 - 版本不存在：新增条目
 - 写入后按 (major, minor, patch) 倒序重排（与 publish.py build_versions_asset 的
   versions.json 附件顺序一致，保证源文件与发布产物顺序相同）
-
-约束（与 docs/更新策略与版本索引.md 一致）:
-    force=true 仅允许与 severity=critical 组合，否则报错退出，
-    防止误把普通版本标成强制更新。
 """
 
 import argparse
@@ -25,10 +21,10 @@ from common.logger import log
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# 版本索引源文件（仓库维护，发布期唯一标定 severity/force 的地方）
+# 版本索引源文件（仓库维护，发布期唯一标定 severity 的地方）
 VERSIONS_INDEX_PATH = ROOT / "resources" / "update" / "versions.json"
 
-# severity 合法档位（与后端 manifest.rs 的 Severity 枚举、publish.py 一致）
+# severity 合法档位（与后端 Severity 枚举、publish.py 一致）
 SEVERITY_LEVELS = ("normal", "important", "critical")
 
 
@@ -38,7 +34,7 @@ def fail(message: str) -> None:
 
 
 def load_index() -> list:
-    """读取并校验 versions.json，返回条目列表（dict: version/severity/force）。"""
+    """读取并校验 versions.json，返回条目列表（dict: version/severity）。"""
     if not VERSIONS_INDEX_PATH.exists():
         fail(f"缺少版本索引源文件: {VERSIONS_INDEX_PATH}")
     try:
@@ -73,7 +69,7 @@ def write_index(entries: list) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="更新版本索引 versions.json：添加/修改某版本的 severity/force"
+        description="更新版本索引 versions.json：添加/修改某版本的 severity"
     )
     parser.add_argument(
         "version",
@@ -83,12 +79,7 @@ def main() -> None:
         "--severity",
         choices=SEVERITY_LEVELS,
         default="normal",
-        help=f"严重级别（默认 normal）：{' / '.join(SEVERITY_LEVELS)}",
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="强制更新标记；仅允许与 --severity critical 组合",
+        help=f"严重级别（默认 normal，critical 表示强制更新）：{' / '.join(SEVERITY_LEVELS)}",
     )
     args = parser.parse_args()
 
@@ -98,33 +89,24 @@ def main() -> None:
     except version_mod.InvalidVersionError as e:
         fail(str(e))
 
-    # force 仅限 critical（防止误把普通版本标成强制更新）
-    if args.force and args.severity != "critical":
-        fail("--force 仅允许与 --severity critical 组合（防止误把普通版本标成强制更新）")
-
     entries = load_index()
     entry = next((e for e in entries if e["version"] == ver), None)
 
     if entry is None:
-        entries.append(
-            {"version": ver, "severity": args.severity, "force": args.force}
-        )
-        log("INFO", f"已添加 {ver}: severity={args.severity}, force={args.force}")
+        entries.append({"version": ver, "severity": args.severity})
+        log("INFO", f"已添加 {ver}: severity={args.severity}")
     else:
-        old_severity, old_force = entry["severity"], entry["force"]
-        if old_severity == args.severity and old_force == args.force:
+        old_severity = entry["severity"]
+        if old_severity == args.severity:
             log(
                 "INFO",
-                f"{ver} 的 severity/force 未变化"
-                f"（severity={args.severity}, force={args.force}），无需修改",
+                f"{ver} 的 severity 未变化（severity={args.severity}），无需修改",
             )
             return
         entry["severity"] = args.severity
-        entry["force"] = args.force
         log(
             "INFO",
-            f"已更新 {ver}: severity {old_severity}->{args.severity}, "
-            f"force {old_force}->{args.force}",
+            f"已更新 {ver}: severity {old_severity}->{args.severity}",
         )
 
     write_index(entries)

@@ -7,8 +7,8 @@
     2. 从 RELEASE_NOTES.md 提取对应章节作为发布说明（草稿时为占位内容）
     3. 收集构建产物 .sig 签名，一次生成 latest-github.json 与 latest-cnb.json
        （同一份 latest.json 模板，仅附件 URL 指向各自平台的附件直链；
-       severity/force 取自仓库维护的 resources/update/versions.json）
-    4. 生成 versions.json 索引附件（版本号 → severity/force，随双平台 Release 发布，
+       severity 取自仓库维护的 resources/update/versions.json）
+    4. 生成 versions.json 索引附件（版本号 → severity，随双平台 Release 发布，
        客户端据此做坏版本/历史严重级别检测）
     5. 发布 GitHub Release（gh cli）：2 setup + 2 portable + latest-github.json + versions.json
     6. 发布 CNB Release（cnb cli）：2 setup + 2 portable + latest-cnb.json + versions.json
@@ -55,7 +55,7 @@ ASSET_SUFFIXES = (".exe", ".zip")
 CNB_TAG_SYNC_TIMEOUT = 300
 # severity 合法档位（与后端 common/entity/update.rs 的 Severity 枚举一致）
 SEVERITY_LEVELS = ("normal", "important", "critical")
-# 版本索引源文件（仓库维护，发布期唯一标定 severity/force 的地方）
+# 版本索引源文件（仓库维护，发布期唯一标定 severity 的地方）
 VERSIONS_INDEX_PATH = ROOT / "resources" / "update" / "versions.json"
 
 
@@ -231,14 +231,14 @@ def extract_release_notes(version: str) -> str:
 def load_versions_index() -> dict:
     """读取仓库维护的版本索引（resources/update/versions.json）。
 
-    索引是发布期唯一标定 severity/force 的地方：发布时用当前版本条目丰富 latest-*.json，
+    索引是发布期唯一标定 severity 的地方：发布时用当前版本条目丰富 latest-*.json，
     并把整个索引作为 versions.json 附件随 Release 发布（客户端据此做坏版本/历史严重级别检测）。
 
     Returns:
-        {版本号: {"severity": str, "force": bool}}，版本号已规范化（去除前导 v）
+        {版本号: {"severity": str}}，版本号已规范化（去除前导 v）
     """
     if not VERSIONS_INDEX_PATH.exists():
-        fail(f"缺少版本索引源文件: {VERSIONS_INDEX_PATH}（发布前应维护，标注各版本 severity/force）")
+        fail(f"缺少版本索引源文件: {VERSIONS_INDEX_PATH}（发布前应维护，标注各版本 severity）")
     try:
         entries = json.loads(VERSIONS_INDEX_PATH.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
@@ -254,42 +254,42 @@ def load_versions_index() -> dict:
         severity = item.get("severity", "normal")
         if severity not in SEVERITY_LEVELS:
             fail(f"版本 {raw} 的 severity={severity!r} 非法（应为 normal/important/critical）")
-        index[ver] = {"severity": severity, "force": bool(item.get("force", False))}
+        index[ver] = {"severity": severity}
     return index
 
 
-def version_severity(index: dict, release_version: str) -> tuple:
-    """当前发布版本的 (severity, force)；未在索引中标定时按 normal/false 兜底并告警。"""
+def version_severity(index: dict, release_version: str) -> str:
+    """当前发布版本的 severity；未在索引中标定时按 normal 兜底并告警。"""
     entry = index.get(release_version)
     if entry is None:
         log("WARN", f"versions.json 未标定 {release_version}，本次按 severity=normal 发布；"
                     f"如需标定重要/紧急级别，请先在 {VERSIONS_INDEX_PATH} 中添加")
-        return "normal", False
-    return entry["severity"], entry["force"]
+        return "normal"
+    return entry["severity"]
 
 
-def build_versions_asset(index: dict, release_version: str, severity: str, force: bool) -> list:
+def build_versions_asset(index: dict, release_version: str, severity: str) -> list:
     """构建随 Release 发布的 versions.json：源索引 + 当前版本兜底（normal），按版本号倒序。
 
     索引内容不含任何 URL——客户端凭版本号即可拼接出对应 Release 的 latest-*.json 地址。
     """
     versions = [
-        {"version": ver, "severity": entry["severity"], "force": entry["force"]}
+        {"version": ver, "severity": entry["severity"]}
         for ver, entry in index.items()
     ]
     if release_version not in index:
-        versions.append({"version": release_version, "severity": severity, "force": force})
+        versions.append({"version": release_version, "severity": severity})
     versions.sort(key=lambda x: version.parse(x["version"])[:3], reverse=True)
     return versions
 
 
 def build_latest_json(release_version: str, notes: str, signatures: dict, make_url,
-                      severity: str = "normal", force: bool = False) -> dict:
+                      severity: str = "normal") -> dict:
     """生成自动更新清单。
 
     同一结构同时用于 latest-github.json 与 latest-cnb.json，仅附件 URL 不同：
     make_url(asset_name) 返回该平台下的附件直链。
-    severity/force 来自仓库维护的 versions.json 索引，随清单下发给客户端。
+    severity 来自仓库维护的 versions.json 索引，随清单下发给客户端（critical 即强制更新）。
     """
     platforms = {}
     for arch, sig in signatures.items():
@@ -305,7 +305,6 @@ def build_latest_json(release_version: str, notes: str, signatures: dict, make_u
         "notes": notes,
         "pub_date": pub_date,
         "severity": severity,
-        "force": force,
         "platforms": platforms,
     }
 
@@ -437,9 +436,9 @@ def main() -> None:
             fail("缺少 GITHUB_REPOSITORY 环境变量")
         cnb_repo = os.environ.get("CNB_REPO", "ordinary-glory/rollcaller")
 
-        # 读取版本索引：标定当前版本的 severity/force，并生成随 Release 发布的 versions.json
+        # 读取版本索引：标定当前版本的 severity，并生成随 Release 发布的 versions.json
         index = load_versions_index()
-        severity, force = version_severity(index, release_version)
+        severity = version_severity(index, release_version)
 
         # 一次生成两个自动更新清单（同一模板，附件 URL 指向不同平台）
         latest_github = assets_dir / "latest-github.json"
@@ -448,7 +447,7 @@ def main() -> None:
                 build_latest_json(
                     release_version, notes, signatures,
                     lambda asset: f"https://github.com/{gh_repo}/releases/download/{tag}/{asset}",
-                    severity, force,
+                    severity,
                 ),
                 ensure_ascii=False, indent=2,
             ),
@@ -461,7 +460,7 @@ def main() -> None:
                 build_latest_json(
                     release_version, notes, signatures,
                     lambda asset: f"https://cnb.cool/{cnb_repo}/-/releases/download/{tag}/{asset}",
-                    severity, force,
+                    severity,
                 ),
                 ensure_ascii=False, indent=2,
             ),
@@ -473,7 +472,7 @@ def main() -> None:
         versions_asset = assets_dir / "versions.json"
         versions_asset.write_text(
             json.dumps(
-                build_versions_asset(index, release_version, severity, force),
+                build_versions_asset(index, release_version, severity),
                 ensure_ascii=False, indent=2,
             ),
             encoding="utf-8",

@@ -22,7 +22,7 @@ from common.logger import log
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# 版本索引源文件（仓库维护，发布期唯一标定 severity/force 的地方）
+# 版本索引源文件（仓库维护，发布期唯一标定 severity 的地方）
 VERSIONS_INDEX_PATH = ROOT / "resources" / "update" / "versions.json"
 
 
@@ -79,7 +79,7 @@ def main() -> None:
         fail(
             f"versions.json 中未标定版本 {ver}（tag: {tag}），无法打 tag。\n"
             f"请先标定: python scripts/update_versions_index.py {ver} "
-            f"[--severity normal|important|critical] [--force]"
+            f"[--severity normal|important|critical]"
         )
 
     # 2. 本地不得已有同名 tag
