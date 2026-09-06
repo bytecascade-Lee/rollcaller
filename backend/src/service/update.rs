@@ -28,7 +28,7 @@ pub mod verify;
 pub mod download;
 pub mod install;
 
-use crate::common::entity::update::{Policy, UpdateState};
+use crate::common::entity::update::{Artifact, Policy, UpdateState};
 use crate::common::enums::update::{UpdateDecision, UpdateErrorKind, UpdateSource, UpdateStatus};
 use crate::config::app_paths::{current_mode, AppMode};
 use crate::service::update::check as updater_check;
@@ -36,6 +36,7 @@ use crate::service::update::download::DownloadProgress;
 use crate::state::http_client;
 use crate::state::update::UpdaterState;
 use serde::Serialize;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
 /// 下载进度事件（与插件 `DownloadEvent` 定义一致，前端可复用）
@@ -53,6 +54,58 @@ pub enum DownloadEvent {
     Finished,
 }
 
+/// 下载产物根目录：`temp/update/downloads/<version>/`（按版本分目录存放）
+///
+/// 产物属 app 自管 temp（非系统临时目录），完整安装包/更新包留在此处直到安装或取消；
+/// "已下载待安装"以磁盘事实（文件存在且校验通过）表达，与内存会话解耦。
+fn downloads_root() -> PathBuf {
+    crate::config::app_paths::temp_dir()
+        .join("update")
+        .join("downloads")
+}
+
+/// 目标版本的产物目录
+fn artifact_dir(version: &str) -> PathBuf {
+    downloads_root().join(version)
+}
+
+/// 产物正式文件名 = artifact.url 最后一段（与 download 域的落盘命名约定一致）
+fn artifact_file_name(artifact: &Artifact) -> Option<String> {
+    artifact
+        .url
+        .path_segments()
+        .and_then(|segments| segments.last())
+        .filter(|name| !name.is_empty())
+        .map(|name| name.to_string())
+}
+
+/// 目标版本的预期产物完整路径（URL 无文件名时为 `None`，交由 download 域报错）
+fn expected_artifact_path(artifact: &Artifact, version: &str) -> Option<PathBuf> {
+    artifact_file_name(artifact).map(|name| artifact_dir(version).join(name))
+}
+
+/// 就绪锚点判定：产物文件存在 → 先以 size 短路（不符视为损坏清除）→ 再整体验签
+///
+/// 返回 `Some(路径)` 表示"已下载待安装"（可跳过下载直接安装）；
+/// 不存在 / 校验失败均返回 `None`，且校验失败或 size 不符时清除文件待重下。
+fn ready_artifact(path: &Path, artifact: &Artifact) -> Option<PathBuf> {
+    if !path.is_file() {
+        return None;
+    }
+    let size_ok = path.metadata().map(|m| m.len()).ok() == Some(artifact.size);
+    if !size_ok {
+        let _ = std::fs::remove_file(path);
+        return None;
+    }
+    match verify::verify_artifact_path(path, artifact) {
+        Ok(()) => Some(path.to_path_buf()),
+        Err(_) => {
+            let _ = std::fs::remove_file(path);
+            None
+        }
+    }
+}
+
 /// 当前用户更新策略
 ///
 /// TODO(设置存储)：策略将来自用户设置（level/channel/allow_downgrade）；当前
@@ -65,7 +118,8 @@ pub fn current_policy() -> Policy {
 /// 检查是否有可用更新（编排）
 ///
 /// 阶段守卫：`Checking` / `Downloading` 拒绝重入。结果一律以快照返回：
-/// 命中 → `Available`（severity=critical 即强制更新）；无更新 → `UpToDate`；
+/// 命中 → 目标产物已在磁盘且校验通过则 `Downloaded`（恢复现场），否则
+/// `Available`（severity=critical 即强制更新）；无更新 → `UpToDate`；
 /// 失败 → `Error(Check)`（保留原会话内容，供重试后覆盖）。
 pub async fn check_update(app: &AppHandle) -> Result<UpdateState, String> {
     let state = app.state::<UpdaterState>();
@@ -95,35 +149,30 @@ pub async fn check_update(app: &AppHandle) -> Result<UpdateState, String> {
     )
         .await;
 
-    // 锁外读取旧会话（判断同版本续传 / 旧产物清理）
+    // 锁外磁盘探测：以"产物文件存在且校验通过"为已下载判据（不以旧会话记录为准），
+    // 命中且就绪 → 恢复为 Downloaded（可跳过下载直接安装）；文件损坏则清除待重下。
     let old = state.session();
-    let discarded = match &outcome {
+    let (ready_path, discarded) = match &outcome {
         Ok(Some(found)) => {
-            let same = old
-                .info
+            let ready = expected_artifact_path(&found.artifact, &found.info.version.to_string())
+                .and_then(|path| ready_artifact(&path, &found.artifact));
+            // 换目标 / 清空时清理旧下载产物（尽力，失败不阻塞）
+            let discard = old
+                .downloaded_path
                 .as_ref()
-                .is_some_and(|i| i.version == found.info.version);
-            if same { None } else { old.downloaded_path.clone() }
+                .filter(|p| Some((*p).clone()) != ready)
+                .cloned();
+            (ready, discard)
         }
-        Ok(None) => old.downloaded_path.clone(),
-        Err(_) => None,
+        Ok(None) => (None, old.downloaded_path.clone()),
+        Err(_) => (None, None), // 检查失败：保留原会话内容，不触碰磁盘
     };
 
     let result = state.mutate(|s| {
         match &outcome {
-            // 命中：同版本且已有下载产物 → 保持 Downloaded（可续装）；否则 Available
+            // 命中：产物已就绪 → Downloaded（可续装）；否则 Available（可下载）
             Ok(Some(found)) => {
-                let same_version = s
-                    .info
-                    .as_ref()
-                    .is_some_and(|i| i.version == found.info.version);
-                let downloaded_path = if same_version {
-                    s.downloaded_path.clone()
-                } else {
-                    s.downloaded_path = None;
-                    None
-                };
-                s.status = if downloaded_path.is_some() {
+                s.status = if ready_path.is_some() {
                     UpdateStatus::Downloaded
                 } else {
                     UpdateStatus::Available
@@ -132,7 +181,7 @@ pub async fn check_update(app: &AppHandle) -> Result<UpdateState, String> {
                 s.severity = found.severity;
                 s.artifact = Some(found.artifact.clone());
                 s.current_version = Some(current_version.clone());
-                s.downloaded_path = downloaded_path;
+                s.downloaded_path = ready_path;
                 s.downloaded = 0;
                 s.total = None;
                 s.error = None;
@@ -172,8 +221,11 @@ pub async fn check_update(app: &AppHandle) -> Result<UpdateState, String> {
 ///
 /// 阶段守卫：`Downloaded` 幂等直接返回；`Checking` / `Downloading` 拒绝；
 /// 仅 `Available` 或携带下载凭据的 `Error(Download)` 允许进入。
-/// 入口用最新策略复核凭据；成功后会话推进 `Downloaded` 并记录产物路径，
-/// 取消回 `Available`（可重下），其它失败落 `Error(Download)`（凭据保留）。
+/// 产物按版本分目录存放（`temp/update/downloads/<version>/`）；下载前先探测
+/// 就绪锚点——目标文件已存在则不重复下载，但仍整体验签（校验失败清除重下）。
+/// 成功后会话推进 `Downloaded` 并记录产物路径，取消回 `Available`（可重下），
+/// 其它失败落 `Error(Download)`（凭据保留）。
+/// 入口用最新策略复核凭据。
 pub async fn download_update(
     app: &AppHandle,
     on_event: tauri::ipc::Channel<DownloadEvent>,
@@ -197,13 +249,13 @@ pub async fn download_update(
             Ok(())
         }
         UpdateStatus::Error
-            if s.error_kind == Some(UpdateErrorKind::Download) && s.artifact.is_some() =>
-        {
-            s.status = UpdateStatus::Downloading;
-            s.error = None;
-            s.error_kind = None;
-            Ok(())
-        }
+        if s.error_kind == Some(UpdateErrorKind::Download) && s.artifact.is_some() =>
+            {
+                s.status = UpdateStatus::Downloading;
+                s.error = None;
+                s.error_kind = None;
+                Ok(())
+            }
         _ => Err("尚未检查到可用更新，请先执行 check".to_string()),
     })?;
 
@@ -231,15 +283,38 @@ pub async fn download_update(
         return Ok(state.snapshot());
     }
     let artifact = session.artifact.clone().ok_or_else(|| "更新凭据不完整，请重新执行 check".to_string())?;
+    let version_str = session
+        .info
+        .as_ref()
+        .map(|i| i.version.to_string())
+        .ok_or_else(|| "更新凭据不完整，请重新执行 check".to_string())?;
+    // 产物按版本分目录：temp/update/downloads/<version>/
+    let target_dir = artifact_dir(&version_str);
+
+    // 就绪锚点：目标文件已存在 → 跳过下载，但不能跳过校验；校验失败视为损坏清除重下
+    if let Some(path) = expected_artifact_path(&artifact, &version_str)
+        .and_then(|p| ready_artifact(&p, &artifact))
+    {
+        return state
+            .mutate(|s| {
+                s.status = UpdateStatus::Downloaded;
+                s.downloaded_path = Some(path);
+                s.downloaded = 0;
+                s.total = None;
+                s.error = None;
+                s.error_kind = None;
+                Ok(())
+            })
+            .map_err(|e| e.to_string());
+    }
 
     // 流式下载到 .part → 校验 → 重命名（事件时序：Started → Progress → Finished）
-    let target_dir = crate::config::app_paths::temp_dir().join("downloads");
     let mut first_chunk = true;
     let mut last_downloaded = 0u64;
     let result = download::download(
         &artifact,
         &target_dir,
-        state.cancel_flag(),
+        state.is_cancelled(),
         |p: DownloadProgress| {
             let _ = state.mutate(|s| {
                 s.downloaded = p.downloaded;

@@ -12,8 +12,8 @@
 //! - `cancel`：下载取消信号，download 每 chunk 检查，结束后由编排层复位。
 
 use crate::common::entity::update::{UpdateSession, UpdateState};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 
 /// 更新管线的共享状态（通过 `tauri::Builder::manage` 注入）
 #[derive(Default)]
@@ -55,7 +55,7 @@ impl UpdaterState {
     }
 
     /// 下载取消标志的共享引用（download 每 chunk 检查）
-    pub fn cancel_flag(&self) -> &AtomicBool {
+    pub fn is_cancelled(&self) -> &AtomicBool {
         &self.cancel
     }
 
