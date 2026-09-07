@@ -78,7 +78,21 @@ pub async fn download(
         .context(anyhow!("下载地址缺少文件名: {}", artifact.url))?;
     let final_path = target_dir.join(file_name);
 
-    // 2. 下载到随机 .part（同名残留天然隔离，无需清理历史）
+    // 2. 查看有没有残留的已下载完的文件并验签
+    if final_path.exists() {
+        match verify_artifact_path(&final_path, artifact) {
+            // 验签成功，不再下载，返回
+            Ok(_) => {
+                return Ok(final_path);
+            }
+            // 验签失败，删除并重新下载
+            Err(_) => std::fs::remove_file(&final_path)
+                .map_err(|e| anyhow!("删除残留的错误文件 {final_path} 失败：{e}"))?
+
+        }
+    }
+
+    // 3. 下载到随机 .part（同名残留天然隔离，无需清理历史）
     std::fs::create_dir_all(target_dir).map_err(|e| anyhow!("创建下载目录失败（{}）：{e}", target_dir.display()))?;
     let part_path = target_dir.join(random_part_name());
 
@@ -107,18 +121,14 @@ pub async fn download(
     }
     drop(file);
 
-    // 3. 校验（verify 模块 path 入口：整读后 sha256 + 可选签名）；失败删除 .part
+    // 4. 校验（verify 模块 path 入口：整读后 sha256 + 可选签名）；失败删除 .part
     verify_artifact_path(&part_path, artifact).map_err(|e| {
         let _ = std::fs::remove_file(&part_path);
         e.context(anyhow!("下载内容校验失败，已删除。"))
     })?;
 
-    // 4. rename 为正式名（Windows rename 不覆盖已存在文件，先清同名残留）
-    // 存在同名exe是一个很奇怪的现象，这可能表明有上次的下载残留
-    // 且该残留已经完成下载并被正确重命名
-    if final_path.exists() {
-        let _ = std::fs::remove_file(&final_path);
-    }
+    // 5. rename 为正式名
+    // 前面已经判断过同名文件是否存在，此处无需再次判断
     std::fs::rename(&part_path, &final_path).map_err(|e| {
         anyhow!(
             "重命名下载产物失败（{} → {}）：{e}",
