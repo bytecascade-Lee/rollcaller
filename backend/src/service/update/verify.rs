@@ -1,20 +1,24 @@
 //! 下载产物的签名验证（minisign / Ed25519）与 sha256 完整性校验
 //!
-//! # 双重 base64
+//! # 双层内容约定
 //!
-//! `manifest.signature` 与公钥文件（`resources/secrets/rollcaller.pub.key`）的原始内容都是**base64(minisign 文本)**：
+//! `manifest.signature` 与公钥文件（`resources/secrets/rollcaller.pub.key`）的原始内容都是 **base64(minisign 文本)**：
 //!
 //! - minisign 的 `.sig` 文件全文（含 `untrusted comment:` 头）经 base64 编码后存入 [`Artifact::signature`]；
-//! - `tauri signer generate` 产出的 `.pub` 文件全文经 base64 编码后作为 `resources/secrets/rollcaller.pub.key` 的内容。
+//! - minisign 的 `.pub` 文件全文经 base64 编码后作为 `resources/secrets/rollcaller.pub.key` 的内容。
 //!
 //! 因此验签前必须先用 STANDARD base64 解码，得到 minisign 文本后再交给 `minisign-verify` 解析。
 //!
+//! 注意：tauri-cli ≥2.11 的 `signer generate/sign` **产出的 `.pub` / `.sig` 文件本身就已
+//! 是 base64(minisign 文本)**（与本模块约定的清单字段同格式），可直接复制/填入，无需再编码；
+//! 旧版 CLI 产出明文 minisign 文本，才需要手动 base64。参见下方互操作步骤。
+//!
 //! # 互操作
 //!
-//! 1. 生成密钥对：`tauri signer generate -w <密码> <名称>`，产出 `<名称>.key` 与 `<名称>.pub`；
-//! 2. 将 `<名称>.pub` 的**完整内容**（含 untrusted comment 行）base64 编码后写入 `resources/secrets/rollcaller.pub.key`；
-//! 3. 对产物签名：`tauri signer sign -f <文件> -k <名称>.key -p <密码>`，产出 `<文件>.sig`；
-//! 4. 将 `<文件>.sig` 的**完整内容** base64 编码后填入清单的 `signature` 字段；
+//! 1. 生成密钥对：`tauri signer generate --ci -p <密码> -w <名称>.key`，产出 `<名称>.key` 与 `<名称>.key.pub`；
+//! 2. 将 `<名称>.key.pub` 的**完整内容**（已是 base64(minisign 公钥文本)）写入 `resources/secrets/rollcaller.pub.key`；
+//! 3. 对产物签名：`tauri signer sign <文件> -f <名称>.key -p <密码>`，产出 `<文件>.sig`；
+//! 4. 将 `<文件>.sig` 的**完整内容**（已是 base64(minisign 签名文本)）填入清单的 `signature` 字段；
 //! 5. 运行互操作测试 `cargo test updater::verify::interop` 验证（本机无 tauri CLI 时自动跳过并打印提示，此时可依上述步骤手动验证）。
 
 use crate::common::constant::secrets::ROLLCALLER_UPDATE_PUBKEY;
@@ -234,10 +238,12 @@ mod tests {
         std::fs::create_dir_all(&dir).expect(&format!("创建临时目录 {} 失败", dir.display()));
 
         // 1. 生成密钥对（固定测试密码，非交互）
+        // 新版 tauri-cli（2.11）：generate 用 -p 密码 + -w 私钥输出文件 + --ci 免交互；
+        // 产出 {file}.key 与 {file}.key.pub（find_file_with_ext 按扩展名兜底兼容命名）
+        let key_file = dir.join("interopkey.key");
         let status = std::process::Command::new(&tauri_cli_path)
-            .args(["signer", "generate", "-w", "test", "-d"])
-            .arg(&dir)
-            .arg("interopkey")
+            .args(["signer", "generate", "--ci", "-p", "test", "-w"])
+            .arg(&key_file)
             .status()
             .expect("执行 tauri signer generate 失败");
         assert!(status.success(), "tauri signer generate 退出码非 0");
@@ -246,24 +252,28 @@ mod tests {
         let data = b"interop payload for tauri signer";
         let data_file = dir.join("payload.bin");
         std::fs::write(&data_file, data).expect("写入 payload 失败");
-        let key_file = find_file_with_ext(&dir, "key").expect("未找到 .key 文件");
+        // 新版 sign：FILE 为位置参数，-f 为私钥文件路径，-p 为密码。
+        // env 默认值与 -f 冲突——此处显式剥离，强制使用本测试自生成的密钥文件。
         let status = std::process::Command::new(tauri_cli_path)
-            .args(["signer", "sign", "-f"])
+            .env_remove("TAURI_SIGNING_PRIVATE_KEY")
+            .env_remove("TAURI_SIGNING_PRIVATE_KEY_PASSWORD")
+            .arg("signer")
+            .arg("sign")
             .arg(&data_file)
-            .args(["-k"])
+            .arg("-f")
             .arg(&key_file)
             .args(["-p", "test"])
             .status()
             .expect("执行 tauri signer sign 失败");
         assert!(status.success(), "tauri signer sign 退出码非 0");
 
-        // 3. 读取 .pub / .sig，外层 base64 编码后验证（跨实现互操作：Go 签名 → Rust 验证）
+        // 3. 读取 .pub / .sig 并验证。
+        // 注意：新版 tauri-cli 直接输出 base64(minisign 文本) 的文件（与发布清单
+        // signature 字段同格式），此处文件内容即外层 base64，直接复用，不再二次编码。
         let pub_file = find_file_with_ext(&dir, "pub").expect("未找到 .pub 文件");
         let sig_file = find_file_with_ext(&dir, "sig").expect("未找到 .sig 文件");
-        let pub_b64 =
-            base64::engine::general_purpose::STANDARD.encode(std::fs::read_to_string(&pub_file).unwrap());
-        let sig_b64 =
-            base64::engine::general_purpose::STANDARD.encode(std::fs::read_to_string(&sig_file).unwrap());
+        let pub_b64 = std::fs::read_to_string(&pub_file).map(|s| s.trim().to_string()).unwrap();
+        let sig_b64 = std::fs::read_to_string(&sig_file).map(|s| s.trim().to_string()).unwrap();
         verify_signature(data, &sig_b64, &pub_b64).expect("tauri signer 产物应通过 minisign-verify 验证");
 
         let _ = std::fs::remove_dir_all(&dir);
