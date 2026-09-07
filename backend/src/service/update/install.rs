@@ -17,6 +17,18 @@ use crate::config::app_paths::AppMode;
 use semver::Version;
 use std::path::Path;
 
+/// 安装前确保更新器就绪（仅 Portable 形态需要；Install / Develop 无更新器直接返回）
+///
+/// 挂接在编排层 `install` 的异步段：Portable 模式先下载 / 校验更新器到
+/// `cache/update/bin/`（幂等，已有则跳过），再由 install_portable 的
+/// `find_updater` 原样发现；失败返回 `Err`（不触碰会话，由编排层落错误）。
+pub async fn ensure_updater(mode: AppMode) -> anyhow::Result<()> {
+    if mode == AppMode::Portable {
+        portable::ensure_updater().await?;
+    }
+    Ok(())
+}
+
 /// 启动安装器（按运行形态分派；成功后安装器接管，调用方执行 [`finish_and_exit`]）
 ///
 /// # 参数

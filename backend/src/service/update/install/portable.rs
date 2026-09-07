@@ -17,14 +17,112 @@
 //! - Windows 路径统一写成正斜杠，避免 JSON 转义；
 //! - 日志毫秒时间戳命名。
 
+use crate::common::constant::sys::ARCH;
+use crate::common::constant::update::PORTABLE_UPDATER_LATEST_MANIFEST_CNB;
+use crate::common::enums::sys::Arch;
 use crate::config::app_paths;
 use crate::service::update::paths;
+use crate::service::update::verify::verify_sha256;
+use crate::state::http_client;
 use crate::util::path_utils;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use semver::Version;
 use serde_json::json;
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use url::Url;
+
+/// 便携版更新器就绪（安装前 ensure；幂等）
+///
+/// 简单拉取 + 下载：**无进度、无取消、不涉状态机**。触发点 = Portable 安装前
+/// （编排层 `install` 异步段），由 [`super::ensure_updater`] 按形态转发到此。
+///
+/// # 流程
+///
+/// 1. [`find_updater`] 在 cache 已发现更新器 → 直接返回（幂等，不重复下载）；
+/// 2. 拉更新器仓库 latest manifest（与主源一致用 CNB，[`PORTABLE_UPDATER_LATEST_MANIFEST_CNB`]）；
+/// 3. 更新器清单是**扁平结构**（`{version, publishDate, windows:{x86_64|arm64:{url,sha256,size}}}`，
+///    无 signature / severity / platforms 包装），故不建新结构体，直接 `serde_json::Value`
+///    按 `data["windows"][arch]` 索引。url 文件名须为 `updater-{semver}-windows-{arch}.exe`
+///    （[`find_updater`] 按该命名解析版本号）。
+///    注：本函数刻意不转 `Artifact` 走标准 verify 管线——落点是持久 cache（非 temp
+///    packages）、且仅 sha256；**一旦更新器支持 minisign，本函数即废弃**，届时走
+///    标准 Artifact + verify 管线（`verify_artifact_path` 有空签名语义，只填字段、零改动）。
+/// 4. 下载到 [`paths::portable_updater_bin`]（url 最后一段），内存收齐后整体校验再落盘
+///    ——磁盘上从不出现"未校验的正式产物"。
+#[cfg(target_os = "windows")]
+pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
+    // 1. 已存在任意版本 → 幂等返回
+    if let Some(existing) = find_updater(app_paths::cache_dir()) {
+        return Ok(existing);
+    }
+
+    // 2. 拉更新器最新清单（与主源一致的 CNB 源）
+    let text = http_client::client()
+        .get(PORTABLE_UPDATER_LATEST_MANIFEST_CNB)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .context(anyhow!("拉取更新器清单失败：网络错误"))?
+        .error_for_status()
+        .context(anyhow!("拉取更新器清单失败：服务器返回错误状态"))?
+        .text()
+        .await
+        .context(anyhow!("拉取更新器清单失败：读取响应失败"))?;
+
+    // 3. 按当前架构索引扁平清单
+    let arch_key = match ARCH {
+        Arch::X86_64 => "x86_64",
+        Arch::Arm64 => "arm64",
+    };
+    let value: serde_json::Value =
+        serde_json::from_str(&text).context(anyhow!("更新器清单不是合法 JSON"))?;
+    let entry = &value["data"]["windows"][arch_key];
+    let url_str = entry["url"]
+        .as_str()
+        .context(anyhow!("更新器清单缺少 windows.{arch_key}.url"))?;
+    let sha256 = entry["sha256"]
+        .as_str()
+        .context(anyhow!("更新器清单缺少 windows.{arch_key}.sha256"))?;
+
+    let url = Url::parse(url_str).context(anyhow!("更新器下载地址不是合法 URL：{url_str}"))?;
+    let file_name = url
+        .path_segments()
+        .and_then(|segs| segs.last())
+        .filter(|n| !n.is_empty())
+        .ok_or_else(|| anyhow!("更新器下载地址缺少文件名：{url_str}"))?;
+    let dest = paths::portable_updater_bin(file_name);
+
+    // 4. 下载（体积小，内存收齐后整体校验再落盘）
+    let bytes = http_client::download()
+        .get(url.as_str())
+        .send()
+        .await
+        .context(anyhow!("下载更新器失败：网络错误"))?
+        .error_for_status()
+        .context(anyhow!("下载更新器失败：服务器返回错误状态"))?
+        .bytes()
+        .await
+        .context(anyhow!("下载更新器失败：读取响应失败"))?;
+    if let Some(size) = entry["size"].as_u64() {
+        if bytes.len() as u64 != size {
+            anyhow::bail!("更新器大小与清单不符：期望 {size} 字节，实际 {} 字节", bytes.len());
+        }
+    }
+    verify_sha256(&bytes, sha256).context(anyhow!("更新器校验失败"))?;
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| anyhow!("创建更新器目录失败（{}）：{e}", parent.display()))?;
+    }
+    std::fs::write(&dest, bytes).map_err(|e| anyhow!("写入更新器失败（{}）：{e}", dest.display()))?;
+    Ok(dest)
+}
+
+/// 非 Windows 平台：便携版安装不可用，更新器亦无需下载
+#[cfg(not(target_os = "windows"))]
+pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
+    anyhow::bail!("便携版安装仅支持 Windows")
+}
 
 /// 便携版完整安装编排：解压 zip → 组装 config → spawn updater（不 `exit`）
 ///
@@ -37,7 +135,8 @@ use std::path::{Path, PathBuf};
 /// （失败路径不触发退出清理）。
 #[cfg(target_os = "windows")]
 pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow::Result<()> {
-    // 1. 更新器：本地 cache 中取最新。便携版更新器必须有，自动下载属 download.rs 的任务
+    // 1. 更新器：本地 cache 中取最新（由编排层 install 异步段先 ensure_updater 下载/校验，
+    //    此处只需原样发现；ensure 幂等，已存在则直接跳过下载）
     let updater_exe = find_updater(app_paths::cache_dir())
         .ok_or_else(|| anyhow!("未找到更新器（预期位于 cache/update 或 cache/update/bin 下）"))?;
 
