@@ -111,19 +111,23 @@ pub enum UpdateStatus {
     Downloading,
     /// 已下载待安装
     Downloaded,
-    /// 出错（恢复入口见 [`UpdateErrorKind`]）
+    /// 出错（恢复入口见 [`UpdateError`]，变体即"重试该调哪个命令"）
     Error,
 }
 
-/// 出错阶段对应的可恢复操作（前端据此给"重试"按钮）
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+/// 更新失败（带载荷的错误枚举，对外视图与后端会话直接携带）
+///
+/// 变体身份 = "失败发生在哪一步 / 重试该调哪个命令"，载荷 = 展示文案。
+/// 序列化为 `{ "type": "check" | "download" | "install", "message": "..." }`，
+/// 前端据 `type` 决定重试按钮对应的命令，`message` 展示。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub enum UpdateErrorKind {
+#[serde(tag = "type", content = "message", rename_all = "camelCase")]
+pub enum UpdateError {
     /// 检查失败 → 重试 check
-    Check,
+    Check(String),
     /// 下载失败 → 重试 download（后端保留凭据）
-    Download,
+    Download(String),
     /// 安装失败 → 重试 install（后端保留产物路径）
-    Install,
+    Install(String),
 }
