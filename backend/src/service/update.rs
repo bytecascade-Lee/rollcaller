@@ -6,7 +6,10 @@
 //!   不感知状态与 Tauri；
 //! - 本文件编排函数：纯 Rust 编排——不依赖 `AppHandle`，全部输入显式传参
 //!   （`&UpdaterState` + 所需依赖）；对外统一返回裁剪的展示视图 [`UpdateView`]。
-//!   进度类变化经 `on_view` 回调即时广播，命令结束由命令层再广播最终视图。
+//!   事件分两路、由命令层注入的回调发出：**状态迁移帧**（进入 Downloading 等，view
+//!   通道）与**进度窄帧**（download 通道，节流后）各自独立；命令返回的终态视图由
+//!   命令层再广播。进度数据落 state 原子槽（[`crate::state::update::DownloadSlot`]），
+//!   下载过程不碰 session 锁。
 //!
 //! # 状态机约定（编排层负责推进）
 //!
@@ -19,9 +22,10 @@
 //! | Downloading | cancel（置取消位） | Available（取消）/ Downloaded（成功）/ Error(Download)（失败） |
 //! | Downloaded | cancel / install | Available（取消删产物）/ exit(0)（成功）/ Error(Install)（启动失败）/ Error(Download)（产物缺失损坏） |
 //!
-//! 错误收敛为 `status = Error` + `error_kind`（Check / Download / Install），视图
-//! 以 `Error { message, retry }` 表达，前端据 `retry` 给"重试"按钮；下载取消回
-//! `Available`；失败保留凭据（`artifact`）可重试——**产物路径不入会话**，任何时刻由
+//! 错误收敛为 `status = Error` + `error: Option<UpdateError>`（Check / Download /
+//! Install 带载荷），视图以 `Error(UpdateError)` 表达，前端据其 `type` 给"重试"
+//! 按钮（重试命令 == 失败阶段）；下载取消回 `Available`；失败保留凭据（`artifact`）
+//! 可重试——**产物路径不入会话**，任何时刻由
 //! `artifact.file_name()` + [`paths::package`] 从凭据现推并配合磁盘探测，磁盘才是产物事实源。
 //!
 //! # 产物与就绪
@@ -39,10 +43,9 @@ mod paths;
 mod verify;
 mod version;
 
-use crate::common::entity::update::{Artifact, Policy, UpdateView};
-use crate::common::enums::update::{UpdateDecision, UpdateErrorKind, UpdateSource, UpdateStatus};
+use crate::common::entity::update::{Artifact, DownloadProgress, Policy, UpdateView};
+use crate::common::enums::update::{UpdateDecision, UpdateError, UpdateSource, UpdateStatus};
 use crate::config::app_paths::current_mode;
-use crate::service::update::download::DownloadProgress;
 use crate::state::http_client;
 use crate::state::update::UpdaterState;
 use anyhow::anyhow;
@@ -98,7 +101,6 @@ pub async fn check(state: &UpdaterState, current_version: &Version) -> anyhow::R
             }
             s.status = UpdateStatus::Checking;
             s.error = None;
-            s.error_kind = None;
             Ok(())
         })
         .map_err(|e| anyhow!(e.to_string()))?;
@@ -132,10 +134,7 @@ pub async fn check(state: &UpdaterState, current_version: &Version) -> anyhow::R
                     s.info = Some(found.info.clone());
                     s.severity = found.severity;
                     s.artifact = Some(found.artifact.clone());
-                    s.downloaded = 0;
-                    s.total = None;
                     s.error = None;
-                    s.error_kind = None;
                 }
                 // 无更新：清空会话（作废旧凭据）
                 Ok(None) => {
@@ -143,16 +142,12 @@ pub async fn check(state: &UpdaterState, current_version: &Version) -> anyhow::R
                     s.info = None;
                     s.severity = Default::default();
                     s.artifact = None;
-                    s.downloaded = 0;
-                    s.total = None;
                     s.error = None;
-                    s.error_kind = None;
                 }
                 // 检查失败：保留原会话内容，仅落错误（重试 check 后覆盖）
                 Err(e) => {
                     s.status = UpdateStatus::Error;
-                    s.error = Some(e.to_string());
-                    s.error_kind = Some(UpdateErrorKind::Check);
+                    s.error = Some(UpdateError::Check(e.to_string()));
                 }
             }
             Ok(())
@@ -167,8 +162,13 @@ pub async fn check(state: &UpdaterState, current_version: &Version) -> anyhow::R
 /// 阶段守卫：`Downloaded` 幂等直接返回；`Checking` / `Downloading` 拒绝；
 /// 仅 `Available` 或携带下载凭据的 `Error(Download)` 允许进入。
 /// 产物落点由 `paths` 统一管理（packages 平铺）；下载前先探测就绪锚点——目标文件
-/// 已存在则不重复下载，但仍整体验签（校验失败清除重下）。下载进度经 `on_view`
-/// 回调节流广播。
+/// 已存在则不重复下载，但仍整体验签（校验失败清除重下）。
+///
+/// 对外信号分两路（均无 Tauri 依赖，由命令层注入闭包发出）：
+/// - `on_view`：状态迁移帧——确认进入下载时广播一次 `Downloading`（view 通道）；
+/// - `on_progress`：进度窄帧——每 chunk 只写 state 原子槽（不碰 session 锁），
+///   节流达 [`PROGRESS_BROADCAST_INTERVAL`] 后从槽读快照回调（download 通道）。
+/// 进度是瞬时数据、只经窄帧广播，不落 session；终态视图由命令层在返回后统一广播。
 ///
 /// `current_version` 为复核基线（与 check 同源，由命令层从 `package_info` 传入），
 /// 不再存入会话。
@@ -176,6 +176,7 @@ pub async fn download(
     state: &UpdaterState,
     current_version: &Version,
     on_view: impl Fn(&UpdateView),
+    on_progress: impl Fn(&DownloadProgress),
 ) -> Result<UpdateView, String> {
     // 幂等：已下载完成 → 直接返回（前端可进入"已就绪"）
     if state.session().status == UpdateStatus::Downloaded {
@@ -188,16 +189,13 @@ pub async fn download(
         UpdateStatus::Downloading => Err("下载已在进行中，请勿重复触发".to_string()),
         UpdateStatus::Available => {
             s.status = UpdateStatus::Downloading;
-            s.downloaded = 0;
-            s.total = None;
             Ok(())
         }
-        UpdateStatus::Error if s.error_kind == Some(UpdateErrorKind::Download) && s.artifact.is_some() => {
+        UpdateStatus::Error
+            if matches!(s.error, Some(UpdateError::Download(_))) && s.artifact.is_some() =>
+        {
             s.status = UpdateStatus::Downloading;
-            s.downloaded = 0;
-            s.total = None;
             s.error = None;
-            s.error_kind = None;
             Ok(())
         }
         _ => Err("尚未检查到可用更新，请先执行 check".to_string()),
@@ -213,8 +211,7 @@ pub async fn download(
     if decision != UpdateDecision::Update {
         state.mutate(|s| {
             s.status = UpdateStatus::Error;
-            s.error = Some("更新设置已变更，请重新执行 check".to_string());
-            s.error_kind = Some(UpdateErrorKind::Check);
+            s.error = Some(UpdateError::Check("更新设置已变更，请重新执行 check".to_string()));
             Ok(())
         })?;
         return Ok(state.view());
@@ -235,42 +232,35 @@ pub async fn download(
         return state
             .mutate(|s| {
                 s.status = UpdateStatus::Downloaded;
-                s.downloaded = 0;
-                s.total = None;
                 s.error = None;
-                s.error_kind = None;
                 Ok(())
             })
             .map_err(|e| e.to_string());
     }
 
-    // 流式下载（part 工作区 → 校验 → 重命名 packages）；进度经 on_view 节流广播
+    // 确认真正进入下载：先广播迁移帧（Available → Downloading，view 通道），
+    // 再流式下载（part 工作区 → 校验 → 重命名 packages）。
+    // 进度每 chunk 只写 state 原子槽（不碰 session 锁），节流达阈值后从槽读快照
+    // 回调 on_progress（download 通道窄帧）；进度是瞬时广播、不落 session。
+    on_view(&state.view());
     let mut last_broadcast = Instant::now();
     let result = download::download(&artifact, state.is_cancelled(), |p: DownloadProgress| {
-        let view = state
-            .mutate(|s| {
-                s.downloaded = p.downloaded;
-                s.total = p.total;
-                Ok(())
-            })
-            .unwrap_or_else(|_| state.view());
+        state.slot().set_progress(p);
         if last_broadcast.elapsed() >= PROGRESS_BROADCAST_INTERVAL {
-            on_view(&view);
+            on_progress(&state.slot().snapshot());
             last_broadcast = Instant::now();
         }
     })
         .await;
-    // 无论成功 / 失败 / 取消都复位取消标志
+    // 无论成功 / 失败 / 取消都复位取消标志与进度槽
     state.reset_cancel();
+    state.slot().reset();
 
     match result {
         Ok(_path) => state
             .mutate(|s| {
                 s.status = UpdateStatus::Downloaded;
-                s.downloaded = 0;
-                s.total = None;
                 s.error = None;
-                s.error_kind = None;
                 Ok(())
             })
             .map_err(|e| e.to_string()),
@@ -281,10 +271,7 @@ pub async fn download(
                 state
                     .mutate(|s| {
                         s.status = UpdateStatus::Available;
-                        s.downloaded = 0;
-                        s.total = None;
                         s.error = None;
-                        s.error_kind = None;
                         Ok(())
                     })
                     .map_err(|e| e.to_string())
@@ -292,8 +279,7 @@ pub async fn download(
                 state
                     .mutate(|s| {
                         s.status = UpdateStatus::Error;
-                        s.error = Some(msg);
-                        s.error_kind = Some(UpdateErrorKind::Download);
+                        s.error = Some(UpdateError::Download(msg));
                         Ok(())
                     })
                     .map_err(|e| e.to_string())
@@ -320,7 +306,6 @@ pub fn cancel(state: &UpdaterState) -> Result<UpdateView, String> {
         return state.mutate(|s| {
             s.status = UpdateStatus::Available;
             s.error = None;
-            s.error_kind = None;
             Ok(())
         });
     }
@@ -335,9 +320,10 @@ pub fn cancel(state: &UpdaterState) -> Result<UpdateView, String> {
 ///
 /// 阶段守卫：仅 `Downloaded` 或 `Error(Install)`（重试）允许进入。
 /// 产物路径由凭据现推（会话不存路径）：读盘 → 整体验签（对完整安装包二次校验）
+/// → Portable 先 ensure 更新器（幂等下载 / 校验，见 [`install::ensure_updater`]）
 /// → 启动安装器（成功即退出）。**产物缺失或校验失败 = 磁盘事实被推翻**，落
-/// `Error(Download)` 让用户重新下载（而非 Error(Install) 死循环）；仅安装器启动
-/// 失败保留 `Error(Install)` 可重试。
+/// `Error(Download)` 让用户重新下载（而非 Error(Install) 死循环）；仅更新器准备
+/// 失败 / 安装器启动失败保留 `Error(Install)` 可重试。
 ///
 /// `current_version` 为安装器入参（from），由命令层从 `package_info` 传入。
 pub async fn install(state: &UpdaterState, current_version: &Version) -> Result<UpdateView, String> {
@@ -347,7 +333,7 @@ pub async fn install(state: &UpdaterState, current_version: &Version) -> Result<
         UpdateStatus::Checking => return Err("检查更新正在进行中，请稍候再试".to_string()),
         UpdateStatus::Downloading => return Err("下载进行中，请先完成下载".to_string()),
         UpdateStatus::Downloaded => {}
-        UpdateStatus::Error if session.error_kind == Some(UpdateErrorKind::Install) => {}
+        UpdateStatus::Error if matches!(session.error, Some(UpdateError::Install(_))) => {}
         _ => return Err("更新尚未下载完成，请先执行 download".to_string()),
     }
     let artifact = session
@@ -373,8 +359,10 @@ pub async fn install(state: &UpdaterState, current_version: &Version) -> Result<
         Err(e) => {
             state.mutate(|s| {
                 s.status = UpdateStatus::Error;
-                s.error = Some(format!("下载产物不存在，请重新下载（{}）：{e}", path.display()));
-                s.error_kind = Some(UpdateErrorKind::Download);
+                s.error = Some(UpdateError::Download(format!(
+                    "下载产物不存在，请重新下载（{}）：{e}",
+                    path.display()
+                )));
                 Ok(())
             })?;
             return Ok(state.view());
@@ -384,20 +372,30 @@ pub async fn install(state: &UpdaterState, current_version: &Version) -> Result<
         drop(bytes);
         state.mutate(|s| {
             s.status = UpdateStatus::Error;
-            s.error = Some(format!("下载产物校验失败，请重新下载：{e}"));
-            s.error_kind = Some(UpdateErrorKind::Download);
+            s.error = Some(UpdateError::Download(format!("下载产物校验失败，请重新下载：{e}")));
             Ok(())
         })?;
         return Ok(state.view());
     }
     drop(bytes);
 
-    // 启动安装器（成功即接管；失败则进程存活、产物保留可重试）
-    if let Err(e) = install::launch(current_mode(), &path, current_version, &target) {
+    // Portable：先确保更新器就绪（幂等下载 / 校验到 cache/update/bin），再启动安装。
+    // 更新器准备失败属安装阶段问题，落 Error(Install)——重试 install 会重跑 ensure。
+    let mode = current_mode();
+    if let Err(e) = install::ensure_updater(mode).await {
         state.mutate(|s| {
             s.status = UpdateStatus::Error;
-            s.error = Some(e.to_string());
-            s.error_kind = Some(UpdateErrorKind::Install);
+            s.error = Some(UpdateError::Install(format!("更新器准备失败：{e}")));
+            Ok(())
+        })?;
+        return Ok(state.view());
+    }
+
+    // 启动安装器（成功即接管；失败则进程存活、产物保留可重试）
+    if let Err(e) = install::launch(mode, &path, current_version, &target) {
+        state.mutate(|s| {
+            s.status = UpdateStatus::Error;
+            s.error = Some(UpdateError::Install(e.to_string()));
             Ok(())
         })?;
         return Ok(state.view());
