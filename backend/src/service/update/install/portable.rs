@@ -2,8 +2,9 @@
 //!
 //! # 流程：
 //!
-//! 1. 解压已下载并校验的 portable zip 到 `temp_dir()/update/{目标版本}/`；
-//! 2. 组装 Go updater 的 config.json 写盘；
+//! 1. 解压已下载并校验的 portable zip 到 [`paths::portable_zip_staging`]（`temp/update/portable-source-{目标版本}/`）；
+//! 2. 组装 Go updater 的 config.json 写盘（落 [`paths::portable_config`]，与解压内容分居，
+//!    避免被 updater 连同 source 一起复制进 target）；
 //! 3. 分离式 spawn `updater.exe`（`CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`），传入 config.json 路径；
 //! 4. spawn 成功后返回 `Ok(())`——由调用方执行退出前清理
 //!    （`shutdown_hooks::run_all()`，如关闭数据库）后 `exit(0)`，
@@ -17,6 +18,7 @@
 //! - 日志毫秒时间戳命名。
 
 use crate::config::app_paths;
+use crate::service::update::paths;
 use crate::util::path_utils;
 use anyhow::anyhow;
 use semver::Version;
@@ -26,7 +28,7 @@ use std::path::{Path, PathBuf};
 
 /// 便携版完整安装编排：解压 zip → 组装 config → spawn updater（不 `exit`）
 ///
-/// - `zip_path`：已下载并校验通过的 portable zip（`downloaded_path`）；
+/// - `zip_path`：已下载并校验通过的 portable zip；
 /// - `from` / `to`：当前版本与目标版本（用于命名 config 与日志，标识一次安装）。
 ///
 /// 成功路径 = 更新器已分离式启动（返回 `Ok(())`），**本进程应随即退出**：调用方需
@@ -47,20 +49,18 @@ pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow
         .ok_or_else(|| anyhow!("无法获取当前可执行文件目录"))?;
     let data_dir = target_dir.join("data"); // Portable：用户数据全部在 exe 旁 data 下
 
-    // 3. 解压 zip 到 temp/update/{目标版本}
-    // 清残留，返回实际 source 目录
-    let work_dir = app_paths::temp_dir().join("update");
-    let extract_dir = work_dir.join(to.to_string());
-    let source_dir = extract_zip(zip_path, &extract_dir)?;
+    // 3. 解压 zip 到 temp/update/portable-source-{目标版本} 清残留，返回实际 source 目录
+    // config.json 落 temp/update/portable-config-{from}-to-{to}.json ，与解压内容分居
+    let staging = paths::portable_zip_staging(to);
+    let source_dir = extract_zip(zip_path, &staging)?;
 
     // 4. 一次安装的毫秒时间戳与文件名
-    let stem = format!("update-{from}-to-{to}-{}", jiff::Timestamp::now().as_microsecond());
     let log_file = {
         let dir = app_paths::logs_dir().join("u");
         std::fs::create_dir_all(&dir).map_err(|e| anyhow!("创建更新日志目录失败（{}）：{e}", dir.display()))?;
-        dir.join(format!("{stem}.log"))
+        dir.join(format!("portable-update-{from}-to-{to}-{}.log", jiff::Timestamp::now().as_microsecond()))
     };
-    let config_path = work_dir.join(format!("{stem}.json"));
+    let config_path = paths::portable_config(from, to);
 
     // 5. 组装并写入 config
     let config = compose_config(std::process::id(), &source_dir, &target_dir, &data_dir, &exe_path, &log_file);
