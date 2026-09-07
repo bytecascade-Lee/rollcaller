@@ -9,7 +9,18 @@
 //! # 传输与超时
 //!
 //! 使用 [`http_client::download`]：**不设整体超时**，只设连接超时与空闲读超时。
-//! 无断点续传（GitHub/CNB release 资产不保证支持 Range），失败 / 取消即全量重下。
+//!
+//! 暂时**不实现断点续传**，下载失败或取消即全量重下。具体平台能力如下：
+//! - **GitHub**：**支持断点续传**。
+//!   请求原始下载链接（如 `https://github.com/owner/repo/releases/download/...` ）会返回 **302 重定向**，
+//!   最终指向 `release-assets.githubusercontent.com`（Azure CDN）。该 CDN 响应头包含 `Accept-Ranges: bytes`，
+//!   明确支持 `Range` 请求。若在重试时重新请求原始链接（自动跟随重定向获取新令牌）并携带 `Range` 头，
+//!   即可实现从断点处续传。
+//! - **CNB**：**不支持断点续传**。
+//!   经实测，即使客户端携带 `Range: bytes=0-99` 请求头，服务端仍返回 `HTTP 200 OK` 及完整的文件内容
+//!   （`Content-Length` 为全量大小），而非 `206 Partial Content`。因此在该平台上下载中断后无法续传。
+//!
+//! 未来如果需要扩展，可在 `Github` 上实现多线程下载及断点续传策略。
 //!
 //! # 校验
 //!
@@ -35,7 +46,7 @@ pub struct DownloadProgress {
     pub total: Option<u64>,
 }
 
-/// 随机临时文件名（无信息量；写入顺序不泄露给按文件名观察者）
+/// 随机临时文件名
 fn random_part_name() -> String {
     format!("{}.part", hex::encode(rand::random::<u128>().to_le_bytes()))
 }
@@ -75,13 +86,13 @@ pub async fn download(
         .get(artifact.url.as_str())
         .send()
         .await
-        .map_err(|e| anyhow!("下载失败（网络错误）：{e}"))?;
+        .map_err(|e| anyhow!("下载失败：网络错误 {e}"))?;
     if !response.status().is_success() {
         return Err(anyhow!("下载失败：服务器返回 HTTP {}", response.status()));
     }
 
     let total = response.content_length();
-    let mut file = File::create(&part_path).map_err(|e| anyhow!("创建下载临时文件失败（{}）：{e}", part_path.display()))?;
+    let mut file = File::create(&part_path).map_err(|e| anyhow!("创建临时下载文件 {} 失败：{e}", part_path.display()))?;
     let mut downloaded: u64 = 0;
     let mut stream = response;
     while let Some(chunk) = stream.chunk().await.map_err(|e| anyhow!("下载中断：{e}"))? {
@@ -90,7 +101,7 @@ pub async fn download(
             let _ = std::fs::remove_file(&part_path);
             return Err(anyhow!("CANCELLED"));
         }
-        file.write_all(&chunk).map_err(|e| anyhow!("写入下载临时文件失败：{e}"))?;
+        file.write_all(&chunk).map_err(|e| anyhow!("写入临时下载文件 {} 失败：{e}", part_path.display()))?;
         downloaded += chunk.len() as u64;
         on_progress(DownloadProgress { downloaded, total });
     }
@@ -99,10 +110,12 @@ pub async fn download(
     // 3. 校验（verify 模块 path 入口：整读后 sha256 + 可选签名）；失败删除 .part
     verify_artifact_path(&part_path, artifact).map_err(|e| {
         let _ = std::fs::remove_file(&part_path);
-        e.context(anyhow!("下载内容校验失败"))
+        e.context(anyhow!("下载内容校验失败，已删除。"))
     })?;
 
     // 4. rename 为正式名（Windows rename 不覆盖已存在文件，先清同名残留）
+    // 存在同名exe是一个很奇怪的现象，这可能表明有上次的下载残留
+    // 且该残留已经完成下载并被正确重命名
     if final_path.exists() {
         let _ = std::fs::remove_file(&final_path);
     }
