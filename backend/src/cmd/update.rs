@@ -15,11 +15,13 @@ use crate::state::update::UpdaterState;
 use tauri::{AppHandle, Emitter, Manager};
 
 /// 展示视图广播事件名：后端任何状态提交后推送（前端 store 订阅）
-pub const UPDATE_VIEW_EVENT: &str = "update://view";
+pub const UPDATE_VIEW_EVENT: &str = "rollcaller://update/view";
+
+pub const DOWNLOAD_PROGRESS_EVENT: &str = "rollcaller://update/download";
 
 /// 广播当前视图到所有窗口（失败静默：前端随后可经命令返回值校准）
-fn broadcast(app: &AppHandle, view: &UpdateView) {
-    let _ = app.emit(UPDATE_VIEW_EVENT, view);
+fn broadcast(event: &str, app: &AppHandle, view: &UpdateView) {
+    let _ = app.emit(event, view);
 }
 
 /// 检查是否有可用更新（返回最新展示视图）
@@ -27,8 +29,10 @@ fn broadcast(app: &AppHandle, view: &UpdateView) {
 pub async fn check(app: AppHandle) -> Result<UpdateView, String> {
     let state = app.state::<UpdaterState>();
     let current_version = app.package_info().version.clone();
-    let view = update_service::check_update(state.inner(), &current_version).await?;
-    broadcast(&app, &view);
+    let view = update_service::check(state.inner(), &current_version)
+        .await
+        .map_err(|e| e.to_string())?;
+    broadcast(UPDATE_VIEW_EVENT, &app, &view);
     Ok(view)
 }
 
@@ -36,8 +40,12 @@ pub async fn check(app: AppHandle) -> Result<UpdateView, String> {
 #[tauri::command]
 pub async fn download(app: AppHandle) -> Result<UpdateView, String> {
     let state = app.state::<UpdaterState>();
-    let view = update_service::download_update(state.inner(), |v| broadcast(&app, v)).await?;
-    broadcast(&app, &view);
+    let current_version = app.package_info().version.clone();
+    let view = update_service::download(state.inner(), &current_version, |v| {
+        broadcast(DOWNLOAD_PROGRESS_EVENT, &app, v)
+    })
+        .await?;
+    broadcast(DOWNLOAD_PROGRESS_EVENT, &app, &view);
     Ok(view)
 }
 
@@ -45,8 +53,8 @@ pub async fn download(app: AppHandle) -> Result<UpdateView, String> {
 #[tauri::command]
 pub async fn cancel(app: AppHandle) -> Result<UpdateView, String> {
     let state = app.state::<UpdaterState>();
-    let view = update_service::cancel_update(state.inner())?;
-    broadcast(&app, &view);
+    let view = update_service::cancel(state.inner())?;
+    broadcast(DOWNLOAD_PROGRESS_EVENT, &app, &view);
     Ok(view)
 }
 
@@ -54,8 +62,9 @@ pub async fn cancel(app: AppHandle) -> Result<UpdateView, String> {
 #[tauri::command]
 pub async fn install(app: AppHandle) -> Result<UpdateView, String> {
     let state = app.state::<UpdaterState>();
-    let view = update_service::install_update(state.inner()).await?;
-    broadcast(&app, &view);
+    let current_version = app.package_info().version.clone();
+    let view = update_service::install(state.inner(), &current_version).await?;
+    broadcast(UPDATE_VIEW_EVENT, &app, &view);
     Ok(view)
 }
 
