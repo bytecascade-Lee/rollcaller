@@ -4,7 +4,6 @@ use crate::common::enums::update::{Severity, UpdateChannel, UpdateErrorKind, Upd
 use crate::config::app_paths::AppMode;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use ts_rs::TS;
 use url::Url;
 
@@ -199,9 +198,10 @@ pub enum UpdateView {
 
 /// 后端权威会话（Tauri manage 注入，跨命令共享）
 ///
-/// 持凭据（`artifact` / `current_version` / `downloaded_path`）与展示所需事实，
-/// 仅为后端内部状态，不 Serialize、不导出；对外只经 [`UpdateSession::view`]
-/// 投影为裁剪的 [`UpdateView`]。
+/// 持凭据（`artifact`）与展示所需事实，仅为后端内部状态，不 Serialize、不导出；
+/// 对外只经 [`UpdateSession::view`] 投影为裁剪的 [`UpdateView`]。
+/// 产物路径与当前版本基线**不入会话**：产物路径由凭据经 paths 现推（磁盘为事实源），
+/// 基线版本由命令层从 `package_info` 每次传入。
 #[derive(Debug, Clone)]
 pub struct UpdateSession {
     /// 当前所处阶段
@@ -212,10 +212,6 @@ pub struct UpdateSession {
     pub severity: Severity,
     /// 已批准下载的产物凭据（download 消费；check 命中后写入）
     pub artifact: Option<Artifact>,
-    /// 判定时的基线版本（download 入口复核对照）
-    pub current_version: Option<Version>,
-    /// 已下载产物的落盘路径（install 消费）
-    pub downloaded_path: Option<PathBuf>,
     /// 已下载字节数（`Downloading` 进度）
     pub downloaded: u64,
     /// 总字节数（`Downloading` 进度）
@@ -233,8 +229,6 @@ impl Default for UpdateSession {
             info: None,
             severity: Severity::Normal,
             artifact: None,
-            current_version: None,
-            downloaded_path: None,
             downloaded: 0,
             total: None,
             error: None,
