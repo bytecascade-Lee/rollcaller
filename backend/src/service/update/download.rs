@@ -1,9 +1,13 @@
 //! 下载更新产物：流式下载到临时文件（.part）→ 校验 → 重命名为正式文件名
 //!
-//! # 落盘策略
+//! # 落盘策略（域自包含，不接收路径参数）
 //!
-//! 下载物先完整写入 `part_path` ——无信息量的名字、非可执行扩展名，
-//! 顺序与内容不可被外部按文件名推断；完整写盘并校验**通过后**才 `rename` 为 `final_path`。
+//! 本领域**不感知也不接收任何路径参数**：part 工作区由 [`paths::part`] 生成（随机
+//! uuid、落 `temp/downloads/`）；正式产物落点由 `artifact.file_name()`（url 最后一段）
+//! + [`paths::package`] 现推（`temp/update/packages/`）。目录布局收口于 [`paths`]，
+//! 领域只负责"流到 part → 校验 → rename"。
+//! 下载物先完整写入随机 `.part`——无信息量的名字、非可执行扩展名，顺序与内容不可被
+//! 外部按文件名推断；完整写盘并校验**通过后**才 `rename` 为正式文件名。
 //! 正式落点一定是已验证字节；校验失败 / 取消即删除 `.part`，磁盘上从不出现"未验证的正式产物"。
 //!
 //! # 传输与超时
@@ -47,22 +51,25 @@ pub struct DownloadProgress {
     pub total: Option<u64>,
 }
 
-/// 流式下载 `artifact.url` 到 `part_path`，校验后重命名为 `final_path` 并返回其路径
+/// 流式下载 `artifact.url`，校验后重命名为正式产物并返回其路径
 ///
 /// # 参数
-/// - `artifact`：下载凭据（url 为下载源；sha256 / signature 供落盘后整体校验）。
-/// - `part_path`：下载工作区路径（调用方经 `paths::part()` 生成随机名，下载中数据暂存于此）。
-/// - `final_path`：正式产物路径（调用方经 `paths::artifact_package_path()` 给出，校验通过后 rename 落定）。
+/// - `artifact`：下载凭据（url 为下载源，同时决定正式产物名 = url 最后一段；
+///   sha256 / signature 供落盘后整体校验）。
 /// - `cancel`：取消信号（前端 `cancel` 命令置位），下载中途发现置位 → 清理 `.part`
 ///   并返回错误（文案 `CANCELLED`，前端可据此静默回到可重下状态）。
 /// - `on_progress`：进度回调（每 chunk 上报）。
 ///
+/// # 落点
+/// - part 工作区：`paths::part()`（随机 uuid，落 `temp/downloads/`）；
+/// - 正式产物：`paths::package(artifact.file_name()?)`（落 `temp/update/packages/`）。
+///
 /// # 流程
-/// 1. `final_path` 已存在 → 先整体验签：通过即视为已下载（幂等返回），失败则删除待重下；
-/// 2. 下载全程写入 `part_path`（每 chunk 写盘、上报进度、检查 `cancel`）；
-/// 3. 下载完成对 `part_path` 整读校验（sha256 必验；`signature` 非空再验 minisign 签名），
+/// 1. 正式产物已存在 → 先整体验签：通过即视为已下载（幂等返回），失败则删除待重下；
+/// 2. 下载全程写入 `.part`（每 chunk 写盘、上报进度、检查 `cancel`）；
+/// 3. 下载完成对 `.part` 整读校验（sha256 必验；`signature` 非空再验 minisign 签名），
 ///    失败删除 `.part`；
-/// 4. 校验通过 `rename` 为 `final_path`（已存在同名残留已在步骤 1 处理）。
+/// 4. 校验通过 `rename` 为正式产物（跨目录，同 temp 卷内原子；同名残留已在步骤 1 处理）。
 ///
 /// # 取消
 /// 下载完成后置位无效——产物已落盘，由调用方的取消流程另行删除。
@@ -73,10 +80,10 @@ pub async fn download(
 ) -> anyhow::Result<PathBuf> {
     let part_path = paths::part();
 
-    let final_path = paths::package(match artifact.file_name() {
-        Some(path) => &path,
-        None => return Err(anyhow!("下载地址缺少文件名: {}", artifact.url))
-    });
+    let file_name = artifact
+        .file_name()
+        .ok_or_else(|| anyhow!("下载地址缺少文件名: {}", artifact.url))?;
+    let final_path = paths::package(&file_name);
     // 0. 确保 part 与 final 的父目录存在（分居两目录，均可能尚未创建）
     if let Some(parent) = part_path.parent() {
         std::fs::create_dir_all(parent)
@@ -98,7 +105,7 @@ pub async fn download(
 
     // 2. 请求下载源
     let response = http_client::download()
-        .get(&artifact.url)
+        .get(artifact.url.as_str())
         .send()
         .await
         .map_err(|e| anyhow!("下载失败：网络错误 {e}"))?;
@@ -149,17 +156,17 @@ mod tests {
     use tiny_http::{Response, Server, StatusCode};
     use url::Url;
 
-    /// 轻量 mock 下载服务器：返回一段字节流后自动关闭
+    /// 轻量 mock 下载服务器：url 文件名 = tag（产物名由此唯一，共享测试根下用例间互不撞车）
     struct MockServer {
         url: String,
         handle: JoinHandle<()>,
     }
 
     impl MockServer {
-        fn spawn_bytes(body: Vec<u8>, status: u16) -> Self {
+        fn spawn_bytes(tag: &str, body: Vec<u8>, status: u16) -> Self {
             let server = Server::http("127.0.0.1:0").expect("mock 服务器启动失败");
             let port = server.server_addr().to_ip().expect("无法获取端口").port();
-            let url = format!("http://127.0.0.1:{port}/update.bin");
+            let url = format!("http://127.0.0.1:{port}/{tag}.bin");
             let handle = std::thread::spawn(move || {
                 if let Ok(Some(request)) = server.recv_timeout(Duration::from_secs(10)) {
                     let response = Response::from_data(body).with_status_code(StatusCode(status));
@@ -170,6 +177,7 @@ mod tests {
         }
     }
 
+    /// 构造 artifact（url 指向 mock 服务器或不可达端口；url 文件名 = 产物名）
     fn artifact_for(url: &str, body: &[u8], sha256: Option<&str>) -> Artifact {
         Artifact {
             url: Url::parse(url).unwrap(),
@@ -179,51 +187,32 @@ mod tests {
         }
     }
 
-    /// 独立的临时根：part 与 final 分置两个子目录，模拟真实布局的跨目录 rename
-    fn temp_layout(tag: &str) -> (PathBuf, PathBuf, PathBuf) {
-        let root = std::env::temp_dir().join(format!("rollcaller-dl-test-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
-        let part_dir = root.join("parts");
-        let final_dir = root.join("finals");
-        (root, part_dir, final_dir)
-    }
-
-    fn leftover_parts(dir: &Path) -> Vec<PathBuf> {
-        std::fs::read_dir(dir)
-            .map(|it| {
-                it.flatten()
-                    .map(|e| e.path())
-                    .filter(|p| p.extension().is_some_and(|e| e == "part"))
-                    .collect()
-            })
-            .unwrap_or_default()
+    /// Test Mode 数据根下该产物应落的正式路径（= paths::package(url 文件名)）
+    fn expect_package_path(tag: &str) -> PathBuf {
+        paths::package(&format!("{tag}.bin"))
     }
 
     #[test]
     fn download_writes_final_file_and_reports_progress() {
         tauri::async_runtime::block_on(async {
             let body = b"hello world, rollcaller update!".to_vec();
-            let server = MockServer::spawn_bytes(body.clone(), 200);
-            let (root, part_dir, final_dir) = temp_layout("ok");
+            let server = MockServer::spawn_bytes("ok", body.clone(), 200);
             let cancel = AtomicBool::new(false);
-            let part_path = part_dir.join("a1b2.part");
-            let final_path = final_dir.join("update.bin");
             let mut last: Option<DownloadProgress> = None;
 
             let path = download(&artifact_for(&server.url, &body, None), &cancel, |p| last = Some(p))
                 .await
                 .expect("下载不应失败");
 
-            // 正式产物落于 final 路径（文件名与 url 无关，由调用方给定），part 无残留
-            assert_eq!(path, final_path);
+            // 正式产物落于 packages/{mock 文件名}；内容与 mock 一致
+            let final_path = expect_package_path("ok");
+            assert_eq!(path, final_path, "返回路径应为 packages 落点");
             assert_eq!(std::fs::read(&final_path).unwrap(), body, "落盘内容应与 mock 一致");
-            assert!(leftover_parts(&part_dir).is_empty(), "工作区不应残留 .part");
 
             let last = last.expect("应有进度回调");
             assert_eq!(last.downloaded, body.len() as u64, "累计进度应等于字节数");
             assert_eq!(last.total, Some(body.len() as u64), "Content-Length 应被解析");
 
-            let _ = std::fs::remove_dir_all(&root);
             server.handle.join().unwrap();
         });
     }
@@ -234,48 +223,34 @@ mod tests {
             // final 已存在且校验通过 → 不应发起任何网络请求（url 指向不可达端口，
             // 若真被请求会立刻报网络错误）
             let body = b"already downloaded".to_vec();
-            let (root, part_dir, final_dir) = temp_layout("skip");
             let cancel = AtomicBool::new(false);
-            let final_path = final_dir.join("update.bin");
-            std::fs::create_dir_all(&final_dir).unwrap();
+            let final_path = expect_package_path("skip");
+            std::fs::create_dir_all(final_path.parent().unwrap()).unwrap();
             std::fs::write(&final_path, &body).unwrap();
 
-            let artifact = artifact_for("http://127.0.0.1:1/update.bin", &body, None);
-            let part_path = part_dir.join("c3d4.part");
-            let path = download(&artifact, &cancel, |_| {})
+            let path = download(&artifact_for("http://127.0.0.1:1/skip.bin", &body, None), &cancel, |_| {})
                 .await
                 .expect("final 已就绪应直接返回");
             assert_eq!(path, final_path);
-            assert!(leftover_parts(&part_dir).is_empty());
-
-            let _ = std::fs::remove_dir_all(&root);
         });
     }
 
     #[test]
     fn download_errors_on_http_error_and_leaves_nothing() {
         tauri::async_runtime::block_on(async {
-            let server = MockServer::spawn_bytes(Vec::new(), 404);
-            let (root, part_dir, final_dir) = temp_layout("http404");
+            let server = MockServer::spawn_bytes("http404", Vec::new(), 404);
             let cancel = AtomicBool::new(false);
             let body = b"whatever".to_vec();
-            let part_path = part_dir.join("e5f6.part");
-            let final_path = final_dir.join("update.bin");
 
             let err = download(&artifact_for(&server.url, &body, None), &cancel, |_| {})
                 .await
                 .expect_err("404 应报错");
             assert!(err.to_string().contains("404"), "错误信息应可读: {err}");
             assert!(
-                std::fs::read_dir(&final_dir).map(|mut d| d.next().is_none()).unwrap_or(true),
-                "产物目录应为空"
-            );
-            assert!(
-                std::fs::read_dir(&part_dir).map(|mut d| d.next().is_none()).unwrap_or(true),
-                "工作区应为空"
+                !expect_package_path("http404").exists(),
+                "HTTP 失败不应留下正式产物"
             );
 
-            let _ = std::fs::remove_dir_all(&root);
             server.handle.join().unwrap();
         });
     }
@@ -284,24 +259,19 @@ mod tests {
     fn download_cancel_removes_part() {
         tauri::async_runtime::block_on(async {
             let body = b"payload that will be cancelled".to_vec();
-            let server = MockServer::spawn_bytes(body.clone(), 200);
-            let (root, part_dir, final_dir) = temp_layout("cancel");
+            let server = MockServer::spawn_bytes("cancel", body.clone(), 200);
             // 预先置位：首个 chunk 到达即中断
             let cancel = AtomicBool::new(true);
-            let part_path = part_dir.join("g7h8.part");
-            let final_path = final_dir.join("update.bin");
 
             let err = download(&artifact_for(&server.url, &body, None), &cancel, |_| {})
                 .await
                 .expect_err("置位取消应报错");
             assert!(err.to_string().contains("CANCELLED"), "取消文案应可识别: {err}");
-            assert!(leftover_parts(&part_dir).is_empty(), "取消后工作区不应残留 .part");
             assert!(
-                std::fs::read_dir(&final_dir).map(|mut d| d.next().is_none()).unwrap_or(true),
-                "取消后产物目录应为空"
+                !expect_package_path("cancel").exists(),
+                "取消后不应留下正式产物"
             );
 
-            let _ = std::fs::remove_dir_all(&root);
             server.handle.join().unwrap();
         });
     }
@@ -310,12 +280,9 @@ mod tests {
     fn download_rejects_wrong_sha256_and_leaves_nothing() {
         tauri::async_runtime::block_on(async {
             let body = b"tampered payload".to_vec();
-            let server = MockServer::spawn_bytes(body.clone(), 200);
-            let (root, part_dir, final_dir) = temp_layout("sha256");
+            let server = MockServer::spawn_bytes("sha256", body.clone(), 200);
             let cancel = AtomicBool::new(false);
             let wrong = "00".repeat(32);
-            let part_path = part_dir.join("i9j0.part");
-            let final_path = final_dir.join("update.bin");
 
             let err = download(&artifact_for(&server.url, &body, Some(&wrong)), &cancel, |_| {})
                 .await
@@ -324,13 +291,11 @@ mod tests {
                 err.chain().any(|c| c.to_string().contains("sha256 不匹配")),
                 "错误链应含 sha256 不匹配: {err:?}"
             );
-            assert!(leftover_parts(&part_dir).is_empty(), "校验失败后工作区不应残留 .part");
             assert!(
-                std::fs::read_dir(&final_dir).map(|mut d| d.next().is_none()).unwrap_or(true),
-                "校验失败后产物目录应为空"
+                !expect_package_path("sha256").exists(),
+                "校验失败不应留下正式产物"
             );
 
-            let _ = std::fs::remove_dir_all(&root);
             server.handle.join().unwrap();
         });
     }
