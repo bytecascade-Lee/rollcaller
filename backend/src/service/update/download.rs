@@ -32,24 +32,15 @@
 //! sha256 必验；`signature` 非空时再做 minisign 签名验证（双重 base64 处理见该模块）。
 //! 主包产物带签名；Go updater（更新器）目前只有 sha256（signature 为空即跳过签名）。
 
-use crate::common::entity::update::Artifact;
+use crate::common::entity::update::{Artifact, DownloadProgress};
 use crate::service::update::paths;
 use crate::service::update::verify::verify_artifact_path;
 use crate::state::http_client;
 use anyhow::anyhow;
 use std::fs::File;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-
-/// 下载进度
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct DownloadProgress {
-    /// 已下载字节数
-    pub downloaded: u64,
-    /// 总字节数（来自 Content-Length，未知时为 None）
-    pub total: Option<u64>,
-}
 
 /// 流式下载 `artifact.url`，校验后重命名为正式产物并返回其路径
 ///

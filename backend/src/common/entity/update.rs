@@ -1,6 +1,6 @@
 use crate::common::constant::update::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
 use crate::common::enums;
-use crate::common::enums::update::{Severity, UpdateChannel, UpdateErrorKind, UpdateLevel, UpdateStatus};
+use crate::common::enums::update::{Severity, UpdateChannel, UpdateError, UpdateLevel, UpdateStatus};
 use crate::config::app_paths::AppMode;
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -154,6 +154,21 @@ pub struct FoundUpdate {
     pub artifact: Artifact,
 }
 
+/// 下载进度的通用载体
+///
+/// 一份载荷多处复用：download 域每 chunk 的回调参数、state 原子槽
+/// （[`crate::state::update::DownloadSlot`]）的写入口与快照、以及 download 通道
+/// 的窄进度事件帧——三处的语义都是"瞬时进度"，与持久会话事实（info /
+/// severity / artifact）解耦。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, TS)]
+#[ts(export)]
+pub struct DownloadProgress {
+    /// 已下载字节数
+    pub downloaded: u64,
+    /// 总字节数（来自 Content-Length，未知时为 None）
+    pub total: Option<u64>,
+}
+
 /// 对外展示视图：命令返回值与广播的**统一裁剪契约**
 ///
 /// 每个变体只携带该阶段前端真正需要渲染的字段；凭据（artifact、产物路径等）
@@ -174,26 +189,17 @@ pub enum UpdateView {
         info: UpdateInfo,
         severity: Severity,
     },
-    /// 下载中（进度）
+    /// 下载中（纯状态：不带进度数字，实时进度经 download 通道窄帧推送）
     Downloading {
         info: UpdateInfo,
-        #[ts(type = "number")]
-        downloaded: u64,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        #[ts(optional)]
-        #[ts(type = "number")]
-        total: Option<u64>,
     },
     /// 已下载待安装
     Downloaded {
         info: UpdateInfo,
         severity: Severity,
     },
-    /// 出错（message 供展示；retry 供前端决定重试按钮对应的命令）
-    Error {
-        message: String,
-        retry: Option<UpdateErrorKind>,
-    },
+    /// 出错（[`UpdateError`] 的 `message` 供展示；`type` 供前端决定重试按钮对应的命令）
+    Error(UpdateError),
 }
 
 /// 后端权威会话（Tauri manage 注入，跨命令共享）
@@ -202,6 +208,8 @@ pub enum UpdateView {
 /// 对外只经 [`UpdateSession::view`] 投影为裁剪的 [`UpdateView`]。
 /// 产物路径与当前版本基线**不入会话**：产物路径由凭据经 paths 现推（磁盘为事实源），
 /// 基线版本由命令层从 `package_info` 每次传入。
+/// 进度**不入会话**（瞬时态，见 [`DownloadProgress`]）：落在 state 的原子槽，仅供
+/// download 通道窄帧消费，不与凭据等持久事实混存。
 #[derive(Debug, Clone)]
 pub struct UpdateSession {
     /// 当前所处阶段
@@ -212,14 +220,8 @@ pub struct UpdateSession {
     pub severity: Severity,
     /// 已批准下载的产物凭据（download 消费；check 命中后写入）
     pub artifact: Option<Artifact>,
-    /// 已下载字节数（`Downloading` 进度）
-    pub downloaded: u64,
-    /// 总字节数（`Downloading` 进度）
-    pub total: Option<u64>,
-    /// 错误消息
-    pub error: Option<String>,
-    /// 错误来源（重试入口）
-    pub error_kind: Option<UpdateErrorKind>,
+    /// 错误（`status == Error` 时必 `Some`，与状态同锁写入）
+    pub error: Option<UpdateError>,
 }
 
 impl Default for UpdateSession {
@@ -229,10 +231,7 @@ impl Default for UpdateSession {
             info: None,
             severity: Severity::Normal,
             artifact: None,
-            downloaded: 0,
-            total: None,
             error: None,
-            error_kind: None,
         }
     }
 }
@@ -250,21 +249,17 @@ impl UpdateSession {
                 None => UpdateView::UpToDate,
             },
             UpdateStatus::Downloading => match info(&self.info) {
-                Some(info) => UpdateView::Downloading {
-                    info,
-                    downloaded: self.downloaded,
-                    total: self.total,
-                },
+                Some(info) => UpdateView::Downloading { info },
                 None => UpdateView::Checking,
             },
             UpdateStatus::Downloaded => match info(&self.info) {
                 Some(info) => UpdateView::Downloaded { info, severity: self.severity },
                 None => UpdateView::UpToDate,
             },
-            UpdateStatus::Error => UpdateView::Error {
-                message: self.error.clone().unwrap_or_default(),
-                retry: self.error_kind,
-            },
+            // `status == Error` 不变量保证 `error` 为 `Some`；兜底仅供防御（不应触发）
+            UpdateStatus::Error => UpdateView::Error(
+                self.error.clone().unwrap_or(UpdateError::Check("未知错误，请重新执行检查".to_string())),
+            ),
         }
     }
 }
