@@ -1,31 +1,21 @@
 //! 下载产物的签名验证（minisign / Ed25519）与 sha256 完整性校验
 //!
-//! 本模块纯逻辑 + 测试，不涉及安装（安装分派在任务 04-06）。
-//! 调用时机：下载完成后、任何写盘/安装前调用 [`verify_artifact`]（bytes 形态，供
-//! install 阶段对读入内存的产物复验）或 [`verify_artifact_path`]（path 形态，供
-//! download 阶段对已落盘的 .part 校验）；失败即中止，不进入安装阶段。
-//!
 //! # 双重 base64
 //!
-//! `manifest.signature` 与公钥文件（`assets/updater.pub`）的原始内容都是
-//! **base64(minisign 文本)**：
+//! `manifest.signature` 与公钥文件（`resources/secrets/rollcaller.pub.key`）的原始内容都是**base64(minisign 文本)**：
 //!
-//! - minisign 的 `.sig` 文件全文（含 `untrusted comment:` / `trusted comment:` 头）
-//!   经 base64 编码后存入 [`Artifact::signature`]；
-//! - `tauri signer generate` 产出的 `.pub` 文件全文（`untrusted comment: minisign
-//!   public key: ...`）经 base64 编码后作为 `assets/updater.pub` 的内容。
+//! - minisign 的 `.sig` 文件全文（含 `untrusted comment:` 头）经 base64 编码后存入 [`Artifact::signature`]；
+//! - `tauri signer generate` 产出的 `.pub` 文件全文经 base64 编码后作为 `resources/secrets/rollcaller.pub.key` 的内容。
 //!
-//! 因此验签前必须先用 STANDARD base64 解码，得到 minisign 文本后再交给
-//! `minisign-verify` 解析。参考 `docs/02-签名与验签方案.md`。
+//! 因此验签前必须先用 STANDARD base64 解码，得到 minisign 文本后再交给 `minisign-verify` 解析。
 //!
-//! # 互操作（手动可复现）
+//! # 互操作
 //!
 //! 1. 生成密钥对：`tauri signer generate -w <密码> <名称>`，产出 `<名称>.key` 与 `<名称>.pub`；
-//! 2. 将 `<名称>.pub` 的**完整内容**（含 untrusted comment 行）base64 编码后写入 `backend/assets/updater.pub`；
+//! 2. 将 `<名称>.pub` 的**完整内容**（含 untrusted comment 行）base64 编码后写入 `resources/secrets/rollcaller.pub.key`；
 //! 3. 对产物签名：`tauri signer sign -f <文件> -k <名称>.key -p <密码>`，产出 `<文件>.sig`；
 //! 4. 将 `<文件>.sig` 的**完整内容** base64 编码后填入清单的 `signature` 字段；
-//! 5. 运行互操作测试 `cargo test updater::verify::interop` 验证（本机无 tauri CLI 时
-//!    自动跳过并打印提示，此时可依上述步骤手动验证）。
+//! 5. 运行互操作测试 `cargo test updater::verify::interop` 验证（本机无 tauri CLI 时自动跳过并打印提示，此时可依上述步骤手动验证）。
 
 use crate::common::constant::secrets::ROLLCALLER_UPDATE_PUBKEY;
 use crate::common::entity::update::Artifact;
@@ -79,18 +69,19 @@ pub fn verify_artifact(data: &[u8], artifact: &Artifact) -> anyhow::Result<()> {
 /// 已落盘文件的统一校验入口（path 形态）：整段读入后 sha256 + 可选签名
 ///
 /// # 内存语义
-/// minisign-verify 仅支持整段字节（`&[u8]`），签名验证必须一次性读入文件；sha256
-/// 因此也基于同一份字节整段计算（复用 [`verify_sha256`]，适配 `hash_ext`），不再对
-/// 文件自维护流式哈希——两种方式的峰值内存相同（都被签名步骤的整读决定）。
+/// minisign-verify 仅支持整段字节（`&[u8]`），签名验证必须一次性读入文件；
+/// sha256因此也基于同一份字节整段计算（复用 [`verify_sha256`]，适配 `hash_ext`），
+/// 不再对文件自维护流式哈希——两种方式的峰值内存相同（都被签名步骤的整读决定）。
 ///
 /// # 签名可空
-/// `artifact.signature` 为空时只校验 sha256（Go updater 更新器仅发布 sha256、无
-/// minisign 签名）；主包产物带签名，走完整双校验。
+/// [`Artifact.signature`] 为空时只校验 sha256（Go updater 更新器仅发布 sha256、无minisign 签名）；
+/// 主包产物带签名，走完整双校验。
 ///
-/// # 双重 base64（勿改）
-/// `manifest.signature` 与公钥文件内容均为 base64(minisign 文本)：先经
-/// [`Base64Ext::base64_decode`] 解外层，再交 minisign-verify 解析内层文本（与官方插件
-/// 行为一致，见 [`verify_signature`]）。
+/// # 双重 base64
+/// [`Manifest.signature`] 与公钥文件内容均为 base64(minisign 文本)：
+/// 先经 [`Base64Ext::base64_decode`] 解外层，
+/// 再交 minisign-verify 解析内层文本
+/// 与官方插件行为一致，详见 [`verify_signature`]。
 pub fn verify_artifact_path(path: &Path, artifact: &Artifact) -> anyhow::Result<()> {
     let data = std::fs::read(path)
         .map_err(|e| anyhow!("读取下载产物失败（{}）：{e}", path.display()))?;
@@ -104,6 +95,8 @@ pub fn verify_artifact_path(path: &Path, artifact: &Artifact) -> anyhow::Result<
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::app_paths;
+    use std::path::PathBuf;
 
     /// 动态生成临时密钥对并对 data 签名，返回 (公钥外层 base64, 签名外层 base64)
     ///
@@ -148,7 +141,7 @@ mod tests {
         let (pub_b64, sig_b64) = sign_fixture(data);
         let mut tampered = data.to_vec();
         tampered[0] ^= 0xFF;
-        // 篡改 1 字节 → 签名与 sha256 任一环节都应拒绝
+        // 篡改 1 字节 → 签名与 sha256 任意一个环节都应拒绝
         assert!(verify_signature(&tampered, &sig_b64, &pub_b64).is_err());
         assert!(
             verify_sha256(&tampered, &hex::encode(sha2::Sha256::digest(data))).is_err()
@@ -226,22 +219,22 @@ mod tests {
     /// 无 tauri CLI 的环境自动跳过（打印提示），手动复现步骤见本模块文档。
     #[test]
     fn interop_with_tauri_signer() {
-        let tauri_ok = std::process::Command::new("tauri")
+        let tauri_cli_path = app_paths::resources_dir().join("tauri/cargo-tauri.exe");
+        let tauri_ok = std::process::Command::new(&tauri_cli_path)
             .arg("--version")
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
-        if !tauri_ok {
-            eprintln!("[interop] 未检测到 tauri CLI，跳过互操作测试；手动步骤见 updater::verify 模块文档");
+        if !tauri_cli_path.exists() || !tauri_ok {
+            eprintln!("[interop] 未检测到 tauri CLI，跳过互操作测试；手动步骤见 crate::service::update::verify 模块文档");
             return;
         }
 
-        let dir = std::env::temp_dir().join(format!("rollcaller-verify-interop-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).expect("创建临时目录失败");
+        let dir = app_paths::temp_dir().join(format!("rollcaller-verify-interop-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect(&format!("创建临时目录 {} 失败", dir.display()));
 
         // 1. 生成密钥对（固定测试密码，非交互）
-        let status = std::process::Command::new("tauri")
+        let status = std::process::Command::new(&tauri_cli_path)
             .args(["signer", "generate", "-w", "test", "-d"])
             .arg(&dir)
             .arg("interopkey")
@@ -254,7 +247,7 @@ mod tests {
         let data_file = dir.join("payload.bin");
         std::fs::write(&data_file, data).expect("写入 payload 失败");
         let key_file = find_file_with_ext(&dir, "key").expect("未找到 .key 文件");
-        let status = std::process::Command::new("tauri")
+        let status = std::process::Command::new(tauri_cli_path)
             .args(["signer", "sign", "-f"])
             .arg(&data_file)
             .args(["-k"])
@@ -277,7 +270,7 @@ mod tests {
     }
 
     /// 在目录中按扩展名查找文件（tauri signer 输出文件名随版本/命名变化，用扩展名兜底）
-    fn find_file_with_ext(dir: &std::path::Path, ext: &str) -> Option<std::path::PathBuf> {
+    fn find_file_with_ext(dir: &Path, ext: &str) -> Option<PathBuf> {
         std::fs::read_dir(dir).ok()?.flatten().map(|e| e.path()).find(|p| {
             p.extension().is_some_and(|e| e == ext)
         })
