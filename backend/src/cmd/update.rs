@@ -5,26 +5,37 @@
 //! # 对外契约（统一）
 //!
 //! 命令统一返回裁剪的展示视图 [`UpdateView`]（tagged union）；业务失败也以
-//! `Error { message, retry }` 变体返回，前端 store 无需 try/catch 分支——
+//! `Error` 变体返回，前端 store 无需 try/catch 分支——
 //! `Err` 仅用于防重入等入口拒绝（状态未变更，前端可直接提示）。
-//! 状态提交后经 [`UPDATE_VIEW_EVENT`] 广播给所有窗口，命令返回与广播共用同一类型。
+//!
+//! # 事件通道语义（两路隔离，防陈旧帧混淆）
+//!
+//! - [`UPDATE_VIEW_EVENT`]（view 通道）：只载**状态迁移帧**（含进入 Downloading 这一次）
+//!   与各命令**终态**——同通道内 emit 有序，迁移帧不可能迟到于终态；
+//! - [`DOWNLOAD_PROGRESS_EVENT`]（download 通道）：只载**进度窄帧**
+//!   （[`DownloadProgress`]，不带 info / severity / 状态）。进度帧迟到不会把
+//!   UI 从终态打回下载中——拆通道即隔离陈旧帧。
+//!
+//! 命令返回与广播共用同一类型与同一 apply 逻辑；进度帧是独立窄类型。
 
-use crate::common::entity::update::UpdateView;
+use crate::common::entity::update::{DownloadProgress, UpdateView};
 use crate::service::update as update_service;
 use crate::state::update::UpdaterState;
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
-/// 展示视图广播事件名：后端任何状态提交后推送（前端 store 订阅）
+/// 展示视图广播事件名：状态迁移帧（含进入 Downloading）与各命令终态均走此通道
 pub const UPDATE_VIEW_EVENT: &str = "rollcaller://update/view";
 
+/// 下载进度窄帧事件名：仅 Downloading 期的进度帧（`{downloaded, total}`）
 pub const DOWNLOAD_PROGRESS_EVENT: &str = "rollcaller://update/download";
 
-/// 广播当前视图到所有窗口（失败静默：前端随后可经命令返回值校准）
-fn broadcast(event: &str, app: &AppHandle, view: &UpdateView) {
-    let _ = app.emit(event, view);
+/// 广播载荷到所有窗口（失败静默：前端随后可经命令返回值校准）
+fn broadcast<T: Serialize>(event: &str, app: &AppHandle, payload: &T) {
+    let _ = app.emit(event, payload);
 }
 
-/// 检查是否有可用更新（返回最新展示视图）
+/// 检查是否有可用更新（返回最新展示视图；终态走 view 通道）
 #[tauri::command]
 pub async fn check(app: AppHandle) -> Result<UpdateView, String> {
     let state = app.state::<UpdaterState>();
@@ -36,25 +47,31 @@ pub async fn check(app: AppHandle) -> Result<UpdateView, String> {
     Ok(view)
 }
 
-/// 下载已批准产物（进度经广播实时上报；返回最终展示视图）
+/// 下载已批准产物
+///
+/// 信号分两路注入编排层：进入下载的**迁移帧**走 view 通道，下载过程经节流的
+/// **进度窄帧**走 download 通道；命令返回的终态视图由本命令再广播到 view 通道。
 #[tauri::command]
 pub async fn download(app: AppHandle) -> Result<UpdateView, String> {
     let state = app.state::<UpdaterState>();
     let current_version = app.package_info().version.clone();
-    let view = update_service::download(state.inner(), &current_version, |v| {
-        broadcast(DOWNLOAD_PROGRESS_EVENT, &app, v)
-    })
+    let view = update_service::download(
+        state.inner(),
+        &current_version,
+        |v| broadcast(UPDATE_VIEW_EVENT, &app, v),
+        |p| broadcast(DOWNLOAD_PROGRESS_EVENT, &app, p),
+    )
         .await?;
-    broadcast(DOWNLOAD_PROGRESS_EVENT, &app, &view);
+    broadcast(UPDATE_VIEW_EVENT, &app, &view);
     Ok(view)
 }
 
-/// 取消下载 / 放弃已下载产物（返回最新展示视图）
+/// 取消下载 / 放弃已下载产物（终态走 view 通道）
 #[tauri::command]
 pub async fn cancel(app: AppHandle) -> Result<UpdateView, String> {
     let state = app.state::<UpdaterState>();
     let view = update_service::cancel(state.inner())?;
-    broadcast(DOWNLOAD_PROGRESS_EVENT, &app, &view);
+    broadcast(UPDATE_VIEW_EVENT, &app, &view);
     Ok(view)
 }
 
