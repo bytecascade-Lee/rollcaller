@@ -77,7 +77,34 @@ fn detect_mode() -> AppMode {
     AppMode::Install
 }
 
-/// 获取基础目录
+/// 测试构建的用户数据根：项目 `data/test/{shot_uuid}/`，与开发 / 正式数据完全隔离
+///
+/// - 每次 `cargo test`（一个测试进程）生成一个唯一 uuid 目录，
+/// 进程内所有用例共享该根（模拟真实 app 的共享目录语义）。
+/// - 运行结束 / panic 均**不自动清理**，保留失败现场，单次占用极小，可手动删除。
+/// - 仅数据类目录（config/data/cache/temp/logs）被替换，`mode` 仍为 Develop，`root_dir` / `resources_dir` 等真实资源路径不变。
+#[cfg(test)]
+fn test_data_dir() -> PathBuf {
+    let parent = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("missing CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("Project root has no parent")
+        .to_path_buf();
+    loop {
+        let path = parent.join(format!("data/test/{}", &uuid::Uuid::new_v4().to_string()[..6]));
+        if !path.exists() {
+            return path;
+        }
+    }
+}
+
+/// 获取用户数据根目录（测试构建：指向 data/test/{uuid} 独占空白根）
+#[cfg(test)]
+fn detect_user_data_dir(mode: AppMode) -> PathBuf {
+    test_data_dir()
+}
+
+/// 获取用户数据根目录
+#[cfg(not(test))]
 fn detect_user_data_dir(mode: AppMode) -> PathBuf {
     match mode {
         // 项目根目录下的 data
