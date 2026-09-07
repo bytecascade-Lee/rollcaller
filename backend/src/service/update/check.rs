@@ -34,12 +34,12 @@ use crate::common::constant::update::{
 use crate::common::entity::update::{Artifact, FoundUpdate, HistoryVersion, Policy, UpdateInfo, UpdateManifest};
 use crate::common::enums::update::{Severity, UpdateDecision, UpdateLevel, UpdateSource};
 use crate::config::app_paths::AppMode;
+use crate::service::update::paths;
 use crate::service::update::version::decide;
 use anyhow::{anyhow, Context};
 use reqwest::Client;
 use semver::Version;
 use std::fs;
-use std::path::{Path, PathBuf};
 
 /// 检查是否有可用更新
 ///
@@ -47,8 +47,9 @@ use std::path::{Path, PathBuf};
 /// - `current`：当前版本，由调用方从 [`crate::config::app_info::AppInfo`] 的 `version` 字段解析后传入；
 /// - `policy`：当前用户策略，目前固定为 [`Policy::default`]，后期开放设置后可以让用户选择；
 /// - `source`：源，目前固定为 [`UpdateSource::CNB`]，后期开放设置后可以让用户选择；
-/// - `mode`：运行模式；
-/// - `cache_dir`：缓存根目录（目标版本清单按版本号落盘于此，避免重复拉取）。
+/// - `mode`：运行模式。
+///
+/// 目标版本清单的缓存路径由 [`paths::manifest`] 统一给出（按源 + 版本寻址，落 app 缓存目录），本领域不再自行拼装。
 ///
 /// # 返回
 /// - `anyhow::Ok(Some(found))`：命中目标更新（展示信息 + 下载凭据，见 [`FoundUpdate`]），
@@ -61,7 +62,6 @@ pub async fn check(
     current: &Version,
     policy: &Policy,
     mode: AppMode,
-    cache_dir: &Path,
 ) -> anyhow::Result<Option<FoundUpdate>> {
     // 1. 拉版本索引；versions.json 每次发布都有新增，不缓存
     let index_text = fetch_json_text(client, &versions_index_url(source)).await?;
@@ -73,7 +73,7 @@ pub async fn check(
     };
 
     // 3. 目标版本清单：缓存优先（命中则免网络）；缺失或缓存损坏则拉取并写缓存
-    let cache_path = manifest_cache_path(cache_dir, source, &target.version);
+    let cache_path = paths::manifest(&source, &target.version);
     let cache_content = fs::read_to_string(&cache_path).ok();
     let manifest = match cache_content.clone().and_then(|t| parse_manifest(&t).ok()) {
         Some(pair) => pair,
@@ -155,15 +155,6 @@ fn latest_manifest_url(source: UpdateSource, version: &Version) -> String {
         UpdateSource::Develop => SPECIFIED_LATEST_MANIFEST_DEVELOP,
     }
         .replace(PLACEHOLDER, &version.to_string())
-}
-
-/// 目标版本清单的本地缓存路径：`cache_dir/update/{source.to_string().to_lowercase()}/{version}.json`
-///
-/// - [`UpdateSource::Github`] -> `'github'`
-/// - [`UpdateSource::CNB`] -> `'cnb'`
-/// - [`UpdateSource::Develop`] -> `'develop'`
-fn manifest_cache_path(cache_dir: &Path, source: UpdateSource, version: &Version) -> PathBuf {
-    cache_dir.join(format!("update/{}/{version}.json", source.to_string().to_lowercase()))
 }
 
 /// 拉取远程文本
