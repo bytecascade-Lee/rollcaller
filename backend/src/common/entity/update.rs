@@ -86,6 +86,20 @@ pub struct Artifact {
     pub size: u64,
 }
 
+impl Artifact {
+    /// 从发布 url 提取产物正式文件名（url 最后一段）
+    ///
+    /// url 以 `/` 结尾或无文件名段时返回 `None`——清单不合法，由调用方在
+    /// 进入下载 / 就绪探测前报错，不在公共方法内 panic。
+    pub fn file_name(&self) -> Option<String> {
+        self.url
+            .path_segments()
+            .and_then(|segments| segments.last())
+            .filter(|name| !name.is_empty())
+            .map(|name| name.to_string())
+    }
+}
+
 /// 用户更新策略，判定输入的统一载体
 ///
 /// `level` 为 `None` 表示用户关闭了所有更新
