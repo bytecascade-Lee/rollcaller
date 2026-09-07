@@ -13,6 +13,8 @@
 //! - 目录按内容的**生命周期与语义**分派：
 //!   - `cache/update/{source}/{version}.json`：目标版本清单缓存（持久复用，按源 + 版本寻址）；
 //!   - `cache/update/bin/`：更新器 exe（工具属性，缓存复用，按文件名区分版本）；
+//!   - `temp/update/`：更新工作根——`packages/` 与 `portable-{version}/` 所在，根下亦
+//!     暂存安装会话文件（如 Go updater 的 config.json，文件名由调用方组装、标识一次安装）；
 //!   - `temp/update/packages/`：已下载待安装的主包产物（临时，安装即弃，同目录可并存他版本残留）；
 //!   - `temp/downloads/`：下载中的 `.part` 工作区（不完整、随时因不合法而删除；未来
 //!     断点续传 / 多进程下载的临时文件也在此，与正式产物隔离，不同目录下 rename 同卷原子）；
@@ -20,7 +22,6 @@
 
 use crate::common::enums::update::UpdateSource;
 use crate::config::app_paths::{cache_dir, temp_dir};
-use rand::random;
 use semver::Version;
 use std::path::PathBuf;
 
@@ -42,30 +43,9 @@ use std::path::PathBuf;
 ///
 pub fn manifest(source: &UpdateSource, version: &Version) -> PathBuf {
     cache_dir().join(format!(
-        "update/{}/{}.json",
+        "update/{}/{version}.json",
         source.to_string().to_ascii_lowercase(),
-        version.to_string()
     ))
-}
-
-/// 更新器（Go updater）可执行文件的存放路径
-///
-/// 更新器与主包产物同风格命名：文件名自带完整信息
-/// （如 `updater-0.1.2-windows-x86_64.exe`），平铺存放于 `cache/update/bin/` 下、
-/// 按文件名区分版本。调用方传入的文件名通常取更新器产物 url 的最后一段。
-/// 便携版更新器被缓存于此，负责执行实际的文件替换操作。
-///
-/// # 参数
-/// - `file_name`：更新器完整文件名（含 `.exe` 扩展名，带版本等完整信息）。
-///
-/// # 返回
-/// `cache_dir/update/bin/{file_name}`。
-///
-/// # 例
-/// `portable_updater_bin("updater-1.2.3-windows-x86_64.exe")` → `.../cache/update/bin/updater-1.2.3-windows-x86_64.exe`
-///
-pub fn portable_updater_bin(file_name: &str) -> PathBuf {
-    cache_dir().join(format!("update/bin/{file_name}"))
 }
 
 /// 生成下载中的临时碎片文件（`.part`）路径
@@ -76,13 +56,13 @@ pub fn portable_updater_bin(file_name: &str) -> PathBuf {
 /// 下载完成并校验通过后，才由调用方 rename 为正式文件名迁入 packages
 /// （两者同在 app 自管 temp 卷内，跨目录 rename 原子）。
 ///
-/// 每次调用生成不同的文件名（基于随机 u128 的 hex 编码），多下载任务之间天然隔离。
+/// 每次调用生成不同的文件名（随机 simple uuid v4），多下载任务之间天然隔离。
 ///
 /// # 返回
-/// `temp_dir/downloads/{随机id}.part`
+/// `temp_dir/downloads/{随机uuid}.part`
 ///
 pub fn part() -> PathBuf {
-    temp_dir().join(format!("downloads/{}.part", hex::encode(random::<u128>().to_le_bytes())))
+    temp_dir().join(format!("downloads/{}.part", uuid::Uuid::new_v4().to_string().replace("-", "")))
 }
 
 /// 下载完成的安装包 / 压缩包的存放路径（主包产物）
@@ -107,6 +87,26 @@ pub fn package(file_name: &str) -> PathBuf {
     temp_dir().join(format!("update/packages/{}", file_name))
 }
 
+/// 更新器（Go updater）可执行文件的存放路径
+///
+/// 更新器与主包产物同风格命名：文件名自带完整信息
+/// （如 `updater-0.1.2-windows-x86_64.exe`），平铺存放于 `cache/update/bin/` 下、
+/// 按文件名区分版本。调用方传入的文件名通常取更新器产物 url 的最后一段。
+/// 便携版更新器被缓存于此，负责执行实际的文件替换操作。
+///
+/// # 参数
+/// - `file_name`：更新器完整文件名（含 `.exe` 扩展名，带版本等完整信息）。
+///
+/// # 返回
+/// `cache_dir/update/bin/{file_name}`。
+///
+/// # 例
+/// `portable_updater_bin("updater-1.2.3-windows-x86_64.exe")` → `.../cache/update/bin/updater-1.2.3-windows-x86_64.exe`
+///
+pub fn portable_updater_bin(file_name: &str) -> PathBuf {
+    cache_dir().join(format!("update/bin/{file_name}"))
+}
+
 /// 便携版解压的暂存根目录
 ///
 /// 对于便携版（Portable）更新，下载的 zip 产物被解压到该目录下，解压后的内容
@@ -118,12 +118,21 @@ pub fn package(file_name: &str) -> PathBuf {
 ///   防止旧版本残留影响新版本升级。
 ///
 /// # 返回
-/// `temp_dir/update/portable-{version}/`
+/// `temp_dir/update/portable-source-{version}/`
 ///
 /// # 注意
 /// - 该目录仅在更新过程中存在，更新完成后应由更新器负责清理；
 /// - 解压时建议采用"剥离顶层目录"策略，使内容直接位于该目录下。
 ///
 pub fn portable_zip_staging(version: &Version) -> PathBuf {
-    temp_dir().join(format!("update/portable-{}", version))
+    temp_dir().join(format!("update/portable-source-{version}"))
+}
+
+/// 更新模块的工作根目录（`temp/update/`）
+///
+/// 更新相关产物与安装会话文件均位于其下：主包产物（[`package`] 的 packages）、
+/// 便携版解压暂存（[`portable_zip_staging`]），以及安装会话的配置文件
+/// （如 Go updater 的 config.json，文件名由调用方组装、标识一次安装）。
+pub fn portable_config(from: &Version, to: &Version) -> PathBuf {
+    temp_dir().join(format!("update/portable-config-{from}-to-{to}.json"))
 }
