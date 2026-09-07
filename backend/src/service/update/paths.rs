@@ -13,12 +13,11 @@
 //! - 目录按内容的**生命周期与语义**分派：
 //!   - `cache/update/{source}/{version}.json`：目标版本清单缓存（持久复用，按源 + 版本寻址）；
 //!   - `cache/update/bin/`：更新器 exe（工具属性，缓存复用，按文件名区分版本）；
-//!   - `temp/update/`：更新工作根——`packages/` 与 `portable-{version}/` 所在，根下亦
-//!     暂存安装会话文件（如 Go updater 的 config.json，文件名由调用方组装、标识一次安装）；
 //!   - `temp/update/packages/`：已下载待安装的主包产物（临时，安装即弃，同目录可并存他版本残留）；
+//!   - `temp/update/portable-config-{from}-to-{to}.json`：便携版安装会话配置（见 [`portable_config`]）；
 //!   - `temp/downloads/`：下载中的 `.part` 工作区（不完整、随时因不合法而删除；未来
 //!     断点续传 / 多进程下载的临时文件也在此，与正式产物隔离，不同目录下 rename 同卷原子）；
-//!   - `temp/update/portable-{version}/`：便携版解压暂存（安装过程专属，更新器完成后清理）。
+//!   - `temp/update/portable-source-{version}/`：便携版解压暂存（安装过程专属，更新器完成后清理）。
 
 use crate::common::enums::update::UpdateSource;
 use crate::config::app_paths::{cache_dir, temp_dir};
@@ -128,11 +127,12 @@ pub fn portable_zip_staging(version: &Version) -> PathBuf {
     temp_dir().join(format!("update/portable-source-{version}"))
 }
 
-/// 更新模块的工作根目录（`temp/update/`）
+/// Go updater（便携版更新器）的安装会话配置文件路径
 ///
-/// 更新相关产物与安装会话文件均位于其下：主包产物（[`package`] 的 packages）、
-/// 便携版解压暂存（[`portable_zip_staging`]），以及安装会话的配置文件
-/// （如 Go updater 的 config.json，文件名由调用方组装、标识一次安装）。
+/// config.json 组装后写盘于此（`temp/update/` 下），随 spawn 的 updater.exe 传入；
+/// 文件名以 `from → to` 标识一次安装，同一对版本重试时同名覆盖（wait.pid 等
+/// 运行时字段每次重写）。与解压内容（[`portable_zip_staging`]）分居，避免被
+/// updater 当作 source 一并复制进 target。
 pub fn portable_config(from: &Version, to: &Version) -> PathBuf {
     temp_dir().join(format!("update/portable-config-{from}-to-{to}.json"))
 }
