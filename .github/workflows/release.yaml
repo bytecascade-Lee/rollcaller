@@ -3,7 +3,7 @@ name: Release
 on:
     push:
         # 只匹配 v 开头的 tag（v0.1.0、v0.1.0-rc.1 等）
-        # 含 alpha/beta 的在 release_ci.py 内校验并报错
+        # 含 alpha/beta 的在 build_ci.py 内校验并报错
         tags:
             - 'v*'
     workflow_dispatch:
@@ -38,7 +38,7 @@ jobs:
             -   name: Check version (fail fast on alpha/beta)
                 env:
                     INPUT_VERSION: ${{ inputs.version }}
-                run: uv run python -c "import sys; sys.path.insert(0, 'scripts'); from release_ci import ci_version; ci_version()"
+                run: uv run python -c "import sys; sys.path.insert(0, 'scripts'); from build_ci import ci_version; ci_version()"
 
     build:
         name: Build & upload assets (${{ matrix.target }})
@@ -109,17 +109,17 @@ jobs:
                     New-Item -ItemType Directory -Force -Path resources/tauri | Out-Null
                     Expand-Archive -Path cargo-tauri.zip -DestinationPath resources/tauri -Force
 
-                # 版本号/arch/产物命名全部由 release_ci.py 从 GitHub 环境变量推导，workflow 不再重复实现
+                # 版本号/arch/产物命名全部由 build_ci.py 从 GitHub 环境变量推导，workflow 不再重复实现
             -   name: Build & package
                 env:
                     INPUT_VERSION: ${{ inputs.version }}
                     MIMO_TTS_API_KEY: ${{ secrets.MIMO_TTS_API_KEY }}
                     TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
                     TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-                run: uv run python scripts/release_ci.py build --target ${{ matrix.target }}
+                run: uv run python scripts/build_ci.py build --target ${{ matrix.target }}
 
-            # exe.sig 签名文件不发布为 Release 附件，仅经 artifact 传递到 release job，
-            # 供 publish.py 生成自动更新清单 latest-github.json / latest-cnb.json
+            # setup.exe.sig 与 portable.zip.sig 均不发布为 Release 附件，仅经 artifact 传递到
+            # release job，供 publish_ci.py 生成自动更新清单（base64 嵌入 latest-*.json）
             -   name: Upload artifacts
                 uses: actions/upload-artifact@v7
                 with:
@@ -128,6 +128,7 @@ jobs:
                         rollcaller-*-windows-*-setup.exe
                         rollcaller-*-windows-*-portable.zip
                         rollcaller-*-windows-*-setup.exe.sig
+                        rollcaller-*-windows-*-portable.zip.sig
                     if-no-files-found: error
 
     release:
@@ -162,7 +163,7 @@ jobs:
                     }
 
             # 先发布 GitHub Release，后同步发布 CNB Release（含自动更新清单），
-            # 逻辑集中在 scripts/publish.py
+            # 逻辑集中在 scripts/publish_ci.py
             -   name: Publish GitHub & CNB releases
                 env:
                     GH_TOKEN: ${{ github.token }}
@@ -170,4 +171,4 @@ jobs:
                     CNB_REPO: ordinary-glory/rollcaller
                     DRAFT_RELEASE: ${{ inputs.draft }}
                     INPUT_VERSION: ${{ inputs.version }}
-                run: uv run python scripts/publish.py
+                run: uv run python scripts/publish_ci.py
