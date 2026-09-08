@@ -13,7 +13,8 @@
 //!   下载的每 chunk 只写原子（不碰 session 锁）；进度是瞬时数据、只服务 download
 //!   通道窄帧，不进入 session / 对外视图。
 
-use crate::common::entity::update::{DownloadProgress, UpdateSession, UpdateView};
+use crate::common::entity::update::{DownloadProgress, UpdateSession};
+use crate::common::enums::update::UpdateView;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 

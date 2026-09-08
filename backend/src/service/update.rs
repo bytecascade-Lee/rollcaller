@@ -43,8 +43,8 @@ mod paths;
 mod verify;
 mod version;
 
-use crate::common::entity::update::{Artifact, DownloadProgress, Policy, UpdateView};
-use crate::common::enums::update::{UpdateDecision, UpdateError, UpdateSource, UpdateStatus};
+use crate::common::entity::update::{Artifact, DownloadProgress, Policy};
+use crate::common::enums::update::{UpdateDecision, UpdateError, UpdateSource, UpdateStatus, UpdateView};
 use crate::config::app_paths::current_mode;
 use crate::state::http_client;
 use crate::state::update::UpdaterState;
@@ -192,12 +192,12 @@ pub async fn download(
             Ok(())
         }
         UpdateStatus::Error
-            if matches!(s.error, Some(UpdateError::Download(_))) && s.artifact.is_some() =>
-        {
-            s.status = UpdateStatus::Downloading;
-            s.error = None;
-            Ok(())
-        }
+        if matches!(s.error, Some(UpdateError::Download(_))) && s.artifact.is_some() =>
+            {
+                s.status = UpdateStatus::Downloading;
+                s.error = None;
+                Ok(())
+            }
         _ => Err("尚未检查到可用更新，请先执行 check".to_string()),
     })?;
 

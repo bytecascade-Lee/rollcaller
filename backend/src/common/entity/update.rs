@@ -1,6 +1,6 @@
 use crate::common::constant::update::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
 use crate::common::enums;
-use crate::common::enums::update::{Severity, UpdateChannel, UpdateError, UpdateLevel, UpdateStatus};
+use crate::common::enums::update::{Severity, UpdateChannel, UpdateError, UpdateLevel, UpdateStatus, UpdateView};
 use crate::config::app_paths::AppMode;
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -167,39 +167,6 @@ pub struct DownloadProgress {
     pub downloaded: u64,
     /// 总字节数（来自 Content-Length，未知时为 None）
     pub total: Option<u64>,
-}
-
-/// 对外展示视图：命令返回值与广播的**统一裁剪契约**
-///
-/// 每个变体只携带该阶段前端真正需要渲染的字段；凭据（artifact、产物路径等）
-/// 一律留在后端会话里，不出现于此。`status` 为 tag、载荷在 `data` 中，
-/// 前端 store 对"命令返回"与"广播事件"用同一个类型与同一个 apply 逻辑。
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[serde(tag = "status", content = "data", rename_all = "camelCase")]
-pub enum UpdateView {
-    /// 空闲（尚未检查 / 无会话）
-    Idle,
-    /// 检查进行中
-    Checking,
-    /// 检查完，已是最新
-    UpToDate,
-    /// 有可用更新（severity=critical 即强制更新，前端不应提供忽略/稍后）
-    Available {
-        info: UpdateInfo,
-        severity: Severity,
-    },
-    /// 下载中（纯状态：不带进度数字，实时进度经 download 通道窄帧推送）
-    Downloading {
-        info: UpdateInfo,
-    },
-    /// 已下载待安装
-    Downloaded {
-        info: UpdateInfo,
-        severity: Severity,
-    },
-    /// 出错（[`UpdateError`] 的 `message` 供展示；`type` 供前端决定重试按钮对应的命令）
-    Error(UpdateError),
 }
 
 /// 后端权威会话（Tauri manage 注入，跨命令共享）

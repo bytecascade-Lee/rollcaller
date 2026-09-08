@@ -18,7 +18,8 @@
 //!
 //! 命令返回与广播共用同一类型与同一 apply 逻辑；进度帧是独立窄类型。
 
-use crate::common::entity::update::{DownloadProgress, UpdateView};
+use crate::common::entity::update::DownloadProgress;
+use crate::common::enums::update::UpdateView;
 use crate::service::update as update_service;
 use crate::state::update::UpdaterState;
 use serde::Serialize;
