@@ -17,9 +17,9 @@
 //! - Windows 路径统一写成正斜杠，避免 JSON 转义；
 //! - 日志毫秒时间戳命名。
 
-use crate::common::constant::sys::ARCH;
+use crate::common::constant::sys::{ARCH, OS};
 use crate::common::constant::update::PORTABLE_UPDATER_LATEST_MANIFEST_CNB;
-use crate::common::enums::sys::Arch;
+use crate::common::entity::update::Artifact;
 use crate::config::app_paths;
 use crate::service::update::paths;
 use crate::service::update::verify::verify_sha256;
@@ -30,7 +30,6 @@ use semver::Version;
 use serde_json::json;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use url::Url;
 
 /// 便携版更新器就绪（安装前 ensure；幂等）
 ///
@@ -71,31 +70,30 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
         .context(anyhow!("拉取更新器清单失败：读取响应失败"))?;
 
     // 3. 按当前架构索引扁平清单
-    let arch_key = match ARCH {
-        Arch::X86_64 => "x86_64",
-        Arch::Arm64 => "arm64",
-    };
-    let value: serde_json::Value =
-        serde_json::from_str(&text).context(anyhow!("更新器清单不是合法 JSON"))?;
-    let entry = &value["data"]["windows"][arch_key];
-    let url_str = entry["url"]
-        .as_str()
-        .context(anyhow!("更新器清单缺少 windows.{arch_key}.url"))?;
-    let sha256 = entry["sha256"]
-        .as_str()
-        .context(anyhow!("更新器清单缺少 windows.{arch_key}.sha256"))?;
+    let value: serde_json::Value = serde_json::from_str(&text).context(anyhow!("更新器清单不是合法 JSON"))?;
+    let entry = &value["data"][OS.to_string().to_ascii_lowercase()][ARCH.to_string().to_ascii_lowercase()];
+    let url_str = entry["url"].as_str().context(anyhow!(format!(
+        "更新器清单缺少 windows.{}.url",
+        ARCH.to_string().to_ascii_lowercase()
+    )))?;
 
-    let url = Url::parse(url_str).context(anyhow!("更新器下载地址不是合法 URL：{url_str}"))?;
-    let file_name = url
-        .path_segments()
-        .and_then(|segs| segs.last())
-        .filter(|n| !n.is_empty())
+    let artifact = Artifact {
+        url: url_str.parse().context(anyhow!("更新器下载地址不是合法 URL：{url_str}"))?,
+        sha256: entry["sha256"].as_str().context(anyhow!(format!(
+            "更新器清单缺少 windows.{}.sha256",
+            ARCH.to_string().to_ascii_lowercase()
+        )))?.to_string(),
+        signature: "".to_string(),
+        size: entry["size"].as_u64().context("更新器清单没有字节数")?,
+    };
+
+    let file_name = artifact.file_name()
         .ok_or_else(|| anyhow!("更新器下载地址缺少文件名：{url_str}"))?;
-    let dest = paths::portable_updater_bin(file_name);
+    let dest = paths::portable_updater_bin(&file_name);
 
     // 4. 下载（体积小，内存收齐后整体校验再落盘）
     let bytes = http_client::download()
-        .get(url.as_str())
+        .get(artifact.url)
         .send()
         .await
         .context(anyhow!("下载更新器失败：网络错误"))?
@@ -104,15 +102,14 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
         .bytes()
         .await
         .context(anyhow!("下载更新器失败：读取响应失败"))?;
-    if let Some(size) = entry["size"].as_u64() {
-        if bytes.len() as u64 != size {
-            anyhow::bail!("更新器大小与清单不符：期望 {size} 字节，实际 {} 字节", bytes.len());
-        }
+
+    if bytes.len() as u64 != artifact.size {
+        anyhow::bail!("更新器大小与清单不符：期望 {} 字节，实际 {} 字节", artifact.size, bytes.len());
     }
-    verify_sha256(&bytes, sha256).context(anyhow!("更新器校验失败"))?;
+
+    verify_sha256(&bytes, &artifact.sha256).context(anyhow!("更新器校验失败"))?;
     if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| anyhow!("创建更新器目录失败（{}）：{e}", parent.display()))?;
+        std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新器目录失败（{}）：{e}", parent.display()))?;
     }
     std::fs::write(&dest, bytes).map_err(|e| anyhow!("写入更新器失败（{}）：{e}", dest.display()))?;
     Ok(dest)
