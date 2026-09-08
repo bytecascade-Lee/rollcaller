@@ -21,7 +21,7 @@
   let installing = $state(false);
   let previousStatus = $state<string | null>(null);
 
-  // TODO(设置窗口)：当前仅主窗口（标题栏）渲染本组件，autoCheck 亦只在此发生；
+  // [TODO]：当前仅主窗口（标题栏）渲染本组件，autoCheck 亦只在此发生；
   // 后期设置窗口加入"检查更新"入口时，重审多窗口各自的 autoCheck 触发与
   // UpdateStore 多实例幂等订阅（后端广播本就喂全窗口）。
 
