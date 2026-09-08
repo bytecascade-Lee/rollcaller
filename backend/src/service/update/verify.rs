@@ -42,13 +42,19 @@ pub fn verify_signature(
     let public_key = minisign_verify::PublicKey::decode(
         &pub_key_b64
             .base64_decode()
-            .map_err(|e| anyhow!("签名公钥 base64 解码失败：{e}"))?,
-    )?;
+            .map_err(|e| anyhow!("签名公钥 base64 解码失败：{e} / {pub_key_b64}"))?,
+    )
+    .map_err(|e| {
+        anyhow!("minisign 公钥解析失败（外层解码后应为两行：untrusted comment 行 + 42 字节公钥 base64）：{e}")
+    })?;
     let signature = minisign_verify::Signature::decode(
         &release_signature
             .base64_decode()
-            .map_err(|e| anyhow!("签名 base64 解码失败：{e}"))?,
-    )?;
+            .map_err(|e| anyhow!("签名 base64 解码失败：{e} / {release_signature}"))?,
+    )
+    .map_err(|e| {
+        anyhow!("minisign 签名解析失败（外层解码后应为四行 minisign 签名文本，当前行数或载荷长度不符）：{e}")
+    })?;
     // true = 兼容 legacy 预哈希签名
     public_key.verify(data, &signature, true)?;
     Ok(())
