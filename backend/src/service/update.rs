@@ -45,7 +45,7 @@ mod version;
 
 use crate::common::entity::update::{Artifact, DownloadProgress, Policy};
 use crate::common::enums::update::{UpdateDecision, UpdateError, UpdateSource, UpdateStatus, UpdateView};
-use crate::config::app_paths::current_mode;
+use crate::config::app_paths::{current_mode, AppMode};
 use crate::state::http_client;
 use crate::state::update::UpdaterState;
 use anyhow::anyhow;
@@ -107,7 +107,11 @@ pub async fn check(state: &UpdaterState, current_version: &Version) -> anyhow::R
 
     let policy = current_policy();
     let mode = current_mode();
-    let outcome = check::check(http_client::client(), UpdateSource::CNB, current_version, &policy, mode).await;
+    let source = match mode {
+        AppMode::Develop => UpdateSource::Develop,
+        AppMode::Install | AppMode::Portable => UpdateSource::CNB,
+    };
+    let outcome = check::check(http_client::client(), source, current_version, &policy, mode).await;
 
     // 锁外磁盘探测：以"产物文件存在且校验通过"为已下载判据——磁盘为唯一事实源，
     // 会话不存产物路径；命中且就绪 → 恢复为 Downloaded（可跳过下载直接安装），
@@ -191,13 +195,11 @@ pub async fn download(
             s.status = UpdateStatus::Downloading;
             Ok(())
         }
-        UpdateStatus::Error
-        if matches!(s.error, Some(UpdateError::Download(_))) && s.artifact.is_some() =>
-            {
-                s.status = UpdateStatus::Downloading;
-                s.error = None;
-                Ok(())
-            }
+        UpdateStatus::Error if matches!(s.error, Some(UpdateError::Download(_))) && s.artifact.is_some() => {
+            s.status = UpdateStatus::Downloading;
+            s.error = None;
+            Ok(())
+        }
         _ => Err("尚未检查到可用更新，请先执行 check".to_string()),
     })?;
 
