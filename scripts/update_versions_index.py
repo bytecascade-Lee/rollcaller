@@ -8,8 +8,8 @@
 版本号可带 v 也可不带（内部自动去除前导 v，与 versions.json 存储格式一致）。
 - 版本已存在：更新其 severity
 - 版本不存在：新增条目
-- 写入后按 (major, minor, patch) 倒序重排（与 publish.py build_versions_asset 的
-  versions.json 附件顺序一致，保证源文件与发布产物顺序相同）
+- 写入后按 (major, minor, patch) 倒序重排（与 common/versions_index.build_entries 的
+  versions.json 产物顺序一致，保证源文件与发布产物顺序相同）
 """
 
 import argparse
