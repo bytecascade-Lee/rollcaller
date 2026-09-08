@@ -35,15 +35,19 @@ pub const SPECIFIED_LATEST_MANIFEST_DEVELOP: &str = "http://localhost:14652/roll
 
 pub const PORTABLE_UPDATER_GITHUB: &str = "https://github.com/bytecascade-Lee/updater";
 pub const PORTABLE_UPDATER_CNB: &str = "https://cnb.cool/ordinary-glory/updater";
+pub const PORTABLE_UPDATER_DEVELOP: &str = "http://localhost:14652/updater";
 
 pub const PORTABLE_UPDATE_RELEASE_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/releases/tag/v__VERSION__/";
 pub const PORTABLE_UPDATE_RELEASE_CNB: &str = "https://cnb.cool/ordinary-glory/updater/-/releases/tag/v__VERSION__/";
+pub const PORTABLE_UPDATE_RELEASE_DEVELOP: &str = "http://localhost:14652/updater/-/releases/tag/v__VERSION__/";
 
 pub const SPECIFIED_PORTABLE_UPDATE_RELEASE_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/releases/tag/v__VERSION__/latest-github.json";
 pub const SPECIFIED_PORTABLE_UPDATE_RELEASE_CNB: &str = "https://cnb.cool/ordinary-glory/updater/-/releases/tag/v__VERSION__/latest-cnb.json";
+pub const SPECIFIED_PORTABLE_UPDATE_RELEASE_DEVELOP: &str = "http://localhost:14652/updater/-/releases/tag/v__VERSION__/latest-develop.json";
 
 pub const PORTABLE_UPDATER_LATEST_MANIFEST_GITHUB: &str = "https://github.com/bytecascade-Lee/updater/-/releases/latest/download/latest-github.json";
 pub const PORTABLE_UPDATER_LATEST_MANIFEST_CNB: &str = "https://cnb.cool/ordinary-glory/updater/-/releases/latest/download/latest-cnb.json";
+pub const PORTABLE_UPDATER_LATEST_MANIFEST_DEVELOP: &str = "http://localhost:14652/updater/-/releases/latest/download/latest-develop.json";
 
 #[cfg(test)]
 mod tests {
@@ -56,20 +60,28 @@ mod tests {
         let urls = [
             GITHUB,
             CNB,
+            DEVELOP,
             PORTABLE_UPDATER_GITHUB,
             PORTABLE_UPDATER_CNB,
+            PORTABLE_UPDATER_DEVELOP,
             RELEASE_GITHUB,
             RELEASE_CNB,
+            RELEASE_DEVELOP,
             LATEST_MANIFEST_GITHUB,
             LATEST_MANIFEST_CNB,
+            LATEST_MANIFEST_DEVELOP,
             VERSIONS_INDEX_GITHUB,
             VERSIONS_INDEX_CNB,
+            VERSIONS_INDEX_DEVELOP,
             SPECIFIED_LATEST_MANIFEST_GITHUB,
             SPECIFIED_LATEST_MANIFEST_CNB,
+            SPECIFIED_LATEST_MANIFEST_DEVELOP,
             PORTABLE_UPDATER_GITHUB,
             PORTABLE_UPDATER_CNB,
+            PORTABLE_UPDATER_DEVELOP,
             PORTABLE_UPDATER_LATEST_MANIFEST_GITHUB,
             PORTABLE_UPDATER_LATEST_MANIFEST_CNB,
+            PORTABLE_UPDATER_LATEST_MANIFEST_DEVELOP,
         ];
 
         for url_str in urls {
