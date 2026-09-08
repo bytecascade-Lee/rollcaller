@@ -1,1 +1,1 @@
-pub const ROLLCALLER_UPDATE_PUBKEY: &str = include_str!("../../../../resources/secrets/rollcaller.pub.key");
+pub const ROLLCALLER_UPDATE_PUBKEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDA0RTkzMTA5QTZGREZDNzkKUldSNS9QMm1DVEhwQkRCdjlXV2JVb1FLWFZ2cEMrMWcralhVWTViRkFQcGdGTUxPL2gwZ1V0WEQK";

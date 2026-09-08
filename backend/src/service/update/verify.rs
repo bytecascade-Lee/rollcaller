@@ -2,10 +2,10 @@
 //!
 //! # 双层内容约定
 //!
-//! `manifest.signature` 与公钥文件（`resources/secrets/rollcaller.pub.key`）的原始内容都是 **base64(minisign 文本)**：
+//! `manifest.signature` 与公钥文件 [`ROLLCALLER_UPDATE_PUBKEY`] 的原始内容都是 **base64(minisign 文本)**：
 //!
 //! - minisign 的 `.sig` 文件全文（含 `untrusted comment:` 头）经 base64 编码后存入 [`Artifact::signature`]；
-//! - minisign 的 `.pub` 文件全文经 base64 编码后作为 `resources/secrets/rollcaller.pub.key` 的内容。
+//! - minisign 的 `.pub` 文件全文经 base64 编码后作为公钥内容。
 //!
 //! 因此验签前必须先用 STANDARD base64 解码，得到 minisign 文本后再交给 `minisign-verify` 解析。
 //!
@@ -16,7 +16,7 @@
 //! # 互操作
 //!
 //! 1. 生成密钥对：`tauri signer generate --ci -p <密码> -w <名称>.key`，产出 `<名称>.key` 与 `<名称>.key.pub`；
-//! 2. 将 `<名称>.key.pub` 的**完整内容**（已是 base64(minisign 公钥文本)）写入 `resources/secrets/rollcaller.pub.key`；
+//! 2. 将 `<名称>.key.pub` 的**完整内容**（已是 base64(minisign 公钥文本)）赋值给 [`ROLLCALLER_UPDATE_PUBKEY`]；
 //! 3. 对产物签名：`tauri signer sign <文件> -f <名称>.key -p <密码>`，产出 `<文件>.sig`；
 //! 4. 将 `<文件>.sig` 的**完整内容**（已是 base64(minisign 签名文本)）填入清单的 `signature` 字段；
 //! 5. 运行互操作测试 `cargo test updater::verify::interop` 验证（本机无 tauri CLI 时自动跳过并打印提示，此时可依上述步骤手动验证）。
@@ -44,17 +44,17 @@ pub fn verify_signature(
             .base64_decode()
             .map_err(|e| anyhow!("签名公钥 base64 解码失败：{e} / {pub_key_b64}"))?,
     )
-    .map_err(|e| {
-        anyhow!("minisign 公钥解析失败（外层解码后应为两行：untrusted comment 行 + 42 字节公钥 base64）：{e}")
-    })?;
+        .map_err(|e| {
+            anyhow!("minisign 公钥解析失败（外层解码后应为两行：untrusted comment 行 + 42 字节公钥 base64）：{e}")
+        })?;
     let signature = minisign_verify::Signature::decode(
         &release_signature
             .base64_decode()
             .map_err(|e| anyhow!("签名 base64 解码失败：{e} / {release_signature}"))?,
     )
-    .map_err(|e| {
-        anyhow!("minisign 签名解析失败（外层解码后应为四行 minisign 签名文本，当前行数或载荷长度不符）：{e}")
-    })?;
+        .map_err(|e| {
+            anyhow!("minisign 签名解析失败（外层解码后应为四行 minisign 签名文本，当前行数或载荷长度不符）：{e}")
+        })?;
     // true = 兼容 legacy 预哈希签名
     public_key.verify(data, &signature, true)?;
     Ok(())
