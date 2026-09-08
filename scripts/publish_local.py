@@ -125,13 +125,8 @@ def publish(
     latest_path.write_text(json.dumps(latest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     log("INFO", f"已生成 {display(latest_path)}（serve_base={serve_base}）")
 
-    # versions.json：release/Local 全部已构建版本（severity 沿仓库源），当前版本取 --severity
-    repo_sev = repo_severity_map()
-    severity_map = {}
-    for core, dirs in versions_index.scan_version_dirs(local_root).items():
-        if dirs:
-            severity_map[core] = repo_sev.get(core, "normal")
-    severity_map[release_version] = severity
+    # versions.json：只有当前版本，等级取 --severity
+    severity_map = {release_version: severity}
     entries = versions_index.build_entries(severity_map)
     versions_path = versions_index.write_entries(out_dir / "versions.json", entries)
     log("INFO", f"已生成 {display(versions_path)}（{len(entries)} 个版本条目）")
