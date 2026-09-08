@@ -164,8 +164,10 @@ pub struct FoundUpdate {
 #[ts(export)]
 pub struct DownloadProgress {
     /// 已下载字节数
+    #[ts(type = "number")]
     pub downloaded: u64,
     /// 总字节数（来自 Content-Length，未知时为 None）
+    #[ts(type = "number | null")]
     pub total: Option<u64>,
 }
 
