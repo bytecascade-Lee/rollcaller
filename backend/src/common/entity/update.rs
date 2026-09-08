@@ -40,9 +40,8 @@ impl UpdateManifest {
         };
 
         match app_mode {
-            AppMode::Install => payloads.nsis.clone(),
+            AppMode::Install | AppMode::Develop => payloads.nsis.clone(),
             AppMode::Portable => payloads.portable.clone(),
-            _ => None
         }
     }
 }
