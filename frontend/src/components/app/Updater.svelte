@@ -21,6 +21,10 @@
   let installing = $state(false);
   let previousStatus = $state<string | null>(null);
 
+  // TODO(设置窗口)：当前仅主窗口（标题栏）渲染本组件，autoCheck 亦只在此发生；
+  // 后期设置窗口加入"检查更新"入口时，重审多窗口各自的 autoCheck 触发与
+  // UpdateStore 多实例幂等订阅（后端广播本就喂全窗口）。
+
   // 从 tagged union 里安全取展示字段
   let info = $derived(
     (view.status === "available" || view.status === "downloading" || view.status === "downloaded")
@@ -31,10 +35,16 @@
     (view.status === "available" || view.status === "downloaded") ? view.data.severity : null,
   );
   let errorMessage = $derived(view.status === "error" ? view.data.message : null);
-  let retry = $derived(view.status === "error" ? view.data.retry : null);
-  let downloaded = $derived(view.status === "downloading" ? view.data.downloaded : 0);
-  let total = $derived(view.status === "downloading" ? view.data.total ?? 0 : 0);
-  let percent = $derived(total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0);
+  // 后端错误已合并为 { type, message }：type = 失败阶段 = 重试应调的命令
+  let retry = $derived(view.status === "error" ? view.data.type : null);
+  // 下载进度只存在于 store 的进度槽（Downloading 期有效；后端 Downloading 视图不再带数字）
+  let progress = $derived(updateStore.progress);
+  let downloaded = $derived(progress.downloaded);
+  let total = $derived(progress.total);
+  let hasTotal = $derived(total !== null && total > 0);
+  let percent = $derived(
+    total !== null && total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0,
+  );
 
   // 状态变化时的自动弹窗：检查发现新版本 / 下载完成 / 出错时主动提示
   $effect(() => {
@@ -195,15 +205,27 @@
           <MarkdownView markdown={info?.notes ?? ""}/>
         </div>
       {:else if view.status == "downloading"}
-        <div class="progress">
-          <div class="progress-bar">
-            <div class="progress-fill" style:width="{percent}%"></div>
+        {#if hasTotal}
+          <div class="progress">
+            <div class="progress-bar">
+              <div class="progress-fill" style:width="{percent}%"></div>
+            </div>
+            <span class="progress-text">{percent}%</span>
           </div>
-          <span class="progress-text">{percent}%</span>
-        </div>
-        <p class="text-content" style="margin-top: var(--space-xs);">
-          正在下载 v{info?.version}（{Math.round(downloaded / 1048576)} MB / {Math.round(total / 1048576)} MB），请稍候…
-        </p>
+          <p class="text-content" style="margin-top: var(--space-xs);">
+            正在下载 v{info?.version}（{Math.round(downloaded / 1048576)} MB / {Math.round((total ?? 0) / 1048576)} MB），请稍候…
+          </p>
+        {:else}
+          {#if downloaded > 0}
+            <p class="text-content" style="margin-top: var(--space-xs);">
+              正在下载 v{info?.version}（已下载 {Math.round(downloaded / 1048576)} MB / 总大小未知），请稍候…
+            </p>
+          {:else}
+            <p class="text-content" style="margin-top: var(--space-xs);">
+              正在下载 v{info?.version}，请稍候…
+            </p>
+          {/if}
+        {/if}
       {:else if view.status == "downloaded"}
         <p class="text-content">
           新版本 v{info?.version} 已下载完成，点击「重启并更新」应用更新（应用将自动关闭并重新打开）。
