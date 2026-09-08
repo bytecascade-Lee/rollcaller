@@ -280,7 +280,7 @@ def build_platform_manifests(
     """生成 v2 结构 latest.json（与本地 publish_local 产出的 latest-develop.json 同构）。
 
     setup.exe → 新组 nsis（带 minisign 签名），portable.zip → 新组 portable（zip.sig 签名）；
-    signature 均为 base64(minisign 全文)。v1 旧组已废弃，不再双写。
+    signature 直接取 `.sig` 全文（tauri signer ≥2.11 已含 base64(minisign 文本)，不再二次编码）。
     """
     payloads = {}
     for arch in ("x86_64", "arm64"):

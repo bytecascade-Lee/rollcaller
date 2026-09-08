@@ -10,15 +10,18 @@
     version / releaseNotes / publishDate / severity /
     platforms.windows.{x86_64|arm64}.{nsis|portable}.{url, sha256, signature, size}
 
-- signature 是 **base64(minisign `.sig` 全文)**（Rust 侧先解 base64 得到文本再验签），
-  空串表示该产物无签名（下载只验 sha256）；
+- signature 直接取 **`.sig` 文件全文**：tauri signer ≥2.11 产出的 `.sig` 本身已是
+  base64(minisign 签名文本，单行)——Rust 侧 base64 解码一次即得四行 minisign 文本再验签；
+  空串表示该产物无签名（下载只验 sha256）。
+  > 勿对已是 base64 的 `.sig` 再次编码（曾导致清单 signature 双重 base64、
+  > Rust `Signature::decode` 报 InvalidEncoding）；若将来兼容旧版 CLI 的明文多行 `.sig`，
+  > 请在读取处自行 base64，而不是在 [`build_artifact`] 里无条件编码。
 - sha256 为十六进制小写，size 为字节数，均由本模块实算。
 
 > v1 旧组字段（version/notes/pub_date/platforms.windows-x86_64.{url, signature 原文}）
 > 已废弃：签名密钥轮换后旧公钥签名作废，历史格式无存在意义，不再双写兼容。
 """
 
-import base64
 import datetime
 import hashlib
 from pathlib import Path
@@ -45,16 +48,11 @@ def sha256_hex(path: Path) -> str:
     return digest.hexdigest()
 
 
-def b64encode(text: str) -> str:
-    """UTF-8 文本 → STANDARD base64（Rust 侧先解 base64 再解析内层文本）。"""
-    return base64.b64encode(text.encode("utf-8")).decode("ascii")
-
-
 def read_sig_text(sig_path: Optional[Path]) -> str:
     """读取 `.sig` 签名文件全文并去除首尾空白；文件缺失/为空返回 ""。
 
-    `.sig` 是 minisign 文本：`untrusted comment:` / `trusted comment:` 头 + base64 签名体。
-    入清单前用 [`b64encode`] 编码（见 [`build_artifact`]）。
+    `.sig` 是 tauri signer ≥2.11 的输出，内容已是 base64(minisign 签名文本)（单行），
+    返回值直接作为清单 signature 字段（见 [`build_artifact`]），**无需再次编码**。
     """
     if not sig_path or not sig_path.is_file():
         return ""
@@ -70,12 +68,13 @@ def build_artifact(url: str, path: Path, sig_raw: str = "") -> Dict:
         sig_raw: `.sig` 全文（去除首尾空白）；为空则 signature=""（下载只验 sha256）
 
     Returns:
-        {"url", "sha256", "signature", "size"}：signature 为 base64(minisign 文本)
+        {"url", "sha256", "signature", "size"}：signature 直接取 `.sig` 全文
+        （tauri signer ≥2.11 的 `.sig` 已含 base64(minisign 文本)，不再二次编码）
     """
     return {
         "url": url,
         "sha256": sha256_hex(path),
-        "signature": b64encode(sig_raw) if sig_raw else "",
+        "signature": sig_raw,
         "size": path.stat().st_size,
     }
 
