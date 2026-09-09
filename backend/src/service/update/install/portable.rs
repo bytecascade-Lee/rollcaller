@@ -25,10 +25,10 @@ use crate::service::update::paths;
 use crate::service::update::verify::verify_sha256;
 use crate::state::http_client;
 use crate::util::path_utils;
+use super::{extract_zip, find_updater};
 use anyhow::{anyhow, Context};
 use semver::Version;
 use serde_json::json;
-use std::fs::File;
 use std::path::{Path, PathBuf};
 
 /// 便携版更新器就绪（安装前 ensure；幂等）
@@ -164,7 +164,7 @@ pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow
         .map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", config_path.display()))?;
 
     // 6. 分离式 spawn updater（成功后由调用方执行退出清理并 exit(0)）
-    spawn_updater(&updater_exe, &config_path)
+    super::spawn_updater(&updater_exe, &config_path)
 }
 
 /// 非 Windows 平台：便携版安装不可用
@@ -234,74 +234,3 @@ fn compose_config(
     })
 }
 
-/// 在 cache/update（优先 bin 子目录，其次根目录）下查找最新 updater-*.exe
-///
-/// 文件名形如 `updater-0.1.2-windows-x86_64.exe`，版本取文件名中首个可解析的 semver 段；
-/// 多个存在时取版本最大者。
-fn find_updater(cache_dir: &Path) -> Option<PathBuf> {
-    let mut dirs: Vec<PathBuf> = Vec::new();
-    dirs.push(cache_dir.join("update").join("bin"));
-    dirs.push(cache_dir.join("update"));
-    let mut best: Option<(Version, PathBuf)> = None;
-    for dir in dirs {
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-                continue;
-            };
-            let Some(stem) = name.strip_prefix("updater").and_then(|s| s.strip_suffix(".exe")) else {
-                continue;
-            };
-            let Some(ver) = stem.split('-').find_map(|seg| Version::parse(seg).ok()) else {
-                continue;
-            };
-            if best.as_ref().is_none_or(|(bv, _)| ver > *bv) {
-                best = Some((ver, path));
-            }
-        }
-    }
-    best.map(|(_, p)| p)
-}
-
-/// 解压 zip 到 `dest`；若 zip 内是单一顶层目录则返回该目录（解包一层），否则返回 `dest`
-///
-/// 解压的路径穿越防护被移除，后续有这方面的话需要小心
-fn extract_zip(zip_path: &Path, dest: &Path) -> anyhow::Result<PathBuf> {
-    if dest.exists() {
-        std::fs::remove_dir_all(dest).map_err(|e| anyhow!("清理解压目录失败（{}）：{e}", dest.display()))?;
-    }
-    std::fs::create_dir_all(dest).map_err(|e| anyhow!("创建解压目录失败（{}）：{e}", dest.display()))?;
-
-    let file = File::open(zip_path).map_err(|e| anyhow!("打开下载产物失败（{}）：{e}", zip_path.display()))?;
-    let mut archive = zip::ZipArchive::new(file).map_err(|e| anyhow!("读取 zip 失败（{}）：{e}", zip_path.display()))?;
-    archive.extract(dest).map_err(|e| anyhow!("解压更新包失败：{e}"))?;
-
-    // 单顶层目录检测：仅一个条目且为目录 → source 指向它（剥掉外壳层）
-    let top: Vec<PathBuf> = std::fs::read_dir(dest)
-        .map(|it| it.flatten().map(|e| e.path()).collect())
-        .unwrap_or_default();
-    if top.len() == 1 && top[0].is_dir() {
-        Ok(top[0].clone())
-    } else {
-        Ok(dest.to_path_buf())
-    }
-}
-
-/// 分离式 spawn updater.exe（`CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`）
-///
-/// 分离式：updater 不随本进程退出而终止，独立完成更新流程，失败返回 `Err`。
-#[cfg(target_os = "windows")]
-fn spawn_updater(exec_path: &Path, config_path: &Path) -> anyhow::Result<()> {
-    use std::os::windows::process::CommandExt;
-
-    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
-    const DETACHED_PROCESS: u32 = 0x0000_0008;
-
-    std::process::Command::new(exec_path)
-        .arg(config_path)
-        .creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS)
-        .spawn()
-        .map(|_| ())
-        .map_err(|e| anyhow::anyhow!("spawn updater.exe 失败: {e}"))
-}
