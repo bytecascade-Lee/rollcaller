@@ -103,10 +103,10 @@ def build_develop(release_version: str, full_version: str, out_dir: Path) -> Pat
     arch = host_arch()
     env = os.environ.copy()
     env["VERSION"] = release_version
-    log("INFO", f"[develop] cargo build(debug) 开始（arch={arch}；若 dev 正在运行将链接失败）")
-    proc = subprocess.run(["cargo", "build"], cwd=BACKEND, env=env)
+    log("INFO", f"[develop] cargo tauri build --debug 开始（arch={arch}；若 dev 正在运行将链接失败）")
+    proc = subprocess.run(["cargo", "tauri", "build", "--debug"], cwd=BACKEND, env=env)
     if proc.returncode != 0:
-        fail("cargo build(debug) 失败；若 target/debug/rollcaller.exe 正在运行（tauri dev），请先停止")
+        fail("cargo tauri build --debug 失败；若 target/debug/rollcaller.exe 正在运行（tauri dev），请先停止")
 
     debug_dir = BACKEND / "target" / "debug"
     zip_path = packager.package_develop(debug_dir, full_version, arch, out_dir)
