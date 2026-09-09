@@ -26,7 +26,7 @@ use std::path::Path;
 /// 原样发现；失败返回 `Err`（不触碰会话，由编排层落错误）。
 pub async fn ensure_updater(mode: AppMode) -> anyhow::Result<()> {
     if mode == AppMode::Portable || mode == AppMode::Develop {
-        portable::ensure_updater().await?;
+        common::ensure_updater().await?;
     }
     Ok(())
 }
