@@ -40,7 +40,8 @@ impl UpdateManifest {
         };
 
         match app_mode {
-            AppMode::Install | AppMode::Develop => payloads.nsis.clone(),
+            AppMode::Develop => payloads.develop.clone(),
+            AppMode::Install => payloads.nsis.clone(),
             AppMode::Portable => payloads.portable.clone(),
         }
     }
@@ -69,6 +70,8 @@ pub struct Payloads {
     pub nsis: Option<Artifact>,
     /// 便携版 zip
     pub portable: Option<Artifact>,
+    /// 开发环境 rollcaller.exe
+    pub develop: Option<Artifact>,
 }
 
 /// 单个下载产物
