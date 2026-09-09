@@ -11,7 +11,9 @@ target 支持简化别名与 all（--target all = x86_64 + arm64，缺省为本�
 签名（本脚本只管构建，清单由 publish_local.py 负责）：
 - setup 安装包的 .sig 由 tauri bundler（createUpdaterArtifacts）构建时自动生成；
 - portable zip 打包后调用 tauri signer sign 手动签名，产出 zip.sig；
-- 两者都依赖环境变量 TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+- develop 直更 zip（debug exe 打成 zip，供 AppMode::Develop 自更新演练）同样
+  调用 tauri signer sign 签名，产出 develop.zip.sig；
+- 都依赖环境变量 TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD
   （缺失即报错退出，见 common/signer.py）。密钥不落代码、不进配置。
 
 版本号处理：构建前自动调用 update_version.py 临时把版本文件与 uv.lock 更新为
@@ -21,9 +23,13 @@ target 支持简化别名与 all（--target all = x86_64 + arm64，缺省为本�
 产物输出到 <output-dir>/<版本号>+<分支名>.<提交数>.<短哈希>/
     rollcaller-<版本号>+<构建信息>-windows-<arch>-setup.exe (+ .sig)
     rollcaller-<版本号>+<构建信息>-windows-<arch>-portable.zip (+ .sig)
+    rollcaller-<版本号>+<构建信息>-windows-<arch>-develop.zip (+ .sig)  # 本机 arch
 """
 
 import argparse
+import os
+import platform
+import subprocess
 import sys
 from pathlib import Path
 
@@ -75,6 +81,41 @@ def build_targets(
             log("INFO", f"已生成: {artifact} ({size_mb:.1f} MB)")
 
 
+def host_arch() -> str:
+    """本机架构标签（develop 直更产物只构建本机架构）。"""
+    machine = platform.machine().lower()
+    return {"amd64": "x86_64", "x86_64": "x86_64", "arm64": "arm64", "aarch64": "arm64"}.get(machine, machine)
+
+
+def build_develop(release_version: str, full_version: str, out_dir: Path) -> Path:
+    """cargo build(debug) 产出 rollcaller.exe，打包为 develop 直更 zip（含签名）。
+
+    develop 载荷服务于 AppMode::Develop 的直更演练：产物 zip 内为 debug 构建的
+    `rollcaller.exe`（zip 内文件名与目标 exe 同名，Go updater 才能按名覆盖写入
+    `backend/target/debug/rollcaller.exe`）。
+
+    - 仅构建本机架构（develop 无跨架构需求）；
+    - 版本注入与 release 一致：构建前 `update_version.sync` 已临时改写版本文件，
+      VERSION env 透传给 build.rs；
+    - **前置**：若 `target/debug/rollcaller.exe` 正被运行（cargo tauri dev），
+      链接阶段会因文件占用失败——请先停止 dev 实例再执行。
+    """
+    arch = host_arch()
+    env = os.environ.copy()
+    env["VERSION"] = release_version
+    log("INFO", f"[develop] cargo build(debug) 开始（arch={arch}；若 dev 正在运行将链接失败）")
+    proc = subprocess.run(["cargo", "build"], cwd=BACKEND, env=env)
+    if proc.returncode != 0:
+        fail("cargo build(debug) 失败；若 target/debug/rollcaller.exe 正在运行（tauri dev），请先停止")
+
+    debug_dir = BACKEND / "target" / "debug"
+    zip_path = packager.package_develop(debug_dir, full_version, arch, out_dir)
+    signer.sign_artifact(zip_path, ROOT)
+    size_mb = zip_path.stat().st_size / 1024 / 1024
+    log("INFO", f"[develop] 已生成直更产物: {zip_path} ({size_mb:.1f} MB)")
+    return zip_path
+
+
 def build(
     version_arg: str,
     target: str = None,
@@ -123,6 +164,8 @@ def build(
         # 构建前统一由 update_version.py 更新版本号（不提交）
         update_version.sync(release_version)
         build_targets(target_list, release_version, full_version, out_dir)
+        # develop 直更产物（cargo build debug → develop zip + 签名）
+        build_develop(release_version, full_version, out_dir)
     finally:
         git.restore_files(version_files, cwd=ROOT)
         log("INFO", "已用 git 还原版本号文件（未提交）")
