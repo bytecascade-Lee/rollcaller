@@ -87,3 +87,22 @@ def package_portable(release_dir_: Path, version: str, arch: str, out_dir: Path)
         # 空白文件 portable.mode：不在构建产物中，必须创建并打入
         zf.writestr("portable.mode", b"")
     return dest
+
+
+def package_develop(debug_dir: Path, version: str, arch: str, out_dir: Path) -> Path:
+    """将 debug 构建的 rollcaller.exe 打包为 Develop 直更 zip（zip 内文件名为 rollcaller.exe）。
+
+    用于开发模式（AppMode::Develop）的自更新演练：客户端下载该 zip 校验后解压出
+    目录（内含 rollcaller.exe），由 Go updater 以"不清空 target"的 config 覆盖写入
+    `backend/target/debug/rollcaller.exe`。zip 内文件名必须与目标 exe 同名（rollcaller.exe），
+    覆盖才成立。签名由调用方执行（signer.sign_artifact）。
+    """
+    exe = debug_dir / "rollcaller.exe"
+    if not exe.is_file():
+        raise PackageError(f"debug 目录下缺少 rollcaller.exe: {debug_dir}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dest = out_dir / asset_name(version, arch, "develop", "zip")
+    with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.write(exe, "rollcaller.exe")
+    return dest
+
