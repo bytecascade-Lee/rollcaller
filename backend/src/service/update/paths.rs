@@ -127,6 +127,18 @@ pub fn portable_zip_staging(version: &Version) -> PathBuf {
     temp_dir().join(format!("update/portable-source-{version}"))
 }
 
+/// Develop 直更（debug exe）的解压暂存根目录
+///
+/// 与 [`portable_zip_staging`] 平行：develop 载荷 zip 解压于此，
+/// 解压出的目录作为 Go updater 的 `update.source`（内含 `rollcaller.exe`），
+/// 由更新器覆盖写入目标 exe 所在目录（Develop 下为 `backend/target/debug`）。
+///
+/// # 返回
+/// `temp_dir/update/develop-source-{version}/`
+pub fn develop_zip_staging(version: &Version) -> PathBuf {
+    temp_dir().join(format!("update/develop-source-{version}"))
+}
+
 /// Go updater（便携版更新器）的安装会话配置文件路径
 ///
 /// config.json 组装后写盘于此（`temp/update/` 下），随 spawn 的 updater.exe 传入；
@@ -135,4 +147,15 @@ pub fn portable_zip_staging(version: &Version) -> PathBuf {
 /// updater 当作 source 一并复制进 target。
 pub fn portable_config(from: &Version, to: &Version) -> PathBuf {
     temp_dir().join(format!("update/portable-config-{from}-to-{to}.json"))
+}
+
+/// Develop 直更（debug exe）的更新器 config.json 路径
+///
+/// 与 [`portable_config`] 平行：develop 安装前组装 config 写盘于此，
+/// 随 spawn 的 updater.exe 传入；文件名以 `from → to` 标识一次安装。
+///
+/// # 返回
+/// `temp_dir/update/develop-config-{from}-to-{to}.json`
+pub fn develop_config(from: &Version, to: &Version) -> PathBuf {
+    temp_dir().join(format!("update/develop-config-{from}-to-{to}.json"))
 }
