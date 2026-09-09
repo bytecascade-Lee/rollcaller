@@ -92,8 +92,9 @@ def build_latest_json(
         version: 版本号（不含 v；发布/索引条目里的核心版本号，不带 +build）
         notes: 发布说明（releaseNotes）
         severity: normal | important | critical
-        payloads: {arch: {"nsis": artifact, "portable": artifact}}
+        payloads: {arch: {"nsis"|"portable"|"develop": artifact}}
             artifact 由 [`build_artifact`] 产出；某形态缺省可给 None 或省略
+            （develop = Develop 直更载荷，zip 内含 debug rollcaller.exe）
         pub_date: RFC3339 时间串（UTC，形如 2026-09-06T08:00:00Z）；
             缺省取当前 UTC 时间
 
@@ -108,7 +109,7 @@ def build_latest_json(
     for arch in ARCHES:
         by_kind = payloads.get(arch) or {}
         entry = {}
-        for kind in ("nsis", "portable"):
+        for kind in ("nsis", "portable", "develop"):
             artifact = by_kind.get(kind)
             if artifact:
                 entry[kind] = artifact
