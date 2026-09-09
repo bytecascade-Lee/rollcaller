@@ -1,60 +1,122 @@
 use crate::common::constant::sys::{ARCH, OS};
 use crate::common::constant::update::PORTABLE_UPDATER_LATEST_MANIFEST_CNB;
 use crate::common::entity::update::Artifact;
-use crate::config::app_paths;
 use crate::service::update::paths;
 use crate::service::update::verify::verify_sha256;
 use crate::state::http_client;
 use anyhow::{anyhow, Context};
+use regex::Regex;
 use semver::Version;
-use std::fs::File;
+use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
-/// 在 cache/update（优先 bin 子目录，其次根目录）下查找最新 updater-*.exe
-///
-/// 文件名形如 `updater-0.1.2-windows-x86_64.exe`，版本取文件名中首个可解析的 semver 段；
-/// 多个存在时取版本最大者。**代码自发现，不硬编码路径 / 版本**。
-pub(in crate::service::update) fn find_updater(cache_dir: &Path) -> Option<PathBuf> {
-    let mut dirs: Vec<PathBuf> = Vec::new();
-    dirs.push(cache_dir.join("update").join("bin"));
-    dirs.push(cache_dir.join("update"));
-    let mut best: Option<(Version, PathBuf)> = None;
+pub(in crate::service::update) fn find_updater() -> Option<PathBuf> {
+    // 1. 收集所有 .exe 文件
+    let mut exe_paths = Vec::new();
+    let dirs = paths::portable_updater_bin("FILE_NAME").parent().unwrap();
     for dir in dirs {
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
-                continue;
-            };
-            let Some(stem) = name.strip_prefix("updater").and_then(|s| s.strip_suffix(".exe")) else {
-                continue;
-            };
-            let Some(ver) = stem.split('-').find_map(|seg| Version::parse(seg).ok()) else {
-                continue;
-            };
-            if best.as_ref().is_none_or(|(bv, _)| ver > *bv) {
-                best = Some((ver, path));
+        if let Ok(entries) = fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|ext| ext.to_str()) == Some("exe") {
+                    exe_paths.push(path);
+                }
             }
         }
     }
-    best.map(|(_, p)| p)
-}
 
+    if exe_paths.is_empty() {
+        return None;
+    }
+
+    // 2. 对每个 exe 获取版本，并记录有效项
+    let mut versioned = Vec::new(); // (Version, PathBuf)
+    let mut to_delete = Vec::new(); // 存放需要删除的路径（包括无效和未被选中的）
+
+    // 预编译正则，用于从输出中提取 semver
+    let regex = Regex::new(r"\d+\.\d+\.\d+(?:-[.\w]+)?").unwrap();
+
+    for exe in &exe_paths {
+        match Command::new(exe).arg("-v").output() {
+            Ok(output) => {
+                // 尝试从 stdout 中提取版本
+                let stdout = String::from_utf8_lossy(&output.stdout);
+
+                if let Some(ver_str) = regex.find(&stdout).map(|m| m.as_str()) {
+                    if let Ok(ver) = Version::parse(ver_str) {
+                        versioned.push((ver, exe.clone()));
+                        continue; // 成功解析，不加入删除列表
+                    }
+                }
+                // 解析失败，标记删除
+                to_delete.push(exe.clone());
+            }
+            Err(_) => {
+                // 执行失败，标记删除
+                to_delete.push(exe.clone());
+            }
+        }
+    }
+
+    // 如果没有有效版本，删除所有并返回 None
+    if versioned.is_empty() {
+        for exe in exe_paths {
+            let _ = fs::remove_file(exe);
+        }
+        return None;
+    }
+
+    // 3. 选出最大版本
+    let (best_ver, best_path) = versioned.into_iter().max_by(|(v1, _), (v2, _)| v1.cmp(v2)).unwrap();
+
+    // 4. 删除所有其他 exe（包括无效的和未被选中的有效版本）
+    for exe in exe_paths {
+        if exe != best_path {
+            let _ = fs::remove_file(&exe);
+        }
+    }
+
+    // 5. 重命名保留文件，使其版本段与实际版本一致
+    if let Some(file_name) = best_path.file_name().and_then(|n| n.to_str()) {
+        // 期望格式：<name>-<version>-<platform>-<arch>.exe
+        // 我们提取 name, platform, arch，并替换版本段
+        let parts: Vec<&str> = file_name.split('-').collect();
+        return if parts.len() >= 4 {
+            let name = parts[0];
+            let platform = parts[parts.len() - 2]; // 倒数第二个
+            let arch = parts[parts.len() - 1].trim_end_matches(".exe");
+            let new_name = format!("{}-{}-{}-{}.exe", name, best_ver, platform, arch);
+            let new_path = best_path.with_file_name(&new_name);
+            if new_path != best_path {
+                let _ = fs::rename(&best_path, &new_path);
+                Some(new_path)
+            } else {
+                Some(best_path)
+            }
+        } else {
+            // 文件名格式不符合预期，保留原名
+            Some(best_path)
+        };
+    }
+
+    Some(best_path)
+}
 /// 解压 zip 到 `dest`；若 zip 内是单一顶层目录则返回该目录（解包一层），否则返回 `dest`
 ///
 /// 解压的路径穿越防护被移除，后续有这方面的话需要小心
 pub(in crate::service::update) fn extract_zip(zip_path: &Path, dest: &Path) -> anyhow::Result<PathBuf> {
     if dest.exists() {
-        std::fs::remove_dir_all(dest).map_err(|e| anyhow!("清理解压目录失败（{}）：{e}", dest.display()))?;
+        fs::remove_dir_all(dest).map_err(|e| anyhow!("清理解压目录失败（{}）：{e}", dest.display()))?;
     }
-    std::fs::create_dir_all(dest).map_err(|e| anyhow!("创建解压目录失败（{}）：{e}", dest.display()))?;
+    fs::create_dir_all(dest).map_err(|e| anyhow!("创建解压目录失败（{}）：{e}", dest.display()))?;
 
-    let file = File::open(zip_path).map_err(|e| anyhow!("打开下载产物失败（{}）：{e}", zip_path.display()))?;
+    let file = fs::File::open(zip_path).map_err(|e| anyhow!("打开下载产物失败（{}）：{e}", zip_path.display()))?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| anyhow!("读取 zip 失败（{}）：{e}", zip_path.display()))?;
     archive.extract(dest).map_err(|e| anyhow!("解压更新包失败：{e}"))?;
 
     // 单顶层目录检测：仅一个条目且为目录 → source 指向它（剥掉外壳层）
-    let top: Vec<PathBuf> = std::fs::read_dir(dest)
+    let top: Vec<PathBuf> = fs::read_dir(dest)
         .map(|it| it.flatten().map(|e| e.path()).collect())
         .unwrap_or_default();
     if top.len() == 1 && top[0].is_dir() {
@@ -74,7 +136,7 @@ pub(in crate::service::update) fn spawn_updater(exec_path: &Path, config_path: &
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
     const DETACHED_PROCESS: u32 = 0x0000_0008;
 
-    std::process::Command::new(exec_path)
+    Command::new(exec_path)
         .arg(config_path)
         .creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS)
         .spawn()
@@ -103,7 +165,7 @@ pub(in crate::service::update) fn spawn_updater(exec_path: &Path, config_path: &
 #[cfg(target_os = "windows")]
 pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
     // 1. 已存在任意版本 → 幂等返回
-    if let Some(existing) = find_updater(app_paths::cache_dir()) {
+    if let Some(existing) = find_updater() {
         return Ok(existing);
     }
 
@@ -130,15 +192,19 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
 
     let artifact = Artifact {
         url: url_str.parse().context(anyhow!("更新器下载地址不是合法 URL：{url_str}"))?,
-        sha256: entry["sha256"].as_str().context(anyhow!(format!(
-            "更新器清单缺少 windows.{}.sha256",
-            ARCH.to_string().to_ascii_lowercase()
-        )))?.to_string(),
+        sha256: entry["sha256"]
+            .as_str()
+            .context(anyhow!(format!(
+                "更新器清单缺少 windows.{}.sha256",
+                ARCH.to_string().to_ascii_lowercase()
+            )))?
+            .to_string(),
         signature: "".to_string(),
         size: entry["size"].as_u64().context("更新器清单没有字节数")?,
     };
 
-    let file_name = artifact.file_name()
+    let file_name = artifact
+        .file_name()
         .ok_or_else(|| anyhow!("更新器下载地址缺少文件名：{url_str}"))?;
     let dest = paths::portable_updater_bin(&file_name);
 
@@ -160,9 +226,9 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
 
     verify_sha256(&bytes, &artifact.sha256).context(anyhow!("更新器校验失败"))?;
     if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新器目录失败（{}）：{e}", parent.display()))?;
+        fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新器目录失败（{}）：{e}", parent.display()))?;
     }
-    std::fs::write(&dest, bytes).map_err(|e| anyhow!("写入更新器失败（{}）：{e}", dest.display()))?;
+    fs::write(&dest, bytes).map_err(|e| anyhow!("写入更新器失败（{}）：{e}", dest.display()))?;
     Ok(dest)
 }
 
