@@ -23,10 +23,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from common import version as version_mod
-from common.logger import log
-
 from build_local import DEFAULT_OUTPUT, build
+from common import version as version_mod, signer
+from common.logger import log
 from publish_local import DEFAULT_SERVE_BASE, publish
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -75,6 +74,9 @@ def main() -> None:
         version_mod.validate(args.version, min_level=None)
     except version_mod.VersionError as e:
         fail(str(e))
+
+    # 0. 签名环境变量缺失时提前报错（tauri 自动签名与 signer sign 都依赖）
+    signer.ensure_signing_env()
 
     # 1. 构建打包（版本文件临时更新并还原；setup/portable 签名）
     full_version, out_dir = build(args.version, args.target, Path(args.output_dir))

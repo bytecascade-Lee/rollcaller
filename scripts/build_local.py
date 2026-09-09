@@ -158,8 +158,6 @@ def build(
             "避免构建后 git 还原误伤你的改动"
         )
 
-    # 签名环境变量缺失时提前报错（tauri 自动签名与 signer sign 都依赖）
-    signer.ensure_signing_env()
     try:
         # 构建前统一由 update_version.py 更新版本号（不提交）
         update_version.sync(release_version)
