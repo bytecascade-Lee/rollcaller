@@ -40,7 +40,7 @@ use std::path::{Path, PathBuf};
 #[cfg(target_os = "windows")]
 pub fn install_develop(zip_path: &Path, from: &Version, to: &Version) -> anyhow::Result<()> {
     // 1. 更新器：本地 cache 中发现（编排层 install 已先 ensure_updater 幂等下载/校验）
-    let updater_exe = find_updater(app_paths::cache_dir())
+    let updater_exe = find_updater()
         .ok_or_else(|| anyhow!("未找到更新器（预期位于 cache/update 或 cache/update/bin 下）"))?;
 
     // 2. 当前进程路径 → 目标目录（Develop 下即 backend/target/debug）

@@ -40,7 +40,7 @@ use std::path::Path;
 pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow::Result<()> {
     // 1. 更新器：本地 cache 中取最新（由编排层 install 异步段先 ensure_updater 下载/校验，
     //    此处只需原样发现；ensure 幂等，已存在则直接跳过下载）
-    let updater_exe = find_updater(app_paths::cache_dir())
+    let updater_exe = find_updater()
         .ok_or_else(|| anyhow!("未找到更新器（预期位于 cache/update 或 cache/update/bin 下）"))?;
 
     // 2. 当前进程路径，推导 exe 目录与用户数据目录
