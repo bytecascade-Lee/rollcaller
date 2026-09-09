@@ -27,7 +27,7 @@ use crate::util::path_utils;
 use anyhow::anyhow;
 use semver::Version;
 use serde_json::json;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Develop 直更完整编排：解压 zip → 组装 config → spawn updater（不 `exit`）
 ///
@@ -124,7 +124,7 @@ fn compose_config(
                 "path": path_utils::to_slash(exe_path),
             },
             "context": {
-                "workspace": path_utils::to_slash(target_dir),
+                "workspace": PathBuf::from(path_utils::to_slash(target_dir)).parent().unwrap().parent().unwrap(),
                 "args": [],
                 "env": {},
             },
