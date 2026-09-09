@@ -14,7 +14,7 @@ compile_error!("Rollcaller now only supports x86_64 and aarch64 architectures!")
 
 #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
 pub const OS_ARCH_COMPATIBLE_WITH_HISTORY: &str = "windows-x86_64";
-#[cfg(all(target_os = "windows", target_arch = "arm64"))]
+#[cfg(all(target_os = "windows", target_arch = "aarch64"))]
 pub const OS_ARCH_COMPATIBLE_WITH_HISTORY: &str = "windows-aarch64";
 #[cfg(not(any(
     all(target_os = "windows", target_arch = "x86_64"),
