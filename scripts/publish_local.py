@@ -9,7 +9,8 @@
 在产物目录（release/Local/<版本号>+<构建信息>/，同版本多目录取提交数最多者）内
 生成两个文件（不联网、不碰 git）：
     - latest-develop.json   # v2 结构（与 latest-v2.json / Rust UpdateManifest 一致）；
-                            #   portable 载荷的 signature 取自打包时生成的 zip.sig（不再留空）
+                            #   portable/develop 载荷的 signature 取自打包时生成的 .sig
+                            #   （develop = Develop 直更载荷，见 build_local 的 develop 产物）
     - versions.json         # 裸数组：扫描 release/Local 全部已构建版本，
                             #   severity 沿仓库源 resources/update/versions.json 标定，
                             #   当前版本取 --severity，按语义化版本倒序
@@ -76,6 +77,13 @@ def build_payloads(out_dir: Path, release_version: str, serve_base: str) -> dict
             zip_sig_raw = manifest.read_sig_text(zip_path.with_name(zip_path.name + ".sig"))
             purl = f"{serve_base}/releases/download/v{release_version}/{zip_path.name}"
             entry["portable"] = manifest.build_artifact(purl, zip_path, zip_sig_raw)
+
+        develops = list(out_dir.glob(f"rollcaller-*-windows-{arch}-develop.zip"))
+        if develops:
+            dzip = develops[0]
+            dzip_sig_raw = manifest.read_sig_text(dzip.with_name(dzip.name + ".sig"))
+            durl = f"{serve_base}/releases/download/v{release_version}/{dzip.name}"
+            entry["develop"] = manifest.build_artifact(durl, dzip, dzip_sig_raw)
         payloads[arch] = entry
     if not payloads:
         fail(f"产物目录 {out_dir} 下未找到任何 setup 安装包，无法生成清单")
