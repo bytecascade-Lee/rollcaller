@@ -85,7 +85,7 @@ fn detect_mode() -> AppMode {
 /// - 仅数据类目录（config/data/cache/temp/logs）被替换，`mode` 仍为 Develop，`root_dir` / `resources_dir` 等真实资源路径不变。
 #[cfg(test)]
 fn test_data_dir() -> PathBuf {
-    let parent = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("missing CARGO_MANIFEST_DIR"))
+    let parent = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("Project root has no parent")
         .to_path_buf();
@@ -110,7 +110,7 @@ fn detect_user_data_dir(mode: AppMode) -> PathBuf {
         // 项目根目录下的 data
         // 此处不能使用 current_exe_dir
         // 因为编译出的二进制文件并不在项目根目录下面
-        AppMode::Develop => PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).parent().unwrap().join("data"),
+        AppMode::Develop => PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("data"),
 
         // 可执行文件目录下的 data
         AppMode::Portable => current_exe_dir().unwrap_or_else(|| PathBuf::from(".")).join("data"),
@@ -127,14 +127,14 @@ fn detect_user_data_dir(mode: AppMode) -> PathBuf {
 
 fn detect_root_dir(mode: AppMode) -> PathBuf {
     match mode {
-        AppMode::Develop => PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).parent().unwrap().to_path_buf(),
+        AppMode::Develop => PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf(),
         AppMode::Portable | AppMode::Install => current_exe_dir().unwrap_or_else(|| PathBuf::from(".")).to_path_buf(),
     }
 }
 
 /// 辅助函数
 fn current_exe_dir() -> Option<PathBuf> {
-    std::env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf()))
+    env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf()))
 }
 
 /// 获取项目/软件根目录
