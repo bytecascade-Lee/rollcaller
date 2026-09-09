@@ -14,17 +14,16 @@ use std::process::Command;
 pub(in crate::service::update) fn find_updater() -> Option<PathBuf> {
     // 1. 收集所有 .exe 文件
     let mut exe_paths = Vec::new();
-    let dirs = paths::portable_updater_bin("FILE_NAME").parent().unwrap();
-    for dir in dirs {
-        if let Ok(entries) = fs::read_dir(&dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.extension().and_then(|ext| ext.to_str()) == Some("exe") {
-                    exe_paths.push(path);
-                }
+    let dir = paths::portable_updater_bin("FILE_NAME").parent().unwrap().to_path_buf();
+    if let Ok(entries) = fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|ext| ext.to_str()) == Some("exe") {
+                exe_paths.push(path);
             }
         }
     }
+
 
     if exe_paths.is_empty() {
         return None;
