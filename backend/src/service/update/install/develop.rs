@@ -19,15 +19,15 @@
 //! Develop 形态的 exe 是 debug 构建（前端走 devUrl），重启后的新 exe 仍需
 //! 前端 dev server 在线（由演练方负责先起前端）。
 
+use super::common;
 use crate::config::app_paths;
+use crate::service::update::install::common::{extract_zip, find_updater};
 use crate::service::update::paths;
 use crate::util::path_utils;
 use anyhow::anyhow;
 use semver::Version;
 use serde_json::json;
 use std::path::Path;
-
-use super::{extract_zip, find_updater};
 
 /// Develop 直更完整编排：解压 zip → 组装 config → spawn updater（不 `exit`）
 ///
@@ -69,7 +69,7 @@ pub fn install_develop(zip_path: &Path, from: &Version, to: &Version) -> anyhow:
         .map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", config_path.display()))?;
 
     // 6. 分离式 spawn updater（成功后由调用方执行退出清理并 exit(0)）
-    super::spawn_updater(&updater_exe, &config_path)
+    common::spawn_updater(&updater_exe, &config_path)
 }
 
 /// 非 Windows 平台：Develop 直更不可用
