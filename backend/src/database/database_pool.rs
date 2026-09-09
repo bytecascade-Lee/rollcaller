@@ -55,10 +55,13 @@ impl DatabasePool {
     async fn create_pool() -> anyhow::Result<RBatis> {
         let rb = RBatis::new();
         #[cfg(debug_assertions)]
-        let db_path = if let Some(name) = env!("DEVELOP_DATABASE_FILENAME") {
-            app_paths::data_dir().join(name)
-        } else {
-            panic!("DEVELOP_DATABASE_FILENAME not set");
+        let db_path = {
+            let name = env!("DEVELOP_DATABASE_FILENAME");
+            if !name.is_empty() {
+                app_paths::data_dir().join(name)
+            } else {
+                panic!("DEVELOP_DATABASE_FILENAME not set");
+            }
         };
 
         #[cfg(not(debug_assertions))]
