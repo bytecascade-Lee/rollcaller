@@ -1,9 +1,9 @@
 use directories::ProjectDirs;
 use serde::Serialize;
-use std::env;
 use std::env::current_dir;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
+use std::{env, fmt};
 use tracing::info;
 use ts_rs::TS;
 
@@ -19,6 +19,17 @@ pub enum AppMode {
     Develop,  // 开发模式: ./data
     Portable, // 便携模式: exe_dir/data
     Install,  // 安装模式: 系统规范路径
+}
+
+impl fmt::Display for AppMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            AppMode::Develop => "Develop",
+            AppMode::Portable => "Portable",
+            AppMode::Install => "Install",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 /// 路径结构体
