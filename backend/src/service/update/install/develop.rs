@@ -28,7 +28,7 @@ use crate::util::path_utils;
 use anyhow::anyhow;
 use semver::Version;
 use serde_json::json;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Develop 直更完整编排：解压 zip → 组装 config → spawn updater（不 `exit`）
 ///
@@ -65,6 +65,11 @@ pub fn install_develop(zip_path: &Path, from: &Version, to: &Version) -> anyhow:
     let config_path = paths::updater_config(&AppMode::Develop, from, to);
 
     // 5. 组装并写入 config（不备份 / 不清空 / 不回滚，target 为编译目录）
+    // 父目录 temp/update/config 由本处确保存在：fs::write 不创建父目录，而该目录不属
+    // bootstrap 预建的应用目录（只建到 temp_dir 顶层），无人代建
+    if let Some(parent) = config_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新配置目录失败（{}）：{e}", parent.display()))?;
+    }
     let config = compose_config(std::process::id(), &source_dir, &target_dir, &exe_path, &log_file);
     std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)
         .map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", config_path.display()))?;
@@ -90,7 +95,8 @@ pub fn install_develop(_zip_path: &Path, _from: &Version, _to: &Version) -> anyh
 ///
 /// 其余（wait / launch / runtime）与 portable 一致：路径统一转正斜杠；
 /// `wait.pid` = 当前应用进程 PID（updater 等待本进程退出后覆盖 exe）；
-/// `launch.execution.path` = 目标 exe（覆盖后的新版本），workspace = 其目录。
+/// `launch.execution.path` = 目标 exe（覆盖后的新版本），
+/// `launch.context.workspace` = target_dir 的上两级（cargo workspace 根）。
 fn compose_config(
     pid: u32,
     source_dir: &Path,
@@ -98,6 +104,16 @@ fn compose_config(
     exe_path: &Path,
     log_file: &Path,
 ) -> serde_json::Value {
+    // launch.context.workspace = target_dir 的上两级（Develop 下 target_dir = backend/target/debug，
+    // 上两级即 cargo workspace 根 backend）。Develop 属开发形态，祖先不足两级（如 exe 落在盘根）
+    // 属布局错误：此处允许 panic 而不做静默兜底，但把实际 target_dir 一并打进 panic 文案以便定位。
+    let workspace = target_dir.parent().and_then(Path::parent).unwrap_or_else(|| {
+        panic!(
+            "develop 直更要求 target_dir 至少有两级父目录以推导 workspace，当前 target_dir = {}",
+            target_dir.display()
+        )
+    });
+
     json!({
         "version": 1,
         "runtime": {
@@ -125,7 +141,7 @@ fn compose_config(
                 "path": path_utils::to_slash(exe_path),
             },
             "context": {
-                "workspace": PathBuf::from(path_utils::to_slash(target_dir)).parent().unwrap().parent().unwrap(),
+                "workspace": path_utils::to_slash(workspace),
                 "args": [],
                 "env": {},
             },
