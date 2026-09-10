@@ -83,7 +83,7 @@ pub fn part() -> PathBuf {
 /// 本路径仅表示存放位置，不负责实际下载或重命名操作。
 ///
 pub fn package(file_name: &str) -> PathBuf {
-    temp_dir().join(format!("update/packages/{}", file_name))
+    temp_dir().join(format!("update/packages/{file_name}"))
 }
 
 /// 更新器（Go updater）可执行文件的存放路径
@@ -124,7 +124,7 @@ pub fn portable_updater_bin(file_name: &str) -> PathBuf {
 /// - 解压时建议采用"剥离顶层目录"策略，使内容直接位于该目录下。
 ///
 pub fn zip_staging(mode: &AppMode, version: &Version) -> PathBuf {
-    temp_dir().join(format!("update/staging/{mode}-source-{version}"))
+    temp_dir().join(format!("update/staging/{}-source-{version}", mode.to_string().to_ascii_lowercase()))
 }
 
 /// Go updater（便携版更新器）的安装会话配置文件路径
@@ -134,5 +134,5 @@ pub fn zip_staging(mode: &AppMode, version: &Version) -> PathBuf {
 /// 运行时字段每次重写）。与解压内容（[`zip_staging`]）分居，避免被
 /// updater 当作 source 一并复制进 target。
 pub fn updater_config(mode: &AppMode, from: &Version, to: &Version) -> PathBuf {
-    temp_dir().join(format!("update/config/{mode}-config-{from}-to-{to}.json"))
+    temp_dir().join(format!("update/config/{}-config-{from}-to-{to}.json", mode.to_string().to_ascii_lowercase()))
 }
