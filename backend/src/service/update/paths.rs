@@ -6,21 +6,21 @@
 //!
 //! # 布局原则
 //!
-//! - **产物平铺、文件名自带完整信息**：主包产物（nsis 安装包 / portable zip）
-//!   与更新器（Go updater）都不再按版本建子目录，文件名携带版本 / 平台 / 架构等
+//! - **产物平铺、文件名自带完整信息**：主包产物（nsis 安装包 / portable zip / 开发模式下 debug 产物）
+//!   与更新器都不再按版本建子目录，文件名携带版本 / 平台 / 架构等
 //!   完整信息（通常取发布产物 url 的最后一段，如 `rollcaller-0.1.2-windows-x86_64-setup.exe`），
 //!   文件名即一次下载目标的唯一标识。
 //! - 目录按内容的**生命周期与语义**分派：
 //!   - `cache/update/{source}/{version}.json`：目标版本清单缓存（持久复用，按源 + 版本寻址）；
 //!   - `cache/update/bin/`：更新器 exe（工具属性，缓存复用，按文件名区分版本）；
 //!   - `temp/update/packages/`：已下载待安装的主包产物（临时，安装即弃，同目录可并存他版本残留）；
-//!   - `temp/update/portable-config-{from}-to-{to}.json`：便携版安装会话配置（见 [`portable_config`]）；
+//!   - `temp/update/config/{mode}-config-{from}-to-{to}.json`：更新器安装会话配置（见 [`updater_config`]）；
 //!   - `temp/downloads/`：下载中的 `.part` 工作区（不完整、随时因不合法而删除；未来
 //!     断点续传 / 多进程下载的临时文件也在此，与正式产物隔离，不同目录下 rename 同卷原子）；
-//!   - `temp/update/portable-source-{version}/`：便携版解压暂存（安装过程专属，更新器完成后清理）。
+//!   - `temp/update/staging/{mode}-source-{version}/`：压缩包解压暂存（安装过程专属，更新器完成后清理）。
 
 use crate::common::enums::update::UpdateSource;
-use crate::config::app_paths::{cache_dir, temp_dir};
+use crate::config::app_paths::{cache_dir, temp_dir, AppMode};
 use semver::Version;
 use std::path::PathBuf;
 
@@ -117,45 +117,22 @@ pub fn portable_updater_bin(file_name: &str) -> PathBuf {
 ///   防止旧版本残留影响新版本升级。
 ///
 /// # 返回
-/// `temp_dir/update/portable-source-{version}/`
+/// `temp_dir/update/staging/portable-source-{version}/`
 ///
 /// # 注意
 /// - 该目录仅在更新过程中存在，更新完成后应由更新器负责清理；
 /// - 解压时建议采用"剥离顶层目录"策略，使内容直接位于该目录下。
 ///
-pub fn portable_zip_staging(version: &Version) -> PathBuf {
-    temp_dir().join(format!("update/portable-source-{version}"))
-}
-
-/// Develop 直更（debug exe）的解压暂存根目录
-///
-/// 与 [`portable_zip_staging`] 平行：develop 载荷 zip 解压于此，
-/// 解压出的目录作为 Go updater 的 `update.source`（内含 `rollcaller.exe`），
-/// 由更新器覆盖写入目标 exe 所在目录（Develop 下为 `backend/target/debug`）。
-///
-/// # 返回
-/// `temp_dir/update/develop-source-{version}/`
-pub fn develop_zip_staging(version: &Version) -> PathBuf {
-    temp_dir().join(format!("update/develop-source-{version}"))
+pub fn zip_staging(mode: &AppMode, version: &Version) -> PathBuf {
+    temp_dir().join(format!("update/staging/{mode}-source-{version}"))
 }
 
 /// Go updater（便携版更新器）的安装会话配置文件路径
 ///
-/// config.json 组装后写盘于此（`temp/update/` 下），随 spawn 的 updater.exe 传入；
+/// config.json 组装后写盘于此（`temp/update/config` 下），随 spawn 的 updater.exe 传入；
 /// 文件名以 `from → to` 标识一次安装，同一对版本重试时同名覆盖（wait.pid 等
-/// 运行时字段每次重写）。与解压内容（[`portable_zip_staging`]）分居，避免被
+/// 运行时字段每次重写）。与解压内容（[`zip_staging`]）分居，避免被
 /// updater 当作 source 一并复制进 target。
-pub fn portable_config(from: &Version, to: &Version) -> PathBuf {
-    temp_dir().join(format!("update/portable-config-{from}-to-{to}.json"))
-}
-
-/// Develop 直更（debug exe）的更新器 config.json 路径
-///
-/// 与 [`portable_config`] 平行：develop 安装前组装 config 写盘于此，
-/// 随 spawn 的 updater.exe 传入；文件名以 `from → to` 标识一次安装。
-///
-/// # 返回
-/// `temp_dir/update/develop-config-{from}-to-{to}.json`
-pub fn develop_config(from: &Version, to: &Version) -> PathBuf {
-    temp_dir().join(format!("update/develop-config-{from}-to-{to}.json"))
+pub fn updater_config(mode: &AppMode, from: &Version, to: &Version) -> PathBuf {
+    temp_dir().join(format!("update/config/{mode}-config-{from}-to-{to}.json"))
 }
