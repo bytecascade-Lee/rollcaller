@@ -183,10 +183,10 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
 
     // 3. 按当前架构索引扁平清单
     let value: serde_json::Value = serde_json::from_str(&text).context(anyhow!("更新器清单不是合法 JSON"))?;
-    let entry = &value["data"][OS.to_string().to_ascii_lowercase()][ARCH.to_string().to_ascii_lowercase()];
+    let entry = &value[OS.to_string().to_ascii_lowercase()][ARCH.to_string().to_ascii_lowercase()];
     let url_str = entry["url"].as_str().context(anyhow!(format!(
-        "更新器清单缺少 windows.{}.url",
-        ARCH.to_string().to_ascii_lowercase()
+        "更新器清单缺少 windows.{}.url，实际内容为{}",
+        ARCH.to_string().to_ascii_lowercase(), value
     )))?;
 
     let artifact = Artifact {
