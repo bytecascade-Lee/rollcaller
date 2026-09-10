@@ -108,7 +108,7 @@ pub async fn check(state: &UpdaterState, current_version: &Version) -> anyhow::R
     let policy = current_policy();
     let mode = current_mode();
     let source = match mode {
-        AppMode::Develop => UpdateSource::Develop,
+        AppMode::Develop => UpdateSource::Local,
         AppMode::Install | AppMode::Portable => UpdateSource::CNB,
     };
     let outcome = check::check(http_client::client(), source, current_version, &policy, mode).await;

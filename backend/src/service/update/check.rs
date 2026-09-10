@@ -140,7 +140,7 @@ fn versions_index_url(source: UpdateSource) -> String {
     match source {
         UpdateSource::Github => VERSIONS_INDEX_GITHUB,
         UpdateSource::CNB => VERSIONS_INDEX_CNB,
-        UpdateSource::Develop => VERSIONS_INDEX_DEVELOP,
+        UpdateSource::Local => VERSIONS_INDEX_DEVELOP,
     }
         .to_string()
 }
@@ -152,7 +152,7 @@ fn latest_manifest_url(source: UpdateSource, version: &Version) -> String {
     match source {
         UpdateSource::Github => SPECIFIED_LATEST_MANIFEST_GITHUB,
         UpdateSource::CNB => SPECIFIED_LATEST_MANIFEST_CNB,
-        UpdateSource::Develop => SPECIFIED_LATEST_MANIFEST_DEVELOP,
+        UpdateSource::Local => SPECIFIED_LATEST_MANIFEST_DEVELOP,
     }
         .replace(PLACEHOLDER, &version.to_string())
 }

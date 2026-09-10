@@ -7,7 +7,7 @@ use ts_rs::TS;
 pub enum UpdateSource {
     Github,
     CNB,
-    Develop,
+    Local,
 }
 
 impl fmt::Display for UpdateSource {
@@ -15,7 +15,7 @@ impl fmt::Display for UpdateSource {
         let s = match self {
             UpdateSource::Github => "Github",
             UpdateSource::CNB => "CNB",
-            UpdateSource::Develop => "Develop",
+            UpdateSource::Local => "Local",
         };
         write!(f, "{}", s)
     }

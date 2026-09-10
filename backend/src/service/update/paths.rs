@@ -136,7 +136,7 @@ pub fn portable_zip_staging(version: &Version) -> PathBuf {
 /// # 返回
 /// `temp_dir/update/develop-source-{version}/`
 pub fn develop_zip_staging(version: &Version) -> PathBuf {
-    temp_dir().join(format!("update/develop-source-{version}"))
+    temp_dir().join(format!("update/local-source-{version}"))
 }
 
 /// Go updater（便携版更新器）的安装会话配置文件路径
@@ -157,5 +157,5 @@ pub fn portable_config(from: &Version, to: &Version) -> PathBuf {
 /// # 返回
 /// `temp_dir/update/develop-config-{from}-to-{to}.json`
 pub fn develop_config(from: &Version, to: &Version) -> PathBuf {
-    temp_dir().join(format!("update/develop-config-{from}-to-{to}.json"))
+    temp_dir().join(format!("update/local-config-{from}-to-{to}.json"))
 }
