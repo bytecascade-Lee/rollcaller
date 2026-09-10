@@ -2,9 +2,9 @@
 //!
 //! # 流程：
 //!
-//! 1. 解压已下载并校验的 portable zip 到 [`paths::portable_zip_staging`]（`temp/update/portable-source-{目标版本}/`）；
-//! 2. 组装 Go updater 的 config.json 写盘（落 [`paths::portable_config`]，与解压内容分居，
-//!    避免被 updater 连同 source 一起复制进 target）；
+//! 1. 解压已下载并校验的 portable zip 到 [`paths::zip_staging`]（`temp/update/staging/portable-source-{目标版本}/`）；
+//! 2. 组装 Go updater 的 config.json 写盘（落 [`paths::updater_config`]，与解压内容分居，
+//!    避免被 updater 连同 source 一起复制进 target；
 //! 3. 分离式 spawn `updater.exe`（`CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`），传入 config.json 路径；
 //! 4. spawn 成功后返回 `Ok(())`——由调用方执行退出前清理
 //!    （`shutdown_hooks::run_all()`，如关闭数据库）后 `exit(0)`，
@@ -19,6 +19,7 @@
 
 use super::common;
 use crate::config::app_paths;
+use crate::config::app_paths::AppMode;
 use crate::service::update::install::common::{extract_zip, find_updater};
 use crate::service::update::paths;
 use crate::util::path_utils;
@@ -51,9 +52,9 @@ pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow
         .ok_or_else(|| anyhow!("无法获取当前可执行文件目录"))?;
     let data_dir = target_dir.join("data"); // Portable：用户数据全部在 exe 旁 data 下
 
-    // 3. 解压 zip 到 temp/update/portable-source-{目标版本} 清残留，返回实际 source 目录
-    // config.json 落 temp/update/portable-config-{from}-to-{to}.json ，与解压内容分居
-    let staging = paths::portable_zip_staging(to);
+    // 3. 解压 zip 到 temp/update/staging/portable-source-{目标版本} 清残留，返回实际 source 目录
+    // config.json 落 temp/update/config/portable-config-{from}-to-{to}.json ，与解压内容分居
+    let staging = paths::zip_staging(&AppMode::Portable, to);
     let source_dir = extract_zip(zip_path, &staging)?;
 
     // 4. 一次安装的毫秒时间戳与文件名
@@ -62,7 +63,7 @@ pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow
         std::fs::create_dir_all(&dir).map_err(|e| anyhow!("创建更新日志目录失败（{}）：{e}", dir.display()))?;
         dir.join(format!("portable-update-{from}-to-{to}-{}.log", jiff::Timestamp::now().as_microsecond()))
     };
-    let config_path = paths::portable_config(from, to);
+    let config_path = paths::updater_config(&AppMode::Portable, from, to);
 
     // 5. 组装并写入 config
     let config = compose_config(std::process::id(), &source_dir, &target_dir, &data_dir, &exe_path, &log_file);
