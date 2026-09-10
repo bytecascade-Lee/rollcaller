@@ -2,10 +2,10 @@
 //!
 //! # 流程
 //!
-//! 1. 解压已下载并校验的 develop zip 到 [`paths::develop_zip_staging`]
-//!    （`temp/update/develop-source-{目标版本}/`），source 目录内是待覆盖的
+//! 1. 解压已下载并校验的 develop zip 到 [`paths::zip_staging`]
+//!    （`temp/update/staging/develop-source-{目标版本}/`），source 目录内是待覆盖的
 //!    `rollcaller.exe`（debug 构建）；
-//! 2. 组装 Go updater 的 config.json 写盘（落 [`paths::develop_config`]）：
+//! 2. 组装 Go updater 的 config.json 写盘（落 [`paths::updater_config`]）：
 //!    **不备份、不清空、不 preserve、不回滚**——target 是编译目录
 //!    （Develop 下即 `backend/target/debug`），只允许 updater 把 source 内的
 //!    `rollcaller.exe` 覆盖写入同名文件，**绝不能整目录清理**；
@@ -14,13 +14,14 @@
 //! 4. spawn 成功后返回 `Ok(())`——由调用方执行退出前清理后 `exit(0)`，
 //!    由 updater 执行 wait（旧进程退出）→ update（覆盖 exe）→ launch（重启新 exe）。
 //!
-//! # 运行前提
+//! # 注意
 //!
-//! Develop 形态的 exe 是 debug 构建（前端走 devUrl），重启后的新 exe 仍需
-//! 前端 dev server 在线（由演练方负责先起前端）。
+//! Develop 形态的 exe 是 debug 构建，但是已同步捆绑前端 dist 资源
+//! 不需要再启动前端开发服务
 
 use super::common;
 use crate::config::app_paths;
+use crate::config::app_paths::AppMode;
 use crate::service::update::install::common::{extract_zip, find_updater};
 use crate::service::update::paths;
 use crate::util::path_utils;
@@ -50,9 +51,9 @@ pub fn install_develop(zip_path: &Path, from: &Version, to: &Version) -> anyhow:
         .map(Path::to_path_buf)
         .ok_or_else(|| anyhow!("无法获取当前可执行文件目录"))?;
 
-    // 3. 解压 develop zip 到 temp/update/develop-source-{目标版本} 清残留，返回 source 目录
-    // config.json 落 temp/update/develop-config-{from}-to-{to}.json ，与解压内容分居
-    let staging = paths::develop_zip_staging(to);
+    // 3. 解压 develop zip 到 temp/update/staging/develop-source-{目标版本} 清残留，返回 source 目录
+    // config.json 落 temp/update/config/develop-config-{from}-to-{to}.json ，与解压内容分居
+    let staging = paths::zip_staging(&AppMode::Develop, to);
     let source_dir = extract_zip(zip_path, &staging)?;
 
     // 4. 一次安装的毫秒时间戳与日志/config 文件名
@@ -61,7 +62,7 @@ pub fn install_develop(zip_path: &Path, from: &Version, to: &Version) -> anyhow:
         std::fs::create_dir_all(&dir).map_err(|e| anyhow!("创建更新日志目录失败（{}）：{e}", dir.display()))?;
         dir.join(format!("develop-update-{from}-to-{to}-{}.log", jiff::Timestamp::now().as_microsecond()))
     };
-    let config_path = paths::develop_config(from, to);
+    let config_path = paths::updater_config(&AppMode::Develop, from, to);
 
     // 5. 组装并写入 config（不备份 / 不清空 / 不回滚，target 为编译目录）
     let config = compose_config(std::process::id(), &source_dir, &target_dir, &exe_path, &log_file);
@@ -129,8 +130,8 @@ fn compose_config(
                 "env": {},
             },
             "lifecycle": {
-                "stayAlive": 0,
-                "captureOutput": false,
+                "stayAlive": -1,
+                "captureOutput": true,
             },
         },
         "rollback": {
