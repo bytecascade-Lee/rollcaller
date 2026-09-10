@@ -66,6 +66,11 @@ pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow
     let config_path = paths::updater_config(&AppMode::Portable, from, to);
 
     // 5. 组装并写入 config
+    // 父目录 temp/update/config 由本处确保存在：fs::write 不创建父目录，而该目录不属
+    // bootstrap 预建的应用目录（只建到 temp_dir 顶层），无人代建
+    if let Some(parent) = config_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新配置目录失败（{}）：{e}", parent.display()))?;
+    }
     let config = compose_config(std::process::id(), &source_dir, &target_dir, &data_dir, &exe_path, &log_file);
     std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)
         .map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", config_path.display()))?;
