@@ -90,15 +90,17 @@ def host_arch() -> str:
 def build_develop(release_version: str, full_version: str, out_dir: Path) -> Path:
     """cargo build(debug) 产出 rollcaller.exe，打包为 develop 直更 zip（含签名）。
 
-    develop 载荷服务于 AppMode::Develop 的直更演练：产物 zip 内为 debug 构建的
-    `rollcaller.exe`（zip 内文件名与目标 exe 同名，Go updater 才能按名覆盖写入
-    `backend/target/debug/rollcaller.exe`）。
+    develop 载荷服务于 AppMode::Develop 的直更演练：产物 zip 内为 debug 构建的 exe，
+    **zip 内文件名是 packager.DEVELOP_UPDATE_BIN_NAME**（不是 rollcaller.exe）——cargo 的
+    rollcaller.exe 常被 IDE 映射持有而无法写打开，直更改写入该独立文件名绕开占用，后端
+    也按同名拼启动路径。两端常量必须逐字符一致（详见 packager.py 顶部注释）。
 
     - 仅构建本机架构（develop 无跨架构需求）；
     - 版本注入与 release 一致：构建前 `update_version.sync` 已临时改写版本文件，
       VERSION env 透传给 build.rs；
     - **前置**：若 `target/debug/rollcaller.exe` 正被运行（cargo tauri dev），
-      链接阶段会因文件占用失败——请先停止 dev 实例再执行。
+      链接阶段会因文件占用失败——请先停止 dev 实例再执行。直更启动的实例用的是
+      独立文件名，不占用该产物，故不受此限。
     """
     arch = host_arch()
     env = os.environ.copy()
