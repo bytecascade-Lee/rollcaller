@@ -1,18 +1,18 @@
-//! Develop 直更（debug exe 单文件覆盖）执行
+//! Develop 直更（debug exe 单文件写入）执行
 //!
 //! # 流程
 //!
 //! 1. 解压已下载并校验的 develop zip 到 [`paths::zip_staging`]
-//!    （`temp/update/staging/develop-source-{目标版本}/`），source 目录内是待覆盖的
-//!    `rollcaller.exe`（debug 构建）；
+//!    （`temp/update/staging/develop-source-{目标版本}/`），source 目录内是待写入的
+//!    debug exe（文件名见 [`DEVELOP_UPDATE_BIN_NAME`]）；
 //! 2. 组装 Go updater 的 config.json 写盘（落 [`paths::updater_config`]）：
 //!    **不备份、不清空、不 preserve、不回滚**——target 是编译目录
-//!    （Develop 下即 `backend/target/debug`），只允许 updater 把 source 内的
-//!    `rollcaller.exe` 覆盖写入同名文件，**绝不能整目录清理**；
+//!    （Develop 下即 `backend/target/debug`），只允许 updater 把 source 内那个 exe
+//!    写入 target 同名文件，**绝不能整目录清理**；
 //! 3. 分离式 spawn `updater.exe`（`CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`），
 //!    传入 config.json 路径；
 //! 4. spawn 成功后返回 `Ok(())`——由调用方执行退出前清理后 `exit(0)`，
-//!    由 updater 执行 wait（旧进程退出）→ update（覆盖 exe）→ launch（重启新 exe）。
+//!    由 updater 执行 wait（旧进程退出）→ update（写入）→ launch（启动新 exe）。
 //!
 //! # 注意
 //!
@@ -20,6 +20,7 @@
 //! 不需要再启动前端开发服务
 
 use super::common;
+use crate::common::constant::update::DEVELOP_UPDATE_BIN_NAME;
 use crate::config::app_paths;
 use crate::config::app_paths::AppMode;
 use crate::service::update::install::common::{extract_zip, find_updater};
@@ -32,7 +33,7 @@ use std::path::Path;
 
 /// Develop 直更完整编排：解压 zip → 组装 config → spawn updater（不 `exit`）
 ///
-/// - `zip_path`：已下载并校验通过的 develop zip（内含 debug `rollcaller.exe`）；
+/// - `zip_path`：已下载并校验通过的 develop zip（内含 debug exe，文件名见 [`DEVELOP_UPDATE_BIN_NAME`]）；
 /// - `from` / `to`：当前版本与目标版本（用于命名 config 与日志，标识一次安装）。
 ///
 /// 成功路径 = 更新器已分离式启动（返回 `Ok(())`），**本进程应随即退出**：调用方需
@@ -50,6 +51,8 @@ pub fn install_develop(zip_path: &Path, from: &Version, to: &Version) -> anyhow:
         .parent()
         .map(Path::to_path_buf)
         .ok_or_else(|| anyhow!("无法获取当前可执行文件目录"))?;
+    // 启动目标 = 更新产物落点（独立文件名），**不是当前 exe**：详见 DEVELOP_UPDATE_BIN_NAME
+    let launch_path = target_dir.join(DEVELOP_UPDATE_BIN_NAME);
 
     // 3. 解压 develop zip 到 temp/update/staging/develop-source-{目标版本} 清残留，返回 source 目录
     // config.json 落 temp/update/config/develop-config-{from}-to-{to}.json ，与解压内容分居
@@ -70,7 +73,7 @@ pub fn install_develop(zip_path: &Path, from: &Version, to: &Version) -> anyhow:
     if let Some(parent) = config_path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新配置目录失败（{}）：{e}", parent.display()))?;
     }
-    let config = compose_config(std::process::id(), &source_dir, &target_dir, &exe_path, &log_file);
+    let config = compose_config(std::process::id(), &source_dir, &target_dir, &launch_path, &log_file);
     std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)
         .map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", config_path.display()))?;
 
@@ -94,14 +97,14 @@ pub fn install_develop(_zip_path: &Path, _from: &Version, _to: &Version) -> anyh
 /// - `rollback.enabled = false`：不回滚（下载产物已整体验签，覆盖前失败可重试）。
 ///
 /// 其余（wait / launch / runtime）与 portable 一致：路径统一转正斜杠；
-/// `wait.pid` = 当前应用进程 PID（updater 等待本进程退出后覆盖 exe）；
-/// `launch.execution.path` = 目标 exe（覆盖后的新版本），
+/// `wait.pid` = 当前应用进程 PID（updater 等待本进程退出后再写入）；
+/// `launch.execution.path` = `launch_path`（更新产物落点，见 [`DEVELOP_UPDATE_BIN_NAME`]），
 /// `launch.context.workspace` = target_dir 的上两级（cargo workspace 根）。
 fn compose_config(
     pid: u32,
     source_dir: &Path,
     target_dir: &Path,
-    exe_path: &Path,
+    launch_path: &Path,
     log_file: &Path,
 ) -> serde_json::Value {
     // launch.context.workspace = target_dir 的上两级（Develop 下 target_dir = backend/target/debug，
@@ -138,7 +141,7 @@ fn compose_config(
         "launch": {
             "execution": {
                 "mode": "direct",
-                "path": path_utils::to_slash(exe_path),
+                "path": path_utils::to_slash(launch_path),
             },
             "context": {
                 "workspace": path_utils::to_slash(workspace),
