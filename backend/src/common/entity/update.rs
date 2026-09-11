@@ -70,7 +70,7 @@ pub struct Payloads {
     pub nsis: Option<Artifact>,
     /// 便携版 zip
     pub portable: Option<Artifact>,
-    /// 开发环境 rollcaller.exe
+    /// 开发环境直更载荷（debug exe，产物文件名见 `DEVELOP_UPDATE_BIN_NAME`）
     pub develop: Option<Artifact>,
 }
 
