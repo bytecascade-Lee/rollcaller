@@ -18,6 +18,10 @@ class PackageError(Exception):
     pass
 
 
+# Develop 直更 zip 内的文件名——**必须与后端常量 `DEVELOP_UPDATE_BIN_NAME` 逐字符一致**。
+DEVELOP_UPDATE_BIN_NAME = "rollcaller-update-from-develop.exe"
+
+
 def arch_for_target(target: Optional[str]) -> str:
     """根据 --target 返回产物命名用的架构标识；未指定时视为 x86_64。"""
     if not target:
@@ -90,12 +94,13 @@ def package_portable(release_dir_: Path, version: str, arch: str, out_dir: Path)
 
 
 def package_develop(debug_dir: Path, version: str, arch: str, out_dir: Path) -> Path:
-    """将 debug 构建的 rollcaller.exe 打包为 Develop 直更 zip（zip 内文件名为 rollcaller.exe）。
+    """将 debug 构建的 rollcaller.exe 打包为 Develop 直更 zip。
 
-    用于开发模式（AppMode::Develop）的自更新演练：客户端下载该 zip 校验后解压出
-    目录（内含 rollcaller.exe），由 Go updater 以"不清空 target"的 config 覆盖写入
-    `backend/target/debug/rollcaller.exe`。zip 内文件名必须与目标 exe 同名（rollcaller.exe），
-    覆盖才成立。签名由调用方执行（signer.sign_artifact）。
+    用于开发模式（AppMode::Develop）的自更新演练：客户端下载该 zip 校验后解压出目录
+    （内含 `DEVELOP_UPDATE_BIN_NAME` 指定的 debug exe），由 Go updater 以"不清空 target"的 config 写入
+    `backend/target/debug/` 同名文件。**zip 内文件名必须是该常量**（而非 rollcaller.exe）：
+    既与 cargo 产物/IDE 映射的文件区分开（绕开镜像占用），也与后端启动路径同名。
+    签名由调用方执行（signer.sign_artifact）。
     """
     exe = debug_dir / "rollcaller.exe"
     if not exe.is_file():
@@ -103,6 +108,5 @@ def package_develop(debug_dir: Path, version: str, arch: str, out_dir: Path) -> 
     out_dir.mkdir(parents=True, exist_ok=True)
     dest = out_dir / asset_name(version, arch, "develop", "zip")
     with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.write(exe, "rollcaller.exe")
+        zf.write(exe, DEVELOP_UPDATE_BIN_NAME)
     return dest
-
