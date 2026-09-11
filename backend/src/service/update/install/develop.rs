@@ -12,7 +12,8 @@
 //! 3. 分离式 spawn `updater.exe`（`CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`），
 //!    传入 config.json 路径；
 //! 4. spawn 成功后返回 `Ok(())`——由调用方执行退出前清理后 `exit(0)`，
-//!    由 updater 执行 wait（旧进程退出）→ update（写入）→ launch（启动新 exe）。
+//!    由 updater 执行 wait（旧进程退出）→ update（写入）→ launch（**分离**启动新 exe，
+//!    updater 随即退出；分离的原因见 `compose_config` 中 `stayAlive = 0` 的说明）。
 //!
 //! # 注意
 //!
@@ -96,6 +97,17 @@ pub fn install_develop(_zip_path: &Path, _from: &Version, _to: &Version) -> anyh
 ///   备份无意义且巨大）；
 /// - `rollback.enabled = false`：不回滚（下载产物已整体验签，覆盖前失败可重试）。
 ///
+/// `launch.lifecycle` 取 `stayAlive = 0`（分离启动，updater 随即退出），**这也是让新实例
+/// 能活下来的关键**：Go updater 在 `stayAlive == 0` 时以 `DETACHED_PROCESS | CREATE_NO_WINDOW`
+/// 启动新进程，新进程不继承任何控制台。若沿用驻留模式（`-1`），新进程会继承 updater 的控制台
+/// ——而 updater 在 `headless = false` 下会 `AttachConsole` 附加回本进程的控制台（IDE run
+/// session 那个），于是一旦 IDE 收尾关闭控制台，新进程即收到 CTRL_CLOSE_EVENT、以
+/// `STATUS_CONTROL_C_EXIT (0xC000013A)` 静默死亡（实测复现）。分离后即免疫。
+/// 代价：新进程无控制台、stdout 落 NUL 设备（要它的输出可直接手动运行该 exe，
+/// 或看 debug 构建的 `logs/f` 文件日志——注意文件层级别为 WARN）。
+/// `captureOutput = false`：`stayAlive == 0` 时该字段本就不会被读（updater 在分离分支直接
+/// 返回），置 false 仅为表意；且捕获会把子进程输出以**嵌套形态**混进 updater 自己的日志，不宜开启。
+///
 /// 其余（wait / launch / runtime）与 portable 一致：路径统一转正斜杠；
 /// `wait.pid` = 当前应用进程 PID（updater 等待本进程退出后再写入）；
 /// `launch.execution.path` = `launch_path`（更新产物落点，见 [`DEVELOP_UPDATE_BIN_NAME`]），
@@ -149,8 +161,8 @@ fn compose_config(
                 "env": {},
             },
             "lifecycle": {
-                "stayAlive": -1,
-                "captureOutput": true,
+                "stayAlive": 0,
+                "captureOutput": false,
             },
         },
         "rollback": {
