@@ -94,7 +94,7 @@ def build_latest_json(
         severity: normal | important | critical
         payloads: {arch: {"nsis"|"portable"|"develop": artifact}}
             artifact 由 [`build_artifact`] 产出；某形态缺省可给 None 或省略
-            （develop = Develop 直更载荷，zip 内含 debug rollcaller.exe）
+            （develop = Develop 直更载荷，zip 内含 debug exe，文件名见 packager.DEVELOP_UPDATE_BIN_NAME）
         pub_date: RFC3339 时间串（UTC，形如 2026-09-06T08:00:00Z）；
             缺省取当前 UTC 时间
 
