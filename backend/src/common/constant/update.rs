@@ -49,6 +49,8 @@ pub const PORTABLE_UPDATER_LATEST_MANIFEST_GITHUB: &str = "https://github.com/by
 pub const PORTABLE_UPDATER_LATEST_MANIFEST_CNB: &str = "https://cnb.cool/ordinary-glory/updater/-/releases/latest/download/latest-cnb.json";
 pub const PORTABLE_UPDATER_LATEST_MANIFEST_DEVELOP: &str = "http://localhost:14652/updater/-/releases/latest/download/latest-develop.json";
 
+pub const DEVELOP_UPDATE_BIN_NAME: &str = "rollcaller-update-from-develop.exe";
+
 #[cfg(test)]
 mod tests {
     use super::*;
