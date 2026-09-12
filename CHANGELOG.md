@@ -4,6 +4,87 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 0.8.0
+
+### Breaking Changes
+
+- 重构应用更新为三段式管线（检查 → 下载 → 安装），移除 `tauri-plugin-updater` 与 `tauri-plugin-process` 的依赖、插件注册、权限声明及前端 `@tauri-apps/plugin-*` 依赖，更新流程不再依赖官方插件
+- 更新命令契约变更：`download_and_install_update` 拆分为 `download` 与 `install`，新增 `cancel`，命令统一返回裁剪视图 `UpdateView`；广播事件改为 `rollcaller://update/view`，下载进度独立为 `rollcaller://update/download`
+- 更新清单仅支持 v2 格式，删除 v1 字段与双写兼容，结构固定为 `platforms.windows.{x86_64,arm64}.{nsis,portable,develop}`
+- 移除 `force` 字段与降级（downgrade）支持，`severity = critical` 即强制更新；更新策略由 `UpdatePolicy` 七档枚举改为「幅度门槛 × 更新通道」二维模型
+- 关闭 `bundle.createUpdaterArtifacts`，`.sig` 不再由 tauri bundler 构建期生成，改由构建脚本统一签名
+- 发布工具链拆分：`release_local.py` → `build_local.py` + `publish_local.py`，`release_ci.py` / `publish.py` → `build_ci.py` + `publish_ci.py`，删除旧一体化入口
+
+### Added
+
+- 新增更新域公共层：
+  - `common/enums/update.rs`：`UpdateSource` / `UpdateLevel` / `UpdateChannel` / `Severity` / `UpdateDecision` / `UpdateKind` / `UpdateView` / `UpdateStatus` / `UpdateError`
+  - `common/entity/update.rs`：`UpdateManifest` / `Artifact` / `Payloads` / `Policy` / `HistoryVersion` / `UpdateInfo` / `FoundUpdate` / `DownloadProgress`
+  - `common/constant/update.rs`：收敛全部发布端点、默认策略、起始版本与 `__VERSION__` 占位符常量；`common/constant/secrets.rs` 内嵌更新公钥
+  - `common/enums/sys.rs` 新增强类型平台枚举 `OS` / `Arch`，`common/constant/sys.rs` 集中平台键与编译期约束
+- 新增更新服务层 `service/update/`：`check`（版本索引扫描择优 + 指定版本清单缓存 + 一致性复判）、`version`（幅度门槛 × 更新通道决策）、`verify`（sha256 + minisign）、`download`（`.part` 落盘 → 校验 → 重命名）、`install`（`launch` 分派 + `finish_and_exit` 统一收尾）、`paths`（更新域路径统一派生，含 `manifest` / `part` / `package` / `zip_staging` / `updater_config` / `backup`）
+- 新增安装器实现 `service/update/install/`：`nsis`（`ShellExecuteW` + `/UPDATE /R /ARGS`）、`portable`（Go updater 编排）、`develop`（开发版直更）、`common`（`find_updater` / `extract_zip` / `spawn_updater` / `ensure_updater`）
+- 新增 `cmd/update.rs` 五个命令 `check` / `download` / `cancel` / `install` / `state`，并支持 view 迁移帧与 download 进度窄帧双通道广播
+- 新增 `state/update.rs`：`UpdaterState` 持 `UpdateSession` 权威会话与 `DownloadSlot`（进度/总量/取消三原子槽）
+- 新增 `shutdown_hooks` 退出前清理钩子注册表，安装前统一执行数据库连接池关闭
+- 新增前端更新模块：`commands/update.ts`、`stores/UpdateStore.svelte.ts`，`Updater.svelte` 改为后端裁剪视图驱动；ts-rs 导出 `UpdateView` / `UpdateStatus` / `UpdateError` / `UpdateInfo` / `Severity` / `OS` / `Arch` / `DownloadProgress` 等类型
+- 新增发布脚本公共模块 `scripts/common/`：`manifest`（v2 清单构造与签名读取）、`versions_index`（索引读写与产物目录择优）、`signer`（签名环境校验与产物签名）、`gh`（GitHub CLI 封装），以及 `builder` / `packager` / `targets` / `update_version` / `version` / `git` / `logger`
+- 新增脚本：`build_local.py`、`publish_local.py`、`build_ci.py`、`publish_ci.py`、`local_update_source_server.py`（原 `serve_local.py`，新增 `--rate` 产物直链限速）、`download_ci_logs.py`
+- 新增 `resources/update/versions.json` 版本索引（发布期 severity 标定的唯一数据源）与维护脚本 `update_versions_index.py`；新增 `tag_release.py` 打 tag 前置校验脚本
+- 新增 `latest-v2.json` 清单模板与 `docs/schema/latest-manifest.schema.json`，固化「签名必填、四字段齐备、禁止未知字段」约定
+- 新增 `docs/architect/自动更新架构-三段式管线与发布链路.md` 与 `docs/architect/自动更新跨平台扩展-MacOS与Linux.md`
+- 新增 `util/target_utils`（架构名映射）、`util/path_utils`（`to_slash` / `current_exe_clean`）、`Base64Ext` 编解码扩展、可选时间戳的 ISO 8601 序列化助手
+- 新增 `state/http_client.rs` 命名客户端注册表，内置 `default`（30s 整体超时）与 `download`（无整体超时 + 读空闲超时）两个实例
+
+### Changed
+
+- 更新状态由「最近一次检查结果」升级为「单次更新会话」`UpdateSession`：`artifact` 凭据入会话，产物路径按凭据经 `paths` 现推、以磁盘为唯一事实源
+- 下载落盘改为 `temp/downloads/{uuid}.part` → 校验 → 重命名至 `temp/update/packages/<文件名>`，磁盘上不出现未验证的正式产物；新增就绪产物探测，命中即跳过重复下载但**不跳过验签**
+- 下载进度改为「迁移帧 + 进度窄帧」双通道广播，进度热路径每 chunk 只写原子槽、不碰会话锁，达节流阈值后读快照发帧
+- 更新检查改为「每次拉取版本索引 → 在 `(current, latest]` 区间倒序择优 → 按目标版本拉取清单（缓存优先）→ 以清单字段一致性复判」
+- 版本决策重构为「幅度门槛（Patch / Minor / Major）× 更新通道（Stable / Prerelease）」二维模型，`UpdateLevel::Never` 取代 `Option` 的 `None`；预发布支持通道内递进与逃逸两条免门槛路径；`normal` / `important` 豁免幅度门槛，`critical` 在关闭更新时仍穿透
+- `AppMode::Develop` 的载荷与安装路径独立（新增 `develop` 载荷槽与 `install_develop`），不再与 `Install` 混用 NSIS
+- 构建信息生成移除 `VERSION` 环境变量与 `cargo:rustc-env`，`app_info` 的 `os` / `arch` 由字符串改为强类型平台枚举，底部栏展示 `{os}-{arch}`
+- 签名流程改为两阶段：先打包并重命名为最终产物名，再统一调用 `tauri signer sign` 逐个签名，确保签名绑定最终字节
+- `find_updater` 改为执行 `updater.exe -v` 解析实际版本并清理无效与旧版本更新器，仅保留最高版本；`ensure_updater` 移至 `install/common`
+- Go updater 配置升级至 `version: 3`（`wait.pids`、`runtime.log.file` + `runtime.log.level.*`），便携版显式指定 `update.backup.location` 并关闭 `cleanupOnSuccess`，开发版保持不备份不回滚
+- 本地联调数据源由环境变量切换改为编译期 `UpdateSource::Local` 常量组，清单命名为 `latest-develop.json`；本地服务路由与后端端点常量同构，缺文件即报错退出
+- 测试构建将用户数据根隔离至 `data/test/{uuid}`，互操作测试改用捆绑的 tauri CLI
+- 依赖调整：新增 `semver`（启用 serde）、`regex`、`uuid`、`minisign-verify`、`windows-sys`，测试新增 `tiny_http` / `minisign`；`zip` 4 → 8.6、`rust_xlsxwriter` 0.98 → 0.99；移除 `infer`、`tempfile`、`tauri-plugin-updater`、`tauri-plugin-process`
+- uv 依赖源切换为清华镜像
+
+### Fixed
+
+- 修复 develop 直更新实例继承 updater 控制台、IDE 关闭控制台时以 `0xC000013A` 静默退出的问题（`stayAlive` 由 -1 改为 0，分离式启动）
+- 修复 develop 直更写入 `rollcaller.exe` 时因 IDE 映射持有导致 `os error 32` 失败的问题，改用独立产物文件名 `rollcaller-update-from-develop.exe`
+- 修复 `tag_release.py` 分支校验条件恒真导致无法打 tag，以及版本索引按对象包裹解析与裸数组不兼容的问题
+- 修复 `service/update.rs::check` 结尾 `unwrap` 的潜在 panic 点
+- 修复 `verify_signature` 中公钥/签名 base64 解码错误无法经 `?` 传播的编译失败，并补齐解码失败诊断信息
+- 修复 `download` 入口对产物文件名 `unwrap` 的 panic 风险
+- 修复写入安装会话配置前父目录未创建导致 `fs::write` 失败
+- 修复 `get_artifact` 在 Develop 模式下取不到安装产物
+- 修复 ARM64 条件编译标识误用 `arm64`（应为 `aarch64`）导致平台常量不生效
+- 修复 `find_updater` 目录遍历逻辑错误导致扫描失败
+- 修复更新器清单解析多余的 `data` 层级
+- 修复本地 `versions.json` 混入未发布版本，以及清单 `signature` 被二次 base64 编码
+- 修复 TTS 服务未适配重构后 HTTP 客户端取用 API 的编译失败
+
+### Removed
+
+- 移除 `updater/` 模块（`manifest` / `installer` / `state` / `commands` / `check` / `version_policy` / `verify` / `download`）与 `service/update_service.rs`，职责分别上收至 `common` 公共层与 `service/update` 服务层
+- 移除 `tauri-plugin-updater` / `tauri-plugin-process` 依赖、插件初始化、`updater:default` / `process:default` 权限与 `desktop-capability.json`
+- 移除更新清单 v1 格式与双写兼容、`force` 字段、降级支持
+- 移除 `bundle.createUpdaterArtifacts` 与 tauri bundler 构建期签名
+- 移除旧发布入口 `release_ci.py` / `publish.py`
+- 移除未使用的 `infer` / `tempfile` 依赖
+
+### Security
+
+- 更新产物校验收紧为签名必填（fail closed）：`verify_artifact` / `verify_artifact_path` 对空或仅空白签名一律拒绝，不再回退为仅校验 sha256；仅需完整性校验的调用方（Go 更新器）改走独立的 `verify_sha256`
+- 发布侧同步收紧：签名文件缺失或为空即构建失败，不产出无签名清单
+
+---
+
 ## 0.7.0
 
 ### Breaking Changes
