@@ -32,17 +32,28 @@ def fail(message: str) -> None:
 
 
 def index_versions() -> set:
-    """读取 versions.json 中已标定的版本号集合（规范化，不含前导 v）。"""
+    """读取 versions.json 中已标定的版本号集合（规范化，不含前导 v）。
+
+    索引自 `scripts/common/versions_index.py` 起就是**裸数组**（`[{version, severity}, ...]`），
+    与 `update_versions_index.py` / `publish_*.py` 的读写格式一致，此处同样按裸数组解析。
+    """
     if not VERSIONS_INDEX_PATH.exists():
         fail(f"缺少版本索引源文件: {VERSIONS_INDEX_PATH}")
     try:
-        data = json.loads(VERSIONS_INDEX_PATH.read_text(encoding="utf-8"))
+        entries = json.loads(VERSIONS_INDEX_PATH.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
         fail(f"versions.json 解析失败: {e}")
-    entries = data.get("versions")
     if not isinstance(entries, list):
-        fail("versions.json 缺少 versions 数组")
-    return {e.get("version") for e in entries if isinstance(e, dict)}
+        fail(f"{VERSIONS_INDEX_PATH} 不是合法的裸数组版本索引")
+    versions = set()
+    for item in entries:
+        if not isinstance(item, dict) or not item.get("version"):
+            fail("versions.json 中存在缺少 version 的条目")
+        try:
+            versions.add(version_mod.validate(item["version"]))
+        except version_mod.InvalidVersionError as e:
+            fail(f"versions.json 中存在非法版本号: {e}")
+    return versions
 
 
 def main() -> None:
@@ -62,8 +73,8 @@ def main() -> None:
 
     # 必须在 master 或 main 分支
     branch = get_branch()
-    if branch != "master" or branch != "main":
-        fail("必须在 master 或 main 分支打tag")
+    if branch not in ("master", "main"):
+        fail(f"必须在 master 或 main 分支打 tag（当前分支: {branch}）")
 
     # 去除前导 v + 格式校验；tag 带 v，versions.json 不带 v
     try:
