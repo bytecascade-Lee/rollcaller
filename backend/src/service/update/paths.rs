@@ -17,7 +17,9 @@
 //!   - `temp/update/config/{mode}-config-{from}-to-{to}.json`：更新器安装会话配置（见 [`updater_config`]）；
 //!   - `temp/downloads/`：下载中的 `.part` 工作区（不完整、随时因不合法而删除；未来
 //!     断点续传 / 多进程下载的临时文件也在此，与正式产物隔离，不同目录下 rename 同卷原子）；
-//!   - `temp/update/staging/{mode}-source-{version}/`：压缩包解压暂存（安装过程专属，更新器完成后清理）。
+//!   - `temp/update/staging/{mode}-source-{version}/`：压缩包解压暂存（安装过程专属，更新器完成后清理）；
+//!   - `temp/update/backup/{mode}-backup-{from}-to-{to}-{uuid前6位}/`：更新前的原 target 备份
+//!     （见 [`backup`]；位于 `data` 内，靠 `backup.exclude` + `update.preserve` 合法化）。
 
 use crate::common::enums::update::UpdateSource;
 use crate::config::app_paths::{cache_dir, temp_dir, AppMode};
@@ -125,6 +127,38 @@ pub fn portable_updater_bin(file_name: &str) -> PathBuf {
 ///
 pub fn zip_staging(mode: &AppMode, version: &Version) -> PathBuf {
     temp_dir().join(format!("update/staging/{}-source-{version}", mode.to_string().to_ascii_lowercase()))
+}
+
+/// 便携版更新时的备份落点
+///
+/// 备份目录置于 app 自管 temp 之下（`temp/update/backup/`），与解压暂存（[`zip_staging`]）、
+/// 会话配置（[`updater_config`]）同属"一次更新的中间产物"，生命周期一致，由 app 自管
+/// temp 的清理规则兜底回收。
+///
+/// # 为什么可以放在 target 内部
+/// Portable 模式下 `temp_dir` = `exe_dir/data/temp`，故落点位于 `data` 树内，因而**同时**
+/// 命中 `backup.exclude` 与 `update.preserve`（二者均为 `data_dir`，见 [`updater_config`]
+/// 的调用方 `install::portable::compose_config`）：
+/// - 命中 `backup.exclude` → 备份遍历在 `data` 处 `SkipDir` 短路，不会把备份写进自己
+///   正在遍历的源树（防无界自拷贝）；
+/// - 命中 `update.preserve` → 清理阶段跳过整棵 `data`，备份不会"刚做完就被删除"。
+///
+/// Go updater 的 loader 正是按这两条放行"位于 target 内的备份落点"，并记一条非致命告警。
+/// 目录名以 `from → to` 标识一次安装，并附随机后缀，同一对版本重试时互不覆盖。
+///
+/// # 返回
+/// `temp_dir/update/backup/{mode}-backup-{from}-to-{to}-{uuid前6位}`
+///
+/// # 例
+/// `backup(&AppMode::Portable, v1.2.3, v1.2.4)` →
+/// `.../data/temp/update/backup/portable-backup-1.2.3-to-1.2.4-3f9a1c`
+///
+pub fn backup(mode: &AppMode, from: &Version, to: &Version) -> PathBuf {
+    temp_dir().join(format!(
+        "update/backup/{}-backup-{from}-to-{to}-{}",
+        mode.to_string().to_ascii_lowercase(),
+        &uuid::Uuid::new_v4().to_string().replace("-", "")[..6],
+    ))
 }
 
 /// Go updater（便携版更新器）的安装会话配置文件路径
