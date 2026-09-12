@@ -28,9 +28,9 @@
 //!
 //! # 校验
 //!
-//! 校验逻辑在 [`verify_artifact_path`]：整段读入已落盘的 .part 后
-//! sha256 必验；`signature` 非空时再做 minisign 签名验证（双重 base64 处理见该模块）。
-//! 主包产物带签名；Go updater（更新器）目前只有 sha256（signature 为空即跳过签名）。
+//! 校验逻辑在 [`verify_artifact_path`]：整体验签入口**签名必填**（fail closed）——
+//! 先过签名必填，再 sha256 必验，最后 minisign 签名验证（双重 base64 处理见该模块）。
+//! 仅需 sha256 的 Go updater（更新器）**不走本入口**，改直接调用 `verify::verify_sha256`。
 
 use crate::common::entity::update::{Artifact, DownloadProgress};
 use crate::service::update::paths;
@@ -58,7 +58,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// # 流程
 /// 1. 正式产物已存在 → 先整体验签：通过即视为已下载（幂等返回），失败则删除待重下；
 /// 2. 下载全程写入 `.part`（每 chunk 写盘、上报进度、检查 `cancel`）；
-/// 3. 下载完成对 `.part` 整读校验（sha256 必验；`signature` 非空再验 minisign 签名），
+/// 3. 下载完成对 `.part` 整读校验（签名必填 → sha256 必验 → minisign 签名验证），
 ///    失败删除 `.part`；
 /// 4. 校验通过 `rename` 为正式产物（跨目录，同 temp 卷内原子；同名残留已在步骤 1 处理）。
 ///
@@ -140,6 +140,7 @@ pub async fn download(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::service::update::verify::test_keys;
     use sha2::{Digest, Sha256};
     use std::sync::atomic::AtomicBool;
     use std::thread::JoinHandle;
@@ -169,11 +170,14 @@ mod tests {
     }
 
     /// 构造 artifact（url 指向 mock 服务器或不可达端口；url 文件名 = 产物名）
+    ///
+    /// 签名用**测试构建的有效密钥对**（[`test_keys`]）真实签出：主包产物签名必填，
+    /// 空签名会在校验入口被直接拒绝（回归用例见 `download_rejects_unsigned_artifact`）。
     fn artifact_for(url: &str, body: &[u8], sha256: Option<&str>) -> Artifact {
         Artifact {
             url: Url::parse(url).unwrap(),
             sha256: sha256.unwrap_or(&hex::encode(Sha256::digest(body))).to_string(),
-            signature: String::new(), // 测试仅覆盖 sha256 路径（签名路径同 verify.rs 已测）
+            signature: test_keys::sign(body),
             size: body.len() as u64,
         }
     }
@@ -285,6 +289,37 @@ mod tests {
             assert!(
                 !expect_package_path("sha256").exists(),
                 "校验失败不应留下正式产物"
+            );
+
+            server.handle.join().unwrap();
+        });
+    }
+
+    /// 回归：**空签名产物必须被拒绝**（fail closed，不得"跳过验签只比 sha256"）
+    ///
+    /// 背景：清单落盘缓存且优先于网络；若允许空签名跳过 minisign，改写缓存的人只需把
+    /// `sha256` 换成自己产物的哈希、`signature` 清空，即可让任意 exe 通过校验并被安装。
+    #[test]
+    fn download_rejects_unsigned_artifact() {
+        tauri::async_runtime::block_on(async {
+            let body = b"unsigned payload".to_vec();
+            let server = MockServer::spawn_bytes("unsigned", body.clone(), 200);
+            let cancel = AtomicBool::new(false);
+            let artifact = Artifact {
+                signature: String::new(),
+                ..artifact_for(&server.url, &body, None)
+            };
+
+            let err = download(&artifact, &cancel, |_| {})
+                .await
+                .expect_err("空签名应被拒绝");
+            assert!(
+                err.chain().any(|c| c.to_string().contains("缺少产物签名")),
+                "错误链应指出签名缺失: {err:?}"
+            );
+            assert!(
+                !expect_package_path("unsigned").exists(),
+                "签名缺失不得留下正式产物"
             );
 
             server.handle.join().unwrap();
