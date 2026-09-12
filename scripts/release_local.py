@@ -8,8 +8,9 @@
         [--serve-base <url>]
 
 流程:
-    1. build_local：构建 Tauri 应用并打包 setup 安装包（.sig 自动）与便携版 zip
-       （tauri signer sign 手动签名）；版本号文件临时更新后 git 还原（不提交）；
+    1. build_local：构建 Tauri 应用，把 setup 安装包 / 便携版 zip / develop 直更 zip
+       全部打包并**重命名为最终名字**，再依次调 tauri signer sign 手动签名；版本号
+       文件临时更新后 git 还原（不提交）；
     2. publish_local：在产物目录生成 latest-develop.json（v2 结构）与 versions.json。
 
 签名密钥从环境变量 TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD
@@ -75,10 +76,10 @@ def main() -> None:
     except version_mod.VersionError as e:
         fail(str(e))
 
-    # 0. 签名环境变量缺失时提前报错（tauri 自动签名与 signer sign 都依赖）
+    # 0. 签名环境变量缺失时提前报错（本次构建所有产物签名都经 tauri signer sign）
     signer.ensure_signing_env()
 
-    # 1. 构建打包（版本文件临时更新并还原；setup/portable 签名）
+    # 1. 构建打包（版本文件临时更新并还原；产物重命名为最终名字后依次签名）
     full_version, out_dir = build(args.version, args.target, Path(args.output_dir))
 
     # 2. 生成联调清单（latest-develop.json + versions.json）
