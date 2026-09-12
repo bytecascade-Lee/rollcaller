@@ -8,13 +8,15 @@
 版本号可带 v 也可不带，例如: v0.1.0-beta.2 或 0.1.0-rc.1。
 target 支持简化别名与 all（--target all = x86_64 + arm64，缺省为本机默认架构）。
 
-签名（本脚本只管构建，清单由 publish_local.py 负责）：
-- setup 安装包的 .sig 由 tauri bundler（createUpdaterArtifacts）构建时自动生成；
-- portable zip 打包后调用 tauri signer sign 手动签名，产出 zip.sig；
-- develop 直更 zip（debug exe 打成 zip，供 AppMode::Develop 自更新演练）同样
-  调用 tauri signer sign 签名，产出 develop.zip.sig；
-- 都依赖环境变量 TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-  （缺失即报错退出，见 common/signer.py）。密钥不落代码、不进配置。
+签名（本脚本只管构建，清单由 publish_local.py 负责）——**分两步，先打包重命名、后签名**：
+1. 先把 setup.exe / 便携版 portable.zip / develop 直更 zip（debug exe 打成 zip，供
+   AppMode::Develop 自更新演练）全部由 packager 打包到产物目录，名字即最终发布名；
+2. 打包全部完成后，再依次对它们调 tauri signer sign 手动签名，产出同名 .sig。
+
+之所以不再让 tauri bundler 在构建期签名（tauri.conf.json5 的 createUpdaterArtifacts
+置 false），是让签名对象确定为"最终名字的最终字节"，签名与重命名不再互相穿插。
+签名依赖环境变量 TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+（缺失即报错退出，见 common/signer.py）。密钥不落代码、不进配置。
 
 版本号处理：构建前自动调用 update_version.py 临时把版本文件与 uv.lock 更新为
 传入版本号，构建完成后还原（不提交）。版本文件工作区不干净时直接报错，
@@ -63,8 +65,13 @@ def build_targets(
     release_version: str,
     full_version: str,
     out_dir: Path,
-) -> None:
-    """对每个 target 依次构建并打包（含 portable zip 手动签名）。"""
+) -> list:
+    """对每个 target 依次构建并打包（**只打包重命名，不签名**）。
+
+    Returns: 本次各 target 的 setup.exe 与 portable.zip 路径（均已重命名为最终名字）；
+    签名由 [`build`] 在全部产物就位后统一依次执行。
+    """
+    artifacts = []
     cli_label, cli_cmd = tauri_cli.resolve(ROOT)
     for t in target_list:
         arch = packager.arch_for_target(t)
@@ -73,12 +80,9 @@ def build_targets(
             # VERSION 被 backend/build.rs 读取并嵌入二进制；签名密钥已由调用方注入环境
             env_overrides={"VERSION": release_version},
         )
-        setup = packager.package_setup(release_dir, full_version, arch, out_dir)
-        portable = packager.package_portable(release_dir, full_version, arch, out_dir)
-        signer.sign_artifact(portable, ROOT)
-        for artifact in (setup, portable):
-            size_mb = artifact.stat().st_size / 1024 / 1024
-            log("INFO", f"已生成: {artifact} ({size_mb:.1f} MB)")
+        artifacts.append(packager.package_setup(release_dir, full_version, arch, out_dir))
+        artifacts.append(packager.package_portable(release_dir, full_version, arch, out_dir))
+    return artifacts
 
 
 def host_arch() -> str:
@@ -88,7 +92,7 @@ def host_arch() -> str:
 
 
 def build_develop(release_version: str, full_version: str, out_dir: Path) -> Path:
-    """cargo build(debug) 产出 rollcaller.exe，打包为 develop 直更 zip（含签名）。
+    """cargo build(debug) 产出 rollcaller.exe，打包为 develop 直更 zip（**不签名**）。
 
     develop 载荷服务于 AppMode::Develop 的直更演练：产物 zip 内为 debug 构建的 exe，
     **zip 内文件名是 packager.DEVELOP_UPDATE_BIN_NAME**（不是 rollcaller.exe）——cargo 的
@@ -112,9 +116,8 @@ def build_develop(release_version: str, full_version: str, out_dir: Path) -> Pat
 
     debug_dir = BACKEND / "target" / "debug"
     zip_path = packager.package_develop(debug_dir, full_version, arch, out_dir)
-    signer.sign_artifact(zip_path, ROOT)
     size_mb = zip_path.stat().st_size / 1024 / 1024
-    log("INFO", f"[develop] 已生成直更产物: {zip_path} ({size_mb:.1f} MB)")
+    log("INFO", f"[develop] 已打包直更产物: {zip_path.name} ({size_mb:.1f} MB)")
     return zip_path
 
 
@@ -124,6 +127,8 @@ def build(
     output_dir: Path = None,
 ) -> tuple:
     """本地构建打包（供 release_local.py 统筹调用，也可独立运行）。
+
+    先打包并重命名为最终名字，再依次签名（见模块 docstring 的签名说明）。
 
     Returns:
         (full_version, out_dir)：full_version = `<版本号>+<构建信息>`，
@@ -163,9 +168,15 @@ def build(
     try:
         # 构建前统一由 update_version.py 更新版本号（不提交）
         update_version.sync(release_version)
-        build_targets(target_list, release_version, full_version, out_dir)
-        # develop 直更产物（cargo build debug → develop zip + 签名）
-        build_develop(release_version, full_version, out_dir)
+        # 1. 全部产物打包并重命名为最终名字（此阶段不签名）
+        artifacts = build_targets(target_list, release_version, full_version, out_dir)
+        # develop 直更产物（cargo build debug → develop zip，同样只打包不签名）
+        artifacts.append(build_develop(release_version, full_version, out_dir))
+        # 2. 产物就位后依次签名：清单里的 signature/sha256/size 均按最终文件名与最终字节记录
+        for artifact in artifacts:
+            signer.sign_artifact(artifact, ROOT)
+            size_mb = artifact.stat().st_size / 1024 / 1024
+            log("INFO", f"已生成并签名: {artifact.name} ({size_mb:.1f} MB)")
     finally:
         git.restore_files(version_files, cwd=ROOT)
         log("INFO", "已用 git 还原版本号文件（未提交）")
