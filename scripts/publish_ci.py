@@ -231,7 +231,7 @@ def collect_assets(assets_dir: Path, release_version: str) -> tuple[list, dict]:
     Returns:
         files:      待上传附件列表（仅 .exe/.zip，不含 .sig）
         signatures: {arch: {"nsis": setup .sig 全文, "portable": zip .sig 全文}}，
-                    缺失任一签名视为构建缺陷，直接报错
+                    缺失或为空均视为构建缺陷，直接报错（非空校验见 manifest.read_sig_text）
     """
     files = sorted(
         p for p in assets_dir.iterdir()
@@ -262,10 +262,14 @@ def collect_assets(assets_dir: Path, release_version: str) -> tuple[list, dict]:
                 f"rollcaller-{release_version}-windows-{arch}-portable.zip.sig，"
                 f"实际 {len(portable_sigs)} 个: {[p.name for p in portable_sigs]}"
             )
-        signatures[arch] = {
-            "nsis": nsis_sigs[0].read_text(encoding="utf-8").strip(),
-            "portable": portable_sigs[0].read_text(encoding="utf-8").strip(),
-        }
+        try:
+            signatures[arch] = {
+                "nsis": manifest.read_sig_text(nsis_sigs[0]),
+                "portable": manifest.read_sig_text(portable_sigs[0]),
+            }
+        except ValueError as e:
+            # 非空签名校验收口在 manifest.read_sig_text（与 publish_local 共用）
+            fail(str(e))
     return files, signatures
 
 
