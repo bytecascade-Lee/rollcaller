@@ -65,13 +65,26 @@ pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow
     };
     let config_path = paths::updater_config(&AppMode::Portable, from, to);
 
+    // 备份落点：temp/update/backup/portable-backup-{from}-to-{to}-{uuid前6位}。
+    // 位于 data 树内，因而同时命中 backup.exclude 与 update.preserve（见 compose_config 注释）；
+    // 目录不必预建，Go updater 复制前会自行 MkdirAll。
+    let backup_dir = paths::backup(&AppMode::Portable, from, to);
+
     // 5. 组装并写入 config
     // 父目录 temp/update/config 由本处确保存在：fs::write 不创建父目录，而该目录不属
     // bootstrap 预建的应用目录（只建到 temp_dir 顶层），无人代建
     if let Some(parent) = config_path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新配置目录失败（{}）：{e}", parent.display()))?;
     }
-    let config = compose_config(std::process::id(), &source_dir, &target_dir, &data_dir, &exe_path, &log_file);
+    let config = compose_config(
+        std::process::id(),
+        &source_dir,
+        &target_dir,
+        &data_dir,
+        &backup_dir,
+        &exe_path,
+        &log_file,
+    );
     std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)
         .map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", config_path.display()))?;
 
@@ -85,29 +98,46 @@ pub fn install_portable(_zip_path: &Path, _from: &Version, _to: &Version) -> any
     anyhow::bail!("便携版安装仅支持 Windows")
 }
 
-/// 组装 Go updater 的完整 config JSON（字段与默认值对齐 config.schema.json；写全）
+/// 组装 Go updater 的完整 config JSON（config version 3；字段与默认值对齐 config.schema.json，写全）
 ///
 /// - 路径统一转正斜杠（免 JSON 转义，schema 两者皆收）；
-/// - `wait.pid` = 当前应用进程 PID（updater 等待本进程 `exit(0)` 退出）；
+/// - `wait.pids` = 当前应用进程 PID（updater 等待本进程 `exit(0)` 退出）；version 3 只认
+///   `pids`（数组），写 `pid` 会被 loader 拒绝；
 /// - `preserve` / `backup.exclude` = 用户数据目录（替换 target 时保留 data）；
-/// - `backup.location` 留空 = Go updater 自动生成（target 兄弟目录 + 时间戳）；
-/// - `stayAlive: 0` = 启动新进程后更新器分离退出。
+/// - `backup.location` = [`paths::backup`]（`temp/update/backup/portable-backup-{from}-to-{to}-{uuid前6位}`）。
+///   该落点位于 `data` 树内（Portable 的 `temp_dir` = `exe_dir/data/temp`），因而**同时**命中
+///   `backup.exclude` 与 `preserve` 两条 `data_dir` 条目 —— 前者使备份遍历在 `data` 处短路、
+///   不会把备份写进自己正在遍历的源树，后者使清理阶段跳过整棵 `data`、备份不会刚做完就被删除。
+///   Go updater 的 loader 正是按这两条放行"位于 target 内的备份落点"，运行时记一条非致命告警；
+///   `cleanupOnSuccess: false` = 更新成功后保留备份，留作人工确认/回滚；
+/// - `stayAlive: 0` = 启动新进程后更新器分离退出；
+/// - `runtime.log.file` + `runtime.log.level.{console,file}`：version 3 的日志形态（路径与级别
+///   均收在 `runtime.log` 下），两路级别显式写 `info`，与此前仅有单路 `logFile` 时的实际级别一致；
+/// - `captureOutput: false`（分离启动下该字段本就不会被读），`captureFormat` / `captureToFile`
+///   当前亦无实际作用，一并显式写出默认值——本函数的约定是「字段写全，默认值也显式给出」。
 fn compose_config(
     pid: u32,
     source_dir: &Path,
     target_dir: &Path,
     data_dir: &Path,
+    backup_dir: &Path,
     exe_path: &Path,
     log_file: &Path,
 ) -> serde_json::Value {
     json!({
-        "version": 1,
+        "version": 3,
         "runtime": {
             "headless": false,
-            "logFile": path_utils::to_slash(log_file),
+            "log": {
+                "file": path_utils::to_slash(log_file),
+                "level": {
+                    "console": "info",
+                    "file": "info",
+                },
+            },
         },
         "wait": {
-            "pid": pid,
+            "pids": [pid],
             "timeout": 10000,
             "forceKill": true,
             "interval": 500,
@@ -119,8 +149,9 @@ fn compose_config(
             "cleanBeforeCopy": true,
             "backup": {
                 "enabled": true,
-                "location": "",
+                "location": path_utils::to_slash(backup_dir),
                 "exclude": [path_utils::to_slash(data_dir)],
+                "cleanupOnSuccess": false,
             },
         },
         "launch": {
@@ -136,6 +167,8 @@ fn compose_config(
             "lifecycle": {
                 "stayAlive": 0,
                 "captureOutput": false,
+                "captureFormat": "log",
+                "captureToFile": true,
             },
         },
         "rollback": {
