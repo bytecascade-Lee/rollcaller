@@ -120,7 +120,11 @@ def publish(
     out_dir = out_dir or versions_index.pick_version_dir(local_root, release_version)
     log("INFO", f"清单目标目录: {out_dir}")
 
-    payloads = build_payloads(out_dir, release_version, serve_base)
+    try:
+        payloads = build_payloads(out_dir, release_version, serve_base)
+    except ValueError as e:
+        # manifest 侧对缺失/为空的签名抛 ValueError（见 read_sig_text），此处转为统一错误输出
+        fail(str(e))
 
     notes = f"本地测试发布 {out_dir.name}"
     latest = manifest.build_latest_json(
