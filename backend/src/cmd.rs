@@ -8,4 +8,5 @@ pub mod record;
 pub mod rollcall;
 pub mod student;
 pub mod tts;
+pub mod update;
 pub mod windows;

@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-CI 构建脚本：在 CI 中构建并打包 Tauri 应用（构建、安装包/便携版与签名收集）。
+CI 构建脚本：在 CI 中构建并打包 Tauri 应用（setup 安装包 + 便携版 zip，均带签名）。
 
-发布（GitHub Release + CNB Release + 自动更新清单）统一由 scripts/publish.py 负责，
+发布（GitHub Release + CNB Release + 自动更新清单）统一由 scripts/publish_ci.py 负责，
 本脚本只负责构建产物。
+
+签名（TAURI_SIGNING_PRIVATE_KEY(_PASSWORD)，由 workflow secrets 注入，缺失报错）：
+**先打包重命名为最终名字，再依次签名**——setup.exe 与 portable.zip 均由 packager
+打包就位后，逐个交由 common/signer.py 调 tauri signer sign 签名。bundler 侧不再
+构建期签名（tauri.conf.json5 的 createUpdaterArtifacts = false）。
 
 版本号来源（GitHub Actions 环境变量，由脚本统一提取与校验，而非在 workflow 中
 用 PowerShell 重复实现）：
@@ -12,7 +17,7 @@ CI 构建脚本：在 CI 中构建并打包 Tauri 应用（构建、安装包/�
 等级校验（min_level="rc"）：放行 rc 及以上，禁止 alpha/beta。
 
 用法:
-    uv run python scripts/release_ci.py build --target <target>
+    uv run python scripts/build_ci.py build --target <target>
 """
 
 import argparse
@@ -20,7 +25,7 @@ import os
 from pathlib import Path
 
 import update_version
-from common import builder, packager, targets, tauri_cli, version
+from common import builder, packager, signer, targets, tauri_cli, version
 from common.logger import log
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -62,6 +67,9 @@ def cmd_build(target: str) -> None:
     arch = packager.arch_for_target(full_target)
     log("INFO", f"版本号: {release_version} | arch: {arch} | target: {full_target}")
 
+    # 签名环境变量由 workflow secrets 注入；缺失提前报错（所有产物签名均经 signer sign）
+    signer.ensure_signing_env()
+
     # 构建前把 5 个版本文件更新为发布版本，使 tauri.conf.json5 与 tag/input 一致。
     # CI 环境随 job 销毁，无需还原。
     update_version.sync(release_version)
@@ -77,8 +85,12 @@ def cmd_build(target: str) -> None:
         env_overrides={"VERSION": release_version, "BRANCH_NAME": "master"},
     )
     # CI 产物直接输出到工作区根目录，供 upload-artifact 收集
-    packager.package_setup(release_dir, release_version, arch, ROOT)
-    packager.package_portable(release_dir, release_version, arch, ROOT)
+    setup = packager.package_setup(release_dir, release_version, arch, ROOT)
+    portable = packager.package_portable(release_dir, release_version, arch, ROOT)
+    # 两者均已重命名为最终名字 → 依次签名（生成 setup.exe.sig / portable.zip.sig，
+    # 随 artifact 传递，发布时仅 base64 嵌清单、不上传为附件）
+    for artifact in (setup, portable):
+        signer.sign_artifact(artifact, ROOT)
 
 
 def main() -> None:

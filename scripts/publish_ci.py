@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """
-统一发布脚本：发布 GitHub Release，并把 Release 与自动更新清单同步到 CNB。
+统一发布脚本（CI）：发布 GitHub Release，并把 Release 与自动更新清单同步到 CNB。
 
-取代原 release_ci.py 的 publish 子命令与 sync_cnb.py：
-    1. 从 CI 环境提取并校验版本号（复用 release_ci.ci_version）
+取代原 release_ci.py 的 publish 子命令与 sync_cnb.py；清单/版本索引构造与本地发布共用
+common.manifest / common.versions_index，两端结构完全一致：
+    1. 从 CI 环境提取并校验版本号（复用 build_ci.ci_version）
     2. 从 RELEASE_NOTES.md 提取对应章节作为发布说明（草稿时为占位内容）
-    3. 收集构建产物 .sig 签名，一次生成 latest-github.json 与 latest-cnb.json
-       （同一份 latest.json 模板，仅附件 URL 指向各自平台的附件直链）
-    4. 发布 GitHub Release（gh cli）：2 setup + 2 portable + latest-github.json
-    5. 发布 CNB Release（cnb cli）：2 setup + 2 portable + latest-cnb.json
+    3. 收集构建产物与 .sig 签名（setup/portable 均含），一次生成 latest-github.json 与
+       latest-cnb.json（v2 结构，仅附件 URL 指向各自平台的附件直链；severity 取自仓库
+       维护的 resources/update/versions.json）。.sig 不发布为附件，仅 base64 嵌进清单
+    4. 生成 versions.json 索引附件（版本号 → severity，随双平台 Release 发布，
+       客户端据此做坏版本/历史严重级别检测）
+    5. 发布 GitHub Release（gh cli）：2 setup + 2 portable + latest-github.json + versions.json
+    6. 发布 CNB Release（cnb cli）：2 setup + 2 portable + latest-cnb.json + versions.json
        - 先等待 sync-mirrors 把 tag 同步到 CNB（dispatch 触发的 tag 需时间推送）
        - tag 已有 Release 则更新（patch），否则创建（post）
        - 支持 --draft 与预发布标记（rc 等不置为 latest）
@@ -21,7 +25,7 @@
     DRAFT_RELEASE     为 "true" 时 GitHub/CNB 均发布为草稿
 
 用法:
-    uv run python scripts/publish.py [--assets-dir assets]
+    uv run python scripts/publish_ci.py [--assets-dir assets]
 """
 
 import argparse
@@ -38,18 +42,18 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from common import version
+from build_ci import ci_version
+from common import manifest, version, versions_index
 from common.logger import log
-from release_ci import ci_version
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# latest.json 平台键 → 产物文件名中的架构标识
-ASSET_ARCH_MAP = {"windows-x86_64": "x86_64", "windows-aarch64": "arm64"}
-# 发布为 Release 附件的文件类型（.sig 签名文件不发布）
+# 发布为 Release 附件的文件类型（.sig 签名文件不发布，只嵌清单）
 ASSET_SUFFIXES = (".exe", ".zip")
 # 等待 sync-mirrors 把 tag 同步到 CNB 的超时（秒）
 CNB_TAG_SYNC_TIMEOUT = 300
+# 版本索引源文件（仓库维护，发布期唯一标定 severity 的地方）
+VERSIONS_INDEX_PATH = ROOT / "resources" / "update" / "versions.json"
 
 
 def fail(message: str) -> None:
@@ -221,31 +225,14 @@ def extract_release_notes(version: str) -> str:
     return "\n".join(body).rstrip() + "\n"
 
 
-def build_latest_json(release_version: str, notes: str, signatures: dict, make_url) -> dict:
-    """生成自动更新清单。
-
-    同一结构同时用于 latest-github.json 与 latest-cnb.json，仅附件 URL 不同：
-    make_url(asset_name) 返回该平台下的附件直链。
-    """
-    platforms = {}
-    for arch, sig in signatures.items():
-        asset = f"rollcaller-{release_version}-windows-{arch}-setup.exe"
-        platform_key = "windows-aarch64" if arch == "arm64" else f"windows-{arch}"
-        platforms[platform_key] = {
-            "signature": sig,
-            "url": make_url(asset),
-        }
-    pub_date = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    return {
-        "version": release_version,
-        "notes": notes,
-        "pub_date": pub_date,
-        "platforms": platforms,
-    }
-
-
 def collect_assets(assets_dir: Path, release_version: str) -> tuple[list, dict]:
-    """收集安装包/便携版（4 个）与 .sig 签名（2 个，仅用于生成 latest.json，不发布）。"""
+    """收集安装包/便携版（4 个，发布为附件）与签名（setup/portable 各 2 个，仅嵌清单）。
+
+    Returns:
+        files:      待上传附件列表（仅 .exe/.zip，不含 .sig）
+        signatures: {arch: {"nsis": setup .sig 全文, "portable": zip .sig 全文}}，
+                    缺失或为空均视为构建缺陷，直接报错（非空校验见 manifest.read_sig_text）
+    """
     files = sorted(
         p for p in assets_dir.iterdir()
         if p.is_file() and p.suffix.lower() in ASSET_SUFFIXES
@@ -257,17 +244,69 @@ def collect_assets(assets_dir: Path, release_version: str) -> tuple[list, dict]:
         )
     signatures = {}
     for arch in ("x86_64", "arm64"):
-        sig_files = sorted(
+        nsis_sigs = sorted(
             assets_dir.glob(f"rollcaller-{release_version}-windows-{arch}-setup.exe.sig")
         )
-        if len(sig_files) != 1:
+        if len(nsis_sigs) != 1:
             fail(
-                f"缺少 {arch} 的签名文件 "
+                f"缺少 {arch} 的安装包签名 "
                 f"rollcaller-{release_version}-windows-{arch}-setup.exe.sig，"
-                f"实际 {len(sig_files)} 个: {[p.name for p in sig_files]}"
+                f"实际 {len(nsis_sigs)} 个: {[p.name for p in nsis_sigs]}"
             )
-        signatures[arch] = sig_files[0].read_text(encoding="utf-8").strip()
+        portable_sigs = sorted(
+            assets_dir.glob(f"rollcaller-{release_version}-windows-{arch}-portable.zip.sig")
+        )
+        if len(portable_sigs) != 1:
+            fail(
+                f"缺少 {arch} 的便携版签名 "
+                f"rollcaller-{release_version}-windows-{arch}-portable.zip.sig，"
+                f"实际 {len(portable_sigs)} 个: {[p.name for p in portable_sigs]}"
+            )
+        try:
+            signatures[arch] = {
+                "nsis": manifest.read_sig_text(nsis_sigs[0]),
+                "portable": manifest.read_sig_text(portable_sigs[0]),
+            }
+        except ValueError as e:
+            # 非空签名校验收口在 manifest.read_sig_text（与 publish_local 共用）
+            fail(str(e))
     return files, signatures
+
+
+def build_platform_manifests(
+    assets_dir: Path,
+    release_version: str,
+    notes: str,
+    signatures: dict,
+    make_url,
+    severity: str = "normal",
+) -> dict:
+    """生成 v2 结构 latest.json（与本地 publish_local 产出的 latest-develop.json 同构）。
+
+    setup.exe → 新组 nsis（带 minisign 签名），portable.zip → 新组 portable（zip.sig 签名）；
+    signature 直接取 `.sig` 全文（tauri signer ≥2.11 已含 base64(minisign 文本)，不再二次编码）。
+    """
+    payloads = {}
+    for arch in ("x86_64", "arm64"):
+        asset = f"rollcaller-{release_version}-windows-{arch}"
+        setup = assets_dir / f"{asset}-setup.exe"
+        portable = assets_dir / f"{asset}-portable.zip"
+        if not setup.is_file():
+            fail(f"缺少安装包 {setup.name}，无法生成 {release_version} 的清单")
+        sigs = signatures[arch]
+        payloads[arch] = {
+            "nsis": manifest.build_artifact(make_url(setup.name), setup, sigs["nsis"]),
+        }
+        if portable.is_file():
+            payloads[arch]["portable"] = manifest.build_artifact(
+                make_url(portable.name), portable, sigs["portable"]
+            )
+    return manifest.build_latest_json(
+        version=release_version,
+        notes=notes,
+        severity=severity,
+        payloads=payloads,
+    )
 
 
 def github_release_commitish(tag: str) -> str:
@@ -348,6 +387,17 @@ def publish_cnb(release_version: str, tag: str, notes_path: Path, cnb_repo: str,
     log("INFO", f"CNB Release 同步完成: https://cnb.cool/{cnb_repo}/-/releases/tag/{tag}")
 
 
+def load_index() -> dict:
+    """读取仓库维护的版本索引源文件（resources/update/versions.json）。
+
+    Returns: {版本号: severity}（severity 缺失按 normal 兜底）。源文件缺失视为发布事故。
+    """
+    try:
+        return versions_index.read_entries(VERSIONS_INDEX_PATH)
+    except versions_index.VersionIndexError as e:
+        fail(str(e))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="发布 GitHub Release 并同步 CNB Release")
     parser.add_argument("--assets-dir", default="assets", help="构建产物目录（默认 assets）")
@@ -371,13 +421,22 @@ def main() -> None:
             fail("缺少 GITHUB_REPOSITORY 环境变量")
         cnb_repo = os.environ.get("CNB_REPO", "ordinary-glory/rollcaller")
 
-        # 一次生成两个自动更新清单（同一模板，附件 URL 指向不同平台）
+        # 读取版本索引：标定当前版本的 severity，并生成随 Release 发布的 versions.json
+        index = load_index()
+        severity = index.get(release_version)
+        if severity is None:
+            log("WARN", f"versions.json 未标定 {release_version}，本次按 severity=normal 发布；"
+                        f"如需标定重要/紧急级别，请先在 {VERSIONS_INDEX_PATH} 中添加")
+            severity = "normal"
+
+        # 一次生成两个自动更新清单（同一 v2 模板，附件 URL 指向不同平台）
         latest_github = assets_dir / "latest-github.json"
         latest_github.write_text(
             json.dumps(
-                build_latest_json(
-                    release_version, notes, signatures,
+                build_platform_manifests(
+                    assets_dir, release_version, notes, signatures,
                     lambda asset: f"https://github.com/{gh_repo}/releases/download/{tag}/{asset}",
+                    severity,
                 ),
                 ensure_ascii=False, indent=2,
             ),
@@ -387,9 +446,10 @@ def main() -> None:
         latest_cnb = assets_dir / "latest-cnb.json"
         latest_cnb.write_text(
             json.dumps(
-                build_latest_json(
-                    release_version, notes, signatures,
+                build_platform_manifests(
+                    assets_dir, release_version, notes, signatures,
                     lambda asset: f"https://cnb.cool/{cnb_repo}/-/releases/download/{tag}/{asset}",
+                    severity,
                 ),
                 ensure_ascii=False, indent=2,
             ),
@@ -397,12 +457,18 @@ def main() -> None:
         )
         log("INFO", f"已生成 {latest_cnb.name}")
 
+        # 版本索引附件：两平台同名 versions.json，内容一致（无 URL，仅 版本号 → 严重级别）
+        versions_asset = assets_dir / "versions.json"
+        entries = versions_index.build_entries({**index, release_version: severity})
+        versions_index.write_entries(versions_asset, entries)
+        log("INFO", f"已生成 {versions_asset.name}")
+
         # 1. GitHub Release（先）
-        publish_github(release_version, tag, Path(notes_path), files + [latest_github])
+        publish_github(release_version, tag, Path(notes_path), files + [latest_github, versions_asset])
 
         # 2. CNB Release（后）：dispatch 触发的 tag 需等待 sync-mirrors 推送完成
         wait_for_cnb_tag(cnb_repo, tag)
-        publish_cnb(release_version, tag, Path(notes_path), cnb_repo, files + [latest_cnb])
+        publish_cnb(release_version, tag, Path(notes_path), cnb_repo, files + [latest_cnb, versions_asset])
     finally:
         os.unlink(notes_path)
 

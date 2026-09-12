@@ -18,6 +18,10 @@ class PackageError(Exception):
     pass
 
 
+# Develop 直更 zip 内的文件名——**必须与后端常量 `DEVELOP_UPDATE_BIN_NAME` 逐字符一致**。
+DEVELOP_UPDATE_BIN_NAME = "rollcaller-update-from-develop.exe"
+
+
 def arch_for_target(target: Optional[str]) -> str:
     """根据 --target 返回产物命名用的架构标识；未指定时视为 x86_64。"""
     if not target:
@@ -38,12 +42,15 @@ def asset_name(version: str, arch: str, kind: str, ext: str) -> str:
 
 
 def package_setup(release_dir_: Path, version: str, arch: str, out_dir: Path) -> Path:
-    """将 bundle/nsis 下的安装包重命名并拷贝到 out_dir，同时拷贝同名 .sig 签名文件。
+    """将 bundle/nsis 下的安装包重命名为最终产物名并拷贝到 out_dir（**不签名**）。
 
-    启用 createUpdaterArtifacts 后，bundle/nsis 下会多出和安装包同名的
-    `<setup>.sig` 签名文件（供自动更新 latest.json 使用）。该目录不再只有
-    安装包一个文件，检测逻辑按 `*-setup.exe` 精确匹配安装包，签名文件单独处理。
-    签名文件不发布为 Release 附件，仅拷贝到 out_dir 由 CI artifact 传递。
+    只负责"重命名到最终名字"这一步：`.sig` 由调用方在全部产物打包完成后，统一调
+    tauri signer sign 生成（见 common/signer.py）。bundler 侧已不再产 `.sig`
+    （tauri.conf.json5 的 createUpdaterArtifacts = false），故此处也不得拷贝它，
+    否则会与手动签名产物混在同名路径上。
+
+    安装包按 `*-setup.exe` 精确匹配、并要求恰好一个：宁可把异常目录暴露出来，
+    也不猜哪个是本次产物。
     """
     nsis_dir = release_dir_ / "bundle" / "nsis"
     setups = [p for p in nsis_dir.glob("*.exe") if p.name.endswith("-setup.exe")]
@@ -53,18 +60,8 @@ def package_setup(release_dir_: Path, version: str, arch: str, out_dir: Path) ->
             f"bundle/nsis 下应恰好有一个安装包（*-setup.exe），实际有 {len(setups)} 个: {names}"
         )
     out_dir.mkdir(parents=True, exist_ok=True)
-    exe_src = setups[0]
-    sig_src = exe_src.with_suffix(".exe.sig")
     exe_dst = out_dir / asset_name(version, arch, "setup", "exe")
-    # 签名文件与重命名后的安装包同名（rollcaller-<version>-windows-<arch>-setup.exe.sig），
-    # 供 publish.py 生成 latest.json 时按该命名收集
-    sig_dst = exe_dst.with_suffix(".exe.sig")
-    shutil.copy2(exe_src, exe_dst)
-    if not sig_src.exists():
-        raise PackageError(
-            f"bundle/nsis 下缺少自动更新签名文件 {sig_src.name}（请确认 tauri.conf.json5 已启用 createUpdaterArtifacts）"
-        )
-    shutil.copy2(sig_src, sig_dst)
+    shutil.copy2(setups[0], exe_dst)
     return exe_dst
 
 
@@ -86,4 +83,23 @@ def package_portable(release_dir_: Path, version: str, arch: str, out_dir: Path)
                     zf.write(path, path.relative_to(release_dir_).as_posix())
         # 空白文件 portable.mode：不在构建产物中，必须创建并打入
         zf.writestr("portable.mode", b"")
+    return dest
+
+
+def package_develop(debug_dir: Path, version: str, arch: str, out_dir: Path) -> Path:
+    """将 debug 构建的 rollcaller.exe 打包为 Develop 直更 zip。
+
+    用于开发模式（AppMode::Develop）的自更新演练：客户端下载该 zip 校验后解压出目录
+    （内含 `DEVELOP_UPDATE_BIN_NAME` 指定的 debug exe），由 Go updater 以"不清空 target"的 config 写入
+    `backend/target/debug/` 同名文件。**zip 内文件名必须是该常量**（而非 rollcaller.exe）：
+    既与 cargo 产物/IDE 映射的文件区分开（绕开镜像占用），也与后端启动路径同名。
+    签名由调用方执行（signer.sign_artifact）。
+    """
+    exe = debug_dir / "rollcaller.exe"
+    if not exe.is_file():
+        raise PackageError(f"debug 目录下缺少 rollcaller.exe: {debug_dir}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dest = out_dir / asset_name(version, arch, "develop", "zip")
+    with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.write(exe, DEVELOP_UPDATE_BIN_NAME)
     return dest

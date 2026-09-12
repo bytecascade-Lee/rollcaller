@@ -1,9 +1,9 @@
 use directories::ProjectDirs;
 use serde::Serialize;
-use std::env;
 use std::env::current_dir;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
+use std::{env, fmt};
 use tracing::info;
 use ts_rs::TS;
 
@@ -19,6 +19,17 @@ pub enum AppMode {
     Develop,  // 开发模式: ./data
     Portable, // 便携模式: exe_dir/data
     Install,  // 安装模式: 系统规范路径
+}
+
+impl fmt::Display for AppMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            AppMode::Develop => "Develop",
+            AppMode::Portable => "Portable",
+            AppMode::Install => "Install",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 /// 路径结构体
@@ -77,13 +88,40 @@ fn detect_mode() -> AppMode {
     AppMode::Install
 }
 
-/// 获取基础目录
+/// 测试构建的用户数据根：项目 `data/test/{shot_uuid}/`，与开发 / 正式数据完全隔离
+///
+/// - 每次 `cargo test`（一个测试进程）生成一个唯一 uuid 目录，
+/// 进程内所有用例共享该根（模拟真实 app 的共享目录语义）。
+/// - 运行结束 / panic 均**不自动清理**，保留失败现场，单次占用极小，可手动删除。
+/// - 仅数据类目录（config/data/cache/temp/logs）被替换，`mode` 仍为 Develop，`root_dir` / `resources_dir` 等真实资源路径不变。
+#[cfg(test)]
+fn test_data_dir() -> PathBuf {
+    let parent = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("Project root has no parent")
+        .to_path_buf();
+    loop {
+        let path = parent.join(format!("data/test/{}", &uuid::Uuid::new_v4().to_string()[..6]));
+        if !path.exists() {
+            return path;
+        }
+    }
+}
+
+/// 获取用户数据根目录（测试构建：指向 data/test/{uuid} 独占空白根）
+#[cfg(test)]
+fn detect_user_data_dir(mode: AppMode) -> PathBuf {
+    test_data_dir()
+}
+
+/// 获取用户数据根目录
+#[cfg(not(test))]
 fn detect_user_data_dir(mode: AppMode) -> PathBuf {
     match mode {
         // 项目根目录下的 data
         // 此处不能使用 current_exe_dir
         // 因为编译出的二进制文件并不在项目根目录下面
-        AppMode::Develop => PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).parent().unwrap().join("data"),
+        AppMode::Develop => PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("data"),
 
         // 可执行文件目录下的 data
         AppMode::Portable => current_exe_dir().unwrap_or_else(|| PathBuf::from(".")).join("data"),
@@ -100,14 +138,14 @@ fn detect_user_data_dir(mode: AppMode) -> PathBuf {
 
 fn detect_root_dir(mode: AppMode) -> PathBuf {
     match mode {
-        AppMode::Develop => PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).parent().unwrap().to_path_buf(),
+        AppMode::Develop => PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf(),
         AppMode::Portable | AppMode::Install => current_exe_dir().unwrap_or_else(|| PathBuf::from(".")).to_path_buf(),
     }
 }
 
 /// 辅助函数
 fn current_exe_dir() -> Option<PathBuf> {
-    std::env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf()))
+    env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf()))
 }
 
 /// 获取项目/软件根目录

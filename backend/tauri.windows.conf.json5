@@ -1,5 +1,5 @@
 {
-    $schema: "../docs/schema/tauri-config-schema.json",
+    $schema: "../docs/schema/tauri-config.schema.json",
     bundle: {
         active: true,
         targets: [
@@ -17,6 +17,6 @@
                 startMenuFolder: "Rollcaller",
                 displayLanguageSelector: true
             }
-        },
-    },
+        }
+    }
 }
