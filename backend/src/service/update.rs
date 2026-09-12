@@ -125,7 +125,9 @@ pub async fn check(state: &UpdaterState, current_version: &Version) -> anyhow::R
         _ => None,
     };
 
-    let result = state
+    // 闭包内无失败分支（入口守卫已在上方 mutate 中完成），故此处直接上抛而非 unwrap：
+    // 万一后续在闭包内新增失败分支，错误会经 anyhow 传出，不会 panic
+    state
         .mutate(|s| {
             match &outcome {
                 // 命中：产物已就绪 → Downloaded（可续装）；否则 Available（可下载）
@@ -156,9 +158,7 @@ pub async fn check(state: &UpdaterState, current_version: &Version) -> anyhow::R
             }
             Ok(())
         })
-        .map_err(|e| e.to_string());
-
-    Ok(result.unwrap())
+        .map_err(|e| anyhow!(e))
 }
 
 /// 下载已批准产物（编排）
