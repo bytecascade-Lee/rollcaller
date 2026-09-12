@@ -88,13 +88,13 @@ pub fn install_develop(_zip_path: &Path, _from: &Version, _to: &Version) -> anyh
     anyhow::bail!("Develop 直更仅支持 Windows")
 }
 
-/// 组装 develop 直更的完整 config JSON（字段与默认值对齐 config.schema.json；写全）
+/// 组装 develop 直更的完整 config JSON（config version 3；字段与默认值对齐 config.schema.json，写全）
 ///
 /// 与 portable 的关键差异：
 /// - `update.cleanBeforeCopy = false`：**不清空 target**（编译目录，其余中间产物必须保留），
 ///   updater 仅把 source 内文件覆盖写入 target 同名文件；
 /// - `update.backup.enabled = false` 且 `preserve = []`：不备份（target 为编译目录，整目录
-///   备份无意义且巨大）；
+///   备份无意义且巨大），备份子对象的其余字段随之不写；
 /// - `rollback.enabled = false`：不回滚（下载产物已整体验签，覆盖前失败可重试）。
 ///
 /// `launch.lifecycle` 取 `stayAlive = 0`（分离启动，updater 随即退出），**这也是让新实例
@@ -107,9 +107,13 @@ pub fn install_develop(_zip_path: &Path, _from: &Version, _to: &Version) -> anyh
 /// 或看 debug 构建的 `logs/f` 文件日志——注意文件层级别为 WARN）。
 /// `captureOutput = false`：`stayAlive == 0` 时该字段本就不会被读（updater 在分离分支直接
 /// 返回），置 false 仅为表意；且捕获会把子进程输出以**嵌套形态**混进 updater 自己的日志，不宜开启。
+/// `captureFormat` / `captureToFile` 随之无实际作用，显式写出默认值以贯彻本函数「字段写全」的约定。
 ///
 /// 其余（wait / launch / runtime）与 portable 一致：路径统一转正斜杠；
-/// `wait.pid` = 当前应用进程 PID（updater 等待本进程退出后再写入）；
+/// `wait.pids` = 当前应用进程 PID（updater 等待本进程退出后再写入；version 3 只认 `pids`
+/// 数组，写 `pid` 会被 loader 拒绝）；
+/// `runtime.log.file` + `runtime.log.level.{console,file}` = version 3 的日志形态，两路级别显式写
+/// `info`；
 /// `launch.execution.path` = `launch_path`（更新产物落点，见 [`DEVELOP_UPDATE_BIN_NAME`]），
 /// `launch.context.workspace` = target_dir 的上两级（cargo workspace 根）。
 fn compose_config(
@@ -130,13 +134,19 @@ fn compose_config(
     });
 
     json!({
-        "version": 1,
+        "version": 3,
         "runtime": {
             "headless": false,
-            "logFile": path_utils::to_slash(log_file),
+            "log": {
+                "file": path_utils::to_slash(log_file),
+                "level": {
+                    "console": "info",
+                    "file": "info",
+                },
+            },
         },
         "wait": {
-            "pid": pid,
+            "pids": [pid],
             "timeout": 10000,
             "forceKill": true,
             "interval": 500,
@@ -163,6 +173,8 @@ fn compose_config(
             "lifecycle": {
                 "stayAlive": 0,
                 "captureOutput": false,
+                "captureFormat": "log",
+                "captureToFile": true,
             },
         },
         "rollback": {
