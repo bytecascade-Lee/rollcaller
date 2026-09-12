@@ -44,7 +44,7 @@ tracing-core = "0.1.36"
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["fmt", "json"] }
 ts-rs = "12.0"
-semver = "1.0.28"
+semver = { version = "1.0.28", features = ["serde"] }
 url = "2.5.8"
 uuid = { version = "1", features = ["v4"] }
 zip = "8.6"
@@ -53,8 +53,6 @@ minisign-verify = "0.2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2.4"
-tauri-plugin-updater = "2"
-tauri-plugin-process = "2"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.60", features = [
