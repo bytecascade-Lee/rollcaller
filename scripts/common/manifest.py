@@ -11,8 +11,9 @@
     platforms.windows.{x86_64|arm64}.{nsis|portable}.{url, sha256, signature, size}
 
 - signature 直接取 **`.sig` 文件全文**：tauri signer ≥2.11 产出的 `.sig` 本身已是
-  base64(minisign 签名文本，单行)——Rust 侧 base64 解码一次即得四行 minisign 文本再验签；
-  空串表示该产物无签名（下载只验 sha256）。
+  base64(minisign 签名文本，单行)——Rust 侧 base64 解码一次即得四行 minisign 文本再验签。
+  **发布侧一律要求签名非空**（[`read_sig_text`] 对缺失/为空直接报错）：Rust 侧空 signature
+  的语义是"该产物无签名"（只验 sha256、跳过 minisign），不许因漏签名而静默降级。
   > 勿对已是 base64 的 `.sig` 再次编码（曾导致清单 signature 双重 base64、
   > Rust `Signature::decode` 报 InvalidEncoding）；若将来兼容旧版 CLI 的明文多行 `.sig`，
   > 请在读取处自行 base64，而不是在 [`build_artifact`] 里无条件编码。
@@ -49,14 +50,20 @@ def sha256_hex(path: Path) -> str:
 
 
 def read_sig_text(sig_path: Optional[Path]) -> str:
-    """读取 `.sig` 签名文件全文并去除首尾空白；文件缺失/为空返回 ""。
+    """读取 `.sig` 签名文件全文并去除首尾空白；**缺失或为空即报错**（不允许产出无签名清单）。
 
     `.sig` 是 tauri signer ≥2.11 的输出，内容已是 base64(minisign 签名文本)（单行），
     返回值直接作为清单 signature 字段（见 [`build_artifact`]），**无需再次编码**。
+
+    Rust 侧对空 signature 的语义是"该产物无签名"（只验 sha256，跳过 minisign）——漏签名
+    会静默降级成不验签，故发布侧一律要求非空：宁可构建/发布失败，也不下发未签名的清单。
     """
     if not sig_path or not sig_path.is_file():
-        return ""
-    return sig_path.read_text(encoding="utf-8").strip()
+        fail(f"缺少签名文件: {sig_path}（产物必须带签名，清单不允许空 signature）")
+    text = sig_path.read_text(encoding="utf-8").strip()
+    if not text:
+        fail(f"签名文件为空: {sig_path}（产物必须带签名，清单不允许空 signature）")
+    return text
 
 
 def build_artifact(url: str, path: Path, sig_raw: str = "") -> Dict:
