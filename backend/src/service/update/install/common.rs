@@ -158,7 +158,8 @@ pub(in crate::service::update) fn spawn_updater(exec_path: &Path, config_path: &
 ///    （[`find_updater`] 按该命名解析版本号）。
 ///    注：本函数刻意不转 `Artifact` 走标准 verify 管线——落点是持久 cache（非 temp
 ///    packages）、且仅 sha256；**一旦更新器支持 minisign，本函数即废弃**，届时走
-///    标准 Artifact + verify 管线（`verify_artifact_path` 有空签名语义，只填字段、零改动）。
+///    标准 Artifact + verify 管线（需为更新器产物补 `signature` 字段：`verify_artifact_path`
+///    已改为**签名必填、fail closed**，不再有空签名跳过分支）。
 /// 4. 下载到 [`paths::portable_updater_bin`]（url 最后一段），内存收齐后整体校验再落盘
 ///    ——磁盘上从不出现"未校验的正式产物"。
 #[cfg(target_os = "windows")]
@@ -198,6 +199,9 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
                 ARCH.to_string().to_ascii_lowercase()
             )))?
             .to_string(),
+        // 更新器仅发布 sha256、无 minisign 签名：此处刻意留空，并且**只经 verify_sha256** 校验。
+        // 注意：verify_artifact / verify_artifact_path 已改为签名必填（fail closed），
+        // 该产物不得走那两条组合入口（更新器接入 minisign 后再改走标准管线）。
         signature: "".to_string(),
         size: entry["size"].as_u64().context("更新器清单没有字节数")?,
     };
