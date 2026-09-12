@@ -1,5 +1,6 @@
 use jiff::Timestamp;
 use serde::{Deserialize, Deserializer, Serializer};
+use std::str::FromStr;
 
 /// 用于将 `i64` 类型的Unix毫秒时间戳反序列化为 `jiff::Timestamp`
 pub fn deserialize_timestamp_from_millisecond_i64<'de, D>(
@@ -52,6 +53,34 @@ where
         Some(timestamp) => {
             serializer.serialize_some(&timestamp.as_millisecond())
         }
+        None => serializer.serialize_none(),
+    }
+}
+
+pub fn deserialize_optional_timestamp_from_iso_8601<'de, D>(
+    deserializer: D,
+) -> Result<Option<Timestamp>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    // 反序列化为 String（而非借用 &str）：兼容来自 owned Value（serde_json::from_value）的输入；
+    // 非法日期按 None 处理（容错，不阻塞整条清单解析）
+    let opt = Option::<String>::deserialize(deserializer)?;
+    match opt {
+        Some(iso8601) => Ok(Timestamp::from_str(&iso8601).ok()),
+        None => Ok(None),
+    }
+}
+
+pub fn serialize_optional_timestamp_to_iso_8601<S>(
+    opt_timestamp: &Option<Timestamp>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer
+{
+    match opt_timestamp {
+        Some(timestamp) => serializer.serialize_some(&timestamp.to_string()),
         None => serializer.serialize_none(),
     }
 }

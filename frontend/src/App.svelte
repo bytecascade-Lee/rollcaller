@@ -24,14 +24,7 @@
   import RollcallPage from "$pages/RollcallPage.svelte";
   import RecordHistoryPage from "$pages/RecordHistoryPage.svelte";
   import StudentManagementPage from "$pages/StudentManagementPage.svelte";
-  import {
-    ClockCounterClockwiseIcon,
-    DiceFourIcon,
-    GearIcon,
-    ListBulletsIcon,
-    QuestionIcon,
-    UsersIcon
-  } from "phosphor-svelte";
+  import {ClockCounterClockwiseIcon, DiceFourIcon, ListBulletsIcon, QuestionIcon, UsersIcon} from "phosphor-svelte";
   import {AppInfoCommand, WindowsCommand} from "$commands";
   import type {AppInfo} from "$types";
   import {onMount} from "svelte";
@@ -39,6 +32,8 @@
   import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
 
   let APP_INFO = $state<AppInfo>({
+    os: "",
+    arch: "",
     branch: "",
     commit_count: "",
     short_hash: "",
@@ -114,9 +109,12 @@
 
   <footer class="footbar">
     <div>
-      <GearIcon size="14" weight="bold" style="display: none"/>
-      {APP_INFO.version}+{APP_INFO.branch}.{APP_INFO.commit_count}.{APP_INFO.short_hash}#{APP_INFO.commit_time}
+      {APP_INFO.version}+{APP_INFO.branch}.{APP_INFO.commit_count}.{APP_INFO.short_hash}
+      #{APP_INFO.commit_time}
       #{APP_INFO.build_time}
+    </div>
+    <div>
+      {APP_INFO.os}-{APP_INFO.arch}
     </div>
   </footer>
 </div>

@@ -55,12 +55,15 @@ impl DatabasePool {
     async fn create_pool() -> anyhow::Result<RBatis> {
         let rb = RBatis::new();
         #[cfg(debug_assertions)]
-        let db_path = match env::var("DEVELOP_DATABASE_FILENAME") {
-            Ok(env) if !env.is_empty() => app_paths::data_dir().join(env),
-            Ok(_) | Err(_) => {
-                anyhow::bail!("未指定开发环境数据库名称（环境变量 DEVELOP_DATABASE_FILENAME 未设置）")
+        let db_path = {
+            let name = env!("DEVELOP_DATABASE_FILENAME");
+            if !name.is_empty() {
+                app_paths::data_dir().join(name)
+            } else {
+                panic!("DEVELOP_DATABASE_FILENAME not set");
             }
         };
+
         #[cfg(not(debug_assertions))]
         let db_path = app_paths::data_dir().join("sqlite.db");
         match File::create_new(&db_path) {

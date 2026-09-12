@@ -22,3 +22,10 @@ export * from "./TriSwitchState"
 export * from "./TtsMode"
 export * from "./TtsPhase"
 export * from "./TtsQueueItem"
+export * from "./Severity";
+export * from "./UpdateInfo";
+export * from "./UpdateView";
+export * from "./OS";
+export * from "./Arch";
+export * from "./DownloadProgress";
+export * from "./UpdateError";

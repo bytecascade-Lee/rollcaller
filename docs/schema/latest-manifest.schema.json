@@ -1,0 +1,134 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Rollcaller 自动更新清单（latest-*.json，v2）",
+    "description": "自定义自动更新清单 v2 的 JSON Schema，对齐 Rust 侧解析器 `backend/src/common/entity/update.rs::UpdateManifest`（serde camelCase）与发布侧构造器 `scripts/common/manifest.py`（build_latest_json / build_artifact）。三处清单同构：latest-github.json（GitHub 源）、latest-cnb.json（CNB 源）、latest-develop.json（本地联调源，服务 http://localhost:14652）。校验范围说明：Rust 侧对未知字段是**忽略**（无 deny_unknown_fields），本 schema 选择 `additionalProperties: false` 以在发布期尽早暴露字段名拼写错误（如 release_notes / pub_date 之类的 v1 残留）。",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "version",
+        "platforms"
+    ],
+    "properties": {
+        "version": {
+            "description": "目标版本号。必须是 **core 版本号**：不带前导 v、不带 +build（发布脚本会显式拒绝带 + 的版本号）。它必须与版本索引 `versions.json` 指向的版本一致，否则客户端报「版本索引与清单不一致」。模式与 `scripts/common/version.py::VERSION_PATTERN` 逐字符一致。",
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-([0-9A-Za-z.-]+))?(?:\\+([0-9A-Za-z.-]+))?$"
+        },
+        "releaseNotes": {
+            "description": "发布说明（Markdown）。前端直接按 Markdown 渲染；本地联调为固定文案「本地测试发布 <产物目录名>」。",
+            "type": [
+                "string",
+                "null"
+            ]
+        },
+        "publishDate": {
+            "description": "发布时间，ISO 8601 / RFC 3339（UTC）。发布脚本产出形如 `2026-09-11T05:29:58Z`；客户端按 ISO 8601 解析，解析失败按「缺失」处理（不阻塞检查）。",
+            "type": [
+                "string",
+                "null"
+            ],
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+        },
+        "severity": {
+            "description": "严重级别，缺省按 normal。normal=受用户策略（幅度门槛 + 通道）约束；important=豁免幅度门槛；critical=豁免门槛且**强制更新**（用户设 level=Never 也穿透放行）。级别的唯一标定处是仓库的 `resources/update/versions.json`。",
+            "enum": [
+                "normal",
+                "important",
+                "critical"
+            ]
+        },
+        "platforms": {
+            "description": "按操作系统的载荷分组。当前产品只支持 Windows（客户端 `UpdateManifest::get_artifact` 非 Windows 恒返回 None）。",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "windows"
+            ],
+            "properties": {
+                "windows": {
+                    "$ref": "#/definitions/arch"
+                }
+            }
+        }
+    },
+    "definitions": {
+        "arch": {
+            "description": "按 CPU 架构分组。至少出现一个架构（只构建本机架构的本地联调清单通常只有 x86_64）；架构键名与 Rust `Arch` 字段同名（下划线形式，非 camelCase）。",
+            "type": "object",
+            "additionalProperties": false,
+            "anyOf": [
+                {
+                    "required": [
+                        "x86_64"
+                    ]
+                },
+                {
+                    "required": [
+                        "arm64"
+                    ]
+                }
+            ],
+            "properties": {
+                "x86_64": {
+                    "$ref": "#/definitions/payloads"
+                },
+                "arm64": {
+                    "$ref": "#/definitions/payloads"
+                }
+            }
+        },
+        "payloads": {
+            "description": "同一架构下按安装形态分组，至少一种。形态与运行形态 `AppMode` 一一对应：nsis→Install、portable→Portable、develop→Develop。**缺省某形态 = 该形态无产物**，客户端按运行形态取产物，取不到即视为「无更新」（例如 Develop 形态在该版本没有 develop 载荷时不会回退到 nsis）。",
+            "type": "object",
+            "additionalProperties": false,
+            "minProperties": 1,
+            "properties": {
+                "nsis": {
+                    "$ref": "#/definitions/artifact"
+                },
+                "portable": {
+                    "$ref": "#/definitions/artifact"
+                },
+                "develop": {
+                    "$ref": "#/definitions/artifact"
+                }
+            }
+        },
+        "artifact": {
+            "description": "单个下载产物。发布侧四个字段恒写全（`build_artifact` 实算 sha256 与 size、签名取 `.sig` 全文且强制非空）。客户端对主包产物的要求是：**签名必填**（空 signature 直接拒绝，不做任何降级）→ sha256 必验 → minisign 签名验证。",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "url",
+                "sha256",
+                "signature",
+                "size"
+            ],
+            "properties": {
+                "url": {
+                    "description": "产物下载直链。客户端取 url 的**最后一段**作为正式产物文件名（`Artifact::file_name()`），据此寻址「已下载待安装」产物，因此该文件名必须自带版本 / 平台 / 架构等完整信息（如 rollcaller-0.8.0-windows-x86_64-setup.exe）。本地联调源用 http://localhost:14652，其余源为 https。",
+                    "type": "string",
+                    "format": "uri",
+                    "pattern": "^https?://"
+                },
+                "sha256": {
+                    "description": "产物字节的 sha256（十六进制，发布侧产出一律小写）。客户端必验，不匹配即删除产物待重下。",
+                    "type": "string",
+                    "pattern": "^[a-fA-F0-9]{64}$"
+                },
+                "signature": {
+                    "description": "base64(minisign 签名文本)，即 tauri signer 产出的 `.sig` 文件全文——单行、含 `trusted comment:` 等文本内层、**不得二次 base64**（tauri-cli ≥2.11 的 .sig 本身已是该格式）。发布侧对缺失 / 为空的 .sig 直接报错；客户端对空签名直接拒绝。",
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+                },
+                "size": {
+                    "description": "产物字节数。客户端用它做就绪锚点的快速短路判断（先比 size，再整体验签）。",
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                }
+            }
+        }
+    }
+}

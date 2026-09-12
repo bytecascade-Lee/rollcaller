@@ -6,6 +6,8 @@ Git 操作模块：封装常用 git 命令，返回结构化数据
 """
 
 import subprocess
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -18,6 +20,23 @@ class GitError(Exception):
 class NotInRepoError(GitError):
     """不在 Git 仓库中"""
     pass
+
+
+@dataclass
+class CommitInfo:
+    hash: str
+    timestamp: int
+    subject: str = ""
+    body: str = ""
+    short_hash: Optional[str] = None  # 可选，不传则自动计算
+    datatime: Optional[str] = None  # 可选，不传则自动格式化
+
+    def __post_init__(self):
+        if self.short_hash is None:
+            self.short_hash = self.hash[:7]
+
+        if self.datatime is None:
+            self.datatime = datetime.fromtimestamp(self.timestamp).isoformat()
 
 
 def git(args: List[str], cwd: Optional[Path] = None) -> str:
@@ -79,31 +98,33 @@ def get_branch(cwd: Optional[Path] = None) -> str:
     如果处于 detached HEAD 状态，返回 "detached"
     """
     try:
-        branch = git(["rev-parse", "--abbrev-ref", "HEAD"], cwd)
-        if branch == "HEAD":
-            # detached HEAD 状态，尝试获取 tag 或 fallback
+        return git(["symbolic-ref", "--short", "HEAD"], cwd)
+    except GitError:
+        try:
+            tag = git(["describe", "--tags", "--exact-match"], cwd)
+            return f"detached@{tag}"
+        except GitError:
             try:
-                tag = git(["describe", "--tags", "--exact-match"], cwd)
-                return f"detached@{tag}"
-            except GitError:
-                # 没有 tag 指向当前 commit
                 short_hash = get_head_hash(True, cwd)
                 return f"detached@{short_hash}"
-        return branch
-    except GitError:
-        # 某些 edge case 下 rev-parse 返回 HEAD 但实际是 detached
-        # 用 symbolic-ref 再确认一次
-        try:
-            branch = git(["symbolic-ref", "--short", "HEAD"], cwd)
-            return branch
-        except GitError:
-            return "detached"
+            except GitError:
+                return "detached"
 
 
 def get_commit_count(cwd: Optional[Path] = None) -> int:
     """获取当前分支的 commit 总数（从初始提交到 HEAD）"""
     output = git(["rev-list", "--count", "HEAD"], cwd)
     return int(output)
+
+
+def get_description(dirty: bool = True, cwd: Optional[Path] = None) -> Optional[str]:
+    try:
+        args = ["describe", "--tags"]
+        if dirty:
+            args.append("--dirty")
+        return git(args, cwd)
+    except GitError:
+        return None
 
 
 def get_latest_tag(cwd: Optional[Path] = None) -> Optional[str]:
@@ -117,6 +138,15 @@ def get_latest_tag(cwd: Optional[Path] = None) -> Optional[str]:
     if not output:
         return None
     return output.split("\n")[0]
+
+
+def commit_exists(tag: str) -> bool:
+    """检查提交是否存在"""
+    try:
+        git(["rev-parse", tag])
+        return True
+    except GitError:
+        return False
 
 
 def get_tags_since(commit: str, cwd: Optional[Path] = None) -> List[str]:
@@ -187,10 +217,10 @@ def restore_files(files, cwd: Optional[Path] = None) -> None:
 
 
 def get_commit_range(
-    start: Optional[str] = None,
-    end: Optional[str] = None,
+    start: str,
+    end: str,
     cwd: Optional[Path] = None,
-) -> List[dict]:
+) -> List[CommitInfo]:
     """
     获取指定范围的提交记录
 
@@ -201,7 +231,7 @@ def get_commit_range(
 
     Returns:
         提交列表，每个提交包含以下字段：
-            full_hash: 完整 hash
+            hash: 完整 hash
             short_hash: 短 hash
             timestamp: Unix 时间戳
             full_time: ISO 格式时间
@@ -209,13 +239,14 @@ def get_commit_range(
             body: 提交正文
     """
     # 构建范围字符串
-    if start is None:
-        range_spec = "--root" if end is None else end
-    else:
-        range_spec = f"{start}..{end}" if end else f"{start}..HEAD"
+    range_spec = f"{start}..{end}"
+    if start == "root" and end == "HEAD":
+        range_spec = "--root"
+    elif start == "root":
+        range_spec = end
 
     # 使用分隔符解析
-    format_str = "%H%x00%h%x00%ct%x00%ci%x00%s%x00%b%x01"
+    format_str = "%H%x00%ct%x00%s%x00%b%x01"
     cmd = [
         "log",
         range_spec,
@@ -227,22 +258,15 @@ def get_commit_range(
     if not output:
         return []
 
-    commits = []
+    commits: List[CommitInfo] = []
     for block in output.rstrip("\x01").split("\x01"):
         if not block:
             continue
         parts = block.split("\x00")
-        if len(parts) < 6:
+        if len(parts) < 4:
             continue
-        full_hash, short_hash, timestamp, full_time, subject, body = parts[:6]
-        commits.append({
-            "full_hash": full_hash,
-            "short_hash": short_hash,
-            "timestamp": int(timestamp),
-            "full_time": full_time,
-            "subject": subject.strip(),
-            "body": body.strip(),
-        })
+        hash, timestamp, subject, body = parts[:4]
+        commits.append(CommitInfo(hash, int(timestamp), subject, body))
 
-    commits.sort(key=lambda x: x["timestamp"])
+    commits.sort(key=lambda x: x.timestamp)
     return commits

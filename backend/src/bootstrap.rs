@@ -1,5 +1,5 @@
 use crate::config::{app_paths, logger};
-use crate::database::database_bootstrap;
+use crate::database::{database_bootstrap, database_pool};
 use anyhow::{anyhow, Context, Result};
 use std::fs;
 use std::io;
@@ -31,7 +31,20 @@ pub async fn init() -> Result<()> {
     ensure_data_dir_writable()?;
     logger::init();
     database_bootstrap::init().await?;
+    register_exit_hooks();
     Ok(())
+}
+
+/// 注册进程退出前的清理钩子（供更新安装链路 spawn 成功后统一执行）
+///
+/// 当前仅数据库连接池需要显式关闭；单实例锁等资源随进程退出由 OS 自动释放，
+/// 无需注册。
+fn register_exit_hooks() {
+    crate::shutdown_hooks::register(|| async {
+        if let Err(e) = database_pool::close().await {
+            tracing::error!("退出前关闭数据库失败：{e}");
+        }
+    });
 }
 
 /// 创建应用运行所需的全部目录
