@@ -20,8 +20,6 @@ pub async fn run() {
     tauri::Builder::default()
         // 更新管线共享状态（最近一次 check 结果 + 防重入标志）
         .manage(UpdaterState::default())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         .setup(|app| init(app))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
