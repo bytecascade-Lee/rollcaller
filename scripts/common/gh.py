@@ -7,6 +7,7 @@ GitHub CLI 操作模块：封装常用 gh 命令 / REST 请求，返回结构化
 - 失败时抛出异常，由调用方决定如何处理，
 - 命令级日志（`执行: gh …`）由本模块统一打印，调用方只报"业务进展"；批量/循环调用
   可传 log_command=False 关掉，由调用方自己报进度（见 download_run_log）。
+  所有日志输出经 logger.redact 统一脱敏（密钥环境变量 / URL 内嵌凭据 / 敏感查询参数）。
 
 repo 参数统一形如 "owner/repo"，例如 "bytecascade-Lee/rollcaller"。
 
@@ -304,6 +305,7 @@ def create_release(
     title: str,
     notes_file: Path,
     draft: bool = False,
+    prerelease: bool = False,
     files: Iterable[Path] = (),
 ) -> None:
     """
@@ -315,6 +317,8 @@ def create_release(
         title: Release 标题
         notes_file: 说明文件路径
         draft: 是否发布为草稿
+        prerelease: 是否标记为预发布（gh 会同时不置为 latest，与 CNB 侧
+            make_latest=false 语义对齐）
         files: 待上传的附件路径
     Raises:
         GhError: 创建失败（如 Release 已存在）
@@ -327,16 +331,25 @@ def create_release(
     ]
     if draft:
         args.append("--draft")
+    if prerelease:
+        args.append("--prerelease")
     args += [str(p) for p in files]
     gh(args)
 
 
-def edit_release(repo: str, tag: str, title: str, notes_file: Path, draft: bool = False) -> None:
+def edit_release(
+    repo: str,
+    tag: str,
+    title: str,
+    notes_file: Path,
+    draft: bool = False,
+    prerelease: bool = False,
+) -> None:
     """
     更新既有 Release 的标题与说明。
 
-    draft=False 时显式传 --draft=false：重跑时若上一轮发的是草稿、本轮要正式发布，
-    需要这一步把状态改回来（--draft 与 --draft=false 都是幂等的）。
+    draft / prerelease 都显式传布尔值：重跑时若上一轮是草稿/预发布、本轮要转正，
+    需要 --draft=false / --prerelease=false 把状态改回来（正反两个方向都幂等）。
 
     Args:
         repo: "owner/repo"
@@ -344,6 +357,7 @@ def edit_release(repo: str, tag: str, title: str, notes_file: Path, draft: bool 
         title: 新的 Release 标题
         notes_file: 新的说明文件路径
         draft: 期望的草稿状态
+        prerelease: 期望的预发布状态
     """
     gh([
         "release", "edit", tag,
@@ -351,6 +365,7 @@ def edit_release(repo: str, tag: str, title: str, notes_file: Path, draft: bool 
         "--title", title,
         "--notes-file", str(notes_file),
         "--draft" if draft else "--draft=false",
+        "--prerelease" if prerelease else "--prerelease=false",
     ])
 
 
