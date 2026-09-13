@@ -238,14 +238,29 @@ def ensure_github_tag(gh_repo: str, tag: str, sha: str) -> None:
 def publish_github(gh_repo: str, release_version: str, tag: str, notes_path: Path, files: list) -> None:
     """发布 GitHub Release（先），附件含 latest-github.json；已存在则更新（重跑幂等）。"""
     draft = os.environ.get("DRAFT_RELEASE") == "true"
+    prerelease = version.is_prerelease(release_version)
     # tag 已由 ensure_github_tag 就位（create_release 不再需要 --target）；重跑时 Release
-    # 已存在，gh release create 必然失败，所以先探测再决定 create 还是 edit + 覆盖上传
+    # 已存在，gh release create 必然失败，所以先探测再决定 create 还是 edit + 覆盖上传。
+    # prerelease 与 CNB 侧对齐：rc 等预发布不置为 latest
     if gh.release_exists(gh_repo, tag):
-        gh.edit_release(gh_repo, tag, title=release_version, notes_file=notes_path, draft=draft)
+        gh.edit_release(
+            gh_repo, tag,
+            title=release_version,
+            notes_file=notes_path,
+            draft=draft,
+            prerelease=prerelease,
+        )
         gh.upload_release_assets(gh_repo, tag, files)
         log("INFO", f"已更新既有 GitHub Release {tag}（附件覆盖上传）")
         return
-    gh.create_release(gh_repo, tag, title=release_version, notes_file=notes_path, draft=draft, files=files)
+    gh.create_release(
+        gh_repo, tag,
+        title=release_version,
+        notes_file=notes_path,
+        draft=draft,
+        prerelease=prerelease,
+        files=files,
+    )
 
 
 def publish_cnb(release_version: str, tag: str, notes_path: Path, cnb_repo: str, files: list) -> None:
