@@ -33,8 +33,8 @@ impl fmt::Display for AppMode {
 }
 
 /// 路径结构体
-#[derive(Debug)]
-struct AppPaths {
+#[derive(Debug, Serialize)]
+pub struct AppPaths {
     mode: AppMode,
     root_dir: PathBuf,
     config_dir: PathBuf,
@@ -191,6 +191,11 @@ pub fn resources_dir() -> &'static Path {
 /// 获取当前模式
 pub fn current_mode() -> AppMode {
     PATHS.mode
+}
+
+/// 获取路径快照（整体序列化用，如 CLI --app-paths）
+pub fn paths() -> &'static AppPaths {
+    &PATHS
 }
 
 /// 判断是否使用自定义目录 (开发模式或便携模式)
