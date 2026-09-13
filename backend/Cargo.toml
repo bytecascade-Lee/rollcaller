@@ -57,6 +57,7 @@ tauri-plugin-single-instance = "2.4"
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.60", features = [
     "Win32_Foundation",
+    "Win32_System_Console",
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Shell",
 ] }
