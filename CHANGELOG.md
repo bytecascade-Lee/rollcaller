@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 0.8.1
+
+### Added
+
+- 新增 `backend/src/cli.rs` CLI 参数处理模块：
+    - `handle_cli_args` 识别 `-v/--version`、`--build-info`、`--app-paths`、`--mode`，命中即打印并 `exit(0)`，不进入 Tauri 运行时；多参数共存取第一个命中
+    - 新增 `attach_parent_console`，经 `AttachConsole(ATTACH_PARENT_PROCESS)` 附着父进程控制台，解决 GUI 子系统下输出不可见的问题
+    - `app_paths` 新增 `paths()` 返回 `AppPaths` 快照引用，`AppPaths` 改为 pub 并派生 `Serialize`；`main` 在进入 Tauri 运行时前调用
+- 新增 `scripts/common/cnb.py` CNB CLI 封装模块：node 直调 cli 入口规避 Windows `.cmd` shim 问题、`cnb_json` 剥离响应信封并将 errcode 转 `CnbApiError`、tag 探测/创建、Release 创建/更新、附件三步上传，异常层级与 git.py / gh.py 约定一致
+- `scripts/common/gh.py` 新增发布链路封装：`ref_commit_sha` / `create_tag` / `release_exists` / `create_release` / `edit_release` / `upload_release_assets` 统一走 REST API，`gh` / `gh_bytes` 支持 `log_command` 关闭命令级日志
+
+### Changed
+
+- 发布流程显式创建双端 tag：新增 `ensure_github_tag`（已存在时校验指向一致）与 `ensure_cnb_tag`（先给 sync-mirrors 等待窗口，超时改由 CNB API `create-tag` 创建并复核）；两端 tag 均以 `GITHUB_SHA` 为权威目标
+- `publish_github` / `publish_cnb` 改为先探测再 edit + 覆盖上传，发布重跑幂等；`publish_cnb` 移除 `--target-commitish`，常量 `CNB_TAG_SYNC_TIMEOUT` 拆分为 `MIRROR_WAIT_TIMEOUT` / `TAG_CONFIRM_TIMEOUT` / `TAG_POLL_INTERVAL`
+- 发布脚本改用 `common.gh` / `common.cnb` 封装模块，移除内联的 `run_cli` / `run_cnb` / `cnb_json` / `cnb_tag_exists` / `upload_cnb_asset` 等函数；`run_cli` 新增 `tolerate_failure` 供探测类调用
+- `common/logger.py` 新增 `redact()`，`log()` 出口统一脱敏（密钥环境变量值、URL 内嵌凭据、敏感查询参数、`*TOKEN=*` 赋值样式）；`cnb.py` 错误消息经 `_safe_payload` 不再携带预签名地址
+- `gh.create_release` / `edit_release` 支持 `prerelease` 参数，`publish_github` 按 `version.is_prerelease` 标记，与 CNB `make_latest=false` 语义对齐
+- `git` 函数新增命令级日志，与 gh.py / cnb.py 约定一致
+- 新增 `[profile.release]` 配置（codegen-units=1、lto=true、opt-level="s"、strip=true），后端二进制体积减少约 38.4%；windows-sys 新增 `Win32_System_Console` feature
+
+### Fixed
+
+- 修复 workflow_dispatch 发布时 CNB tag 永不同步导致镜像等待 300s 超时的问题：GITHUB_TOKEN 创建的 tag 不产生 push 事件、不唤起 sync-mirrors，改由发布流程显式 ensure tag
+
+---
+
 ## 0.8.0
 
 ### Breaking Changes

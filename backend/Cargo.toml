@@ -57,6 +57,7 @@ tauri-plugin-single-instance = "2.4"
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.60", features = [
     "Win32_Foundation",
+    "Win32_System_Console",
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Shell",
 ] }
@@ -66,6 +67,12 @@ codegen-units = 256
 debug = 1
 lto = false
 opt-level = 0
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
 
 [dev-dependencies]
 minisign = "0.7"

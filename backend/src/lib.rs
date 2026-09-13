@@ -7,6 +7,7 @@ mod bootstrap;
 mod cmd;
 mod common;
 mod config;
+pub mod cli;
 mod database;
 mod repo;
 mod service;

@@ -3,6 +3,7 @@
 Git 操作模块：封装常用 git 命令，返回结构化数据
 
 所有函数均无环境嗅探，失败时抛出异常，由调用方决定如何处理。
+执行的命令行以 INFO 记入日志（gh.py / cnb.py 同此约定）。
 """
 
 import subprocess
@@ -10,6 +11,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
+
+from common.logger import log
 
 
 class GitError(Exception):
@@ -47,6 +50,7 @@ def git(args: List[str], cwd: Optional[Path] = None) -> str:
         NotInRepoError: 不在 git 仓库中
         GitError: 其他 git 错误
     """
+    log("INFO", f"执行: git {' '.join(args)}")
     try:
         result = subprocess.run(
             ["git", *args],
