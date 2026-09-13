@@ -12,6 +12,8 @@ CNB（cnb.cool）CLI 操作模块：封装常用 cnb 命令，返回结构化数
 2. **CNB 的 API 错误不会让进程退出码变为非 0**（实测 get-tag 对不存在的 tag 返回
    errcode=2004002 而 exit code 仍为 0）⇒ 成败只能看响应 JSON 的 errcode，本模块据此
    抛出 CnbApiError，不能依赖 subprocess 的 returncode。
+3. 附件的预签名地址（upload_url / verify_url）内含一次性上传凭据：**只用于请求本身，
+   不进日志、不进错误消息**（日志侧另有 logger.redact 统一脱敏兜底）。
 
 响应信封：cnb cli --verbose 输出 {status, trace, header, contentType, data}，载荷在 data
 中；出错时 data 形如 {errcode, errmsg}。cnb_json() 负责剥壳并把 errcode 转成异常。
@@ -253,6 +255,20 @@ def update_release(
     ])
 
 
+def _safe_payload(data: Any) -> str:
+    """序列化响应用于报错文案，但抹掉其中的 URL。
+
+    预签名地址（upload_url / verify_url）内含一次性上传凭据，泄漏到 CI 日志等于把
+    上传通道交出去，故任何错误消息都不携带它们（见模块 docstring 第 3 条）。
+    """
+    if isinstance(data, dict):
+        data = {
+            key: ("***" if isinstance(value, str) and value.startswith(("http://", "https://")) else value)
+            for key, value in data.items()
+        }
+    return json.dumps(data, ensure_ascii=False)[:300]
+
+
 def upload_release_asset(repo: str, release_id: str, path: Path) -> None:
     """
     上传附件到版本：申请预签名 URL → PUT 文件 → 确认上传。
@@ -278,11 +294,11 @@ def upload_release_asset(repo: str, release_id: str, path: Path) -> None:
         "--ttl", "0",
     ])
     if not isinstance(data, dict):
-        raise CnbError(f"获取附件上传地址失败: {json.dumps(data, ensure_ascii=False)[:300]}")
+        raise CnbError(f"获取附件上传地址失败: {_safe_payload(data)}")
     upload_url = data.get("upload_url")
     verify_url = data.get("verify_url")
     if not upload_url or not verify_url:
-        raise CnbError(f"获取附件上传地址失败: {json.dumps(data, ensure_ascii=False)[:300]}")
+        raise CnbError(f"获取附件上传地址失败: {_safe_payload(data)}")
 
     # 预签名 URL：不带鉴权头直接 PUT 文件内容
     req = urllib.request.Request(
@@ -300,10 +316,10 @@ def upload_release_asset(repo: str, release_id: str, path: Path) -> None:
     except urllib.error.URLError as e:
         raise CnbError(f"上传附件 {path.name} 失败: {e.reason}")
 
-    # 从 verify_url 提取 upload_token / asset_path 并确认
+    # 从 verify_url 提取 upload_token / asset_path 并确认（URL 本身含凭据，不进任何日志）
     segments = [urllib.parse.unquote(s) for s in urllib.parse.urlparse(verify_url).path.split("/") if s]
     if len(segments) < 2:
-        raise CnbError(f"verify_url 无法解析: {verify_url}")
+        raise CnbError(f"verify_url 无法解析，无法提取上传凭据（共 {len(segments)} 段）")
     upload_token, asset_path = segments[-2], segments[-1]
     cnb_json([
         "releases", "post-release-asset-upload-confirmation",
