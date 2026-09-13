@@ -68,6 +68,12 @@ debug = 1
 lto = false
 opt-level = 0
 
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+
 [dev-dependencies]
 minisign = "0.7"
 tiny_http = "0.12"
