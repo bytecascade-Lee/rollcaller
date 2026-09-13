@@ -2,9 +2,11 @@
 """
 GitHub CLI 操作模块：封装常用 gh 命令 / REST 请求，返回结构化数据。
 
-与 git.py 保持相同约定：
+与 git.py / cnb.py 保持相同约定：
 - 所有函数不做环境嗅探、不探测默认仓库（仓库以 "owner/repo" 显式传入），
-- 失败时抛出异常，由调用方决定如何处理。
+- 失败时抛出异常，由调用方决定如何处理，
+- 命令级日志（`执行: gh …`）由本模块统一打印，调用方只报"业务进展"；批量/循环调用
+  可传 log_command=False 关掉，由调用方自己报进度（见 download_run_log）。
 
 repo 参数统一形如 "owner/repo"，例如 "bytecascade-Lee/rollcaller"。
 
@@ -16,17 +18,27 @@ repo 参数统一形如 "owner/repo"，例如 "bytecascade-Lee/rollcaller"。
 - download_run_log(): 下载某个 run 的日志 zip（GitHub 返回 302 → 签名 URL，gh 自动跟随）
 - http_status(): 从 GhError 中解析 HTTP 状态码，便于区分「日志过期 404」等场景
 
+发布链路（与 common/cnb.py 一一对应）：
+- ref_commit_sha(): 解析分支 / 标签 / 提交对应的提交哈希（不存在返回 None）
+- create_tag(): 创建轻量标签指向指定提交
+- release_exists() / create_release() / edit_release() / upload_release_assets()
+
 说明：
 - Actions runs API 的 run 对象里 name 即 workflow 的显示名（Release / Sync Mirrors），
   run_number 是该 workflow 内递增的序号（对应 Actions 页的 Release #N），
   id 是 run 的数据库 ID（下载日志使用的编号，全局唯一）。
+- 发布链路用 REST API（/commits/{ref}、/git/refs、/releases/tags/{tag}）而不是 gh release
+  子命令：状态码语义明确，可直接用 http_status() 区分「不存在」这类预期否定结果。
+  API 建 ref 不会产生 push 事件，因此不会唤起监听 push 的 workflow（sync-mirrors）。
 """
 
 import json
 import re
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
+
+from common.logger import log
 
 _HTTP_STATUS_RE = re.compile(r"HTTP\s+(\d{3})")
 _PAGE_SIZE = 100
@@ -42,16 +54,19 @@ class GhAuthError(GhError):
     pass
 
 
-def gh(args: List[str]) -> str:
+def gh(args: List[str], log_command: bool = True) -> str:
     """
     执行 gh 命令，返回 stdout 字符串（utf-8）。
 
     Args:
         args: gh 子命令参数，如 ["auth", "status"]、["api", "repos/..."]
+        log_command: 是否打印命令级日志（默认打印；循环调用可关掉）
     Raises:
         GhAuthError: gh 未登录
         GhError: 其他 gh 错误
     """
+    if log_command:
+        log("INFO", f"执行: gh {' '.join(args)}")
     try:
         result = subprocess.run(
             ["gh", *args],
@@ -73,13 +88,15 @@ def gh(args: List[str]) -> str:
     return result.stdout.strip()
 
 
-def gh_bytes(args: List[str]) -> bytes:
+def gh_bytes(args: List[str], log_command: bool = True) -> bytes:
     """
     执行 gh 命令，返回原始字节 stdout（用于下载二进制内容）。
 
     Raises:
         GhError: gh 执行失败
     """
+    if log_command:
+        log("INFO", f"执行: gh {' '.join(args)}")
     try:
         result = subprocess.run(
             ["gh", *args],
@@ -223,12 +240,139 @@ def list_runs(repo: str, limit: Optional[int] = None) -> List[Dict]:
     return items
 
 
+def ref_commit_sha(repo: str, ref: str) -> Optional[str]:
+    """
+    解析分支 / 标签 / 提交对应的提交哈希；不存在返回 None。
+
+    用 /commits/{ref} 而不是 /git/refs/tags/{tag}：前者对附注标签也会解析出真实提交，
+    便于与待发布的提交做比对。
+
+    Args:
+        repo: "owner/repo"
+        ref: 分支名 / 标签名 / 提交哈希
+    Raises:
+        GhError: 查询失败（404 除外，404 表示 ref 不存在）
+    """
+    try:
+        data = _api_json(repo, f"commits/{ref}")
+    except GhError as e:
+        if http_status(e) == 404:
+            return None
+        raise
+    sha = data.get("sha")
+    if not sha:
+        raise GhError(f"gh api commits/{ref} 响应缺少 sha 字段")
+    return str(sha)
+
+
+def create_tag(repo: str, tag: str, sha: str) -> None:
+    """
+    创建轻量标签，指向指定提交（refs/tags/<tag>）。
+
+    Args:
+        repo: "owner/repo"
+        tag: 标签名，如 "v0.8.0"
+        sha: 目标提交哈希
+    Raises:
+        GhError: 创建失败（如标签已存在）
+    """
+    gh(["api", _api_url(repo, "git/refs"), "-f", f"ref=refs/tags/{tag}", "-f", f"sha={sha}"])
+
+
+def release_exists(repo: str, tag: str) -> bool:
+    """
+    判断某个标签是否已有 Release（草稿也算）。
+
+    Args:
+        repo: "owner/repo"
+        tag: 标签名，如 "v0.8.0"
+    Raises:
+        GhError: 查询失败（404 除外，404 表示尚无 Release）
+    """
+    try:
+        gh(["api", _api_url(repo, f"releases/tags/{tag}")])
+        return True
+    except GhError as e:
+        if http_status(e) == 404:
+            return False
+        raise
+
+
+def create_release(
+    repo: str,
+    tag: str,
+    title: str,
+    notes_file: Path,
+    draft: bool = False,
+    files: Iterable[Path] = (),
+) -> None:
+    """
+    创建 Release，附件随创建一并上传。
+
+    Args:
+        repo: "owner/repo"
+        tag: 标签名（须已存在，由 create_tag / 外部推送产生）
+        title: Release 标题
+        notes_file: 说明文件路径
+        draft: 是否发布为草稿
+        files: 待上传的附件路径
+    Raises:
+        GhError: 创建失败（如 Release 已存在）
+    """
+    args = [
+        "release", "create", tag,
+        "--repo", repo,
+        "--title", title,
+        "--notes-file", str(notes_file),
+    ]
+    if draft:
+        args.append("--draft")
+    args += [str(p) for p in files]
+    gh(args)
+
+
+def edit_release(repo: str, tag: str, title: str, notes_file: Path, draft: bool = False) -> None:
+    """
+    更新既有 Release 的标题与说明。
+
+    draft=False 时显式传 --draft=false：重跑时若上一轮发的是草稿、本轮要正式发布，
+    需要这一步把状态改回来（--draft 与 --draft=false 都是幂等的）。
+
+    Args:
+        repo: "owner/repo"
+        tag: 标签名
+        title: 新的 Release 标题
+        notes_file: 新的说明文件路径
+        draft: 期望的草稿状态
+    """
+    gh([
+        "release", "edit", tag,
+        "--repo", repo,
+        "--title", title,
+        "--notes-file", str(notes_file),
+        "--draft" if draft else "--draft=false",
+    ])
+
+
+def upload_release_assets(repo: str, tag: str, files: Iterable[Path]) -> None:
+    """
+    上传附件到既有 Release，同名附件覆盖（--clobber）。
+
+    Args:
+        repo: "owner/repo"
+        tag: 标签名
+        files: 待上传的附件路径
+    """
+    gh(["release", "upload", tag, "--repo", repo, "--clobber", *[str(p) for p in files]])
+
+
 def download_run_log(repo: str, run_id: int, dest: Path) -> None:
     """
     下载单个 workflow run 的日志，保存为 zip。
 
     GitHub 的 /actions/runs/{id}/logs 返回 302 到签名 URL，gh api 自动跟随；
     下载完成后校验 zip 魔数，防止空响应伪成功。
+    该函数通常被逐条循环调用，命令级日志交给调用方（log_command=False）。
 
     Args:
         repo: "owner/repo"
@@ -239,7 +383,7 @@ def download_run_log(repo: str, run_id: int, dest: Path) -> None:
         GhError: 下载失败或内容不是 zip（日志过期时消息含 HTTP 404/410）
     """
     dest.parent.mkdir(parents=True, exist_ok=True)
-    data = gh_bytes(["api", _api_url(repo, f"actions/runs/{run_id}/logs")])
+    data = gh_bytes(["api", _api_url(repo, f"actions/runs/{run_id}/logs")], log_command=False)
     if not data.startswith(b"PK\x03\x04"):
         raise GhError(f"run {run_id} 的日志下载结果不是有效的 zip（可能尚未生成完整日志）")
     dest.write_bytes(data)
