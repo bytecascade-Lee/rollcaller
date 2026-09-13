@@ -11,9 +11,13 @@ common.manifest / common.versions_index，两端结构完全一致：
        维护的 resources/update/versions.json）。.sig 不发布为附件，仅 base64 嵌进清单
     4. 生成 versions.json 索引附件（版本号 → severity，随双平台 Release 发布，
        客户端据此做坏版本/历史严重级别检测）
-    5. 发布 GitHub Release（gh cli）：2 setup + 2 portable + latest-github.json + versions.json
-    6. 发布 CNB Release（cnb cli）：2 setup + 2 portable + latest-cnb.json + versions.json
-       - 先等待 sync-mirrors 把 tag 同步到 CNB（dispatch 触发的 tag 需时间推送）
+    5. 两端显式创建 tag（GitHub refs API / cnb git create-tag）：草稿 Release 不会创建 tag，
+       而 CNB 侧 Release 必须挂在 tag 上；且 dispatch 场景下 tag 由本流程现场创建，其 push
+       事件来自 GITHUB_TOKEN（不触发 sync-mirrors），只等镜像必然超时
+    6. 发布 GitHub Release（gh cli）：2 setup + 2 portable + latest-github.json + versions.json
+       - 已存在则改为更新并覆盖附件（重跑幂等）
+    7. 发布 CNB Release（cnb cli）：2 setup + 2 portable + latest-cnb.json + versions.json
+       - 先给 sync-mirrors 一个等待窗口（tag push 触发时它早已同步完毕），超时则主动创建 tag
        - tag 已有 Release 则更新（patch），否则创建（post）
        - 支持 --draft 与预发布标记（rc 等不置为 latest）
 
@@ -50,8 +54,13 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # 发布为 Release 附件的文件类型（.sig 签名文件不发布，只嵌清单）
 ASSET_SUFFIXES = (".exe", ".zip")
-# 等待 sync-mirrors 把 tag 同步到 CNB 的超时（秒）
-CNB_TAG_SYNC_TIMEOUT = 300
+# 先给 sync-mirrors 一个把 tag 镜像到 CNB 的等待窗口（秒）：该 workflow 的排队与执行耗时
+# 不可控（正常 <1 分钟），窗口内出现即认为镜像链路有效；超时则由本脚本主动创建 tag
+MIRROR_WAIT_TIMEOUT = 60
+# 主动创建 tag 后的复核窗口（秒）
+TAG_CONFIRM_TIMEOUT = 60
+# tag 探测的轮询间隔（秒）
+TAG_POLL_INTERVAL = 10
 # 版本索引源文件（仓库维护，发布期唯一标定 severity 的地方）
 VERSIONS_INDEX_PATH = ROOT / "resources" / "update" / "versions.json"
 
@@ -61,8 +70,12 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
-def run_cli(argv: list, label: str) -> subprocess.CompletedProcess:
-    """执行命令行并返回结果；非零退出码直接终止。"""
+def run_cli(argv: list, label: str, tolerate_failure: bool = False) -> subprocess.CompletedProcess:
+    """执行命令行并返回结果；非零退出码默认直接终止。
+
+    tolerate_failure=True 时把非零退出码交给调用方判断（用于"探测类"调用，
+    例如查询尚不存在的 Release / git ref，其失败是预期分支而非错误）。
+    """
     log("INFO", f"执行: {' '.join(argv)}")
     proc = subprocess.run(
         argv,
@@ -72,7 +85,7 @@ def run_cli(argv: list, label: str) -> subprocess.CompletedProcess:
         errors="replace",
         check=False,
     )
-    if proc.returncode != 0:
+    if proc.returncode != 0 and not tolerate_failure:
         fail(f"{label} 失败: {proc.stderr.strip() or proc.stdout.strip()}")
     return proc
 
@@ -132,25 +145,77 @@ def cnb_release_id_by_tag(repo: str, tag: str) -> str | None:
     return None
 
 
-def wait_for_cnb_tag(cnb_repo: str, tag: str, timeout: int = CNB_TAG_SYNC_TIMEOUT) -> None:
-    """等待 sync-mirrors 把 tag 推送到 CNB（dispatch 手动触发的 tag 需要时间同步）。"""
-    token = os.environ.get("CNB_TOKEN", "")
-    url = f"https://cnb:{token}@cnb.cool/{cnb_repo}.git"
+def cnb_api_error(stdout: str) -> str | None:
+    """提取 cnb cli 响应里的 API 层错误文案；成功返回 None。
+
+    CNB 的 API 错误不会让进程退出码非 0（实测 get-tag 对不存在的 tag 返回
+    errcode=2004002 而 exit code 仍为 0），因此错误只能从响应 JSON 判定。
+    """
+    text = stdout.strip()
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        m = re.search(r"\{.*\}", text, re.S)
+        if not m:
+            return f"响应无法解析: {text[:200]}"
+        try:
+            data = json.loads(m.group(0))
+        except json.JSONDecodeError:
+            return f"响应无法解析: {text[:200]}"
+    inner = data.get("data") if isinstance(data, dict) else None
+    if isinstance(inner, dict) and "errcode" in inner:
+        return str(inner.get("errmsg") or inner.get("errcode"))
+    return None
+
+
+def cnb_tag_exists(cnb_repo: str, tag: str) -> bool:
+    """探测 CNB 上是否已有该 tag。
+
+    走 cnb API 而非 `git ls-remote <内嵌 token 的 URL>`：token 不必进 argv 与错误输出。
+    该函数会被轮询调用，故"存在/不存在"都不打日志，异常交由 create-tag 的错误文案暴露。
+    """
+    proc = run_cnb(["git", "get-tag", "--repo", cnb_repo, "--tag", tag, "--verbose"])
+    return cnb_api_error(proc.stdout) is None
+
+
+def wait_cnb_tag(cnb_repo: str, tag: str, timeout: int) -> bool:
+    """在 timeout 秒内轮询 CNB 上的 tag；出现返回 True，超时返回 False（不报错）。"""
     deadline = time.time() + timeout
     while time.time() < deadline:
-        proc = subprocess.run(
-            ["git", "ls-remote", url, f"refs/tags/{tag}"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=False,
-        )
-        if proc.returncode == 0 and proc.stdout.strip():
-            log("INFO", f"CNB 已同步 tag {tag}")
-            return
-        time.sleep(10)
-    fail(f"tag {tag} 未在 {timeout} 秒内同步到 CNB（请检查 sync-mirrors 工作流）")
+        if cnb_tag_exists(cnb_repo, tag):
+            return True
+        time.sleep(TAG_POLL_INTERVAL)
+    return False
+
+
+def ensure_cnb_tag(cnb_repo: str, tag: str, target: str) -> None:
+    """确保 CNB 上存在 tag：先等 sync-mirrors，超时后主动创建，最后复核。
+
+    为什么需要主动创建：手动触发（workflow_dispatch）时 tag 由本流程现场创建，该 ref 的
+    push 事件由 GITHUB_TOKEN 产生，而 GITHUB_TOKEN 触发的事件不会创建新的 workflow run
+    （仅 workflow_dispatch / repository_dispatch 例外），sync-mirrors 不会被唤起，只等不做
+    必然超时。tag push 触发时 tag 早已存在，这里自然走"已同步"分支。
+    """
+    if wait_cnb_tag(cnb_repo, tag, MIRROR_WAIT_TIMEOUT):
+        log("INFO", f"CNB 已同步 tag {tag}（sync-mirrors）")
+        return
+    log("INFO", f"CNB 在 {MIRROR_WAIT_TIMEOUT}s 内未见 tag {tag}，改用 cnb API 创建（target={target[:12]}）")
+    proc = run_cnb([
+        "git", "create-tag",
+        "--repo", cnb_repo,
+        "--name", tag,
+        "--target", target,
+        "--verbose",
+    ])
+    error = cnb_api_error(proc.stdout)
+    if error:
+        # 典型情况是并发下 sync-mirrors 恰好把 tag 补上（tag 已存在），交由下面的复核定论
+        log("WARN", f"cnb git create-tag 未成功: {error}")
+    if wait_cnb_tag(cnb_repo, tag, TAG_CONFIRM_TIMEOUT):
+        log("INFO", f"CNB tag {tag} 已就绪")
+        return
+    detail = f"create-tag 返回: {error}" if error else "create-tag 未报错"
+    fail(f"CNB 上仍无 tag {tag}（{detail}）；请确认目标提交 {target[:12]} 已镜像到 CNB")
 
 
 def upload_cnb_asset(cnb_repo: str, release_id: str, path: Path) -> None:
@@ -309,42 +374,76 @@ def build_platform_manifests(
     )
 
 
-def github_release_commitish(tag: str) -> str:
-    """获取 GitHub Release 对应的 targetCommitish（CNB 创建 Release 的兜底打 tag 目标）。"""
-    repo = os.environ.get("GITHUB_REPOSITORY", "")
-    proc = run_cli(
-        ["gh", "release", "view", tag, "--repo", repo, "--json", "targetCommitish", "--jq", ".targetCommitish"],
-        label="gh release view",
-    )
-    commitish = proc.stdout.strip()
-    if not commitish:
-        fail(f"gh release view {tag} 未返回 targetCommitish")
-    return commitish
+def ensure_github_tag(tag: str, sha: str) -> None:
+    """确保 GitHub 上存在 tag（幂等），让草稿与正式发布、GitHub 与 CNB 两端行为一致。
 
-
-def publish_github(release_version: str, tag: str, notes_path: Path, files: list) -> None:
-    """发布 GitHub Release（先），附件含 latest-github.json。"""
+    `gh release create --target <sha>` 会隐式建 tag，但草稿 Release 不会创建 tag，而 CNB 侧
+    Release 必须挂在 tag 上，故这里统一显式建 tag。push 触发时 tag 已存在，直接跳过；若已存在
+    但指向别的提交则报错，避免把 Release 挂到与 tag 不一致的提交上。
+    """
     repo = os.environ.get("GITHUB_REPOSITORY", "")
     if not repo:
         fail("缺少 GITHUB_REPOSITORY 环境变量")
+    # 用 /commits/{ref} 而不是 /git/refs/tags/{tag}：前者对附注 tag 也会解析出真实提交，便于比对
+    proc = run_cli(
+        ["gh", "api", f"repos/{repo}/commits/{tag}", "--jq", ".sha"],
+        label="gh api commits",
+        tolerate_failure=True,
+    )
+    if proc.returncode == 0:
+        existing = proc.stdout.strip()
+        if existing != sha:
+            fail(f"GitHub 已存在 tag {tag} 指向 {existing}，与本次发布的提交 {sha} 不一致")
+        log("INFO", f"GitHub tag {tag} 已存在（{sha[:12]}）")
+        return
+    run_cli(
+        ["gh", "api", f"repos/{repo}/git/refs", "-f", f"ref=refs/tags/{tag}", "-f", f"sha={sha}"],
+        label="gh api create ref",
+    )
+    log("INFO", f"已在 GitHub 创建 tag {tag} → {sha[:12]}")
+
+
+def publish_github(release_version: str, tag: str, notes_path: Path, files: list) -> None:
+    """发布 GitHub Release（先），附件含 latest-github.json；已存在则更新（重跑幂等）。"""
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    if not repo:
+        fail("缺少 GITHUB_REPOSITORY 环境变量")
+    draft = os.environ.get("DRAFT_RELEASE") == "true"
+    assets = [str(p) for p in files]
+    # tag 已由 ensure_github_tag 就位，故不再需要 --target；重跑时 Release 已存在，
+    # 此时 gh release create 必然失败，所以先探测再决定 create 还是 edit + 覆盖上传
+    probe = run_cli(
+        ["gh", "release", "view", tag, "--repo", repo, "--json", "isDraft"],
+        label="gh release view",
+        tolerate_failure=True,
+    )
+    if probe.returncode == 0:
+        run_cli([
+            "gh", "release", "edit", tag,
+            "--repo", repo,
+            "--title", release_version,
+            "--notes-file", str(notes_path),
+            "--draft" if draft else "--draft=false",
+        ], label="gh release edit")
+        run_cli(
+            ["gh", "release", "upload", tag, "--repo", repo, "--clobber", *assets],
+            label="gh release upload",
+        )
+        log("INFO", f"已更新既有 GitHub Release {tag}（附件覆盖上传）")
+        return
     args = [
         "release", "create", tag,
         "--repo", repo,
         "--title", release_version,
         "--notes-file", str(notes_path),
     ]
-    if os.environ.get("DRAFT_RELEASE") == "true":
+    if draft:
         args.append("--draft")
-    # 手动触发时 tag 可能尚不存在，指向本次提交
-    if os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch":
-        sha = os.environ.get("GITHUB_SHA", "")
-        args += ["--target", sha]
-    args += [str(p) for p in files]
-    run_cli(["gh", *args], label="gh release create")
+    run_cli(["gh", *args, *assets], label="gh release create")
 
 
 def publish_cnb(release_version: str, tag: str, notes_path: Path, cnb_repo: str, files: list) -> None:
-    """发布 CNB Release（后）：等待 tag 同步 → 创建/更新 → 上传附件。"""
+    """发布 CNB Release（后）：tag 已就绪 → 创建/更新 → 上传附件。"""
     draft = os.environ.get("DRAFT_RELEASE") == "true"
     prerelease = version.is_prerelease(release_version)
     make_latest = "false" if (draft or prerelease) else "true"
@@ -364,12 +463,12 @@ def publish_cnb(release_version: str, tag: str, notes_path: Path, cnb_repo: str,
         release_id = existing_id
         log("INFO", f"已更新 CNB Release {release_id}（tag {tag}）")
     else:
-        commitish = github_release_commitish(tag)
+        # tag 已由 ensure_cnb_tag 就位，Release 直接挂在既有 tag 上；不再传 --target-commitish，
+        # 以免兜底传入的分支名把 tag 挪到分支当前指向
         data = cnb_json([
             "releases", "post-release",
             "--repo", cnb_repo,
             "--tag-name", tag,
-            "--target-commitish", commitish,
             "--name", release_version,
             "--body-file", str(notes_path),
             "--make-latest", make_latest,
@@ -420,6 +519,11 @@ def main() -> None:
         if not gh_repo:
             fail("缺少 GITHUB_REPOSITORY 环境变量")
         cnb_repo = os.environ.get("CNB_REPO", "ordinary-glory/rollcaller")
+        # 本次发布的权威提交：dispatch 时是 workflow 选中的分支 head，tag 触发时即 tag 本身；
+        # 两端 tag 都以它为目标创建，保证 tag 与 Release 挂在同一提交上
+        sha = os.environ.get("GITHUB_SHA", "")
+        if not sha:
+            fail("缺少 GITHUB_SHA 环境变量")
 
         # 读取版本索引：标定当前版本的 severity，并生成随 Release 发布的 versions.json
         index = load_index()
@@ -463,11 +567,16 @@ def main() -> None:
         versions_index.write_entries(versions_asset, entries)
         log("INFO", f"已生成 {versions_asset.name}")
 
-        # 1. GitHub Release（先）
+        # 1. 两端显式创建 tag（必须在发布 Release 之前：草稿 Release 不会创建 tag）
+        ensure_github_tag(tag, sha)
+
+        # 2. GitHub Release（先）
         publish_github(release_version, tag, Path(notes_path), files + [latest_github, versions_asset])
 
-        # 2. CNB Release（后）：dispatch 触发的 tag 需等待 sync-mirrors 推送完成
-        wait_for_cnb_tag(cnb_repo, tag)
+        # 3. 确保 CNB 有 tag：先等 sync-mirrors 镜像，超时则主动创建（dispatch 场景的兜底）
+        ensure_cnb_tag(cnb_repo, tag, sha)
+
+        # 4. CNB Release（后）
         publish_cnb(release_version, tag, Path(notes_path), cnb_repo, files + [latest_cnb, versions_asset])
     finally:
         os.unlink(notes_path)
