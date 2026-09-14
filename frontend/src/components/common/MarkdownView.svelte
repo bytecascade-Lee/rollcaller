@@ -5,15 +5,13 @@
   import "highlight.js/styles/github.css";
   import {error} from "@fltsci/tauri-plugin-tracing";
   import {openUrl} from "@tauri-apps/plugin-opener";
-  import {attachAnnotations, stripAnnotations, type HelpAnnotations} from "$utils/helpAnnotations";
-  import {classifyLink} from "$utils/helpLinks";
+  import {HelpAddress} from "$utils/helpAddress";
+  import {headingIdPlugin} from "$utils/markdownHeadingId";
 
-  let {markdown = "", docId, onnavigate}: {
+  let {markdown = "", onnavigate}: {
     markdown?: string;
-    /** 当前文档 id：使 #fragment 链接可识别为同文档锚点跳转（对任意文档生效，如发布说明的目录） */
-    docId?: string;
-    /** 跳转回调：目标文档 id + 目标锚点名（data-link，可选） */
-    onnavigate?: (id: string, link?: string) => void;
+    /** 文档内链接跳转回调：由宿主决定"加载 + 定位"如何落地 */
+    onnavigate?: (address: HelpAddress) => void;
   } = $props();
 
   const md = new MarkdownIt({
@@ -36,56 +34,44 @@
         return "";
       }
     },
-  });
+  }).use(headingIdPlugin);
 
   const defaultLinkOpen = md.renderer.rules.link_open ??
     ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
 
-  // 渲染期注入 data-*：docs 链接改 href=# 并带 data-id；external 保留 href 只标记 action
+  // 渲染期只做一件事：把作者写的文档相对链接改写成应用内路由。
+  // 外部链接与同文档锚点原样保留，分别交给点击期与浏览器原生处理。
   md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
     const token = tokens[idx];
-    const href = token.attrGet("href") ?? "";
-    const action = classifyLink(href.toString(), docId);
-    if (action?.kind === "docs") {
-      token.attrSet("href", "#");
-      token.attrSet("data-action", "docs");
-      token.attrSet("data-id", action.id);
-    } else if (action?.kind === "external") {
-      token.attrSet("data-action", "external");
-    }
+    const address = HelpAddress.fromDocLink(String(token.attrGet("href") ?? ""));
+    if (address) token.attrSet("href", address.toHash());
     return defaultLinkOpen(tokens, idx, options, env, self);
   };
 
-  // 渲染前剥离 [//]: # 注解行，再在 core 阶段向 token 注入 data-section
-  let pendingAnnotations: HelpAnnotations | null = null;
-  md.core.ruler.push("help-annotations", (state) => {
-    if (pendingAnnotations) attachAnnotations(pendingAnnotations, state.tokens);
-  });
+  const safeHtml = $derived(DOMPurify.sanitize(md.render(markdown), {
+    USE_PROFILES: {html: true},
+    ADD_ATTR: ["target"],
+  }));
 
-  const safeHtml = $derived.by(() => {
-    const annotations = stripAnnotations(markdown);
-    pendingAnnotations = annotations;
-    const rawHtml = md.render(annotations.clean);
-    return DOMPurify.sanitize(rawHtml, {
-      USE_PROFILES: {html: true},
-      ADD_ATTR: ["target"],
-    });
-  });
-
-  /** 点击只做调度：读 data-action 执行，不参与链接识别 */
+  /**
+   * 点击期是唯一的解释器，不依赖渲染期写入的任何标记：
+   * - 外部链接 → 系统浏览器
+   * - `#/HELP/...` → 交给宿主导航
+   * - 其余（同文档锚点等）→ 完全不拦截，交浏览器原生处理
+   */
   function handleClick(event: MouseEvent) {
     const anchor = (event.target as Element).closest("a");
     if (!anchor) return;
-    const action = anchor.dataset.action;
-    if (!action) return; // 无/未知 action → 忽略，不拦截默认行为
-    event.preventDefault();
-    if (action === "docs") {
-      const id = anchor.dataset.id;
-      if (id) onnavigate?.(id, anchor.dataset.link);
-    } else if (action === "external") {
-      const href = anchor.getAttribute("href");
-      if (href) openUrl(href).catch((e) => error(e instanceof Error ? e.message : String(e)));
+    const href = anchor.getAttribute("href") ?? "";
+    if (/^https?:\/\//i.test(href)) {
+      event.preventDefault();
+      openUrl(href).catch((e) => error(e instanceof Error ? e.message : String(e)));
+      return;
     }
+    const address = HelpAddress.parse(href);
+    if (!address) return;
+    event.preventDefault();
+    onnavigate?.(address);
   }
 </script>
 
