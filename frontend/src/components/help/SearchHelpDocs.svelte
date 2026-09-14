@@ -2,6 +2,7 @@
   import {overlayController} from "$controllers/popupController";
   import {clickOutside} from "$actions";
   import {type HelpSearchResult, helpStore} from "$stores/helpStore.svelte";
+  import {HelpAddress} from "$utils/helpAddress";
   import {MagnifyingGlassIcon} from "phosphor-svelte";
 
   let {anchor = $bindable()} = $props<{ anchor: HTMLElement | null }>();
@@ -30,9 +31,9 @@
   function select(id: string) {
     close();
     if (helpStore.navigate) {
-      helpStore.navigate(id);
+      helpStore.navigate(HelpAddress.of(id));
     } else {
-      helpStore.load(id);
+      void helpStore.load(id);
     }
   }
 
