@@ -3,7 +3,10 @@
   import type {Student, StudentSingleCreateResult} from "$types";
   import {format} from "$utils/DateTimeUtils";
   import {StudentCommand} from "$commands"
-  import {overlayController} from "$controllers/popupController";
+  import type {OverlayRegistry} from "$routing/overlays";
+  import type {StudentOverlayName} from "$routing/overlayNames";
+
+  let {overlays}: { overlays: OverlayRegistry<StudentOverlayName> } = $props();
 
   let newStudent = $state<Student>({
     id: null,
@@ -67,11 +70,12 @@
   }
 
   $effect(() => {
-    overlayController.register("StudentSingleCreate", {
+    overlays.register("create", {
       open: open,
       close: close,
       isVisible: () => isVisible
     })
+    return () => overlays.unregister("create");
   })
 </script>
 
