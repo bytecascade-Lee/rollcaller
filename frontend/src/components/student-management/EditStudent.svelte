@@ -1,11 +1,15 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import {overlayController} from "$controllers/popupController";
+  import type {OverlayRegistry} from "$routing/overlays";
+  import type {StudentOverlayName} from "$routing/overlayNames";
   import type {StudentSingleUpdate, StudentTable} from "$types";
   import {StudentCommand} from "$commands"
   import {DateTimeUtils} from "$utils";
 
-  let {selected = $bindable()}: { selected: Set<bigint> } = $props();
+  let {selected = $bindable(), overlays}: {
+    selected: Set<bigint>;
+    overlays: OverlayRegistry<StudentOverlayName>;
+  } = $props();
   let localEdit = $state<StudentTable | null>(null);
   let isVisible = $state(false);
   let closeOnOutside = true;
@@ -63,11 +67,12 @@
     }
   });
   $effect(() => {
-    overlayController.register("StudentEdit", {
+    overlays.register("edit", {
       open: open,
       close: close,
       isVisible: () => isVisible
     })
+    return () => overlays.unregister("edit");
   })
 </script>
 
