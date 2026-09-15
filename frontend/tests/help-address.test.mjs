@@ -1,18 +1,24 @@
 /**
- * 帮助文档地址与锚点的校验测试。
+ * 路由与帮助文档地址的校验测试。
  *
- * 运行：node --experimental-strip-types tests/help-address.test.mjs
- * （Node ≥ 22.6 原生剥离 TS 类型；markdown-it 为前端直接依赖）
+ * 运行：pnpm test:help
+ *   = node --experimental-strip-types --import ./tests/_register-alias.mjs tests/help-address.test.mjs
+ * （Node ≥ 22.6 原生剥离 TS 类型；`--import` 那一步补上 Node 侧的 `$x/...` 别名解析，
+ *   细节见 `tests/_alias-resolver.mjs`——没有它连 import 都过不去。）
  *
- * 两层内容：
- *   1) HelpAddress 单元测试：三个入口（of / parse / fromDocLink）与路由序列化；
- *   2) 文档静态校验：注解无残留、`{#id}` 合法且唯一、所有 fragment 都能落到真实锚点。
+ * 三层内容：
+ *   1) 通用路由原语：切分 / 组装 / 规范化 / 前缀判别（`$routing/route`）；
+ *   2) HelpAddress 单元测试：三个入口（of / parse / fromDocLink）与路由序列化；
+ *   3) 静态校验：文档注解无残留、`{#id}` 合法且唯一、所有 fragment 都能落到真实锚点，
+ *      外加具名入口表（`HelpEntries` / `AppEntries`）里的每个落点都真实存在。
  *      这类不变量放在这里而不是渲染期，渲染期只负责"降级得体"（占位提示 / 回文档顶部）。
  */
 import {strict as assert} from "node:assert";
 import {readdirSync, readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 import MarkdownIt from "markdown-it";
+import {canonicalRoute, isRouteHref, parseRoute, routeOf} from "$routing/route.ts";
+import {AppEntries, HelpEntries} from "$routing/entries.ts";
 import {HelpAddress} from "$utils/helpAddress.ts";
 import {headingIdPlugin} from "$utils/markdownHeadingId.ts";
 
@@ -81,41 +87,74 @@ const check = (name, fn) => {
   console.log(`  ok  ${name}`);
 };
 
+console.log("— 通用路由原语 —");
+check("切分：host 大小写不敏感，空段丢弃，段本体原样保留", () => {
+  assert.deepEqual(
+    parseRoute("#/Help//Add-Student/Operation-Steps"),
+    {host: "help", segments: ["Add-Student", "Operation-Steps"]},
+  );
+  assert.deepEqual(parseRoute("#/help"), {host: "help", segments: []});
+});
+check("切分：非应用内路由一律 null", () => {
+  for (const raw of ["", "#", "#v0-8-1", "#/", "https://example.com", "/", "overview.md"]) {
+    assert.equal(parseRoute(raw), null, raw);
+  }
+});
+check("组装：host 归一为小写，无空段、无尾斜杠", () => {
+  assert.equal(routeOf("HELP", ["README.md"]), "#/help/README.md");
+  assert.equal(routeOf("help", ["a", "", "b"]), "#/help/a/b");
+  assert.equal(routeOf("help"), "#/help");
+});
+check("规范化幂等：同一地址的 canonical 字符串必然相同", () => {
+  for (const raw of ["#/HELP", "#/help/", "#/help//x", "/help/x", "#/Help/X"]) {
+    const once = canonicalRoute(raw);
+    assert.notEqual(once, null, raw);
+    assert.equal(canonicalRoute(once), once, `${raw} → ${once} 二次规范化后变了`);
+  }
+});
+check("前缀判别靠 `#/`，与大小写无关", () => {
+  assert.equal(isRouteHref("#/help/x"), true);
+  assert.equal(isRouteHref("#/HELP/x"), true);
+  assert.equal(isRouteHref("#v0-8-1"), false);
+  assert.equal(isRouteHref("https://example.com/#/help"), false);
+});
+
 console.log("— HelpAddress：构造与序列化 —");
 check("of 产出路由，锚点可选", () => {
-  assert.equal(HelpAddress.of("batch-import").toHash(), "#/HELP/batch-import");
-  assert.equal(HelpAddress.of("batch-import", "import-steps").toHash(), "#/HELP/batch-import/import-steps");
+  assert.equal(HelpAddress.of("batch-import").toHash(), "#/help/batch-import");
+  assert.equal(HelpAddress.of("batch-import", "import-steps").toHash(), "#/help/batch-import/import-steps");
   assert.equal(HelpAddress.of("batch-import", "").anchor, null);
   assert.throws(() => HelpAddress.of(""));
 });
-check("PREFIX 为大写 #/HELP", () => {
-  assert.equal(HelpAddress.PREFIX, "#/HELP");
+check("host 为小写（canonical 即小写），段本体原样保留", () => {
+  assert.equal(HelpAddress.HOST, "help");
+  assert.equal(HelpAddress.of("README.md").toHash(), "#/help/README.md");
 });
 
 console.log("— HelpAddress：解析路由 —");
-check("解析带/不带 # 均可", () => {
-  for (const raw of ["#/HELP/add-student/operation-steps", "/HELP/add-student/operation-steps"]) {
+check("解析带/不带 # 均可，host 大小写不敏感", () => {
+  for (const raw of ["#/help/add-student/operation-steps", "/help/add-student/operation-steps", "#/HELP/add-student/operation-steps"]) {
     const a = HelpAddress.parse(raw);
-    assert.equal(a.doc, "add-student");
-    assert.equal(a.anchor, "operation-steps");
+    assert.equal(a.doc, "add-student", raw);
+    assert.equal(a.anchor, "operation-steps", raw);
   }
 });
 check("省略 doc 段落到默认文档", () => {
-  assert.equal(HelpAddress.parse("#/HELP").doc, HelpAddress.DEFAULT_DOC);
-  assert.equal(HelpAddress.parse("#/HELP/").doc, HelpAddress.DEFAULT_DOC);
+  assert.equal(HelpAddress.parse("#/help").doc, HelpAddress.DEFAULT_DOC);
+  assert.equal(HelpAddress.parse("#/help/").doc, HelpAddress.DEFAULT_DOC);
 });
-check("前缀命中即返回地址（绝不 null，避免放行导致 404）", () => {
-  for (const raw of ["#/HELP", "#/HELP/x", "#/HELP/中文", "#/HELP/a/b/c"]) {
+check("host 命中即返回地址（绝不 null，避免放行导致 404）", () => {
+  for (const raw of ["#/help", "#/help/x", "#/help/中文", "#/help/a/b/c"]) {
     assert.notEqual(HelpAddress.parse(raw), null, raw);
   }
 });
-check("非帮助路由返回 null", () => {
-  for (const raw of ["#v0-8-1", "#/APP/students", "https://example.com", "", "#/HELPX"]) {
+check("非帮助 host 返回 null", () => {
+  for (const raw of ["#v0-8-1", "#/app/students", "https://example.com", "", "#/helpx", "#/help-x"]) {
     assert.equal(HelpAddress.parse(raw), null, raw);
   }
 });
 check("非 kebab 锚点降级为文档顶部", () => {
-  assert.equal(HelpAddress.parse("#/HELP/add-student/操作步骤").anchor, null);
+  assert.equal(HelpAddress.parse("#/help/add-student/操作步骤").anchor, null);
 });
 
 console.log("— HelpAddress：解析文档内链接 —");
@@ -159,23 +198,23 @@ console.log("— 渲染管线集成 —");
     assert.ok(!html.includes("{#"), "仍有 {#...} 残留在正文");
   });
   check("文档链接改写为应用内路由", () => {
-    const hrefs = [...html.matchAll(/href="(#\/HELP[^"]*)"/g)].map((m) => m[1]);
+    const hrefs = [...html.matchAll(/href="(#\/help[^"]*)"/g)].map((m) => m[1]);
     assert.deepEqual(hrefs, [
-      "#/HELP/add-student/operation-steps",
-      "#/HELP/batch-import/import-steps",
-      "#/HELP/single-rollcall/operation-steps",
-      "#/HELP/auto-finish/operation-steps",
-      "#/HELP/edit-record/operation-steps",
-      "#/HELP/export-record/operation-steps",
-      "#/HELP/edit-student/operation-steps",
-      "#/HELP/delete-student/operation-steps",
+      "#/help/add-student/operation-steps",
+      "#/help/batch-import/import-steps",
+      "#/help/single-rollcall/operation-steps",
+      "#/help/auto-finish/operation-steps",
+      "#/help/edit-record/operation-steps",
+      "#/help/export-record/operation-steps",
+      "#/help/edit-student/operation-steps",
+      "#/help/delete-student/operation-steps",
     ]);
   });
   check("外部链接保持原 href（由点击期交给系统浏览器）", () => {
     const ext = /<a href="([^"]+)">Microsoft WebView2 下载页面<\/a>/.exec(html);
     assert.ok(ext, "未找到外部链接");
     assert.ok(ext[1].startsWith("https://developer.microsoft.com"));
-    assert.ok(!ext[1].startsWith("#/HELP"));
+    assert.ok(!ext[1].startsWith("#/help"));
   });
 }
 {
@@ -183,7 +222,7 @@ console.log("— 渲染管线集成 —");
   check("发布说明目录为同文档锚点（不改写，交浏览器原生）", () => {
     const toc = [...html.matchAll(/<a href="(#v0-[^"]*)">([^<]+)<\/a>/g)];
     assert.ok(toc.length >= 15, `目录项过少：${toc.length}`);
-    for (const [, href] of toc) assert.ok(!href.startsWith("#/HELP"), `${href} 被误改写`);
+    for (const [, href] of toc) assert.ok(!href.startsWith("#/help"), `${href} 被误改写`);
   });
   check("版本标题均带 id 且与目录 fragment 一一对应", () => {
     const headingIds = [...html.matchAll(/<h2 id="(v0-[^"]+)"/g)].map((m) => m[1]);
@@ -270,6 +309,36 @@ check("所有被链接的文档都在 meta.json 中登记", () => {
     }
   }
   assert.deepEqual([...missing], []);
+});
+
+console.log("— 具名入口表 —");
+check("HelpEntries：每个落点的文档与锚点都真实存在", () => {
+  for (const [name, action] of Object.entries(HelpEntries)) {
+    assert.equal(canonicalRoute(action.route), action.route, `${name} 的 route 不是 canonical 形式`);
+    const address = HelpAddress.parse(action.route);
+    assert.notEqual(address, null, `${name} 不是合法的帮助地址`);
+    assert.ok(meta.nodes[address.doc], `${name} → 文档 ${address.doc} 未在 meta.json 登记`);
+    const anchors = anchorsOf(address.doc);
+    assert.notEqual(anchors, null, `${name} → 文档 ${address.doc} 没有对应的 .md 文件`);
+    if (address.anchor) {
+      assert.ok(anchors.has(address.anchor), `${name} → ${address.doc}#${address.anchor} 锚点不存在`);
+    }
+  }
+});
+check("HelpEntries：不指向只有标题没有内容的父节点", () => {
+  const contentless = new Set(["rollcall", "students", "records", "ui", "about", "multi-rollcall"]);
+  for (const [name, action] of Object.entries(HelpEntries)) {
+    const address = HelpAddress.parse(action.route);
+    assert.ok(!contentless.has(address.doc), `${name} 指向了无内容的父节点 ${address.doc}`);
+  }
+});
+check("AppEntries：结构为 `#/app/<卡片>[/<叠加层>]` 且 canonical", () => {
+  for (const [name, action] of Object.entries(AppEntries)) {
+    const parsed = parseRoute(action.route);
+    assert.equal(parsed?.host, "app", name);
+    assert.ok(parsed.segments.length >= 1, `${name} 没有卡片段`);
+    assert.equal(canonicalRoute(action.route), action.route, `${name} 的 route 不是 canonical 形式`);
+  }
 });
 
 console.log(`\n全部通过：${passed} 项断言（覆盖 ${allDocIds.length} 个文档）`);
