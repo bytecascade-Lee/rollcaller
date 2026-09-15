@@ -16,8 +16,12 @@
   import {recordService} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import EditRecord from "$components/record-history/EditRecord.svelte";
-  import {overlayController} from "$controllers/popupController";
+  import {createOverlayRegistry} from "$routing/overlays";
+  import type {RecordOverlayName} from "$routing/overlayNames";
   import ExportRecords from "$components/record-history/ExportRecords.svelte";
+
+  /** 本页的叠加层注册表：`"edit"` / `"export"` 与学生管理页同名但互不相干 */
+  const overlays = createOverlayRegistry<RecordOverlayName>();
 
   let selected = $state<Set<bigint>>(new Set());
   let {active = $bindable(false)} = $props();
@@ -99,7 +103,7 @@
         disabled={selected.size == 0}
         onclick={e => {
           anchor = e.currentTarget;
-          overlayController.open("RecordEdit")
+          overlays.open("edit")
         }}
         title="批量修改记录"
       >
@@ -111,7 +115,7 @@
         disabled={recordStore.isLoading}
         onclick={e => {
           anchor = e.currentTarget;
-          overlayController.open("RecordExport")
+          overlays.open("export")
         }}
         title="导出记录"
       >
@@ -263,5 +267,5 @@
   {/if}
 </div>
 
-<EditRecord bind:anchor={anchor} bind:selected={selected}/>
-<ExportRecords bind:anchor={anchor} bind:display={display} bind:selected={selected}/>
+<EditRecord bind:anchor={anchor} bind:selected={selected} {overlays}/>
+<ExportRecords bind:anchor={anchor} bind:display={display} bind:selected={selected} {overlays}/>
