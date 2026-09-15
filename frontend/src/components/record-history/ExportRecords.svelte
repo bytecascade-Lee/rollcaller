@@ -1,16 +1,18 @@
 <script lang="ts">
   import {save} from "@tauri-apps/plugin-dialog";
   import {RecordCommand} from "$commands";
-  import {overlayController} from "$controllers/popupController";
+  import type {OverlayRegistry} from "$routing/overlays";
+  import type {RecordOverlayName} from "$routing/overlayNames";
   import {clickOutside, updatePosition} from "$actions";
   import type {RollcallRecord} from "$types";
   import {Result} from "$types";
   import {recordStore} from "$stores/recordStore.svelte";
 
-  let {selected = $bindable(), display = $bindable(), anchor = $bindable()} = $props<{
+  let {selected = $bindable(), display = $bindable(), anchor = $bindable(), overlays} = $props<{
     selected: Set<bigint>;
     display: RollcallRecord[];
     anchor: HTMLElement | null;
+    overlays: OverlayRegistry<RecordOverlayName>;
   }>();
   let isVisible = $state(false);
   let isExporting = $state(false);
@@ -68,11 +70,12 @@
   }
 
   $effect(() => {
-    overlayController.register("RecordExport", {
+    overlays.register("export", {
       open: open,
       close: close,
       isVisible: () => isVisible,
     })
+    return () => overlays.unregister("export");
   })
 </script>
 
