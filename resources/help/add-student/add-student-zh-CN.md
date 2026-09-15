@@ -4,8 +4,7 @@
 
 每个学生包含两个关键信息：**学号**和**姓名**。
 
-[//]: # (@section: operation-steps)
-## 操作步骤
+## 操作步骤 {#operation-steps}
 
 1. 点击左侧导航栏进入「学生管理」页面。
 2. 点击工具栏中的「添加」按钮，弹出添加学生对话框。
@@ -27,8 +26,7 @@
 
 - **学号和姓名必填**：未填完整时「确定」按钮会处于禁用状态。
 - **搜索定位**：添加完成后，可在页面顶部搜索框中按学号或姓名快速找到该学生。
-[//]: # (@link: import-steps)
-- **批量添加**：如果学生数量较多，推荐使用 [批量导入学生](../batch-import/batch-import-zh-CN.md#导入步骤) 一次性导入。
+- **批量添加**：如果学生数量较多，推荐使用 [批量导入学生](../batch-import/batch-import-zh-CN.md#import-steps) 一次性导入。
 
 ## 常见问题
 
@@ -46,9 +44,6 @@
 
 ## 延伸阅读
 
-[//]: # (@link: import-steps)
-- [批量导入学生](../batch-import/batch-import-zh-CN.md#导入步骤) — 批量添加多名学生
-[//]: # (@link: operation-steps)
-- [编辑学生信息](../edit-student/edit-student-zh-CN.md#操作步骤) — 编辑学生的姓名、学号等信息
-[//]: # (@link: operation-steps)
-- [删除学生](../delete-student/delete-student-zh-CN.md#操作步骤) — 移除不再需要的学生
+- [批量导入学生](../batch-import/batch-import-zh-CN.md#import-steps) — 批量添加多名学生
+- [编辑学生信息](../edit-student/edit-student-zh-CN.md#operation-steps) — 编辑学生的姓名、学号等信息
+- [删除学生](../delete-student/delete-student-zh-CN.md#operation-steps) — 移除不再需要的学生

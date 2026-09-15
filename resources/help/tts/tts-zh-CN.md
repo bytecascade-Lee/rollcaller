@@ -4,8 +4,7 @@
 
 点名后应用会自动朗读被点到的学生姓名，帮助确认点名结果。
 
-[//]: # (@section: modes)
-## 播报模式
+## 播报模式 {#modes}
 
 语音播报支持三种模式，通过点名页面的三态开关切换：
 
@@ -15,8 +14,7 @@
 
 > 云端 AI 语音需要联网。仅此功能需要网络连接，应用的其他所有功能（点名、学生管理、考勤记录等）均为离线运行。
 
-[//]: # (@section: playback-behavior)
-## 播报行为
+## 播报行为 {#playback-behavior}
 
 - **自动播报**：每次点名结束后自动触发语音播报，无需手动操作。
 - **队列调度**：连续点名时，播报任务按队列依次执行，不会同时播放多条语音。
@@ -45,9 +43,6 @@
 
 ## 延伸阅读
 
-[//]: # (@link: operation-steps)
-- [单次点名](../single-rollcall/single-rollcall-zh-CN.md#操作步骤) — 手动点名
-[//]: # (@link: operation-steps)
-- [自动结束点名](../auto-finish/auto-finish-zh-CN.md#操作步骤) — 连续点名
-[//]: # (@link: operation-steps)
-- [手动暂停点名](../manual-pause/manual-pause-zh-CN.md#操作步骤) — 连续点名
+- [单次点名](../single-rollcall/single-rollcall-zh-CN.md#operation-steps) — 手动点名
+- [自动结束点名](../auto-finish/auto-finish-zh-CN.md#operation-steps) — 连续点名
+- [手动暂停点名](../manual-pause/manual-pause-zh-CN.md#operation-steps) — 连续点名

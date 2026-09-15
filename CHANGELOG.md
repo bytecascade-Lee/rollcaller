@@ -4,7 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.8.1
+## Table of Contents
+
+- [0.8.1](#0-8-1) — Automatic updates after refactoring, CLI diagnostics, idempotent dual-platform releases, log redaction, smaller binary.
+- [0.8.0](#0-8-0) — Three-stage updater pipeline, manifest v2, update sessions, release toolchain split.
+- [0.7.0](#0-7-0) — Plugin-based auto-update, help doc navigation, CNB mirror sync.
+- [0.6.0](#0-6-0) — TTS cache simplification, quick attendance switching, always-on-top, help full-text search.
+- [0.5.0](#0-5-0) — TTS frontend playback refactor, TriSwitch, custom titlebar/decorum.
+- [0.4.3](#0-4-3) — Prevent-default plugin, script rename, help link fixes.
+- [0.4.2](#0-4-2) — Split app/help capabilities, dialog/UI/type fixes.
+- [0.4.1](#0-4-1) — Fix tauri-cli extraction path in CI.
+- [0.4.0](#0-4-0) — Directory refactor, Python build toolchain, help window system, ARM64 CI.
+- [0.3.0](#0-3-0) — DB-backed attendance statuses, table sorting, import wizard, Switch.
+- [0.3.0-rc.2](#0-3-0-rc2) — Version sync script, VERSION env, ESLint setup.
+- [0.3.0-rc.1](#0-3-0-rc1) — Attendance status migration, sorting, import wizard.
+- [0.2.0](#0-2-0) — Click-outside/positioning utils, export modes/feedback, UI polish.
+- [0.1.0](#0-1-0) — First stable: CSS design system, components, rollcall engine.
+- [0.1.0-rc.1](#0-1-0-rc1) — Initial RC: core architecture, CRUD, import/export, SQLite, Svelte.
+
+## 0.8.1 {#0-8-1}
 
 ### Added
 
@@ -31,7 +49,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.8.0
+## 0.8.0 {#0-8-0}
 
 ### Breaking Changes
 
@@ -112,7 +130,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.7.0
+## 0.7.0 {#0-7-0}
 
 ### Breaking Changes
 
@@ -158,7 +176,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.6.0
+## 0.6.0 {#0-6-0}
 
 ### Breaking Changes
 
@@ -187,7 +205,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.5.0
+## 0.5.0 {#0-5-0}
 
 ### Breaking Changes
 
@@ -250,7 +268,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.4.3
+## 0.4.3 {#0-4-3}
 
 ### Added
 
@@ -267,7 +285,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.4.2
+## 0.4.2 {#0-4-2}
 
 ### Changed
 
@@ -290,7 +308,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.4.1
+## 0.4.1 {#0-4-1}
 
 ### Fixed
 
@@ -299,7 +317,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.4.0
+## 0.4.0 {#0-4-0}
 
 ### Breaking Changes
 
@@ -368,7 +386,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.3.0
+## 0.3.0 {#0-3-0}
 
 ### Breaking Changes
 
@@ -424,7 +442,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.3.0-rc.2
+## 0.3.0-rc.2 {#0-3-0-rc2}
 
 ### Added
 
@@ -450,7 +468,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.3.0-rc.1
+## 0.3.0-rc.1 {#0-3-0-rc1}
 
 ### Breaking Changes
 
@@ -497,7 +515,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.2.0
+## 0.2.0 {#0-2-0}
 
 ### Added
 
@@ -534,7 +552,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.1.0
+## 0.1.0 {#0-1-0}
 
 基于 0.1.0-rc.1 的首个正式发布版本，包含全部新增功能、改进和修复。以下为 rc.1 之后的增量变更。
 
@@ -574,7 +592,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.1.0-rc.1
+## 0.1.0-rc.1 {#0-1-0-rc1}
 
 首个候选发布版本。所有变更已并入 [0.1.0](#010)，以下为架构与核心实现概要。
 

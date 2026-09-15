@@ -12,8 +12,7 @@
 
 三个选项并不总是同时出现：只有存在筛选时才显示「导出筛选」，只有存在选中时才显示「导出选中」。当既未筛选也未选中时，直接点击「导出」默认导出全部。
 
-[//]: # (@section: operation-steps)
-## 操作步骤
+## 操作步骤 {#operation-steps}
 
 1. 点击左侧导航栏进入「学生管理」页面。
 2. 根据需求选择导出方式：
@@ -42,7 +41,5 @@
 
 ## 延伸阅读
 
-[//]: # (@link: import-steps)
-- [批量导入学生](../batch-import/batch-import-zh-CN.md#导入步骤) — 从 Excel 导入学生
-[//]: # (@link: operation-steps)
-- [导出记录数据](../export-record/export-record-zh-CN.md#操作步骤) — 导出点名记录
+- [批量导入学生](../batch-import/batch-import-zh-CN.md#import-steps) — 从 Excel 导入学生
+- [导出记录数据](../export-record/export-record-zh-CN.md#operation-steps) — 导出点名记录

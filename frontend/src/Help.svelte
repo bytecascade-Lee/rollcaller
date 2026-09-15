@@ -19,6 +19,7 @@
   import type {TreeNode} from "$types";
   import metaData from "$resources/help/meta.json";
   import HelpTitlebar from "$components/help/HelpTitlebar.svelte";
+  import {HelpAddress} from "$utils/helpAddress";
   import {CaretRightIcon, CircleIcon} from "phosphor-svelte";
 
   const nodes = metaData.nodes as
@@ -26,15 +27,17 @@
       [K in keyof typeof metaData.nodes]: TreeNode & { id: K }
     };
   const window = getCurrentWebviewWindow();
-  let activeId = $state("overview");
+  let activeId = $state(HelpAddress.DEFAULT_DOC);
   let jumpToken = $state(0); // 外部跳转触发信号：自增时 NavTree 折叠到单级
-  let history = $state<string[]>(["overview"]);
+  let history = $state<HelpAddress[]>([HelpAddress.of(HelpAddress.DEFAULT_DOC)]);
   let historyIndex = $state(0);
   let canGoBack = $derived(historyIndex > 0);
   let canGoForward = $derived(historyIndex < history.length - 1);
   let scroller: HTMLDivElement | undefined = $state();
-  /** 待滚动的锚点名（普通变量，不参与响应式）：锚点跳转由 handleNavigate 的续段负责 */
+  /** 待滚动的锚点名（普通变量，不参与响应式）：锚点跳转由 applyAddress 的续段负责 */
   let pendingSection: string | null = null;
+  /** 当前地址（历史栈顶），用于幂等判定 */
+  const currentAddress = $derived(history[historyIndex]);
   /** 从 activeId 沿 parentId 回溯，生成面包屑路径（根→当前） */
   let breadcrumbCrumb = $derived.by(() => {
     const trail: string[] = [];
@@ -48,86 +51,91 @@
     return trail;
   });
 
-  /** 内部链接跳转：加载文档，并让左侧树跳转到对应节点（折叠到单级）；带锚点时滚动到目标章节 */
-  async function handleNavigate(id: string, link?: string) {
-    activeId = id;
-    jumpToken += 1;
-    await loadDoc(id, link);
-    pushHistory(id);
+  /**
+   * 统一入口：把地址应用到当前视图。
+   * - `foldTree`：外部跳转（文档内链接 / 搜索）折叠导航树到当前路径，侧栏点击不折叠
+   * - 重复投递同一地址是空操作，只重新定位（避免连点把历史栈灌满）
+   */
+  async function applyAddress(address: HelpAddress, foldTree = true) {
+    if (address.toHash() === currentAddress?.toHash()) {
+      scrollToSection(address.anchor);
+      return;
+    }
+    activeId = address.doc;
+    if (foldTree) jumpToken += 1;
+    await loadDoc(address);
+    pushHistory(address);
   }
 
   /** 侧边栏树点击：加载文档（不折叠树） */
   async function handleSidebarSelect(id: string) {
-    activeId = id;
-    await helpStore.load(id);
-    pushHistory(id);
+    await applyAddress(HelpAddress.of(id), false);
   }
 
   /** 加载文档并处理锚点滚动 */
-  async function loadDoc(id: string, link?: string | null) {
-    const target = link ?? null;
+  async function loadDoc(address: HelpAddress) {
+    const target = address.anchor;
     pendingSection = target;
-    await helpStore.load(id);
+    await helpStore.load(address.doc);
     if (pendingSection !== target) return;
     scrollToSection(target);
     pendingSection = null;
   }
 
   /** 追加历史记录，裁剪前进栈 */
-  function pushHistory(id: string) {
+  function pushHistory(address: HelpAddress) {
     const trimmed = history.slice(0, historyIndex + 1);
-    history = [...trimmed, id];
+    history = [...trimmed, address];
     historyIndex = history.length - 1;
   }
 
-  /** 后退到上一条历史记录（不记录新历史） */
+  /** 后退到上一条历史记录（不记录新历史，锚点一并还原） */
   async function goBack() {
     if (!canGoBack) return;
     historyIndex -= 1;
-    const id = history[historyIndex];
-    activeId = id;
+    const address = history[historyIndex];
+    activeId = address.doc;
     jumpToken += 1;
-    await loadDoc(id);
+    await loadDoc(address);
   }
 
-  /** 前进到下一条历史记录（不记录新历史） */
+  /** 前进到下一条历史记录（不记录新历史，锚点一并还原） */
   async function goForward() {
     if (!canGoForward) return;
     historyIndex += 1;
-    const id = history[historyIndex];
-    activeId = id;
+    const address = history[historyIndex];
+    activeId = address.doc;
     jumpToken += 1;
-    await loadDoc(id);
+    await loadDoc(address);
   }
 
   /** 滚动到锚点标题（缺失时回退到顶部）。滚动容器是 .content > .active，window 不参与滚动 */
   function scrollToSection(section: string | null) {
     if (!scroller) return;
     if (section) {
-      // 只匹配标题上的 data-section（链接不再携带该属性，避免命中目录项自身）
-      const el = scroller.querySelector(`[data-section="${section}"]`);
+      // 锚点即标题上的 DOM id（源文 `## 标题 {#section}` 经 headingIdPlugin 落到 id 属性）
+      const el = scroller.querySelector(`[id="${section}"]`);
       if (el) {
         const top = el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
         scroller.scrollTo({top, behavior: "smooth"});
         return;
       }
     }
-    scroller.scrollTo(0, 0);
+    // 容器 CSS 已设 smooth，回退顶部需显式 instant，避免整页缓慢滚动
+    scroller.scrollTo({top: 0, behavior: "instant"});
   }
 
   // 切换文档后滚动条回到顶部（锚点跳转在途时跳过，避免与平滑滚动打架）
   $effect(() => {
     helpStore.content;
     if (pendingSection) return;
-    scroller?.scrollTo(0, 0);
+    scroller?.scrollTo({top: 0, behavior: "instant"});
   });
 
   onMount(() => {
     // 注册跳转回调：搜索结果选中时复用导航逻辑（加载 + 树高亮 + 折叠）
-    helpStore.navigate = handleNavigate;
-    void (async () => {
-      await helpStore.load(activeId);
-    })();
+    helpStore.navigate = (address) => void applyAddress(address);
+    void loadDoc(HelpAddress.of(HelpAddress.DEFAULT_DOC));
     return () => {
       helpStore.navigate = null;
     };
@@ -156,7 +164,7 @@
   <main class="content">
     {#if helpStore.content}
       <div class="active" bind:this={scroller}>
-        <MarkdownView markdown={helpStore.content} docId={activeId} onnavigate={handleNavigate}/>
+        <MarkdownView markdown={helpStore.content} onnavigate={applyAddress}/>
       </div>
     {:else}
       <div class="empty active">
@@ -213,7 +221,9 @@
     color: var(--text-color-secondary);
   }
 
+  /* 同文档锚点（`#xxx`）不拦截，交浏览器原生滚动；平滑由这里给 */
   .content > .active {
     overflow-y: auto;
+    scroll-behavior: smooth;
   }
 </style>
