@@ -13,6 +13,8 @@
   import "$styles/state.css"
   import {onMount} from "svelte";
   import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
+  import {listen} from "@tauri-apps/api/event";
+  import {NavCommand} from "$commands";
   import NavTree from "$components/common/NavTree.svelte";
   import MarkdownView from "$components/common/MarkdownView.svelte";
   import {helpStore} from "$stores/helpStore.svelte";
@@ -21,15 +23,23 @@
   import HelpTitlebar from "$components/help/HelpTitlebar.svelte";
   import {HelpAddress} from "$utils/helpAddress";
   import {CaretRightIcon, CircleIcon} from "phosphor-svelte";
+  import {createRouter} from "$routing/router";
+  import {installWindowRouter, nav} from "$routing/windowRouter";
+  import {HelpEntries} from "$routing/entries";
+  import {replaceHash} from "$routing/route";
+  import {createOverlayRegistry} from "$routing/overlays";
+  import type {HelpOverlayName} from "$routing/overlayNames";
 
   const nodes = metaData.nodes as
     {
       [K in keyof typeof metaData.nodes]: TreeNode & { id: K }
     };
   const window = getCurrentWebviewWindow();
+  const overlays = createOverlayRegistry<HelpOverlayName>();
   let activeId = $state(HelpAddress.DEFAULT_DOC);
   let jumpToken = $state(0); // 外部跳转触发信号：自增时 NavTree 折叠到单级
-  let history = $state<HelpAddress[]>([HelpAddress.of(HelpAddress.DEFAULT_DOC)]);
+  /** 历史栈初始为空：地址由 `router.start()` 的第一条投递立起来，避免"首帧与地址不一致" */
+  let history = $state<HelpAddress[]>([]);
   let historyIndex = $state(0);
   let canGoBack = $derived(historyIndex > 0);
   let canGoForward = $derived(historyIndex < history.length - 1);
@@ -51,13 +61,28 @@
     return trail;
   });
 
+  const router = createRouter({
+    host: HelpAddress.HOST,
+    handle: (action) => {
+      const address = HelpAddress.parse(action.route);
+      if (address) void applyAddress(address);
+    },
+  });
+  installWindowRouter(router);
+
   /**
-   * 统一入口：把地址应用到当前视图。
+   * 本窗口的落地函数：把地址应用到当前视图，并把地址写回 `location.hash`。
+   *
+   * hash 只是**对外投影**（刷新、原生 `<a href="#/...">`、调试用），真源仍是地址本身；
+   * 写它用 `replaceState`（见 `replaceHash`），所以不会与这里自有的前进/后退栈打架。
+   *
    * - `foldTree`：外部跳转（文档内链接 / 搜索）折叠导航树到当前路径，侧栏点击不折叠
    * - 重复投递同一地址是空操作，只重新定位（避免连点把历史栈灌满）
    */
   async function applyAddress(address: HelpAddress, foldTree = true) {
-    if (address.toHash() === currentAddress?.toHash()) {
+    const hash = address.toHash();
+    replaceHash(hash);
+    if (hash === currentAddress?.toHash()) {
       scrollToSection(address.anchor);
       return;
     }
@@ -96,6 +121,7 @@
     const address = history[historyIndex];
     activeId = address.doc;
     jumpToken += 1;
+    replaceHash(address.toHash());
     await loadDoc(address);
   }
 
@@ -106,6 +132,7 @@
     const address = history[historyIndex];
     activeId = address.doc;
     jumpToken += 1;
+    replaceHash(address.toHash());
     await loadDoc(address);
   }
 
@@ -133,10 +160,31 @@
   });
 
   onMount(() => {
-    // 注册跳转回调：搜索结果选中时复用导航逻辑（加载 + 树高亮 + 折叠）
-    helpStore.navigate = (address) => void applyAddress(address);
-    void loadDoc(HelpAddress.of(HelpAddress.DEFAULT_DOC));
+    // 注册跳转回调：搜索结果选中、文档内链接都经 router 走同一个门
+    helpStore.navigate = (address) => nav({route: address.toHash()});
+
+    let dispose: (() => void) | null = null;
+    let unlisten: (() => void) | null = null;
+
+    void (async () => {
+      // 冷启动：本窗口是懒建的，建窗那一刻前端还没开始监听，广播必丢 ⇒
+      // 载荷留在后端等这里来取，所以"取走"这一步同时就是"我起来了"的信号
+      const pending = await NavCommand.navTakePending();
+      const initial = pending
+        ? {route: pending.route, payload: pending.payload ?? undefined}
+        : undefined;
+      // 首帧落点：有冷启动载荷就用它，否则当前 hash 若是本窗口的地址就用它，再否则回概览
+      dispose = router.start(HelpEntries.overview, initial);
+
+      unlisten = await listen(NavCommand.NAV_WAKE_EVENT, async () => {
+        const next = await NavCommand.navTakePending();
+        if (next) nav({route: next.route, payload: next.payload ?? undefined});
+      });
+    })();
+
     return () => {
+      dispose?.();
+      unlisten?.();
       helpStore.navigate = null;
     };
   });
@@ -144,7 +192,7 @@
 
 <div class="shell">
   <div class="titlebar-slot">
-    <HelpTitlebar window={window}
+    <HelpTitlebar window={window} {overlays}
                   onback={goBack} onforward={goForward}
                   canGoBack={canGoBack} canGoForward={canGoForward}
     />
