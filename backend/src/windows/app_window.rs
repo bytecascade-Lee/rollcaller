@@ -4,15 +4,18 @@ use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_decorum::WebviewWindowExt;
 use tauri_plugin_prevent_default::PreventDefault;
 
+/// 窗口名，同时也是路由里的 host（`#/app/...` 的第一段）
+pub const NAME: &str = "app";
+
 pub fn open(app: tauri::AppHandle) -> anyhow::Result<()> {
-    match app.get_webview_window("app") {
+    match app.get_webview_window(NAME) {
         Some(app_window) => {
             app_window.unminimize().context("Failed to unminimize window")?;
             app_window.show().context("Failed to show window.")?;
             app_window.set_focus().context("Failed to focus window.")?;
         }
         None => {
-            let app_window = WebviewWindowBuilder::new(&app, "app", WebviewUrl::App("app.html".into()))
+            let app_window = WebviewWindowBuilder::new(&app, NAME, WebviewUrl::App("app.html".into()))
                 .data_directory(app_paths::webview2_dir().to_path_buf())
                 .inner_size(900.0, 700.0)
                 .auto_resize()
