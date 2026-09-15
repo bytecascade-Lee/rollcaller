@@ -18,12 +18,22 @@
     PlusIcon,
     TrashIcon
   } from "phosphor-svelte";
-  import {overlayController} from "$controllers/popupController";
+  import {createOverlayRegistry} from "$routing/overlays";
+  import type {StudentOverlayName} from "$routing/overlayNames";
+  import {parseRoute, type Action, type Payload} from "$routing/route";
+  import {untrack} from "svelte";
   import EditStudent from "$components/student-management/EditStudent.svelte";
   import ExportStudents from "$components/student-management/ExportStudents.svelte";
 
+  /** 本页的叠加层注册表：注册表归页面所有，弹窗逐个注册进来（不再是全局单例） */
+  const overlays = createOverlayRegistry<StudentOverlayName>();
+
   let selected = $state<Set<bigint>>(new Set())
-  let {active = $bindable(false)} = $props();
+  let {active = $bindable(false), action = null}: {
+    active?: boolean;
+    /** 路由投递过来的完整 Action：把载荷翻译成本页状态是本页的私事 */
+    action?: Action | null;
+  } = $props();
   let searchQuery = $state("")
   let sortKey = $state("")
   let isAsc = $state(true)
@@ -81,6 +91,40 @@
     }
   }
 
+  /** 载荷校验：`{ids: number[]}`。不合法一律返回空数组，让调用方降级为纯导航 */
+  function idsOf(payload: Payload | undefined): number[] {
+    const raw = payload?.ids;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((id): id is number => Number.isSafeInteger(id));
+  }
+
+  /**
+   * 地址落地：本页是**载荷的唯一解释者**。
+   *
+   * 路由层不认识 `{ids}` 是什么，只有这里知道"选中的是谁"存在本页的 `selected`（`Set<bigint>`）
+   * 里、编辑界面在注册表中叫 `"edit"`——发起方不需要也不该知道这些。
+   *
+   * 降级：段不匹配或载荷非法/为空 → 什么都不做（地址已经把卡片切过来了，纯导航）。
+   */
+  async function apply(act: Action) {
+    const segments = parseRoute(act.route)?.segments ?? [];
+    if (segments[1] !== "edit") return;
+    const ids = idsOf(act.payload);
+    if (ids.length === 0) return;
+    // 异步前置：已挂载 ≠ 可应用，数据没到就选中会落空
+    if (studentStore.students.length === 0) await studentStore.load();
+    selected = new Set(ids.map((id) => BigInt(id)));
+    overlays.open("edit");
+  }
+
+  // 用 untrack 把 apply 读到的 store 挡在依赖之外：载荷的应用只应由 action 变化触发，
+  // 否则数据加载完会再触发一次（重复打开、重复重置表单）。
+  $effect(() => {
+    const act = action;
+    if (!act) return;
+    untrack(() => void apply(act));
+  });
+
 </script>
 
 <!-- 页面根节点由 .content > * 提供布局与激活态 -->
@@ -92,7 +136,7 @@
         aria-label="添加学生"
         title="添加学生"
         disabled={studentStore.isLoading}
-        onclick={() => overlayController.open("StudentSingleCreate")}
+        onclick={() => overlays.open("create")}
       >
         <PlusIcon size="24"/>
       </button>
@@ -101,7 +145,7 @@
         aria-label="修改学生"
         title="修改学生"
         disabled={selected.size != 1}
-        onclick={() => overlayController.open("StudentEdit")}
+        onclick={() => overlays.open("edit")}
       >
         <PencilIcon size="24"/>
       </button>
@@ -110,7 +154,7 @@
         aria-label="删除学生"
         title="删除学生"
         disabled={selected.size == 0}
-        onclick={() => overlayController.open("StudentDelete")}
+        onclick={() => overlays.open("delete")}
       >
         <TrashIcon size="24"/>
       </button>
@@ -119,7 +163,7 @@
         aria-label="导入学生"
         title="导入学生"
         disabled={studentStore.isLoading}
-        onclick={() => overlayController.open("StudentImport")}
+        onclick={() => overlays.open("import")}
       >
         <FileArrowUpIcon size="24"/>
       </button>
@@ -130,7 +174,7 @@
         disabled={studentStore.isLoading}
         onclick={e => {
           anchor = e.currentTarget;
-          overlayController.open("StudentExport")
+          overlays.open("export")
         }}
       >
         <FileArrowDownIcon size="24"/>
@@ -141,7 +185,7 @@
         aria-label="恢复已删除学生"
         title="恢复已删除学生"
         style="display: none"
-        onclick={() => overlayController.open("StudentRestore")}
+        onclick={() => overlays.open("restore")}
       >
         <ClockClockwiseIcon size="24"/>
       </button>
@@ -259,8 +303,8 @@
   {/if}
 </div>
 
-<SingleCreateStudent/>
-<EditStudent bind:selected={selected}/>
-<DeleteStudents bind:selected={selected}/>
-<ImportStudents/>
-<ExportStudents bind:selected={selected} bind:display={display} bind:anchor={anchor}/>
+<SingleCreateStudent {overlays}/>
+<EditStudent bind:selected={selected} {overlays}/>
+<DeleteStudents bind:selected={selected} {overlays}/>
+<ImportStudents {overlays}/>
+<ExportStudents bind:selected={selected} bind:display={display} bind:anchor={anchor} {overlays}/>
