@@ -3,8 +3,6 @@ export * from "./AppInfo"
 export * from "./AppMode";
 export * from "./ImportPreviewData";
 export * from "./NavItem";
-export * from "./Popup";
-export * from "./PopupName";
 export * from "./Record";
 export * from "./RecordGroupMetaData";
 export * from "./RecordTable";
