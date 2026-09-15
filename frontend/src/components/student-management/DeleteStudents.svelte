@@ -1,9 +1,13 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import {overlayController} from "$controllers/popupController";
+  import type {OverlayRegistry} from "$routing/overlays";
+  import type {StudentOverlayName} from "$routing/overlayNames";
   import {StudentCommand} from "$commands";
 
-  let {selected = $bindable()} = $props<{ selected: Set<bigint> }>();
+  let {selected = $bindable(), overlays} = $props<{
+    selected: Set<bigint>;
+    overlays: OverlayRegistry<StudentOverlayName>;
+  }>();
   let isVisible = $state(false);
   let closeOnOutside = true;
 
@@ -20,11 +24,12 @@
   }
 
   $effect(() => {
-    overlayController.register("StudentDelete", {
+    overlays.register("delete", {
       open: () => isVisible = true,
       close: () => isVisible = false,
       isVisible: () => isVisible
     })
+    return () => overlays.unregister("delete");
   })
 </script>
 
