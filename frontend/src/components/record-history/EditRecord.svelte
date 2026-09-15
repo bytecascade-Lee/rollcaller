@@ -3,13 +3,15 @@
   import {RecordCommand} from "$commands";
   import {recordStore} from "$stores/recordStore.svelte";
   import type {RollcallRecord} from "$types";
-  import {overlayController} from "$controllers/popupController";
+  import type {OverlayRegistry} from "$routing/overlays";
+  import type {RecordOverlayName} from "$routing/overlayNames";
   import {clickOutside, updatePosition} from "$actions";
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
 
-  let {selected = $bindable(), anchor = $bindable()} = $props<{
+  let {selected = $bindable(), anchor = $bindable(), overlays} = $props<{
     selected: Set<bigint>;
     anchor: HTMLElement | null;
+    overlays: OverlayRegistry<RecordOverlayName>;
   }>();
 
   let isVisible = $state(false);
@@ -66,11 +68,12 @@
   }
 
   $effect(() => {
-    overlayController.register("RecordEdit", {
+    overlays.register("edit", {
       open: open,
       close: close,
       isVisible: () => isVisible
     })
+    return () => overlays.unregister("edit");
   })
 </script>
 
