@@ -5,7 +5,7 @@
  * 为什么需要它：`pnpm test:help` 用裸 node 直接跑 `.ts` 源码（`--experimental-strip-types`），
  * 而
  *   - `$utils/...` 这种前缀是 Vite 的别名，Node 只认 `#` 开头的 subpath imports；
- *   - 源码里写的是 `from "$routing/route"`（无扩展名），Node 的 ESM 解析要求显式 `.ts`。
+ *   - 源码里写的是 `from "$routing/address"`（无扩展名），Node 的 ESM 解析要求显式 `.ts`。
  *
  * 校验器的价值在于"能 import 生产代码"——否则它校验的是自己的复刻版、不是真相——
  * 所以这里补一个**只读**的解析映射，同时**不改应用代码的写法**，也不去改 tsconfig /
