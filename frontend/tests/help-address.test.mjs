@@ -7,18 +7,21 @@
  *   细节见 `tests/_alias-resolver.mjs`——没有它连 import 都过不去。）
  *
  * 三层内容：
- *   1) 通用路由原语：切分 / 组装 / 规范化 / 前缀判别（`$routing/route`）；
+ *   1) 通用路由原语：切分 / 组装 / 规范化 / 前缀判别（`$routing/address`）；
  *   2) HelpAddress 单元测试：三个入口（of / parse / fromDocLink）与路由序列化；
  *   3) 静态校验：文档注解无残留、`{#id}` 合法且唯一、所有 fragment 都能落到真实锚点，
- *      外加具名入口表（`HelpEntries` / `AppEntries`）里的每个落点都真实存在。
+ *      外加具名入口表（`HelpEntries` / `AppEntries`）里的每个落点都真实存在，
+ *      以及 app 路由表与 `resources/app/meta.json` 的一致性（JSON 声明 ↔ TS 白名单，
+ *      含卡片 id 与各卡的叠加层名字、可寻址集合 ↔ `AppEntries` 的叠加层入口）。
  *      这类不变量放在这里而不是渲染期，渲染期只负责"降级得体"（占位提示 / 回文档顶部）。
  */
 import {strict as assert} from "node:assert";
 import {readdirSync, readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 import MarkdownIt from "markdown-it";
-import {canonicalRoute, isRouteHref, parseRoute, routeOf} from "$routing/route.ts";
-import {AppEntries, HelpEntries} from "$routing/entries.ts";
+import {canonicalRoute, isRouteHref, parseRoute, routeOf} from "$routing/address.ts";
+import {AppCardIds, AppCards, AppEntries, AppOwners, HelpEntries, StudentEditFields} from "$routing/entries.ts";
+import {RecordOverlays, StudentOverlays} from "$routing/overlayNames.ts";
 import {HelpAddress} from "$utils/helpAddress.ts";
 import {headingIdPlugin} from "$utils/markdownHeadingId.ts";
 
@@ -75,6 +78,16 @@ const anchorsOf = (id) => {
 };
 
 const meta = JSON.parse(readFileSync(new URL("../src/lib/resources/help/meta.json", import.meta.url), "utf8"));
+const appMeta = JSON.parse(readFileSync(new URL("../src/lib/resources/app/meta.json", import.meta.url), "utf8"));
+/** 卡片 id → 该卡的叠加层名字表（TS 侧） */
+const APP_OVERLAYS = {
+  "student-management": StudentOverlays,
+  "record-history": RecordOverlays,
+};
+/** 落点 → 载荷字段表（TS 侧） */
+const APP_PAYLOADS = {
+  "student-management/edit": StudentEditFields,
+};
 
 const linksOf = (source) =>
   [...source.matchAll(LINK_RE)].map((m) => ({text: m[1], target: m[2]}))
@@ -332,12 +345,79 @@ check("HelpEntries：不指向只有标题没有内容的父节点", () => {
     assert.ok(!contentless.has(address.doc), `${name} 指向了无内容的父节点 ${address.doc}`);
   }
 });
+console.log("— app 路由表 —");
 check("AppEntries：结构为 `#/app/<卡片>[/<叠加层>]` 且 canonical", () => {
   for (const [name, action] of Object.entries(AppEntries)) {
     const parsed = parseRoute(action.route);
     assert.equal(parsed?.host, "app", name);
     assert.ok(parsed.segments.length >= 1, `${name} 没有卡片段`);
     assert.equal(canonicalRoute(action.route), action.route, `${name} 的 route 不是 canonical 形式`);
+  }
+});
+check("app/meta.json 的节点与 AppCardIds 一一对应", () => {
+  assert.deepEqual([...AppCardIds].sort(), Object.keys(appMeta.nodes).sort());
+});
+check("每张卡片都有同名入口，且首段等于该卡片 id", () => {
+  const cards = Object.entries(AppEntries)
+    .filter(([, action]) => parseRoute(action.route).segments.length === 1);
+  assert.deepEqual(cards.map(([name]) => name).sort(), Object.keys(AppCards).sort());
+  for (const [name, action] of cards) {
+    assert.equal(parseRoute(action.route).segments[0], AppCards[name], `${name} 的首段与 AppCards.${name} 不一致`);
+  }
+});
+check("每张卡片的 overlays 与 TS 名字表一一对应", () => {
+  for (const [id, node] of Object.entries(appMeta.nodes)) {
+    assert.deepEqual(
+      Object.keys(node.overlays ?? {}).sort(),
+      [...(APP_OVERLAYS[id] ?? [])].sort(),
+      `卡片 ${id} 的 overlays 与 overlayNames.ts 不一致`,
+    );
+  }
+});
+check("可寻址的叠加层与 AppEntries 的叠加层入口一一对应", () => {
+  const addressable = Object.entries(appMeta.nodes).flatMap(([id, node]) =>
+    Object.entries(node.overlays ?? {})
+      .filter(([, overlay]) => overlay.addressable)
+      .map(([name]) => `${id}/${name}`));
+  const entries = Object.entries(AppEntries)
+    .map(([, action]) => parseRoute(action.route).segments)
+    .filter((segments) => segments.length > 1)
+    .map((segments) => segments.join("/"));
+  assert.deepEqual(entries.sort(), addressable.sort());
+});
+check("owner 与 AppOwners 一一对应，且无 owner 的节点不可寻址", () => {
+  const nodes = Object.entries(appMeta.nodes).flatMap(([, node]) => [
+    node,
+    ...Object.values(node.overlays ?? {}),
+  ]);
+  assert.deepEqual(
+    nodes.filter((node) => node.owner !== null).map((node) => node.owner).sort(),
+    [...AppOwners].sort(),
+  );
+  for (const node of nodes) {
+    if (node.owner === null) assert.equal(node.addressable ?? false, false, "没有实现方的节点不能可寻址");
+  }
+});
+check("声明了 payload 的落点必须可寻址，且字段名与 TS 类型一致", () => {
+  const declared = Object.entries(appMeta.nodes).flatMap(([id, node]) =>
+    Object.entries(node.overlays ?? {})
+      .filter(([, overlay]) => overlay.payload)
+      .map(([name]) => `${id}/${name}`));
+  assert.deepEqual(declared.sort(), Object.keys(APP_PAYLOADS).sort());
+  for (const [path, fields] of Object.entries(APP_PAYLOADS)) {
+    const [card, name] = path.split("/");
+    const overlay = appMeta.nodes[card]?.overlays?.[name];
+    assert.equal(overlay.addressable, true, `${path} 带载荷却不可寻址`);
+    assert.deepEqual([...overlay.payload].sort(), [...fields].sort(), `${path} 的 payload 字段与 TS 类型不一致`);
+  }
+});
+check("叠加层入口落在已声明的卡片上，且无两条入口指向同一地址", () => {
+  const seen = new Set();
+  for (const [name, action] of Object.entries(AppEntries)) {
+    const [first, ...rest] = parseRoute(action.route).segments;
+    if (rest.length > 0) assert.ok(AppCardIds.includes(first), `${name} 落在了未声明的卡片 ${first}`);
+    assert.ok(!seen.has(action.route), `${name} 与另一条入口指向同一地址 ${action.route}`);
+    seen.add(action.route);
   }
 });
 
