@@ -1,0 +1,53 @@
+{
+    "nodes": {
+        "rollcall": {
+            "owner": "RollcallPage",
+            "overlays": {}
+        },
+        "student-management": {
+            "owner": "StudentManagementPage",
+            "overlays": {
+                "create": {
+                    "owner": "SingleCreateStudent",
+                    "addressable": false
+                },
+                "edit": {
+                    "owner": "EditStudent",
+                    "addressable": true,
+                    "payload": [
+                        "ids"
+                    ]
+                },
+                "delete": {
+                    "owner": "DeleteStudents",
+                    "addressable": false
+                },
+                "import": {
+                    "owner": "ImportStudents",
+                    "addressable": false
+                },
+                "export": {
+                    "owner": "ExportStudents",
+                    "addressable": false
+                },
+                "restore": {
+                    "owner": null,
+                    "addressable": false
+                }
+            }
+        },
+        "record-history": {
+            "owner": "RecordHistoryPage",
+            "overlays": {
+                "edit": {
+                    "owner": "EditRecord",
+                    "addressable": false
+                },
+                "export": {
+                    "owner": "ExportRecords",
+                    "addressable": false
+                }
+            }
+        }
+    }
+}
