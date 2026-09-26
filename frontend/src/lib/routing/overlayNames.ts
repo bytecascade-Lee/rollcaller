@@ -10,13 +10,18 @@
  *
  * 新增叠加层时在这里加名字。**只有需要被地址指到的**（可深链、可跨窗口投递）才配得上
  * 一条路由，见 `entries.ts` 的 `AppEntries`；纯过程（向导、确认、导出）有名字但没有地址。
+ *
+ * 名字同样是 `resources/app/meta.json` 里 `overlays` 的键，两边由 `pnpm test:help` 断言一致。
  */
 
 /** 学生管理页 */
-export type StudentOverlayName = "create" | "edit" | "delete" | "import" | "export" | "restore";
+export const StudentOverlays = ["create", "edit", "delete", "import", "export", "restore"] as const;
+export type StudentOverlayName = (typeof StudentOverlays)[number];
 
 /** 历史记录页 */
-export type RecordOverlayName = "edit" | "export";
+export const RecordOverlays = ["edit", "export"] as const;
+export type RecordOverlayName = (typeof RecordOverlays)[number];
 
 /** 帮助窗口（一个窗口一个页面，故直接按窗口命名） */
-export type HelpOverlayName = "search";
+export const HelpOverlays = ["search"] as const;
+export type HelpOverlayName = (typeof HelpOverlays)[number];
