@@ -5,7 +5,7 @@
   import {open} from "@tauri-apps/plugin-dialog";
   import type {OverlayRegistry} from "$routing/overlays";
   import type {StudentOverlayName} from "$routing/overlayNames";
-  import {nav} from "$routing/windowRouter";
+  import {WindowRouter} from "$routing/windowRouter";
   import {HelpEntries} from "$routing/entries";
   import {ImportCommand} from "$commands";
   import {
@@ -355,7 +355,7 @@
           type="button"
           aria-label="查看帮助"
           title="查看帮助"
-          onclick={() => nav(HelpEntries.importStudents)}
+          onclick={() => WindowRouter.nav(HelpEntries.importStudents)}
         >
           <QuestionIcon size="18"/>
         </button>

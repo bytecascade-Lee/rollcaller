@@ -20,7 +20,8 @@
   } from "phosphor-svelte";
   import {createOverlayRegistry} from "$routing/overlays";
   import type {StudentOverlayName} from "$routing/overlayNames";
-  import {parseRoute, type Action, type Payload} from "$routing/route";
+  import {type StudentEditPayload} from "$routing/entries";
+  import {parseRoute, type Action, type Payload} from "$routing/address";
   import {untrack} from "svelte";
   import EditStudent from "$components/student-management/EditStudent.svelte";
   import ExportStudents from "$components/student-management/ExportStudents.svelte";
@@ -91,9 +92,9 @@
     }
   }
 
-  /** 载荷校验：`{ids: number[]}`。不合法一律返回空数组，让调用方降级为纯导航 */
+  /** 载荷校验：契约见 `$routing/entries` 的 `StudentEditPayload`。不合法一律返回空数组，让调用方降级为纯导航 */
   function idsOf(payload: Payload | undefined): number[] {
-    const raw = payload?.ids;
+    const raw = (payload as StudentEditPayload | undefined)?.ids;
     if (!Array.isArray(raw)) return [];
     return raw.filter((id): id is number => Number.isSafeInteger(id));
   }
