@@ -1,26 +1,37 @@
 /**
- * 本窗口的路由单例。
+ * 当前窗口的路由单例
  *
- * 一个窗口 = 一个 JS 上下文，所以"模块级单例"天然就是**窗口级**的——不会跨窗口串味。
- * 窗口的根组件（`App.svelte` / `Help.svelte`）创建 router 后 `installWindowRouter()` 一次，
- * 之后窗口里**任何组件**都能用 `nav(action)` 发起跳转，不必层层传 props、也不必各自
- * 认得路由对象。
- *
- * 这就是"发起方只学一个函数"的落点：按钮、搜索结果、跨窗口投递的落地，写的是同一行。
- *
- * 未安装时静默忽略（不报错、不半应用）——与"非法地址忽略""锚点缺失回顶部"同一种降级。
+ * 窗口的根组件（`App.svelte` / `Help.svelte`）创建 router 后执行 `install()`，
+ * 之后窗口里**任何组件、store、service** 都能用 `WindowRouter.nav(action)` 发起跳转，
+ * 不必层层传 props、也不必各自认得路由对象。
+ * 未安装时静默忽略。
  */
-import type {Action} from "$routing/route";
+import {type Action, isRouteHref, type Route} from "$routing/address";
 import type {Router} from "$routing/router";
 
 let router: Router | null = null;
 
-/** 由窗口根组件安装（重复安装以最后一次为准，便于热重载） */
-export function installWindowRouter(next: Router): void {
-  router = next;
-}
+export const WindowRouter = {
+  /** 由窗口根组件安装，重复安装以最后一次为准 */
+  install(next: Router): void {
+    router = next;
+  },
 
-/** 应用代码的唯一入口 */
-export function nav(action: Action): void {
-  router?.go(action);
-}
+  /** 发起跳转：判归属与跨窗口转发都在 router 内部完成 */
+  nav(action: Action): void {
+    router?.go(action);
+  },
+
+  replaceHash(route: Route): void {
+    /**
+     * 只同步 `location.hash`，**不触发导航**——导航的落地由窗口自己的 handler 负责，hash 只是它的对外投影。
+     *
+     * 使用 `replaceState` 而非赋值 `location.hash`：后者会产生浏览器历史条目，与各窗口自有的前进/后退栈发生冲突；
+     * 且 `replaceState` **不触发 hashchange**，天然不会把"自己写的地址"再处理一遍。
+     */
+    if (!isRouteHref(route)) {
+      return
+    }
+    history.replaceState(null, "", route);
+  },
+};
