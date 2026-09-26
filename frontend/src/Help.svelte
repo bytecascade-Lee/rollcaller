@@ -24,9 +24,8 @@
   import {HelpAddress} from "$utils/helpAddress";
   import {CaretRightIcon, CircleIcon} from "phosphor-svelte";
   import {createRouter} from "$routing/router";
-  import {installWindowRouter, nav} from "$routing/windowRouter";
+  import {WindowRouter} from "$routing/windowRouter";
   import {HelpEntries} from "$routing/entries";
-  import {replaceHash} from "$routing/route";
   import {createOverlayRegistry} from "$routing/overlays";
   import type {HelpOverlayName} from "$routing/overlayNames";
 
@@ -68,20 +67,20 @@
       if (address) void applyAddress(address);
     },
   });
-  installWindowRouter(router);
+  WindowRouter.install(router);
 
   /**
    * 本窗口的落地函数：把地址应用到当前视图，并把地址写回 `location.hash`。
    *
    * hash 只是**对外投影**（刷新、原生 `<a href="#/...">`、调试用），真源仍是地址本身；
-   * 写它用 `replaceState`（见 `replaceHash`），所以不会与这里自有的前进/后退栈打架。
+   * 写它用 `replaceState`（见 `WindowRouter.replaceHash`），所以不会与这里自有的前进/后退栈打架。
    *
    * - `foldTree`：外部跳转（文档内链接 / 搜索）折叠导航树到当前路径，侧栏点击不折叠
    * - 重复投递同一地址是空操作，只重新定位（避免连点把历史栈灌满）
    */
   async function applyAddress(address: HelpAddress, foldTree = true) {
     const hash = address.toHash();
-    replaceHash(hash);
+    WindowRouter.replaceHash(hash);
     if (hash === currentAddress?.toHash()) {
       scrollToSection(address.anchor);
       return;
@@ -121,7 +120,7 @@
     const address = history[historyIndex];
     activeId = address.doc;
     jumpToken += 1;
-    replaceHash(address.toHash());
+    WindowRouter.replaceHash(address.toHash());
     await loadDoc(address);
   }
 
@@ -132,7 +131,7 @@
     const address = history[historyIndex];
     activeId = address.doc;
     jumpToken += 1;
-    replaceHash(address.toHash());
+    WindowRouter.replaceHash(address.toHash());
     await loadDoc(address);
   }
 
@@ -161,7 +160,7 @@
 
   onMount(() => {
     // 注册跳转回调：搜索结果选中、文档内链接都经 router 走同一个门
-    helpStore.navigate = (address) => nav({route: address.toHash()});
+    helpStore.navigate = (address) => WindowRouter.nav({route: address.toHash()});
 
     let dispose: (() => void) | null = null;
     let unlisten: (() => void) | null = null;
@@ -178,7 +177,7 @@
 
       unlisten = await listen(NavCommand.NAV_WAKE_EVENT, async () => {
         const next = await NavCommand.navTakePending();
-        if (next) nav({route: next.route, payload: next.payload ?? undefined});
+        if (next) WindowRouter.nav({route: next.route, payload: next.payload ?? undefined});
       });
     })();
 
