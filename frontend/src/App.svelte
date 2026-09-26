@@ -32,23 +32,15 @@
   import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
   import {listen} from "@tauri-apps/api/event";
   import {createRouter} from "$routing/router";
-  import {installWindowRouter, nav} from "$routing/windowRouter";
-  import {AppEntries, HelpEntries} from "$routing/entries";
-  import {parseRoute, replaceHash, type Action} from "$routing/route";
+  import {WindowRouter} from "$routing/windowRouter";
+  import {AppCardIds, AppCards, AppEntries, HelpEntries, type AppCard} from "$routing/entries";
+  import {type Action, parseRoute} from "$routing/address";
 
-  /**
-   * plane 段 → 卡片。
-   *
-   * 位置即语法：`#/app/<段>` 的第一段决定挂哪张卡，后面的段属于这张卡内部的叠加层
-   * （由卡片自己解释）。存成数组而不是"段 → 组件"的对象字面量，是因为"段合法"
-   * 只关心集合，组件引用由模板里的 `{#if}` 决定，两件事不必耦合。
-   */
-  const PAGES = ["rollcall", "students", "records"] as const;
-  type PageKey = (typeof PAGES)[number];
-  const isPageKey = (value: string | undefined): value is PageKey =>
-    value !== undefined && (PAGES as readonly string[]).includes(value);
+  /** 卡片段的合法性归本窗口：只认 `AppCards` 声明过的 id */
+  const isAppCard = (value: string | undefined): value is AppCard =>
+    value !== undefined && AppCardIds.some((id) => id === value);
 
-  let APP_INFO = $state<AppInfo>({
+  let APP_INFO = $state<AppInfo>(<AppInfo><unknown>{
     os: "",
     arch: "",
     branch: "",
@@ -59,26 +51,24 @@
     build_time: ""
   })
   const window = getCurrentWebviewWindow();
-  /** 当前卡片：**由地址投影出来**，而不是自己独立持有的视图选择 */
-  let currentPage = $state<PageKey>("rollcall");
-  /** 最近一次落到本窗口的完整 Action（身份 + 载荷），交给卡片做"初始状态"注入 */
+  let currentPage = $state<AppCard>(AppCards.rollcall);
   let currentAction = $state<Action | null>(null);
 
   const router = createRouter({
     host: "app",
-    /** 归本窗口：先把地址翻译成"挂哪张卡"，再把完整 Action 交给那张卡自己解释 */
     handle: (action) => {
       const parsed = parseRoute(action.route);
       const page = parsed?.segments[0];
-      if (!isPageKey(page)) return; // 未知段：忽略，不报错也不半应用
+      if (!isAppCard(page)) {
+        return;
+      }
       currentPage = page;
       currentAction = action;
-      replaceHash(action.route);
+      WindowRouter.replaceHash(action.route);
     },
-    /** 不归本窗口：交给后端投递给目标窗口（跨窗口只有这一条路） */
     forward: (action) => NavCommand.navOpen(action),
   });
-  installWindowRouter(router);
+  WindowRouter.install(router);
 
   onMount(() => {
     void AppInfoCommand.app_info().then((info) => (APP_INFO = info));
@@ -87,7 +77,6 @@
     let unlisten: (() => void) | null = null;
 
     void (async () => {
-      // 冷启动：窗口是懒建的，广播必丢，所以载荷留在后端等前端来取
       const pending = await NavCommand.navTakePending();
       const initial = pending
         ? {route: pending.route, payload: pending.payload ?? undefined}
@@ -114,39 +103,39 @@
   <aside class="sidebar">
     <nav class="nav">
       <button
-        class="nav-icon"
-        class:active={currentPage == "rollcall"}
         aria-label="点名"
+        class="nav-icon"
+        class:active={currentPage == AppCards.rollcall}
+        onclick={() => WindowRouter.nav(AppEntries.rollcall)}
         title="点名"
-        onclick={() => nav(AppEntries.rollcall)}
       >
         <DiceFourIcon size="24"/>
       </button>
       <button
-        class="nav-icon"
-        class:active={currentPage == "students"}
         aria-label="学生管理"
+        class="nav-icon"
+        class:active={currentPage == AppCards.studentManagement}
+        onclick={() => WindowRouter.nav(AppEntries.studentManagement)}
         title="学生管理"
-        onclick={() => nav(AppEntries.students)}
       >
         <UsersIcon size="24"/>
       </button>
       <button
-        class="nav-icon"
-        class:active={currentPage == "records"}
         aria-label="历史记录"
+        class="nav-icon"
+        class:active={currentPage == AppCards.recordHistory}
+        onclick={() => WindowRouter.nav(AppEntries.recordHistory)}
         title="历史记录"
-        onclick={() => nav(AppEntries.records)}
       >
         <ClockCounterClockwiseIcon size="24"/>
       </button>
     </nav>
     <nav>
       <button
-        class="nav-icon"
         aria-label="帮助文档"
+        class="nav-icon"
+        onclick={() => WindowRouter.nav(HelpEntries.overview)}
         title="帮助文档"
-        onclick={() => nav(HelpEntries.overview)}
       >
         <QuestionIcon size="24"/>
       </button>
@@ -160,11 +149,11 @@
   </aside>
 
   <main class="content">
-    <RollcallPage active={currentPage == "rollcall"}/>
-    <RecordHistoryPage active={currentPage == "records"}/>
+    <RollcallPage active={currentPage == AppCards.rollcall}/>
+    <RecordHistoryPage active={currentPage == AppCards.recordHistory}/>
     <StudentManagementPage
-      active={currentPage == "students"}
-      action={currentPage == "students" ? currentAction : null}
+      action={currentPage == AppCards.studentManagement ? currentAction : null}
+      active={currentPage == AppCards.studentManagement}
     />
   </main>
 
