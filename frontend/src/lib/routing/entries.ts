@@ -1,5 +1,6 @@
 import {type Action, type Payload, routeOf} from "$routing/address";
 import {type AppEntryId, APP_ENTRY_PARENT, APP_HOST} from "$routing/entries.generated";
+import {WindowRouter} from "$routing/windowRouter";
 
 /** 帮助窗口落点 */
 const help = (doc: string, anchor?: string): Action => ({
@@ -65,6 +66,37 @@ export function appAction(entry: AppEntryId, payload?: Payload): Action {
 }
 
 /**
+ * **进入**一个入口 —— app 域唯一的"打开"入口。
+ *
+ * 一切打开都走地址（哪怕目标就在本窗口）：这样"地址"与"实际显示"永远是同一件事，
+ * 深链、刷新、重放、跨窗口四条路走的是同一条。
+ */
+export function appEnter(entry: AppEntryId, payload?: Payload): void {
+  WindowRouter.nav(appAction(entry, payload));
+}
+
+/**
+ * **离开**一个入口：地址回退到它的父级 —— app 域唯一的"关闭"入口。
+ *
+ * 关闭必须也是导航：否则地址会停在"已经关掉的位置"上（地址撒谎），重放同一地址会被
+ * 转换的 diff 判定为无事可做而静默失效。
+ *
+ * 根入口没有父级，故是空操作（卡片本来也不可关）。
+ */
+export function appLeave(entry: AppEntryId): void {
+  // 只在自己**确实是当前地址的目标**时才回退。否则说明别处已经在导航 —— 典型场景：
+  // 浮层锚定在工具栏上，用户点侧边栏切卡片，侧边栏的导航先落地（冒泡顺序），随后
+  // 浮层的 clickOutside 才触发；若这里再推一次，就会把刚切过去的卡片拽回来。
+  if (WindowRouter.currentRoute() !== appPath(entry)) {
+    return;
+  }
+  const parent = APP_ENTRY_PARENT[entry];
+  if (parent !== null) {
+    WindowRouter.nav(appAction(parent));
+  }
+}
+
+/**
  * 由地址段解析入口 —— **app 域唯一的地址解释者**。
  *
  * 严格（不给"猜"的余地）：最后一段必须是入口名，段数必须等于该入口的链长，
@@ -83,17 +115,17 @@ export function resolveAppEntry(segments: readonly string[]): AppEntryId | null 
   return chain.every((id, index) => id === segments[index]) ? entry : null;
 }
 
-/** `edit-student` 的载荷 */
-export type StudentEditPayload = { ids: number[] };
+/** `edit-student` / `delete-student` 共用的载荷：要操作哪些学生 */
+export type StudentIdsPayload = { ids: number[] };
 
 /** 载荷字段名：与上面类型双向绑定（少一个/多一个都编译报错） */
-export const StudentEditFields = Object.keys(
-  {ids: true} satisfies Record<keyof StudentEditPayload, true>,
+export const StudentIdsFields = Object.keys(
+  {ids: true} satisfies Record<keyof StudentIdsPayload, true>,
 );
 
 /** 读载荷里的 ids：非法一律给空数组，调用方据此降级为"纯导航" */
-export function studentEditIds(payload: unknown): number[] {
-  const raw = (payload as StudentEditPayload | undefined)?.ids;
+export function readStudentIds(payload: unknown): number[] {
+  const raw = (payload as StudentIdsPayload | undefined)?.ids;
   if (!Array.isArray(raw)) return [];
   return raw.filter((id): id is number => Number.isSafeInteger(id));
 }
