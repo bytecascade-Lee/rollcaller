@@ -4,9 +4,8 @@
   import {Result} from "$types"
   import {open} from "@tauri-apps/plugin-dialog";
   import type {EntryRegistry} from "$routing/registry";
-  import {AppEntry} from "$routing/entries.generated";
+  import {AppEntry, HelpEntry} from "$routing/entries.generated";
   import {WindowRouter} from "$routing/windowRouter";
-  import {HelpEntries} from "$routing/entries";
   import {ImportCommand} from "$commands";
   import {
     ArrowFatRightIcon,
@@ -22,7 +21,7 @@
     XCircleIcon,
     XIcon
   } from "phosphor-svelte";
-  import {appLeave} from "$routing/appNav";
+  import {appNavigate} from "$routing/appNavigate";
 
   let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();
 
@@ -37,7 +36,7 @@
 
   /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
   function requestClose() {
-    appLeave(AppEntry.importStudent);
+    appNavigate.leave(AppEntry.importStudent);
   }
 
   let isPreviewing = $state(false);
@@ -362,7 +361,7 @@
           type="button"
           aria-label="查看帮助"
           title="查看帮助"
-          onclick={() => WindowRouter.nav(HelpEntries.importStudents)}
+          onclick={() => WindowRouter.nav({route: HelpEntry.batchImportImportSteps})}
         >
           <QuestionIcon size="18"/>
         </button>
