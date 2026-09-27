@@ -284,7 +284,7 @@
             <td>
               <input
                 type="checkbox"
-                checked={selected.has(student.id)}
+                checked={liveSelected.has(student.id)}
                 onchange={() => select(student.id)}
               />
             </td>
