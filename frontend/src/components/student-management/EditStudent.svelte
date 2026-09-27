@@ -1,14 +1,15 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import type {OverlayRegistry} from "$routing/overlays";
-  import type {StudentOverlayName} from "$routing/overlayNames";
+  import type {EntryRegistry} from "$routing/registry";
+  import type {StudentOverlayName} from "$pages/overlays";
+  import {AppEntry} from "$routing/entries.generated";
   import type {StudentSingleUpdate, StudentTable} from "$types";
   import {StudentCommand} from "$commands"
   import {DateTimeUtils} from "$utils";
 
-  let {selected = $bindable(), overlays}: {
+  let {selected, overlays}: {
     selected: Set<bigint>;
-    overlays: OverlayRegistry<StudentOverlayName>;
+    overlays: EntryRegistry<StudentOverlayName>;
   } = $props();
   let localEdit = $state<StudentTable | null>(null);
   let isVisible = $state(false);
@@ -67,12 +68,12 @@
     }
   });
   $effect(() => {
-    overlays.register("edit", {
-      open: open,
-      close: close,
-      isVisible: () => isVisible
+    overlays.register(AppEntry.editStudent, {
+      show: open,
+      hide: close,
+      isShown: () => isVisible
     })
-    return () => overlays.unregister("edit");
+    return () => overlays.unregister(AppEntry.editStudent);
   })
 </script>
 
