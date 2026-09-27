@@ -1,0 +1,20 @@
+version: 2
+
+# open-pull-requests-limit: 0 ⇒ 关闭版本更新、保留安全更新（安全更新 PR 不受该 limit 约束）
+# target-branch 对安全更新无效（安全更新恒打默认分支 master），写它还会让本条目的其它选项
+# （labels / reviewers / commit-message…）对安全更新一并失效 ⇒ 要给安全 PR 打标签时先删掉它
+# 安全更新 PR 的 base 由 workflow dependabot-security-pr-retarget.yaml 自动改到 develop
+updates:
+    -   package-ecosystem: "npm"
+        directory: "/frontend"
+        schedule:
+            interval: "weekly"
+        open-pull-requests-limit: 0
+        target-branch: "develop"
+
+    -   package-ecosystem: "cargo"
+        directory: "/backend"
+        schedule:
+            interval: "weekly"
+        open-pull-requests-limit: 0
+        target-branch: "develop"

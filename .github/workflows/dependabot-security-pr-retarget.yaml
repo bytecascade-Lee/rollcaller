@@ -1,0 +1,62 @@
+name: Dependabot Security PR Retarget
+
+# 把 Dependabot 安全更新 PR 的 base 从 master 改到 develop。
+#
+# 为什么必须"事后改"：安全更新 PR 恒定打默认分支（master），dependabot.yml 的 target-branch
+# 对它无效。而这类 PR 上用 pull_request_target 也改不动 —— Dependabot 触发的该事件下
+# GITHUB_TOKEN 只读、且 secrets 完全取不到（Actions 与 Dependabot secrets 都不给），实测必然失败。
+# workflow_run 不在该限制内：它在默认分支上下文运行，令牌按下面的 permissions 正常计算，
+# 也不需要任何 secret。信号由 dependabot-pr-signal.yaml 发出（将来有 PR 级 CI 后，可直接
+# 挂到那个 workflow 的 workflow_run 上，删掉信号文件）。
+on:
+    workflow_run:
+        workflows: [ 'Dependabot PR Signal' ]
+        types: [ completed ]
+
+permissions:
+    contents: read
+    # gh pr comment 走的是 issue comments 端点，因此还需要 issues: write
+    issues: write
+    pull-requests: write
+
+jobs:
+    retarget:
+        name: Retarget to develop
+        # 本文件必须存在于默认分支才会被 workflow_run 触发；仓库守卫避免在 fork 中执行
+        if: github.repository == 'bytecascade-Lee/rollcaller'
+        runs-on: ubuntu-latest
+        steps:
+            # 不 checkout：workflow_run 是特权上下文，不引入任何 PR 侧内容
+            -   name: Change base branch to develop
+                env:
+                    GH_TOKEN: ${{ github.token }}
+                    HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+                shell: bash
+                run: |
+                    set -euo pipefail
+
+                    case "$HEAD_BRANCH" in
+                      dependabot/*) ;;
+                      *) echo "skip: not a dependabot branch: $HEAD_BRANCH"; exit 0 ;;
+                    esac
+
+                    pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$HEAD_BRANCH" --state open \
+                        --json number,baseRefName \
+                        --jq '[.[] | select(.baseRefName == "master") | .number] | first // empty')"
+
+                    if [ -z "$pr" ]; then
+                        echo "skip: no open PR from $HEAD_BRANCH aimed at master"
+                        exit 0
+                    fi
+
+                    gh pr edit "$pr" --repo "$GITHUB_REPOSITORY" --base develop
+
+                    gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body-file - <<'EOF'
+                    ### Base branch updated
+
+                    This PR has been automatically retargeted from `master` to `develop`.
+                    The `master` branch only accepts merges from `develop` and `hotfix`.
+                    Please continue review and merge on `develop`.
+
+                    <sub>Automated by `Dependabot Security PR Retarget`</sub>
+                    EOF

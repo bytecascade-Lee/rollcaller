@@ -5,8 +5,11 @@ name: Sync Mirrors
 
 on:
     push:
+        # Dependabot 推分支会触发 push，而 Dependabot 触发的运行拿不到 Actions secrets
+        # （CNB_TOKEN 为空）⇒ 每个 dependabot 分支都会刷一次失败；这些分支也无需镜像到 CNB
         branches:
             - '**'
+            - '!dependabot/**'
         tags:
             - '**'
 
