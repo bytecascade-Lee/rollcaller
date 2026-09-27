@@ -4,6 +4,7 @@
   import {recordStore} from "$stores/recordStore.svelte";
   import type {RecordOverlayName, RollcallRecord} from "$types";
   import type {EntryRegistry} from "$routing/registry";
+  import {appLeave} from "$routing/entries";
   import {AppEntry} from "$routing/entries.generated";
   import {clickOutside, updatePosition} from "$actions";
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
@@ -18,6 +19,11 @@
   }>();
 
   let isVisible = $state(false);
+
+  /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
+  function requestClose() {
+    appLeave(AppEntry.editRecord);
+  }
   let updateStatus = $state(true);
   let updateRemark = $state(true);
   let attendanceStatus = $state<number | null>(null);
@@ -46,7 +52,7 @@
     records.forEach(record => recordStore.upsert(record));
     // 改完的这批记录仍然存在，故"按存在性派生"不会让它们自己掉出选中集 —— 这里显式回报清空
     onselect([]);
-    isVisible = false;
+    requestClose();
   }
 
   export function open() {
@@ -73,9 +79,9 @@
 
   $effect(() => {
     overlays.register(AppEntry.editRecord, {
-      show: open,
-      hide: close,
-      isShown: () => isVisible
+      open,
+      close,
+      isVisible: () => isVisible
     })
     return () => overlays.unregister(AppEntry.editRecord);
   })
@@ -87,7 +93,7 @@
   <div
     class="popup"
     style={popoverStyle}
-    use:clickOutside={{ callback: close, exclude: anchor }}
+    use:clickOutside={{ callback: requestClose, exclude: anchor }}
   >
     {#if selected.size == 1}
       <h3 class="text-title">修改记录</h3>
@@ -140,7 +146,7 @@
       <button
         type="button"
         class="button"
-        onclick={close}>
+        onclick={requestClose}>
         取消
       </button>
       <button
