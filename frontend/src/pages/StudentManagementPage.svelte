@@ -20,7 +20,7 @@
   } from "phosphor-svelte";
   import type {EntryRegistry} from "$routing/registry";
   import type {StudentOverlayName} from "$types";
-  import {studentEditIds} from "$routing/entries";
+  import {appEnter, readStudentIds} from "$routing/entries";
   import {AppEntry} from "$routing/entries.generated";
   import EditStudent from "$components/student-management/EditStudent.svelte";
   import ExportStudents from "$components/student-management/ExportStudents.svelte";
@@ -116,7 +116,7 @@
    */
   $effect(() => {
     overlays.interpret(AppEntry.editStudent, (payload) => {
-      const ids = studentEditIds(payload);
+      const ids = readStudentIds(payload);
       if (ids.length === 0) return;
       selected = new Set(ids.map((id) => BigInt(id)));
       if (studentStore.students.length === 0) void studentStore.load();
@@ -133,7 +133,7 @@
         aria-label="添加学生"
         class="icon-button"
         disabled={studentStore.isLoading}
-        onclick={() => overlays.show(AppEntry.createStudent)}
+        onclick={() => appEnter(AppEntry.createStudent)}
         title="添加学生"
       >
         <PlusIcon size="24"/>
@@ -142,7 +142,7 @@
         aria-label="修改学生"
         class="icon-button"
         disabled={liveSelected.size != 1}
-        onclick={() => overlays.show(AppEntry.editStudent)}
+        onclick={() => appEnter(AppEntry.editStudent, {ids: [...liveSelected].map(Number)})}
         title="修改学生"
       >
         <PencilIcon size="24"/>
@@ -151,7 +151,7 @@
         aria-label="删除学生"
         class="icon-button"
         disabled={liveSelected.size == 0}
-        onclick={() => overlays.show(AppEntry.deleteStudent)}
+        onclick={() => appEnter(AppEntry.deleteStudent, {ids: [...liveSelected].map(Number)})}
         title="删除学生"
       >
         <TrashIcon size="24"/>
@@ -160,7 +160,7 @@
         aria-label="导入学生"
         class="icon-button"
         disabled={studentStore.isLoading}
-        onclick={() => overlays.show(AppEntry.importStudent)}
+        onclick={() => appEnter(AppEntry.importStudent)}
         title="导入学生"
       >
         <FileArrowUpIcon size="24"/>
@@ -171,7 +171,7 @@
         disabled={studentStore.isLoading}
         onclick={e => {
           anchor = e.currentTarget;
-          overlays.show(AppEntry.exportStudent)
+          appEnter(AppEntry.exportStudent)
         }}
         title="导出学生"
       >
@@ -302,6 +302,6 @@
 
 <SingleCreateStudent {overlays}/>
 <EditStudent {overlays} selected={liveSelected}/>
-<DeleteStudents hiddenCount={liveSelected.size - displaySelectedCount} {overlays} selected={liveSelected}/>
+<DeleteStudents {overlays}/>
 <ImportStudents {overlays}/>
 <ExportStudents anchor={anchor} display={display} {overlays} selected={liveSelected}/>
