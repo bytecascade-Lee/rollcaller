@@ -2,6 +2,7 @@
   import {studentStore} from "$stores/studentStore.svelte";
   import type {EntryRegistry} from "$routing/registry";
   import type {StudentOverlayName, StudentSingleUpdate, StudentTable} from "$types";
+  import {appLeave} from "$routing/entries";
   import {AppEntry} from "$routing/entries.generated";
   import {StudentCommand} from "$commands"
   import {DateTimeUtils} from "$utils";
@@ -12,6 +13,11 @@
   } = $props();
   let localEdit = $state<StudentTable | null>(null);
   let isVisible = $state(false);
+
+  /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
+  function requestClose() {
+    appLeave(AppEntry.editStudent);
+  }
   let closeOnOutside = true;
   let editResult = $state<StudentSingleUpdate | undefined>(undefined);
   let isSaving = $state(false);
@@ -35,7 +41,7 @@
       });
       if (editResult.type == "Update") {
         studentStore.upsert(editResult.data);
-        close();
+        requestClose();
       }
       // Conflict：保持弹窗打开，提示用户修改学号或姓名后重试
     } catch (e) {
@@ -68,9 +74,9 @@
   });
   $effect(() => {
     overlays.register(AppEntry.editStudent, {
-      show: open,
-      hide: close,
-      isShown: () => isVisible
+      open,
+      close,
+      isVisible: () => isVisible
     })
     return () => overlays.unregister(AppEntry.editStudent);
   })
@@ -79,7 +85,7 @@
 {#if isVisible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="overlay" onclick={closeOnOutside ? () => close() : undefined}>
+  <div class="overlay" onclick={closeOnOutside ? requestClose : undefined}>
     <div class="popup" onclick={(e) => e.stopPropagation()}>
       <h3 class="text-title">修改学生</h3>
       {#if selected.size > 1}
@@ -118,7 +124,7 @@
             <button
               type="button"
               class="button"
-              onclick={close}
+              onclick={requestClose}
               disabled={isSaving}
             >
               取消
