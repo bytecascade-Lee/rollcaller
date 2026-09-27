@@ -40,6 +40,12 @@ jobs:
                     INPUT_VERSION: ${{ inputs.version }}
                 run: uv run python -c "import sys; sys.path.insert(0, 'scripts'); from build_ci import ci_version; ci_version()"
 
+            -   name: Check release notes section (fail fast)
+                env:
+                    INPUT_VERSION: ${{ inputs.version }}
+                    DRAFT_RELEASE: ${{ inputs.draft }}
+                run: uv run python scripts/publish_ci.py --check-notes
+
     build:
         name: Build & upload assets (${{ matrix.target }})
         needs: validate
