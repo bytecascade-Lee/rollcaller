@@ -1,34 +1,4 @@
-import {type Action, routeOf} from "$routing/address";
 import {APP_ENTRY_PARENT, type AppEntryId} from "$routing/entries.generated";
-
-/** 帮助窗口落点 */
-const help = (doc: string, anchor?: string): Action => ({
-  route: routeOf("help", anchor ? [doc, anchor] : [doc]),
-});
-
-/** 帮助窗口的策展式深链：`help/meta.json` 只有文档节点，没有这些"文档 + 小节"的组合 */
-export const HelpEntries = {
-  overview: help("overview"),
-  quickStart: help("quick-start", "install-app"),
-
-  singleRollcall: help("single-rollcall", "operation-steps"),
-  autoFinish: help("auto-finish", "operation-steps"),
-  manualPause: help("manual-pause", "operation-steps"),
-  ttsModes: help("tts", "modes"),
-  ttsPlayback: help("tts", "playback-behavior"),
-
-  addStudent: help("add-student", "operation-steps"),
-  importStudents: help("batch-import", "import-steps"),
-  editStudent: help("edit-student", "operation-steps"),
-  deleteStudent: help("delete-student", "operation-steps"),
-  exportStudent: help("export-student", "operation-steps"),
-
-  editRecord: help("edit-record", "operation-steps"),
-  exportRecord: help("export-record", "operation-steps"),
-
-  appWindow: help("app-window", "sidebar"),
-  helpWindow: help("help-window", "tree-nav"),
-} as const satisfies Record<string, Action>;
 
 /** 入口名全集（运行时；`APP_ENTRY_PARENT` 的键投影）。用 Set 而非 `in`：后者会把 `toString` 之类当命中 */
 const APP_ENTRY_NAMES = new Set<string>(Object.keys(APP_ENTRY_PARENT));
