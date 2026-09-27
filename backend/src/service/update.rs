@@ -6,8 +6,8 @@
 //!   不感知状态与 Tauri；
 //! - 本文件编排函数：纯 Rust 编排——不依赖 `AppHandle`，全部输入显式传参
 //!   （`&UpdaterState` + 所需依赖）；对外统一返回裁剪的展示视图 [`UpdateView`]。
-//!   事件分两路、由命令层注入的回调发出：**状态迁移帧**（进入 Downloading 等，view
-//!   通道）与**进度窄帧**（download 通道，节流后）各自独立；命令返回的终态视图由
+//!   事件分两路、由命令层注入的回调发出：**状态迁移帧**（进入 Checking / Downloading
+//!   等，view 通道）与**进度窄帧**（download 通道，节流后）各自独立；命令返回的终态视图由
 //!   命令层再广播。进度数据落 state 原子槽（[`crate::state::update::DownloadSlot`]），
 //!   下载过程不碰 session 锁。
 //!
@@ -92,9 +92,18 @@ fn ready_artifact(path: &Path, artifact: &Artifact) -> Option<PathBuf> {
 /// 命中 → 目标产物已在磁盘且校验通过则 `Downloaded`（恢复现场），否则
 /// `Available`（severity=critical 即强制更新）；无更新 → `UpToDate`；
 /// 失败 → `Error(Check)`（保留原会话内容，供重试后覆盖）。
-pub async fn check(state: &UpdaterState, current_version: &Version) -> anyhow::Result<UpdateView> {
+///
+/// 对外信号（无 Tauri 依赖，由命令层注入闭包发出）：
+/// - `on_view`：状态迁移帧——确认进入检查时广播一次 `Checking`（view 通道）。
+///   缺了它前端只会在终态才跳变（图标从 Idle 直接跳到"有更新 / 出错"），
+///   检查期间的"正在检查更新…"无从显示。
+pub async fn check(
+    state: &UpdaterState,
+    current_version: &Version,
+    on_view: impl Fn(&UpdateView),
+) -> anyhow::Result<UpdateView> {
     // 入口守卫并置 Checking（此刻起防重入）
-    state
+    let checking = state
         .mutate(|s| {
             if matches!(s.status, UpdateStatus::Checking | UpdateStatus::Downloading) {
                 return Err("更新操作正在进行中，请稍候再试".to_string());
@@ -104,6 +113,8 @@ pub async fn check(state: &UpdaterState, current_version: &Version) -> anyhow::R
             Ok(())
         })
         .map_err(|e| anyhow!(e.to_string()))?;
+    // 迁移帧：确认进入 Checking（前端据此显示"正在检查更新…"）；网络请求紧随其后
+    on_view(&checking);
 
     let policy = current_policy();
     let mode = current_mode();
