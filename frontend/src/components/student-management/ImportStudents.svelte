@@ -6,7 +6,7 @@
   import type {EntryRegistry} from "$routing/registry";
   import {AppEntry} from "$routing/entries.generated";
   import {WindowRouter} from "$routing/windowRouter";
-  import {HelpEntries} from "$routing/entries";
+  import {HelpEntries, appLeave} from "$routing/entries";
   import {ImportCommand} from "$commands";
   import {
     ArrowFatRightIcon,
@@ -33,6 +33,11 @@
   // 向导步骤：1 选择文件 → 2 配置列映射 → 3 导入与冲突处理
   let step = $state(1);
   let isVisible = $state(false);
+
+  /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
+  function requestClose() {
+    appLeave(AppEntry.importStudent);
+  }
   let isPreviewing = $state(false);
   let isImporting = $state(false);
   let importSucceeded = $state(false);
@@ -296,7 +301,7 @@
           };
           // 导入成功后延时 3s 自动关闭，让用户看到成功消息
           clearAutoClose();
-          autoCloseTimer = setTimeout(() => close(), 3000);
+          autoCloseTimer = setTimeout(requestClose, 3000);
           break;
         }
         case "DuplicateInput":
@@ -328,9 +333,9 @@
 
   $effect(() => {
     overlays.register(AppEntry.importStudent, {
-      show: openDialog,
-      hide: close,
-      isShown: () => isVisible
+      open: openDialog,
+      close,
+      isVisible: () => isVisible
     })
     return () => overlays.unregister(AppEntry.importStudent);
   })
@@ -622,7 +627,7 @@
         <button
           type="button"
           class="button"
-          onclick={close}
+          onclick={requestClose}
           disabled={isImporting}
         >关闭
         </button>
