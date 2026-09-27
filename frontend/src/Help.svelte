@@ -26,15 +26,15 @@
   import {createRouter} from "$routing/router";
   import {WindowRouter} from "$routing/windowRouter";
   import {HelpEntries} from "$routing/entries";
-  import {createOverlayRegistry} from "$routing/overlays";
-  import type {HelpOverlayName} from "$routing/overlayNames";
+  import {createEntryRegistry} from "$routing/registry";
+  import type {HelpOverlayName} from "$pages/overlays";
 
   const nodes = metaData.nodes as
     {
       [K in keyof typeof metaData.nodes]: TreeNode & { id: K }
     };
   const window = getCurrentWebviewWindow();
-  const overlays = createOverlayRegistry<HelpOverlayName>();
+  const overlays = createEntryRegistry<HelpOverlayName>();
   let activeId = $state(HelpAddress.DEFAULT_DOC);
   let jumpToken = $state(0); // 外部跳转触发信号：自增时 NavTree 折叠到单级
   /** 历史栈初始为空：地址由 `router.start()` 的第一条投递立起来，避免"首帧与地址不一致" */
@@ -66,6 +66,8 @@
       const address = HelpAddress.parse(action.route);
       if (address) void applyAddress(address);
     },
+    /** 不归本窗口：交给后端投递给目标窗口（与主窗口同一条路） */
+    forward: (action) => NavCommand.navOpen(action),
   });
   WindowRouter.install(router);
 
