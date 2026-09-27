@@ -2,7 +2,7 @@
  * Node 侧的最小解析钩子：把 TS/Vite 侧的 `$<name>/...` 别名映射到 `src/lib/<name>/...`，
  * 并补上 bundler 才有的"省略扩展名"解析。
  *
- * 为什么需要它：`pnpm test:help` 用裸 node 直接跑 `.ts` 源码（`--experimental-strip-types`），
+ * 为什么需要它：`pnpm test` 用裸 node 直接跑 `.ts` 源码（`--experimental-strip-types`），
  * 而
  *   - `$utils/...` 这种前缀是 Vite 的别名，Node 只认 `#` 开头的 subpath imports；
  *   - 源码里写的是 `from "$routing/address"`（无扩展名），Node 的 ESM 解析要求显式 `.ts`。
