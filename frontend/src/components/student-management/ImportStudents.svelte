@@ -1,9 +1,11 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import type {ImportPreviewData, StudentTable} from "$types";
+  import type {ImportPreviewData, StudentOverlayName, StudentTable} from "$types";
   import {Result} from "$types"
   import {open} from "@tauri-apps/plugin-dialog";
-  import {overlayController} from "$controllers/popupController";
+  import type {EntryRegistry} from "$routing/registry";
+  import {AppEntry, HelpEntry} from "$routing/entries.generated";
+  import {WindowRouter} from "$routing/windowRouter";
   import {ImportCommand} from "$commands";
   import {
     ArrowFatRightIcon,
@@ -13,11 +15,15 @@
     CheckIcon,
     FileXlsIcon,
     InfoIcon,
+    QuestionIcon,
     UploadSimpleIcon,
     WarningCircleIcon,
     XCircleIcon,
     XIcon
   } from "phosphor-svelte";
+  import {appNavigate} from "$routing/appNavigate";
+
+  let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();
 
   let previewData = $state<ImportPreviewData | null>(null);
   let filePath = $state("");
@@ -27,6 +33,12 @@
   // 向导步骤：1 选择文件 → 2 配置列映射 → 3 导入与冲突处理
   let step = $state(1);
   let isVisible = $state(false);
+
+  /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
+  function requestClose() {
+    appNavigate.leave(AppEntry.importStudent);
+  }
+
   let isPreviewing = $state(false);
   let isImporting = $state(false);
   let importSucceeded = $state(false);
@@ -290,7 +302,7 @@
           };
           // 导入成功后延时 3s 自动关闭，让用户看到成功消息
           clearAutoClose();
-          autoCloseTimer = setTimeout(() => close(), 3000);
+          autoCloseTimer = setTimeout(requestClose, 3000);
           break;
         }
         case "DuplicateInput":
@@ -321,11 +333,12 @@
   }
 
   $effect(() => {
-    overlayController.register("StudentImport", {
+    overlays.register(AppEntry.importStudent, {
       open: openDialog,
-      close: close,
+      close,
       isVisible: () => isVisible
     })
+    return () => overlays.unregister(AppEntry.importStudent);
   })
 </script>
 
@@ -340,7 +353,19 @@
       aria-modal="true"
       aria-label="导入学生"
     >
-      <h3 class="text-title">导入学生</h3>
+      <div class="title-row">
+        <h3 class="text-title">导入学生</h3>
+        <!-- 场景一：帮助按钮指向「批量导入 → 导入步骤」，跨窗口由路由自己转发 -->
+        <button
+          class="icon-button"
+          type="button"
+          aria-label="查看帮助"
+          title="查看帮助"
+          onclick={() => WindowRouter.nav({route: HelpEntry.batchImportImportSteps})}
+        >
+          <QuestionIcon size="18"/>
+        </button>
+      </div>
       <span class="text-content">从 Excel 文件批量导入学生名单</span>
 
       <!-- 步骤引导 -->
@@ -603,7 +628,7 @@
         <button
           type="button"
           class="button"
-          onclick={close}
+          onclick={requestClose}
           disabled={isImporting}
         >关闭
         </button>
@@ -667,6 +692,14 @@
 {/if}
 
 <style>
+
+  /* 标题行：标题在左、帮助按钮在右 */
+  .title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-xs);
+  }
 
   /* 步骤引导 */
   .stepper {

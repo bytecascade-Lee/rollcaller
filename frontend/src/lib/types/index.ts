@@ -3,8 +3,6 @@ export * from "./AppInfo"
 export * from "./AppMode";
 export * from "./ImportPreviewData";
 export * from "./NavItem";
-export * from "./Popup";
-export * from "./PopupName";
 export * from "./Record";
 export * from "./RecordGroupMetaData";
 export * from "./RecordTable";
@@ -26,6 +24,7 @@ export * from "./Severity";
 export * from "./UpdateInfo";
 export * from "./UpdateView";
 export * from "./OS";
+export * from "./overlays"
 export * from "./Arch";
 export * from "./DownloadProgress";
 export * from "./UpdateError";

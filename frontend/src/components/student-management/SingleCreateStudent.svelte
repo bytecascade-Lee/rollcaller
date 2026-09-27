@@ -1,9 +1,13 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import type {Student, StudentSingleCreateResult} from "$types";
+  import type {Student, StudentOverlayName, StudentSingleCreateResult} from "$types";
   import {format} from "$utils/DateTimeUtils";
   import {StudentCommand} from "$commands"
-  import {overlayController} from "$controllers/popupController";
+  import type {EntryRegistry} from "$routing/registry";
+  import {AppEntry} from "$routing/entries.generated";
+  import {appNavigate} from "$routing/appNavigate";
+
+  let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();
 
   let newStudent = $state<Student>({
     id: null,
@@ -13,6 +17,11 @@
   let result = $state<StudentSingleCreateResult | null>(null);
   let isCreating = $state(false);
   let isVisible = $state(false);
+
+  /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
+  function requestClose() {
+    appNavigate.leave(AppEntry.createStudent);
+  }
 
   let canSubmit = $derived(
     newStudent.student_no.trim() !== "" && newStudent.name.trim() !== ""
@@ -67,11 +76,12 @@
   }
 
   $effect(() => {
-    overlayController.register("StudentSingleCreate", {
-      open: open,
-      close: close,
+    overlays.register(AppEntry.createStudent, {
+      open,
+      close,
       isVisible: () => isVisible
     })
+    return () => overlays.unregister(AppEntry.createStudent);
   })
 </script>
 
@@ -163,7 +173,7 @@
           <button
             type="button"
             class="button"
-            onclick={close}
+            onclick={requestClose}
             disabled={isCreating}
           >
             取消

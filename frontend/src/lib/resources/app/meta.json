@@ -1,0 +1,34 @@
+{
+    "nodes": {
+        "rollcall": {
+            "parentId": null
+        },
+        "student-management": {
+            "parentId": null
+        },
+        "record-history": {
+            "parentId": null
+        },
+        "create-student": {
+            "parentId": "student-management"
+        },
+        "import-student": {
+            "parentId": "student-management"
+        },
+        "edit-student": {
+            "parentId": "student-management"
+        },
+        "export-student": {
+            "parentId": "student-management"
+        },
+        "delete-student": {
+            "parentId": "student-management"
+        },
+        "edit-record": {
+            "parentId": "record-history"
+        },
+        "export-record": {
+            "parentId": "record-history"
+        }
+    }
+}

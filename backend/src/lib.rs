@@ -1,13 +1,14 @@
 use crate::config::{app_config, app_paths, logger};
+use crate::state::nav::NavState;
 use crate::state::update::UpdaterState;
 use crate::windows::app_window;
-use tauri::WebviewWindowBuilder;
+use tauri::{Manager, WebviewWindowBuilder};
 
 mod bootstrap;
+pub mod cli;
 mod cmd;
 mod common;
 mod config;
-pub mod cli;
 mod database;
 mod repo;
 mod service;
@@ -21,7 +22,15 @@ pub async fn run() {
     tauri::Builder::default()
         // 更新管线共享状态（最近一次 check 结果 + 防重入标志）
         .manage(UpdaterState::default())
+        // 跨窗口导航的待取载荷（每个窗口一个单槽）
+        .manage(NavState::default())
         .setup(|app| init(app))
+        .on_window_event(|window, event| {
+            // 窗口销毁时清掉它的待取载荷：否则窗口重建后的首帧会应用一个早就过期的导航
+            if let tauri::WindowEvent::Destroyed = event {
+                window.app_handle().state::<NavState>().clear(window.label());
+            }
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_decorum::init())
@@ -66,6 +75,8 @@ pub async fn run() {
             crate::cmd::tts::tts_cloud_model,
             crate::cmd::windows::windows_app_open,
             crate::cmd::windows::windows_help_open,
+            crate::cmd::nav::nav_open,
+            crate::cmd::nav::nav_take_pending,
             crate::cmd::update::check,
             crate::cmd::update::download,
             crate::cmd::update::cancel,

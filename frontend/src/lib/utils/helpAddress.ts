@@ -1,18 +1,10 @@
 /**
- * 帮助文档地址：`#/HELP/<doc>[/<anchor>]`。
+ * 帮助文档地址：`#/help/<doc>[/<anchor>]`。
  *
  * - `doc`    = 文档 id，即 resources/help 下的目录名（README.md 等根文档沿用原名）
  * - `anchor` = 标题上的 DOM id，源文写作 `## 标题 {#anchor}`
- *
- * 为什么是单一类型而不是几个 data-* 属性：地址"从哪来"有两个入口
- * （应用代码构造 / 文档里的相对链接），"到哪去"只有一个出口（应用内路由），
- * 把两端收敛到同一个类型，渲染期与点击期共享的是**地址**而非字符串。
- *
- * 本模块**只校验语法**，不校验文档与锚点是否存在：
- *   - 文档不存在 → loader 失败 → 右侧占位提示（可见，非 404）
- *   - 锚点不存在 → 滚动回文档顶部
- * 存在性由构建期校验器负责，运行期不引入语义耦合。
  */
+import {parseRoute, type Route, routeOf} from "$routing/address";
 
 /** kebab-case 锚点/目录名：小写字母数字，单连字符分隔 */
 const KEBAB_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -27,8 +19,13 @@ const ROOT_DOC_LINK_RE = /(?:^|\/)(README(?:-en-US)?\.md|CHANGELOG\.md|RELEASE_N
 const NON_DOC_HREF_RE = /^(?:[a-z][a-z0-9+.-]*:|\/|#)/i;
 
 export class HelpAddress {
-  /** 应用内路由前缀：全大写以便与普通 fragment 一眼区分 */
-  static readonly PREFIX = "#/HELP";
+  /**
+   * 本域的处理者名，恰好是帮助窗口的窗口名。
+   *
+   * 用 `#/` 而不是大小写来区分"应用内路由"与"本文档原生锚点"（`#v0-8-1` 没有斜杠），
+   * 所以域名统一小写并不损失一眼可辨性。
+   */
+  static readonly HOST = "help";
 
   /** 路由省略 doc 段时的默认文档 */
   static readonly DEFAULT_DOC = "overview";
@@ -52,17 +49,15 @@ export class HelpAddress {
   }
 
   /**
-   * 解析应用内路由。**只要前缀命中就一定返回地址**（绝不返回 null），
+   * 解析应用内路由。**只要 host 命中就一定返回地址**（绝不返回 null），
    * 因为放行意味着 webview 真的去导航 → 404。
    * 传入带或不带 `#` 均可（`location.hash` 与 href 都带 `#`）。
    */
   static parse(hash: string): HelpAddress | null {
-    const raw = hash.startsWith("#") ? hash.slice(1) : hash;
-    const prefix = HelpAddress.PREFIX.slice(1); // "/HELP"
-    if (raw !== prefix && !raw.startsWith(`${prefix}/`)) return null;
-    const segs = raw.slice(prefix.length).split("/").slice(1); // 丢掉前导空段
-    const anchor = segs[1] ?? "";
-    return new HelpAddress(segs[0] || HelpAddress.DEFAULT_DOC, KEBAB_RE.test(anchor) ? anchor : null);
+    const parsed = parseRoute(hash);
+    if (!parsed || parsed.host !== HelpAddress.HOST) return null;
+    const [doc, anchor = ""] = parsed.segments;
+    return new HelpAddress(doc || HelpAddress.DEFAULT_DOC, KEBAB_RE.test(anchor) ? anchor : null);
   }
 
   /**
@@ -80,10 +75,8 @@ export class HelpAddress {
   }
 
   /** 应用内路由字符串；同一地址的字符串必然相同，可直接用于幂等比较 */
-  toHash(): string {
-    return this.anchor
-      ? `${HelpAddress.PREFIX}/${this.doc}/${this.anchor}`
-      : `${HelpAddress.PREFIX}/${this.doc}`;
+  toHash(): Route {
+    return routeOf(HelpAddress.HOST, this.anchor ? [this.doc, this.anchor] : [this.doc]);
   }
 
   toString(): string {

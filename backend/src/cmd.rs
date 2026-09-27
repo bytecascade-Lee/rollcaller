@@ -4,6 +4,7 @@ pub mod app_paths;
 pub mod export;
 pub mod help;
 pub mod import;
+pub mod nav;
 pub mod record;
 pub mod rollcall;
 pub mod student;

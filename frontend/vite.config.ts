@@ -26,6 +26,7 @@ export default defineConfig(async () => ({
       "$controllers": path.resolve(__dirname, "./src/lib/controllers"),
       "$pages": path.resolve(__dirname, "./src/pages"),
       "$resources": path.resolve(__dirname, "./src/lib/resources"),
+      "$routing": path.resolve(__dirname, "./src/lib/routing"),
       "$services": path.resolve(__dirname, "./src/lib/services"),
       "$static": path.resolve(__dirname, "./src/static"),
       "$stores": path.resolve(__dirname, "./src/lib/stores"),

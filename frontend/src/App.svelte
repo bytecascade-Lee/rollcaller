@@ -25,13 +25,21 @@
   import RecordHistoryPage from "$pages/RecordHistoryPage.svelte";
   import StudentManagementPage from "$pages/StudentManagementPage.svelte";
   import {ClockCounterClockwiseIcon, DiceFourIcon, ListBulletsIcon, QuestionIcon, UsersIcon} from "phosphor-svelte";
-  import {AppInfoCommand, WindowsCommand} from "$commands";
+  import {AppInfoCommand, NavCommand} from "$commands";
   import type {AppInfo} from "$types";
   import {onMount} from "svelte";
   import AppTitleBar from "$components/app/AppTitlebar.svelte";
   import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
+  import {listen} from "@tauri-apps/api/event";
+  import {createRouter} from "$routing/router";
+  import {WindowRouter} from "$routing/windowRouter";
+  import {createEntryRegistry} from "$routing/registry";
+  import {chainOf, resolveAppEntry} from "$routing/entries";
+  import {APP_ENTRY_PARENT, AppEntry, type AppEntryId, HelpEntry} from "$routing/entries.generated";
+  import {parseRoute, type Payload} from "$routing/address";
+  import {appNavigate} from "$routing/appNavigate";
 
-  let APP_INFO = $state<AppInfo>({
+  let APP_INFO = $state<AppInfo>(<AppInfo><unknown>{
     os: "",
     arch: "",
     branch: "",
@@ -42,10 +50,82 @@
     build_time: ""
   })
   const window = getCurrentWebviewWindow();
-  let currentPage: 'rollcall' | 'students' | 'records' = $state("rollcall");
 
-  onMount(async () => {
-    APP_INFO = await AppInfoCommand.app_info();
+  const overlays = createEntryRegistry<AppEntryId>();
+  let activeChain = $state<AppEntryId[]>([]);
+  const activeCard = $derived(activeChain[0] ?? null);
+
+  function transition(entry: AppEntryId, payload?: Payload) {
+    const next = chainOf(entry);
+    const prev = activeChain;
+    let shared = 0;
+    while (shared < prev.length && shared < next.length && prev[shared] === next[shared]) {
+      shared += 1;
+    }
+    for (let i = prev.length - 1; i >= shared; i -= 1) {
+      overlays.close(prev[i]);
+    }
+    for (let i = shared; i < next.length; i += 1) {
+      overlays.open(next[i], i === next.length - 1 ? payload : undefined);
+    }
+
+    if (shared === next.length) {
+      overlays.open(entry, payload);
+    }
+    activeChain = next;
+  }
+
+  const router = createRouter({
+    host: "app",
+    handle: (action) => {
+      const segments = parseRoute(action.route)?.segments ?? [];
+      const entry = resolveAppEntry(segments);
+      if (!entry) {
+        console.error(`[routing] 非法 app 地址：${action.route}`);
+        return;
+      }
+      transition(entry, action.payload);
+      WindowRouter.replaceHash(action.route);
+    },
+    forward: (action) => NavCommand.navOpen(action),
+  });
+  WindowRouter.install(router);
+
+  onMount(() => {
+    void AppInfoCommand.app_info().then((info) => (APP_INFO = info));
+
+    let disposeRouter: (() => void) | null = null;
+    let unlisten: (() => void) | null = null;
+    let assertTimer: ReturnType<typeof setTimeout> | null = null;
+
+    void (async () => {
+      const pending = await NavCommand.navTakePending();
+      const initial = pending
+        ? {route: pending.route, payload: pending.payload ?? undefined}
+        : undefined;
+      disposeRouter = router.start({route: appNavigate.path(AppEntry.rollcall)}, initial);
+
+      unlisten = await listen(NavCommand.NAV_WAKE_EVENT, async () => {
+        const next = await NavCommand.navTakePending();
+        if (next) router.go({route: next.route, payload: next.payload ?? undefined});
+      });
+
+      // 注册完整性断言：推迟到子组件的 effect 注册之后；根入口（卡片）是平面出口，不需要 handler
+      assertTimer = setTimeout(() => {
+        const missing = Object.values(AppEntry).filter(
+          (id) => APP_ENTRY_PARENT[id] !== null && !overlays.has(id),
+        );
+        if (missing.length > 0) {
+          console.error(`[routing] 以下入口声明了却没有实现：${missing.join(", ")}`);
+        }
+      }, 0);
+    })();
+
+    return () => {
+      disposeRouter?.();
+      unlisten?.();
+      if (assertTimer !== null) clearTimeout(assertTimer);
+    };
   });
 </script>
 
@@ -56,39 +136,39 @@
   <aside class="sidebar">
     <nav class="nav">
       <button
-        class="nav-icon"
-        class:active={currentPage == "rollcall"}
         aria-label="点名"
+        class="nav-icon"
+        class:active={activeCard === AppEntry.rollcall}
+        onclick={() => appNavigate.enter(AppEntry.rollcall)}
         title="点名"
-        onclick={() => currentPage = "rollcall"}
       >
         <DiceFourIcon size="24"/>
       </button>
       <button
-        class="nav-icon"
-        class:active={currentPage == "students"}
         aria-label="学生管理"
+        class="nav-icon"
+        class:active={activeCard === AppEntry.studentManagement}
+        onclick={() => appNavigate.enter(AppEntry.studentManagement)}
         title="学生管理"
-        onclick={() => currentPage = "students"}
       >
         <UsersIcon size="24"/>
       </button>
       <button
-        class="nav-icon"
-        class:active={currentPage == "records"}
         aria-label="历史记录"
+        class="nav-icon"
+        class:active={activeCard === AppEntry.recordHistory}
+        onclick={() => appNavigate.enter(AppEntry.recordHistory)}
         title="历史记录"
-        onclick={() => currentPage = "records"}
       >
         <ClockCounterClockwiseIcon size="24"/>
       </button>
     </nav>
     <nav>
       <button
-        class="nav-icon"
         aria-label="帮助文档"
+        class="nav-icon"
+        onclick={() => WindowRouter.nav({route: HelpEntry.overview})}
         title="帮助文档"
-        onclick={WindowsCommand.openHelpWindow}
       >
         <QuestionIcon size="24"/>
       </button>
@@ -102,9 +182,9 @@
   </aside>
 
   <main class="content">
-    <RollcallPage active={currentPage == "rollcall"}/>
-    <RecordHistoryPage active={currentPage == "records"}/>
-    <StudentManagementPage active={currentPage == "students"}/>
+    <RollcallPage active={activeCard === AppEntry.rollcall}/>
+    <RecordHistoryPage active={activeCard === AppEntry.recordHistory} overlays={overlays}/>
+    <StudentManagementPage active={activeCard === AppEntry.studentManagement} overlays={overlays}/>
   </main>
 
   <footer class="footbar">
