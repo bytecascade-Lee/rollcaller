@@ -1,5 +1,5 @@
-import {type Action, routeOf} from "$routing/address";
-import {type AppEntryId, APP_ENTRIES, APP_HOST} from "$routing/entries.generated";
+import {type Action, type Payload, routeOf} from "$routing/address";
+import {type AppEntryId, APP_ENTRY_PARENT, APP_HOST} from "$routing/entries.generated";
 
 /** 帮助窗口落点 */
 const help = (doc: string, anchor?: string): Action => ({
@@ -30,66 +30,70 @@ export const HelpEntries = {
   helpWindow: help("help-window", "tree-nav"),
 } as const satisfies Record<string, Action>;
 
+/** 入口名全集（运行时；`APP_ENTRY_PARENT` 的键投影）。用 Set 而非 `in`：后者会把 `toString` 之类当命中 */
+const APP_ENTRY_NAMES = new Set<string>(Object.keys(APP_ENTRY_PARENT));
+
 /**
- * 某个入口的**直接子入口**（由声明的 `parentId` 推出）。
+ * 某个入口的**直接子入口**（由 `parentId` 推出）。
  *
- * 页面只应打开自己子树里的入口，于是页面写 `createOverlayRegistry<ChildOf<"student-management">>()`，
- * 在该页 `open("edit-record")` 会在编译期被拦下 —— 这正是旧 `StudentOverlayName` 保住的性质，
- * 而成员全部来自 `meta.json`，代码里没有第二份名字表。
+ * 页面只应打开自己子树里的入口，于是页面写 `createEntryRegistry<ChildOf<"student-management">>()`，
+ * 在该页 `show("edit-record")` 会在编译期被拦下。成员全部来自 `meta.json`，代码里没有第二份名字表。
  */
 export type ChildOf<P extends AppEntryId> = {
-  [K in AppEntryId]: (typeof APP_ENTRIES)[K]["parentId"] extends P ? K : never
+  [K in AppEntryId]: (typeof APP_ENTRY_PARENT)[K] extends P ? K : never
 }[AppEntryId];
 
-/** 树的根入口（卡片）：`parentId` 为 null 者 */
-export type RootEntryId = {
-  [K in AppEntryId]: (typeof APP_ENTRIES)[K]["parentId"] extends null ? K : never
-}[AppEntryId];
+/** 自根到该入口的链（含自身）。`parentId` 无环由生成器保证，故这里不必防环 */
+export function chainOf(entry: AppEntryId): AppEntryId[] {
+  const chain: AppEntryId[] = [];
+  let cur: AppEntryId | null = entry;
+  while (cur !== null) {
+    chain.unshift(cur);
+    cur = APP_ENTRY_PARENT[cur];
+  }
+  return chain;
+}
+
+/** 入口的地址：`#/<host>/<祖先...>/<入口>`。**地址由链推出，不另存一份常量** */
+export function appPath(entry: AppEntryId): string {
+  return routeOf(APP_HOST, chainOf(entry));
+}
+
+/** 入口 + 载荷 → 可投递的 Action（跨窗口时走它） */
+export function appAction(entry: AppEntryId, payload?: Payload): Action {
+  return {route: appPath(entry), payload};
+}
 
 /**
- * app 窗口的卡片
+ * 由地址段解析入口 —— **app 域唯一的地址解释者**。
  *
- * 值手写，但受 `RootEntryId` 约束：`meta.json` 里改了卡片名，这里立刻编译报错，不可能静默漂移。
+ * 严格（不给"猜"的余地）：最后一段必须是入口名，段数必须等于该入口的链长，
+ * 且逐段与 `parentId` 链一致。任一不满足返回 `null`，调用方降级为"什么都不做"。
  */
-export const AppCards = {
-  rollcall: "rollcall",
-  studentManagement: "student-management",
-  recordHistory: "record-history",
-} as const satisfies Record<string, RootEntryId>;
+export function resolveAppEntry(segments: readonly string[]): AppEntryId | null {
+  const name = segments[segments.length - 1];
+  if (!name || !APP_ENTRY_NAMES.has(name)) {
+    return null;
+  }
+  const entry = name as AppEntryId;
+  const chain = chainOf(entry);
+  if (chain.length !== segments.length) {
+    return null;
+  }
+  return chain.every((id, index) => id === segments[index]) ? entry : null;
+}
 
-export type AppCardKey = keyof typeof AppCards;
-
-/** 卡片 id */
-export type AppCard = (typeof AppCards)[AppCardKey];
-
-/** 卡片 id 列表（运行时白名单） */
-export const AppCardIds: readonly AppCard[] = Object.values(AppCards);
-
-/** `#/<host>/<卡片>` */
-const card = (id: AppCard): Action => ({route: routeOf(APP_HOST, [id])});
-
-/** `#/<host>/<卡片>/<入口名>` */
-const overlay = (parent: AppCard, name: AppEntryId): Action =>
-  ({route: routeOf(APP_HOST, [parent, name])});
-
-/** 卡片落点：与 `AppCards` 的 key 一一对应 */
-const cardEntries = {
-  rollcall: card(AppCards.rollcall),
-  studentManagement: card(AppCards.studentManagement),
-  recordHistory: card(AppCards.recordHistory),
-} satisfies Record<AppCardKey, Action>;
-
-/** 主窗口落点 */
-export const AppEntries = {
-  ...cardEntries,
-
-  studentEdit: overlay(AppCards.studentManagement, "edit-student"),
-} as const satisfies Record<string, Action>;
-
-/** `studentEdit` 的载荷 */
+/** `edit-student` 的载荷 */
 export type StudentEditPayload = { ids: number[] };
 
 /** 载荷字段名：与上面类型双向绑定（少一个/多一个都编译报错） */
 export const StudentEditFields = Object.keys(
   {ids: true} satisfies Record<keyof StudentEditPayload, true>,
 );
+
+/** 读载荷里的 ids：非法一律给空数组，调用方据此降级为"纯导航" */
+export function studentEditIds(payload: unknown): number[] {
+  const raw = (payload as StudentEditPayload | undefined)?.ids;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((id): id is number => Number.isSafeInteger(id));
+}
