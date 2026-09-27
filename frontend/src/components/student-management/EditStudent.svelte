@@ -2,10 +2,10 @@
   import {studentStore} from "$stores/studentStore.svelte";
   import type {EntryRegistry} from "$routing/registry";
   import type {StudentOverlayName, StudentSingleUpdate, StudentTable} from "$types";
-  import {appLeave} from "$routing/entries";
   import {AppEntry} from "$routing/entries.generated";
   import {StudentCommand} from "$commands"
   import {DateTimeUtils} from "$utils";
+  import {appLeave} from "$routing/appNav";
 
   let {selected, overlays}: {
     selected: Set<bigint>;
@@ -18,6 +18,7 @@
   function requestClose() {
     appLeave(AppEntry.editStudent);
   }
+
   let closeOnOutside = true;
   let editResult = $state<StudentSingleUpdate | undefined>(undefined);
   let isSaving = $state(false);

@@ -34,9 +34,10 @@
   import {createRouter} from "$routing/router";
   import {WindowRouter} from "$routing/windowRouter";
   import {createEntryRegistry} from "$routing/registry";
-  import {appAction, appPath, chainOf, HelpEntries, resolveAppEntry} from "$routing/entries";
-  import {type AppEntryId, AppEntry, APP_ENTRY_PARENT} from "$routing/entries.generated";
-  import {type Payload, parseRoute} from "$routing/address";
+  import {chainOf, HelpEntries, resolveAppEntry} from "$routing/entries";
+  import {APP_ENTRY_PARENT, AppEntry, type AppEntryId} from "$routing/entries.generated";
+  import {parseRoute, type Payload} from "$routing/address";
+  import {appAction, appPath} from "$routing/appNav";
 
   let APP_INFO = $state<AppInfo>(<AppInfo><unknown>{
     os: "",

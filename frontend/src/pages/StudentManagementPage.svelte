@@ -20,10 +20,11 @@
   } from "phosphor-svelte";
   import type {EntryRegistry} from "$routing/registry";
   import type {StudentOverlayName} from "$types";
-  import {appEnter, readStudentIds} from "$routing/entries";
+  import {readStudentIds} from "$routing/entries";
   import {AppEntry} from "$routing/entries.generated";
   import EditStudent from "$components/student-management/EditStudent.svelte";
   import ExportStudents from "$components/student-management/ExportStudents.svelte";
+  import {appEnter} from "$routing/appNav";
 
   let selected = $state<Set<bigint>>(new Set())
   let {active = $bindable(false), overlays}: {

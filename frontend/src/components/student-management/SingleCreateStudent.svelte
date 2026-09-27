@@ -4,8 +4,8 @@
   import {format} from "$utils/DateTimeUtils";
   import {StudentCommand} from "$commands"
   import type {EntryRegistry} from "$routing/registry";
-  import {appLeave} from "$routing/entries";
   import {AppEntry} from "$routing/entries.generated";
+  import {appLeave} from "$routing/appNav";
 
   let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();
 

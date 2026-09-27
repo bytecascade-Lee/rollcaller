@@ -18,8 +18,8 @@
   import EditRecord from "$components/record-history/EditRecord.svelte";
   import type {EntryRegistry} from "$routing/registry";
   import {AppEntry} from "$routing/entries.generated";
-  import {appEnter} from "$routing/entries";
   import ExportRecords from "$components/record-history/ExportRecords.svelte";
+  import {appEnter} from "$routing/appNav";
 
   let selected = $state<Set<bigint>>(new Set());
   let {active = $bindable(false), overlays}: {

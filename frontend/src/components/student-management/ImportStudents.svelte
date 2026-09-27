@@ -6,7 +6,7 @@
   import type {EntryRegistry} from "$routing/registry";
   import {AppEntry} from "$routing/entries.generated";
   import {WindowRouter} from "$routing/windowRouter";
-  import {HelpEntries, appLeave} from "$routing/entries";
+  import {HelpEntries} from "$routing/entries";
   import {ImportCommand} from "$commands";
   import {
     ArrowFatRightIcon,
@@ -22,6 +22,7 @@
     XCircleIcon,
     XIcon
   } from "phosphor-svelte";
+  import {appLeave} from "$routing/appNav";
 
   let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();
 
@@ -38,6 +39,7 @@
   function requestClose() {
     appLeave(AppEntry.importStudent);
   }
+
   let isPreviewing = $state(false);
   let isImporting = $state(false);
   let importSucceeded = $state(false);

@@ -3,8 +3,9 @@
   import type {EntryRegistry} from "$routing/registry";
   import type {StudentOverlayName, StudentTable} from "$types";
   import {AppEntry} from "$routing/entries.generated";
-  import {appLeave, readStudentIds} from "$routing/entries";
+  import {readStudentIds} from "$routing/entries";
   import {StudentCommand} from "$commands";
+  import {appLeave} from "$routing/appNav";
 
   let {overlays}: {
     overlays: EntryRegistry<StudentOverlayName>;
@@ -16,6 +17,7 @@
   function requestClose() {
     appLeave(AppEntry.deleteStudent);
   }
+
   let closeOnOutside = true;
   let showDetails = $state(false);
 
@@ -98,12 +100,14 @@
           type="button"
           class="button"
           onclick={requestClose}
-        >取消</button>
+        >取消
+        </button>
         <button
           type="button"
           class="button error"
           onclick={del}
-        >删除</button>
+        >删除
+        </button>
       </div>
     </div>
   </div>

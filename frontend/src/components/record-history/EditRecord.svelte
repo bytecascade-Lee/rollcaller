@@ -4,10 +4,10 @@
   import {recordStore} from "$stores/recordStore.svelte";
   import type {RecordOverlayName, RollcallRecord} from "$types";
   import type {EntryRegistry} from "$routing/registry";
-  import {appLeave} from "$routing/entries";
   import {AppEntry} from "$routing/entries.generated";
   import {clickOutside, updatePosition} from "$actions";
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
+  import {appLeave} from "$routing/appNav";
 
   let {selected, anchor, onselect, overlays} = $props<{
     /** 生效的选择集（页面已按"记录仍然存在"过滤） */
@@ -24,6 +24,7 @@
   function requestClose() {
     appLeave(AppEntry.editRecord);
   }
+
   let updateStatus = $state(true);
   let updateRemark = $state(true);
   let attendanceStatus = $state<number | null>(null);

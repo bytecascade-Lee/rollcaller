@@ -4,10 +4,10 @@
   import type {EntryRegistry} from "$routing/registry";
   import type {RecordOverlayName, RollcallRecord} from "$types";
   import {Result} from "$types";
-  import {appLeave} from "$routing/entries";
   import {AppEntry} from "$routing/entries.generated";
   import {clickOutside, updatePosition} from "$actions";
   import {recordStore} from "$stores/recordStore.svelte";
+  import {appLeave} from "$routing/appNav";
 
   let {selected, display, anchor, overlays} = $props<{
     selected: Set<bigint>;
@@ -21,6 +21,7 @@
   function requestClose() {
     appLeave(AppEntry.exportRecord);
   }
+
   let isExporting = $state(false);
   let popoverStyle = $state("");
   let message = $state("");
