@@ -46,11 +46,6 @@ export function resolveAppEntry(segments: readonly string[]): AppEntryId | null 
 /** `edit-student` / `delete-student` 共用的载荷：要操作哪些学生 */
 export type StudentIdsPayload = { ids: number[] };
 
-/** 载荷字段名：与上面类型双向绑定（少一个/多一个都编译报错） */
-export const StudentIdsFields = Object.keys(
-  {ids: true} satisfies Record<keyof StudentIdsPayload, true>,
-);
-
 /** 读载荷里的 ids：非法一律给空数组，调用方据此降级为"纯导航" */
 export function readStudentIds(payload: unknown): number[] {
   const raw = (payload as StudentIdsPayload | undefined)?.ids;
