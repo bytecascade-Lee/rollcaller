@@ -7,7 +7,7 @@
   import {AppEntry} from "$routing/entries.generated";
   import {clickOutside, updatePosition} from "$actions";
   import {recordStore} from "$stores/recordStore.svelte";
-  import {appLeave} from "$routing/appNav";
+  import {appNavigate} from "$routing/appNavigate";
 
   let {selected, display, anchor, overlays} = $props<{
     selected: Set<bigint>;
@@ -19,7 +19,7 @@
 
   /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
   function requestClose() {
-    appLeave(AppEntry.exportRecord);
+    appNavigate.leave(AppEntry.exportRecord);
   }
 
   let isExporting = $state(false);

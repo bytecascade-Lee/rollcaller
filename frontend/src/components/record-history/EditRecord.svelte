@@ -7,7 +7,7 @@
   import {AppEntry} from "$routing/entries.generated";
   import {clickOutside, updatePosition} from "$actions";
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
-  import {appLeave} from "$routing/appNav";
+  import {appNavigate} from "$routing/appNavigate";
 
   let {selected, anchor, onselect, overlays} = $props<{
     /** 生效的选择集（页面已按"记录仍然存在"过滤） */
@@ -22,7 +22,7 @@
 
   /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
   function requestClose() {
-    appLeave(AppEntry.editRecord);
+    appNavigate.leave(AppEntry.editRecord);
   }
 
   let updateStatus = $state(true);
