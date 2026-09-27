@@ -18,6 +18,7 @@
   import EditRecord from "$components/record-history/EditRecord.svelte";
   import type {EntryRegistry} from "$routing/registry";
   import {AppEntry} from "$routing/entries.generated";
+  import {appEnter} from "$routing/entries";
   import ExportRecords from "$components/record-history/ExportRecords.svelte";
 
   let selected = $state<Set<bigint>>(new Set());
@@ -115,7 +116,7 @@
         disabled={liveSelected.size == 0}
         onclick={e => {
           anchor = e.currentTarget;
-          overlays.show(AppEntry.editRecord)
+          appEnter(AppEntry.editRecord)
         }}
         title="批量修改记录"
       >
@@ -127,7 +128,7 @@
         disabled={recordStore.isLoading}
         onclick={e => {
           anchor = e.currentTarget;
-          overlays.show(AppEntry.exportRecord)
+          appEnter(AppEntry.exportRecord)
         }}
         title="导出记录"
       >
