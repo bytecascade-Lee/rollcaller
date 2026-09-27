@@ -1,7 +1,7 @@
 /**
  * 窗口命令（薄壳）：只留**没有地址语义**的窗口操作。
  *
- * "打开某处"一律走 `nav(action)`——打开帮助窗口就是 `nav(HelpEntries.overview)`，
+ * "打开某处"一律走 `nav(action)`——打开帮助窗口就是 `nav({route: HelpEntry.overview})`，
  * 建窗 / 唤到前台 / 投递载荷由后端统一处理，所以不再需要
  * `windows_help_open` 这类"只能开到默认页、开不到指定位置"的专用命令。
  *
