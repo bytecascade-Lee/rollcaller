@@ -5,7 +5,7 @@
   import {StudentCommand} from "$commands"
   import type {EntryRegistry} from "$routing/registry";
   import {AppEntry} from "$routing/entries.generated";
-  import {appLeave} from "$routing/appNav";
+  import {appNavigate} from "$routing/appNavigate";
 
   let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();
 
@@ -20,7 +20,7 @@
 
   /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
   function requestClose() {
-    appLeave(AppEntry.createStudent);
+    appNavigate.leave(AppEntry.createStudent);
   }
 
   let canSubmit = $derived(

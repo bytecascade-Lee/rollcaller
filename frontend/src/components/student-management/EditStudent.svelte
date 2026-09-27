@@ -5,7 +5,7 @@
   import {AppEntry} from "$routing/entries.generated";
   import {StudentCommand} from "$commands"
   import {DateTimeUtils} from "$utils";
-  import {appLeave} from "$routing/appNav";
+  import {appNavigate} from "$routing/appNavigate";
 
   let {selected, overlays}: {
     selected: Set<bigint>;
@@ -16,7 +16,7 @@
 
   /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
   function requestClose() {
-    appLeave(AppEntry.editStudent);
+    appNavigate.leave(AppEntry.editStudent);
   }
 
   let closeOnOutside = true;
