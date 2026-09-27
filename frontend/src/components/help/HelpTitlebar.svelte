@@ -19,14 +19,14 @@
   import logo from "$assets/icon.ico";
   import {WindowsCommand} from "$commands";
   import SearchHelpDocs from "$components/help/SearchHelpDocs.svelte";
-  import type {OverlayRegistry} from "$routing/overlays";
-  import type {HelpOverlayName} from "$routing/overlayNames";
+  import type {EntryRegistry} from "$routing/registry";
+  import {type HelpOverlayName, HelpOverlay} from "$pages/overlays";
   import {invoke} from "@tauri-apps/api/core";
 
   let {window, overlays, onback, onforward, canGoBack, canGoForward}: {
     window: WebviewWindow,
     /** 本窗口的叠加层注册表（注册表归窗口所有，逐个传下去而不是全局单例） */
-    overlays: OverlayRegistry<HelpOverlayName>,
+    overlays: EntryRegistry<HelpOverlayName>,
     onback?: () => void,
     onforward?: () => void,
     canGoBack?: boolean,
@@ -107,7 +107,7 @@
       class="icon-button"
       onclick={(e) => {
         anchor = e.currentTarget;
-        overlays.open("search");
+        overlays.show(HelpOverlay.search);
       }}
       title="搜索"
     >
