@@ -8,31 +8,34 @@
  *
  * ## 契约
  *
- * 三个方法：`show`（呈现这个位置）、`hide`（收起）、`isShown`（报告可见性）。
- * `hide` 不能省：**关闭不是导航** —— 不能要求用户点"取消"也走一次导航，所以它必须待在这里。
+ * 三个方法：`open`（打开这个浮层）、`close`（收起）、`isVisible`（报告可见性）。
+ * `close` 不能省：**关闭不是导航** —— 不能要求用户点"取消"也走一次导航，所以它必须待在这里。
  *
  * ## payload
  *
- * `payload` 是**一次性命令参数**（可 JSON 序列化、不可执行），只有目标 owner 认识它。
- * 需要页面状态的载荷（例如"编辑这几个学生"）由**页面**用 `interpret` 注册解释器，
- * 在 `show` 之前把载荷翻译成本页状态；弹窗因此不必认识载荷，只管可见性。
+ * payload 是**一次性命令参数**（可 JSON 序列化、不可执行）。两种消费方式：
+ *
+ * - 弹窗在 `open(payload)` 里把它**快照**成自己的内部变量（`delete-student` 就是这样），
+ *   之后只认那个变量 —— 弹窗不读页面状态，调用方也只负责给 payload；
+ * - 需要改动页面状态的（`edit-student` 要把"编辑谁"写进页面的选中集），由**页面**用
+ *   `interpret` 注册解释器，在 `open` 之前执行。
  */
 export type EntryHandler = {
-  show: (payload?: unknown) => void;
-  hide?: () => void;
-  isShown?: () => boolean;
+  open: (payload?: unknown) => void;
+  close?: () => void;
+  isVisible?: () => boolean;
 };
 
 export type EntryRegistry<Id extends string = string> = {
   register(id: Id, handler: EntryHandler): void;
-  /** 注册载荷解释器：在 `show` 之前执行（由拥有页面状态的页面注册） */
+  /** 注册载荷解释器：在 `open` 之前执行（由拥有页面状态的页面注册） */
   interpret(id: Id, translate: (payload?: unknown) => void): void;
   unregister(id: Id): void;
-  show(id: Id, payload?: unknown): void;
-  hide(id: Id): void;
-  isShown(id: Id): boolean;
+  open(id: Id, payload?: unknown): void;
+  close(id: Id): void;
+  isVisible(id: Id): boolean;
   has(id: Id): boolean;
-  hideAll(): void;
+  closeAll(): void;
   /**
    * 已注册的名字。
    *
@@ -57,21 +60,21 @@ export function createEntryRegistry<Id extends string = string>(): EntryRegistry
       handlers.delete(id);
       interpreters.delete(id);
     },
-    show(id, payload) {
+    open(id, payload) {
       interpreters.get(id)?.(payload);
-      handlers.get(id)?.show(payload);
+      handlers.get(id)?.open(payload);
     },
-    hide(id) {
-      handlers.get(id)?.hide?.();
+    close(id) {
+      handlers.get(id)?.close?.();
     },
-    isShown(id) {
-      return handlers.get(id)?.isShown?.() ?? false;
+    isVisible(id) {
+      return handlers.get(id)?.isVisible?.() ?? false;
     },
     has(id) {
       return handlers.has(id);
     },
-    hideAll() {
-      handlers.forEach((handler) => handler.hide?.());
+    closeAll() {
+      handlers.forEach((handler) => handler.close?.());
     },
     names() {
       return Array.from(handlers.keys());
