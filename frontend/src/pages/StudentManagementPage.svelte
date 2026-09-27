@@ -18,22 +18,18 @@
     PlusIcon,
     TrashIcon
   } from "phosphor-svelte";
-  import {createOverlayRegistry} from "$routing/overlays";
-  import type {StudentOverlayName} from "$routing/overlayNames";
-  import {type StudentEditPayload} from "$routing/entries";
-  import {parseRoute, type Action, type Payload} from "$routing/address";
-  import {untrack} from "svelte";
+  import type {EntryRegistry} from "$routing/registry";
+  import type {StudentOverlayName} from "$pages/overlays";
+  import {studentEditIds} from "$routing/entries";
+  import {AppEntry} from "$routing/entries.generated";
   import EditStudent from "$components/student-management/EditStudent.svelte";
   import ExportStudents from "$components/student-management/ExportStudents.svelte";
 
-  /** 本页的叠加层注册表：注册表归页面所有，弹窗逐个注册进来（不再是全局单例） */
-  const overlays = createOverlayRegistry<StudentOverlayName>();
-
   let selected = $state<Set<bigint>>(new Set())
-  let {active = $bindable(false), action = null}: {
+  let {active = $bindable(false), overlays}: {
     active?: boolean;
-    /** 路由投递过来的完整 Action：把载荷翻译成本页状态是本页的私事 */
-    action?: Action | null;
+    /** 本页可见的落点表（类型收窄到本页子树：写别的页的名字编译报错） */
+    overlays: EntryRegistry<StudentOverlayName>;
   } = $props();
   let searchQuery = $state("")
   let sortKey = $state("")
@@ -59,7 +55,20 @@
       }
       return isAsc ? cmp : -cmp;
     }));
-  let displaySelectedCount = $derived(display.filter(student => selected.has(student.id)).length)
+
+  /**
+   * 生效的选择集：按"学生仍然存在"过滤。
+   *
+   * 于是删除后自动消失 —— 不必靠"记得调用 clear()"来消除悬空 id；
+   * "载荷里的 id 已不存在"也随之退化为普通情况，而不是特例。
+   */
+  let liveSelected = $derived.by(() => {
+    const existing = new Set(studentStore.students.map((student) => student.id));
+    return new Set([...selected].filter((id) => existing.has(id)));
+  });
+
+  /** 只用于渲染勾选态与表头全选 */
+  let displaySelectedCount = $derived(display.filter(student => liveSelected.has(student.id)).length)
 
   function sort(key: string) {
     if (sortKey === key) {
@@ -80,50 +89,38 @@
     }
   }
 
+  /**
+   * 表头全选：只作用于**当前可见**的行，且不丢掉看不见的选中项。
+   *
+   * 用 `displaySelectedCount` 判断"是否已全选可见行"，故与表头勾选态永远一致 ——
+   * 旧实现作用于全体学生，带筛选时表头会撒谎。
+   */
   function selectAll() {
-    if (selected.size == studentStore.students.length) {
-      selected = new Set<bigint>();
+    if (display.length > 0 && displaySelectedCount === display.length) {
+      const rest = new Set(selected);
+      for (const student of display) rest.delete(student.id);
+      selected = rest;
     } else {
-      let set = new Set<bigint>();
-      for (let student of studentStore.students) {
-        set.add(student.id);
-      }
-      selected = set;
+      selected = new Set([...selected, ...display.map((student) => student.id)]);
     }
   }
 
-  /** 载荷校验：契约见 `$routing/entries` 的 `StudentEditPayload`。不合法一律返回空数组，让调用方降级为纯导航 */
-  function idsOf(payload: Payload | undefined): number[] {
-    const raw = (payload as StudentEditPayload | undefined)?.ids;
-    if (!Array.isArray(raw)) return [];
-    return raw.filter((id): id is number => Number.isSafeInteger(id));
-  }
-
   /**
-   * 地址落地：本页是**载荷的唯一解释者**。
+   * 载荷解释器：本页是 `{ids}` 的**唯一解释者**。
    *
-   * 路由层不认识 `{ids}` 是什么，只有这里知道"选中的是谁"存在本页的 `selected`（`Set<bigint>`）
-   * 里、编辑界面在注册表中叫 `"edit"`——发起方不需要也不该知道这些。
+   * 路由层不认识 `{ids}`；弹窗也不必认识 —— 它只管可见性，由注册表在 `show` 之前调用这里，
+   * 把"编辑这些学生"翻译成本页状态（选中集）。载荷非法或为空 ⇒ 什么都不做（纯导航）。
    *
-   * 降级：段不匹配或载荷非法/为空 → 什么都不做（地址已经把卡片切过来了，纯导航）。
+   * 前置条件（"要看到选中效果，学生数据得在"）由 `liveSelected` 的过滤自然覆盖：
+   * 先写入 id，数据到达后过滤结果自动生效，故这里不必等 `load()`。
    */
-  async function apply(act: Action) {
-    const segments = parseRoute(act.route)?.segments ?? [];
-    if (segments[1] !== "edit") return;
-    const ids = idsOf(act.payload);
-    if (ids.length === 0) return;
-    // 异步前置：已挂载 ≠ 可应用，数据没到就选中会落空
-    if (studentStore.students.length === 0) await studentStore.load();
-    selected = new Set(ids.map((id) => BigInt(id)));
-    overlays.open("edit");
-  }
-
-  // 用 untrack 把 apply 读到的 store 挡在依赖之外：载荷的应用只应由 action 变化触发，
-  // 否则数据加载完会再触发一次（重复打开、重复重置表单）。
   $effect(() => {
-    const act = action;
-    if (!act) return;
-    untrack(() => void apply(act));
+    overlays.interpret(AppEntry.editStudent, (payload) => {
+      const ids = studentEditIds(payload);
+      if (ids.length === 0) return;
+      selected = new Set(ids.map((id) => BigInt(id)));
+      if (studentStore.students.length === 0) void studentStore.load();
+    });
   });
 
 </script>
@@ -137,7 +134,7 @@
         aria-label="添加学生"
         title="添加学生"
         disabled={studentStore.isLoading}
-        onclick={() => overlays.open("create")}
+        onclick={() => overlays.show(AppEntry.createStudent)}
       >
         <PlusIcon size="24"/>
       </button>
@@ -145,8 +142,8 @@
         class="icon-button"
         aria-label="修改学生"
         title="修改学生"
-        disabled={selected.size != 1}
-        onclick={() => overlays.open("edit")}
+        disabled={liveSelected.size != 1}
+        onclick={() => overlays.show(AppEntry.editStudent)}
       >
         <PencilIcon size="24"/>
       </button>
@@ -154,8 +151,8 @@
         class="icon-button"
         aria-label="删除学生"
         title="删除学生"
-        disabled={selected.size == 0}
-        onclick={() => overlays.open("delete")}
+        disabled={liveSelected.size == 0}
+        onclick={() => overlays.show(AppEntry.deleteStudent)}
       >
         <TrashIcon size="24"/>
       </button>
@@ -164,7 +161,7 @@
         aria-label="导入学生"
         title="导入学生"
         disabled={studentStore.isLoading}
-        onclick={() => overlays.open("import")}
+        onclick={() => overlays.show(AppEntry.importStudent)}
       >
         <FileArrowUpIcon size="24"/>
       </button>
@@ -175,7 +172,7 @@
         disabled={studentStore.isLoading}
         onclick={e => {
           anchor = e.currentTarget;
-          overlays.open("export")
+          overlays.show(AppEntry.exportStudent)
         }}
       >
         <FileArrowDownIcon size="24"/>
@@ -186,7 +183,7 @@
         aria-label="恢复已删除学生"
         title="恢复已删除学生"
         style="display: none"
-        onclick={() => overlays.open("restore")}
+        onclick={() => console.warn("[TODO] restore 尚未实现：恢复已删除学生的入口还没接上")}
       >
         <ClockClockwiseIcon size="24"/>
       </button>
@@ -225,8 +222,7 @@
               type="checkbox"
               checked={display.length > 0 && displaySelectedCount == display.length}
               indeterminate={displaySelectedCount > 0 && displaySelectedCount < display.length}
-              onchange={selectAll}
-            />
+              onchange={selectAll}            />
           </th>
           <th style:cursor="auto">序号</th>
           <th onclick={() => sort("name")}>
@@ -305,7 +301,7 @@
 </div>
 
 <SingleCreateStudent {overlays}/>
-<EditStudent bind:selected={selected} {overlays}/>
-<DeleteStudents bind:selected={selected} {overlays}/>
+<EditStudent selected={liveSelected} {overlays}/>
+<DeleteStudents selected={liveSelected} hiddenCount={liveSelected.size - displaySelectedCount} {overlays}/>
 <ImportStudents {overlays}/>
-<ExportStudents bind:selected={selected} bind:display={display} bind:anchor={anchor} {overlays}/>
+<ExportStudents selected={liveSelected} display={display} anchor={anchor} {overlays}/>
