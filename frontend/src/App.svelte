@@ -34,10 +34,10 @@
   import {createRouter} from "$routing/router";
   import {WindowRouter} from "$routing/windowRouter";
   import {createEntryRegistry} from "$routing/registry";
-  import {chainOf, HelpEntries, resolveAppEntry} from "$routing/entries";
-  import {APP_ENTRY_PARENT, AppEntry, type AppEntryId} from "$routing/entries.generated";
+  import {chainOf, resolveAppEntry} from "$routing/entries";
+  import {APP_ENTRY_PARENT, AppEntry, type AppEntryId, HelpEntry} from "$routing/entries.generated";
   import {parseRoute, type Payload} from "$routing/address";
-  import {appAction, appPath} from "$routing/appNav";
+  import {appNavigate} from "$routing/appNavigate";
 
   let APP_INFO = $state<AppInfo>(<AppInfo><unknown>{
     os: "",
@@ -51,23 +51,10 @@
   })
   const window = getCurrentWebviewWindow();
 
-  /** 本窗口的落点注册表：**只有叠加层注册**（平面的呈现见下面的 `activeChain` 投影） */
   const overlays = createEntryRegistry<AppEntryId>();
-
-  /** 当前地址对应的入口链（根 → 目标）。平面的呈现 = 链首，故卡片不需要 handler */
   let activeChain = $state<AppEntryId[]>([]);
   const activeCard = $derived(activeChain[0] ?? null);
 
-  /**
-   * 转换语义：按新旧链的**共同前缀** diff。
-   *
-   * 旧的余段逆序 `close`，新的余段顺序 `open`，载荷只交给最深的那一个（祖先只需被呈现）。
-   * 与 `open` 对称，且不会把共有的祖先（例如卡片）关掉再开回来 —— 从 `edit-student`
-   * 切到 `delete-student` 时卡片纹丝不动。
-   *
-   * **整条链都相同（重放同一地址）时要单独再 `open` 一次目标**，否则会静默失效：
-   * 见下面 `shared === next.length` 那一支的注释。
-   */
   function transition(entry: AppEntryId, payload?: Payload) {
     const next = chainOf(entry);
     const prev = activeChain;
@@ -81,10 +68,7 @@
     for (let i = shared; i < next.length; i += 1) {
       overlays.open(next[i], i === next.length - 1 ? payload : undefined);
     }
-    // 重放同一地址：diff 会判定"无事可做"，但目标此刻未必真的开着 ——
-    // 关闭**不经过地址**（用户点"取消"不会让地址回退），所以"地址停在 delete-student
-    // 而弹窗早已关闭"是常见状态。按 §8「同 route 重放 = 重新应用初始状态」，这里补一次
-    // 目标的 open（载荷一并重放）。
+
     if (shared === next.length) {
       overlays.open(entry, payload);
     }
@@ -97,7 +81,6 @@
       const segments = parseRoute(action.route)?.segments ?? [];
       const entry = resolveAppEntry(segments);
       if (!entry) {
-        // 降级：地址非法（入口名不认识，或父链与声明的 parentId 不一致）→ 原地不动
         console.error(`[routing] 非法 app 地址：${action.route}`);
         return;
       }
@@ -120,7 +103,7 @@
       const initial = pending
         ? {route: pending.route, payload: pending.payload ?? undefined}
         : undefined;
-      disposeRouter = router.start({route: appPath(AppEntry.rollcall)}, initial);
+      disposeRouter = router.start({route: appNavigate.path(AppEntry.rollcall)}, initial);
 
       unlisten = await listen(NavCommand.NAV_WAKE_EVENT, async () => {
         const next = await NavCommand.navTakePending();
@@ -156,7 +139,7 @@
         aria-label="点名"
         class="nav-icon"
         class:active={activeCard === AppEntry.rollcall}
-        onclick={() => WindowRouter.nav(appAction(AppEntry.rollcall))}
+        onclick={() => appNavigate.enter(AppEntry.rollcall)}
         title="点名"
       >
         <DiceFourIcon size="24"/>
@@ -165,7 +148,7 @@
         aria-label="学生管理"
         class="nav-icon"
         class:active={activeCard === AppEntry.studentManagement}
-        onclick={() => WindowRouter.nav(appAction(AppEntry.studentManagement))}
+        onclick={() => appNavigate.enter(AppEntry.studentManagement)}
         title="学生管理"
       >
         <UsersIcon size="24"/>
@@ -174,7 +157,7 @@
         aria-label="历史记录"
         class="nav-icon"
         class:active={activeCard === AppEntry.recordHistory}
-        onclick={() => WindowRouter.nav(appAction(AppEntry.recordHistory))}
+        onclick={() => appNavigate.enter(AppEntry.recordHistory)}
         title="历史记录"
       >
         <ClockCounterClockwiseIcon size="24"/>
@@ -184,7 +167,7 @@
       <button
         aria-label="帮助文档"
         class="nav-icon"
-        onclick={() => WindowRouter.nav(HelpEntries.overview)}
+        onclick={() => WindowRouter.nav({route: HelpEntry.overview})}
         title="帮助文档"
       >
         <QuestionIcon size="24"/>
