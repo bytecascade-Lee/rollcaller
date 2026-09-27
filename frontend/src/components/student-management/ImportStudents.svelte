@@ -57,6 +57,9 @@
   let wrapEl = $state<HTMLDivElement | undefined>(undefined);
   let dragging = $state(false);
 
+  /** 当前工作表是否有可导入的数据：空表不出表头箭头，只显示空态提示 */
+  let hasData = $derived((previewData?.total_rows ?? 0) > 0 && (previewData?.total_columns ?? 0) > 0);
+
   let configValid = $derived(
     previewData != null &&
     filePath !== "" &&
@@ -433,17 +436,25 @@
                   title="选择要导入的工作表"
                 >
                   {#each sheets as sheet (sheet.name)}
-                    <option value={sheet.name}>{sheet.name}（{sheet.total_rows} 行 × {sheet.total_columns} 列）</option>
+                    <option value={sheet.name}>{sheet.name}</option>
                   {/each}
                 </select>
               {/if}
-              <span class="section-hint">在第一列拖动箭头忽略表头；<br>在表头下拉选择「学号 / 姓名」列</span>
+              {#if hasData}
+                <span class="section-hint">在第一列拖动箭头忽略表头；<br>在表头下拉选择「学号 / 姓名」列</span>
+              {/if}
             </div>
 
             {#if isPreviewing}
               <div class="loading-box">
                 <span class="spinner" aria-hidden="true"></span>
                 <span>正在读取文件…</span>
+              </div>
+            {:else if previewData && !hasData}
+              <!-- 空工作表：不给表头箭头，也不给列映射，直接说没有任何数据 -->
+              <div class="state">
+                <InfoIcon size={18}/>
+                <span class="text-subtitle">此工作表无任何数据</span>
               </div>
             {:else if previewData}
               <div class="step2-layout">
