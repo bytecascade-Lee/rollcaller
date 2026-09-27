@@ -1,53 +1,34 @@
 {
     "nodes": {
         "rollcall": {
-            "owner": "RollcallPage",
-            "overlays": {}
+            "parentId": null
         },
         "student-management": {
-            "owner": "StudentManagementPage",
-            "overlays": {
-                "create": {
-                    "owner": "SingleCreateStudent",
-                    "addressable": false
-                },
-                "edit": {
-                    "owner": "EditStudent",
-                    "addressable": true,
-                    "payload": [
-                        "ids"
-                    ]
-                },
-                "delete": {
-                    "owner": "DeleteStudents",
-                    "addressable": false
-                },
-                "import": {
-                    "owner": "ImportStudents",
-                    "addressable": false
-                },
-                "export": {
-                    "owner": "ExportStudents",
-                    "addressable": false
-                },
-                "restore": {
-                    "owner": null,
-                    "addressable": false
-                }
-            }
+            "parentId": null
         },
         "record-history": {
-            "owner": "RecordHistoryPage",
-            "overlays": {
-                "edit": {
-                    "owner": "EditRecord",
-                    "addressable": false
-                },
-                "export": {
-                    "owner": "ExportRecords",
-                    "addressable": false
-                }
-            }
+            "parentId": null
+        },
+        "create-student": {
+            "parentId": "student-management"
+        },
+        "import-student": {
+            "parentId": "student-management"
+        },
+        "edit-student": {
+            "parentId": "student-management"
+        },
+        "export-student": {
+            "parentId": "student-management"
+        },
+        "delete-student": {
+            "parentId": "student-management"
+        },
+        "edit-record": {
+            "parentId": "record-history"
+        },
+        "export-record": {
+            "parentId": "record-history"
         }
     }
 }
