@@ -4,6 +4,7 @@
   import {format} from "$utils/DateTimeUtils";
   import {StudentCommand} from "$commands"
   import type {EntryRegistry} from "$routing/registry";
+  import {appLeave} from "$routing/entries";
   import {AppEntry} from "$routing/entries.generated";
 
   let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();
@@ -16,6 +17,11 @@
   let result = $state<StudentSingleCreateResult | null>(null);
   let isCreating = $state(false);
   let isVisible = $state(false);
+
+  /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
+  function requestClose() {
+    appLeave(AppEntry.createStudent);
+  }
 
   let canSubmit = $derived(
     newStudent.student_no.trim() !== "" && newStudent.name.trim() !== ""
@@ -71,9 +77,9 @@
 
   $effect(() => {
     overlays.register(AppEntry.createStudent, {
-      show: open,
-      hide: close,
-      isShown: () => isVisible
+      open,
+      close,
+      isVisible: () => isVisible
     })
     return () => overlays.unregister(AppEntry.createStudent);
   })
@@ -167,7 +173,7 @@
           <button
             type="button"
             class="button"
-            onclick={close}
+            onclick={requestClose}
             disabled={isCreating}
           >
             取消
