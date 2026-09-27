@@ -3,7 +3,7 @@
   import {type HelpSearchResult, helpStore} from "$stores/helpStore.svelte";
   import {HelpAddress} from "$utils/helpAddress";
   import type {EntryRegistry} from "$routing/registry";
-  import {type HelpOverlayName, HelpOverlay} from "$pages/overlays";
+  import {HelpOverlay, type HelpOverlayName} from "$types";
   import {MagnifyingGlassIcon} from "phosphor-svelte";
 
   let {anchor = $bindable(), overlays}: {

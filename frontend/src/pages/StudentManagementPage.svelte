@@ -19,7 +19,7 @@
     TrashIcon
   } from "phosphor-svelte";
   import type {EntryRegistry} from "$routing/registry";
-  import type {StudentOverlayName} from "$pages/overlays";
+  import type {StudentOverlayName} from "$types";
   import {studentEditIds} from "$routing/entries";
   import {AppEntry} from "$routing/entries.generated";
   import EditStudent from "$components/student-management/EditStudent.svelte";
@@ -130,69 +130,69 @@
   <div class="toolbar">
     <div class="icon-button-group">
       <button
-        class="icon-button"
         aria-label="添加学生"
-        title="添加学生"
+        class="icon-button"
         disabled={studentStore.isLoading}
         onclick={() => overlays.show(AppEntry.createStudent)}
+        title="添加学生"
       >
         <PlusIcon size="24"/>
       </button>
       <button
-        class="icon-button"
         aria-label="修改学生"
-        title="修改学生"
+        class="icon-button"
         disabled={liveSelected.size != 1}
         onclick={() => overlays.show(AppEntry.editStudent)}
+        title="修改学生"
       >
         <PencilIcon size="24"/>
       </button>
       <button
-        class="icon-button"
         aria-label="删除学生"
-        title="删除学生"
+        class="icon-button"
         disabled={liveSelected.size == 0}
         onclick={() => overlays.show(AppEntry.deleteStudent)}
+        title="删除学生"
       >
         <TrashIcon size="24"/>
       </button>
       <button
-        class="icon-button"
         aria-label="导入学生"
-        title="导入学生"
+        class="icon-button"
         disabled={studentStore.isLoading}
         onclick={() => overlays.show(AppEntry.importStudent)}
+        title="导入学生"
       >
         <FileArrowUpIcon size="24"/>
       </button>
       <button
-        class="icon-button"
         aria-label="导出学生"
-        title="导出学生"
+        class="icon-button"
         disabled={studentStore.isLoading}
         onclick={e => {
           anchor = e.currentTarget;
           overlays.show(AppEntry.exportStudent)
         }}
+        title="导出学生"
       >
         <FileArrowDownIcon size="24"/>
       </button>
       <!-- 功能后期添加 -->
       <button
-        class="icon-button"
         aria-label="恢复已删除学生"
-        title="恢复已删除学生"
-        style="display: none"
+        class="icon-button"
         onclick={() => console.warn("[TODO] restore 尚未实现：恢复已删除学生的入口还没接上")}
+        style="display: none"
+        title="恢复已删除学生"
       >
         <ClockClockwiseIcon size="24"/>
       </button>
       <button
-        class="icon-button"
         aria-label="刷新"
-        title="刷新"
+        class="icon-button"
         disabled={studentStore.isLoading}
         onclick={() => studentStore.load()}
+        title="刷新"
       >
         <ArrowClockwiseIcon size="24"/>
       </button>
@@ -200,10 +200,10 @@
     <div class="search">
       <MagnifyingGlassIcon size="18"/>
       <input
-        type="search"
+        bind:value={searchQuery}
         disabled={studentStore.isLoading}
         placeholder="搜索学号或姓名"
-        bind:value={searchQuery}
+        type="search"
       />
     </div>
   </div>
@@ -222,7 +222,7 @@
               type="checkbox"
               checked={display.length > 0 && displaySelectedCount == display.length}
               indeterminate={displaySelectedCount > 0 && displaySelectedCount < display.length}
-              onchange={selectAll}            />
+              onchange={selectAll}/>
           </th>
           <th style:cursor="auto">序号</th>
           <th onclick={() => sort("name")}>
@@ -301,7 +301,7 @@
 </div>
 
 <SingleCreateStudent {overlays}/>
-<EditStudent selected={liveSelected} {overlays}/>
-<DeleteStudents selected={liveSelected} hiddenCount={liveSelected.size - displaySelectedCount} {overlays}/>
+<EditStudent {overlays} selected={liveSelected}/>
+<DeleteStudents hiddenCount={liveSelected.size - displaySelectedCount} {overlays} selected={liveSelected}/>
 <ImportStudents {overlays}/>
-<ExportStudents selected={liveSelected} display={display} anchor={anchor} {overlays}/>
+<ExportStudents anchor={anchor} display={display} {overlays} selected={liveSelected}/>

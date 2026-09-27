@@ -2,11 +2,10 @@
   import {save} from "@tauri-apps/plugin-dialog";
   import {RecordCommand} from "$commands";
   import type {EntryRegistry} from "$routing/registry";
-  import type {RecordOverlayName} from "$pages/overlays";
+  import type {RecordOverlayName, RollcallRecord} from "$types";
+  import {Result} from "$types";
   import {AppEntry} from "$routing/entries.generated";
   import {clickOutside, updatePosition} from "$actions";
-  import type {RollcallRecord} from "$types";
-  import {Result} from "$types";
   import {recordStore} from "$stores/recordStore.svelte";
 
   let {selected, display, anchor, overlays} = $props<{

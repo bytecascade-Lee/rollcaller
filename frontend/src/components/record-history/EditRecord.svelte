@@ -2,9 +2,8 @@
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import {RecordCommand} from "$commands";
   import {recordStore} from "$stores/recordStore.svelte";
-  import type {RollcallRecord} from "$types";
+  import type {RecordOverlayName, RollcallRecord} from "$types";
   import type {EntryRegistry} from "$routing/registry";
-  import type {RecordOverlayName} from "$pages/overlays";
   import {AppEntry} from "$routing/entries.generated";
   import {clickOutside, updatePosition} from "$actions";
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";

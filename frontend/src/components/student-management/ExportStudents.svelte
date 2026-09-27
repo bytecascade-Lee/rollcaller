@@ -3,11 +3,10 @@
   import {save} from "@tauri-apps/plugin-dialog";
   import {StudentCommand} from "$commands";
   import type {EntryRegistry} from "$routing/registry";
-  import type {StudentOverlayName} from "$pages/overlays";
+  import type {StudentOverlayName, StudentTable} from "$types";
+  import {Result} from "$types";
   import {AppEntry} from "$routing/entries.generated";
   import {clickOutside, updatePosition} from "$actions";
-  import type {StudentTable} from "$types";
-  import {Result} from "$types";
 
   let {selected, display, anchor, overlays} = $props<{
     selected: Set<bigint>;

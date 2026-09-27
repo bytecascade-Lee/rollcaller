@@ -1,7 +1,7 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
   import type {EntryRegistry} from "$routing/registry";
-  import type {StudentOverlayName} from "$pages/overlays";
+  import type {StudentOverlayName} from "$types";
   import {AppEntry} from "$routing/entries.generated";
   import {StudentCommand} from "$commands";
 
@@ -53,12 +53,14 @@
           type="button"
           class="button"
           onclick={() => isVisible = false}
-        >取消</button>
+        >取消
+        </button>
         <button
           type="button"
           class="button error"
           onclick={del}
-        >删除</button>
+        >删除
+        </button>
       </div>
     </div>
   </div>

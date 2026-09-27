@@ -1,10 +1,9 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import type {ImportPreviewData, StudentTable} from "$types";
+  import type {ImportPreviewData, StudentOverlayName, StudentTable} from "$types";
   import {Result} from "$types"
   import {open} from "@tauri-apps/plugin-dialog";
   import type {EntryRegistry} from "$routing/registry";
-  import type {StudentOverlayName} from "$pages/overlays";
   import {AppEntry} from "$routing/entries.generated";
   import {WindowRouter} from "$routing/windowRouter";
   import {HelpEntries} from "$routing/entries";

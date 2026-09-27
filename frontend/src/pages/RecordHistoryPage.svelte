@@ -2,7 +2,7 @@
 
   import {recordStore} from "$stores/recordStore.svelte";
   import {DateTimeUtils} from "$utils";
-  import type {RecordGroupMetaData, RollcallRecord} from "$types";
+  import type {RecordGroupMetaData, RecordOverlayName, RollcallRecord} from "$types";
   import {
     ArrowClockwiseIcon,
     ArrowDownIcon,
@@ -17,7 +17,6 @@
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import EditRecord from "$components/record-history/EditRecord.svelte";
   import type {EntryRegistry} from "$routing/registry";
-  import type {RecordOverlayName} from "$pages/overlays";
   import {AppEntry} from "$routing/entries.generated";
   import ExportRecords from "$components/record-history/ExportRecords.svelte";
 
@@ -280,5 +279,5 @@
   {/if}
 </div>
 
-<EditRecord anchor={anchor} selected={liveSelected} onselect={setSelection} {overlays}/>
-<ExportRecords anchor={anchor} display={display} selected={liveSelected} {overlays}/>
+<EditRecord anchor={anchor} onselect={setSelection} {overlays} selected={liveSelected}/>
+<ExportRecords anchor={anchor} display={display} {overlays} selected={liveSelected}/>

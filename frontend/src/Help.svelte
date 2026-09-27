@@ -18,7 +18,7 @@
   import NavTree from "$components/common/NavTree.svelte";
   import MarkdownView from "$components/common/MarkdownView.svelte";
   import {helpStore} from "$stores/helpStore.svelte";
-  import type {TreeNode} from "$types";
+  import type {HelpOverlayName, TreeNode} from "$types";
   import metaData from "$resources/help/meta.json";
   import HelpTitlebar from "$components/help/HelpTitlebar.svelte";
   import {HelpAddress} from "$utils/helpAddress";
@@ -27,7 +27,6 @@
   import {WindowRouter} from "$routing/windowRouter";
   import {HelpEntries} from "$routing/entries";
   import {createEntryRegistry} from "$routing/registry";
-  import type {HelpOverlayName} from "$pages/overlays";
 
   const nodes = metaData.nodes as
     {
@@ -193,9 +192,9 @@
 
 <div class="shell">
   <div class="titlebar-slot">
-    <HelpTitlebar window={window} {overlays}
+    <HelpTitlebar canGoBack={canGoBack} canGoForward={canGoForward}
                   onback={goBack} onforward={goForward}
-                  canGoBack={canGoBack} canGoForward={canGoForward}
+                  {overlays} window={window}
     />
   </div>
   <aside class="sidebar">

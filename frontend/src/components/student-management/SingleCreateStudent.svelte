@@ -1,10 +1,9 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import type {Student, StudentSingleCreateResult} from "$types";
+  import type {Student, StudentOverlayName, StudentSingleCreateResult} from "$types";
   import {format} from "$utils/DateTimeUtils";
   import {StudentCommand} from "$commands"
   import type {EntryRegistry} from "$routing/registry";
-  import type {StudentOverlayName} from "$pages/overlays";
   import {AppEntry} from "$routing/entries.generated";
 
   let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();

@@ -1,9 +1,8 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
   import type {EntryRegistry} from "$routing/registry";
-  import type {StudentOverlayName} from "$pages/overlays";
+  import type {StudentOverlayName, StudentSingleUpdate, StudentTable} from "$types";
   import {AppEntry} from "$routing/entries.generated";
-  import type {StudentSingleUpdate, StudentTable} from "$types";
   import {StudentCommand} from "$commands"
   import {DateTimeUtils} from "$utils";
 

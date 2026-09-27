@@ -24,6 +24,7 @@ export * from "./Severity";
 export * from "./UpdateInfo";
 export * from "./UpdateView";
 export * from "./OS";
+export * from "./overlays"
 export * from "./Arch";
 export * from "./DownloadProgress";
 export * from "./UpdateError";

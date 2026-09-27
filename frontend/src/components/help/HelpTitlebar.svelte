@@ -20,7 +20,7 @@
   import {WindowsCommand} from "$commands";
   import SearchHelpDocs from "$components/help/SearchHelpDocs.svelte";
   import type {EntryRegistry} from "$routing/registry";
-  import {type HelpOverlayName, HelpOverlay} from "$pages/overlays";
+  import {HelpOverlay, type HelpOverlayName} from "$types";
   import {invoke} from "@tauri-apps/api/core";
 
   let {window, overlays, onback, onforward, canGoBack, canGoForward}: {
@@ -114,10 +114,10 @@
       <MagnifyingGlassIcon size="16" weight="bold"/>
     </button>
     <button
-      class="icon-button"
-      title="主界面"
       aria-label="主界面"
+      class="icon-button"
       onclick={WindowsCommand.openAppWindow}
+      title="主界面"
     >
       <DiceFourIcon size="16" weight="bold"/>
     </button>
