@@ -1,22 +1,26 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import type {OverlayRegistry} from "$routing/overlays";
-  import type {StudentOverlayName} from "$routing/overlayNames";
+  import type {EntryRegistry} from "$routing/registry";
+  import type {StudentOverlayName} from "$pages/overlays";
+  import {AppEntry} from "$routing/entries.generated";
   import {StudentCommand} from "$commands";
 
-  let {selected = $bindable(), overlays} = $props<{
+  let {selected, hiddenCount, overlays} = $props<{
+    /** 生效的选择集（页面已按"学生仍然存在"过滤） */
     selected: Set<bigint>;
-    overlays: OverlayRegistry<StudentOverlayName>;
+    /** 其中不在当前筛选结果里的条数，用于提醒"会删到看不见的行" */
+    hiddenCount: number;
+    overlays: EntryRegistry<StudentOverlayName>;
   }>();
   let isVisible = $state(false);
   let closeOnOutside = true;
 
   async function del() {
     try {
-      let ids = Array.from<bigint>(selected);
+      const ids = Array.from<bigint>(selected);
       await StudentCommand.remove(ids);
+      // 只移除数据：生效的选择集是按"学生仍然存在"派生的，故不必（也不该）手工清空
       studentStore.remove(ids);
-      selected.clear();
       isVisible = false;
     } catch (e) {
       alert(String(e));
@@ -24,12 +28,12 @@
   }
 
   $effect(() => {
-    overlays.register("delete", {
-      open: () => isVisible = true,
-      close: () => isVisible = false,
-      isVisible: () => isVisible
+    overlays.register(AppEntry.deleteStudent, {
+      show: () => isVisible = true,
+      hide: () => isVisible = false,
+      isShown: () => isVisible
     })
-    return () => overlays.unregister("delete");
+    return () => overlays.unregister(AppEntry.deleteStudent);
   })
 </script>
 
@@ -40,6 +44,9 @@
     <div class="popup" onclick={(e) => e.stopPropagation()}>
       <h3 class="text-title error">确认删除</h3>
       <p class="text-content">确定删除选中的 {selected.size} 条记录吗？</p>
+      {#if hiddenCount > 0}
+        <p class="text-content">其中 {hiddenCount} 条不在当前筛选结果中。</p>
+      {/if}
       <p class="text-content">注：当前版本暂无恢复入口，删除后不可直接恢复！</p>
       <div class="button-group">
         <button
