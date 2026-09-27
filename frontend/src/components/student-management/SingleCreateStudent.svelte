@@ -3,10 +3,11 @@
   import type {Student, StudentSingleCreateResult} from "$types";
   import {format} from "$utils/DateTimeUtils";
   import {StudentCommand} from "$commands"
-  import type {OverlayRegistry} from "$routing/overlays";
-  import type {StudentOverlayName} from "$routing/overlayNames";
+  import type {EntryRegistry} from "$routing/registry";
+  import type {StudentOverlayName} from "$pages/overlays";
+  import {AppEntry} from "$routing/entries.generated";
 
-  let {overlays}: { overlays: OverlayRegistry<StudentOverlayName> } = $props();
+  let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();
 
   let newStudent = $state<Student>({
     id: null,
@@ -70,12 +71,12 @@
   }
 
   $effect(() => {
-    overlays.register("create", {
-      open: open,
-      close: close,
-      isVisible: () => isVisible
+    overlays.register(AppEntry.createStudent, {
+      show: open,
+      hide: close,
+      isShown: () => isVisible
     })
-    return () => overlays.unregister("create");
+    return () => overlays.unregister(AppEntry.createStudent);
   })
 </script>
 
