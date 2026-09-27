@@ -1,10 +1,7 @@
 export * from "./AttendanceStatus"
 export * from "./AppInfo"
 export * from "./AppMode";
-export * from "./ImportPreviewData";
 export * from "./NavItem";
-export * from "./Popup";
-export * from "./PopupName";
 export * from "./Record";
 export * from "./RecordGroupMetaData";
 export * from "./RecordTable";
@@ -12,6 +9,7 @@ export * from "./Result";
 export * from "./RollcallEvent";
 export * from "./RollcallPhase";
 export * from "./RollcallRecord";
+export * from "./SheetPreview";
 export * from "./Student";
 export * from "./StudentBatchCreateResult";
 export * from "./StudentSingleCreateResult";
@@ -26,6 +24,7 @@ export * from "./Severity";
 export * from "./UpdateInfo";
 export * from "./UpdateView";
 export * from "./OS";
+export * from "./overlays"
 export * from "./Arch";
 export * from "./DownloadProgress";
 export * from "./UpdateError";

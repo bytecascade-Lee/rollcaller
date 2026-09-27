@@ -7,8 +7,7 @@
 - **考勤状态**：为记录标记状态，例如出勤、缺勤、迟到、早退、请假等。
 - **备注**：补充说明信息，如缺勤原因、特殊情况等。
 
-[//]: # (@section: operation-steps)
-## 操作步骤
+## 操作步骤 {#operation-steps}
 
 1. 点击左侧导航栏进入「历史记录」页面。
 2. 在记录列表中勾选需要修改的记录（可勾选多条）。
@@ -44,9 +43,6 @@
 
 ## 延伸阅读
 
-[//]: # (@link: operation-steps)
-- [导出记录数据](../export-record/export-record-zh-CN.md#操作步骤) — 将记录导出为 Excel
-[//]: # (@link: operation-steps)
-- [单次点名](../single-rollcall/single-rollcall-zh-CN.md#操作步骤) — 手动控制的点名方式
-[//]: # (@link: operation-steps)
-- [自动结束点名](../auto-finish/auto-finish-zh-CN.md#操作步骤) — 连续点名
+- [导出记录数据](../export-record/export-record-zh-CN.md#operation-steps) — 将记录导出为 Excel
+- [单次点名](../single-rollcall/single-rollcall-zh-CN.md#operation-steps) — 手动控制的点名方式
+- [自动结束点名](../auto-finish/auto-finish-zh-CN.md#operation-steps) — 连续点名

@@ -52,14 +52,9 @@
 ## 从这里开始
 
 - 还不熟悉本应用？请阅读 [快速开始](../quick-start/quick-start-zh-CN.md) 一文，几分钟即可上手。
-[//]: # (@link: operation-steps)
-[//]: # (@link: operation-steps)
-- 想了解如何点名？请参考 [单次点名](../single-rollcall/single-rollcall-zh-CN.md#操作步骤) 和 [连续点名](../auto-finish/auto-finish-zh-CN.md#操作步骤) 。
-[//]: # (@link: operation-steps)
-[//]: # (@link: import-steps)
-- 想管理学生名单？请从 [添加学生](../add-student/add-student-zh-CN.md#操作步骤) 或 [批量导入学生](../batch-import/batch-import-zh-CN.md#导入步骤) 开始。
-[//]: # (@link: modes)
-- 想开启语音播报？请参考 [语音播报](../tts/tts-zh-CN.md#播报模式)。
+- 想了解如何点名？请参考 [单次点名](../single-rollcall/single-rollcall-zh-CN.md#operation-steps) 和 [连续点名](../auto-finish/auto-finish-zh-CN.md#operation-steps) 。
+- 想管理学生名单？请从 [添加学生](../add-student/add-student-zh-CN.md#operation-steps) 或 [批量导入学生](../batch-import/batch-import-zh-CN.md#import-steps) 开始。
+- 想开启语音播报？请参考 [语音播报](../tts/tts-zh-CN.md#modes)。
 - 想了解窗口操作？请参考 [主窗口](../app-window/app-window-zh-CN.md) 和 [帮助窗口](../help-window/help-window-zh-CN.md)。
 
 ## 关于

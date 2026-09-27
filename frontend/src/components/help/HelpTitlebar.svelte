@@ -19,11 +19,14 @@
   import logo from "$assets/icon.ico";
   import {WindowsCommand} from "$commands";
   import SearchHelpDocs from "$components/help/SearchHelpDocs.svelte";
-  import {overlayController} from "$controllers/popupController";
+  import type {EntryRegistry} from "$routing/registry";
+  import {HelpOverlay, type HelpOverlayName} from "$types";
   import {invoke} from "@tauri-apps/api/core";
 
-  let {window, onback, onforward, canGoBack, canGoForward}: {
+  let {window, overlays, onback, onforward, canGoBack, canGoForward}: {
     window: WebviewWindow,
+    /** 本窗口的叠加层注册表（注册表归窗口所有，逐个传下去而不是全局单例） */
+    overlays: EntryRegistry<HelpOverlayName>,
     onback?: () => void,
     onforward?: () => void,
     canGoBack?: boolean,
@@ -104,17 +107,17 @@
       class="icon-button"
       onclick={(e) => {
         anchor = e.currentTarget;
-        overlayController.open("HelpSearch");
+        overlays.open(HelpOverlay.search);
       }}
       title="搜索"
     >
       <MagnifyingGlassIcon size="16" weight="bold"/>
     </button>
     <button
-      class="icon-button"
-      title="主界面"
       aria-label="主界面"
+      class="icon-button"
       onclick={WindowsCommand.openAppWindow}
+      title="主界面"
     >
       <DiceFourIcon size="16" weight="bold"/>
     </button>
@@ -159,4 +162,4 @@
   </div>
 </div>
 
-<SearchHelpDocs bind:anchor={anchor}/>
+<SearchHelpDocs bind:anchor={anchor} {overlays}/>

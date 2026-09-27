@@ -1,10 +1,16 @@
 <script lang="ts">
-  import {overlayController} from "$controllers/popupController";
   import {clickOutside} from "$actions";
   import {type HelpSearchResult, helpStore} from "$stores/helpStore.svelte";
+  import {HelpAddress} from "$utils/helpAddress";
+  import type {EntryRegistry} from "$routing/registry";
+  import {HelpOverlay, type HelpOverlayName} from "$types";
   import {MagnifyingGlassIcon} from "phosphor-svelte";
 
-  let {anchor = $bindable()} = $props<{ anchor: HTMLElement | null }>();
+  let {anchor = $bindable(), overlays}: {
+    anchor: HTMLElement | null;
+    /** 本窗口的叠加层注册表：搜索是纯过程，不进地址空间，只在本窗口内部使用 */
+    overlays: EntryRegistry<HelpOverlayName>;
+  } = $props();
 
   let isVisible = $state(false);
   let query = $state("");
@@ -30,9 +36,9 @@
   function select(id: string) {
     close();
     if (helpStore.navigate) {
-      helpStore.navigate(id);
+      helpStore.navigate(HelpAddress.of(id));
     } else {
-      helpStore.load(id);
+      void helpStore.load(id);
     }
   }
 
@@ -84,12 +90,12 @@
   }
 
   $effect(() => {
-    overlayController.register("HelpSearch", {
+    overlays.register(HelpOverlay.search, {
       open,
       close,
       isVisible: () => isVisible,
     });
-    return () => overlayController.unregister("HelpSearch");
+    return () => overlays.unregister(HelpOverlay.search);
   });
 </script>
 

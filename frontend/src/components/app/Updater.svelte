@@ -46,17 +46,20 @@
     total !== null && total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0,
   );
 
-  // 状态变化时的自动弹窗：检查发现新版本 / 下载完成 / 出错时主动提示
+  // 状态变化时的自动弹窗：检查发现新版本 / 下载完成 / 下载或安装出错时主动提示。
+  // 唯独「检查失败」不弹：自动检查是开机就跑的动作（autoCheck），失败时弹窗平白打扰
+  // 用户，只留标题栏的叉子图标；用户点它仍可打开弹窗看到失败原因。
   $effect(() => {
     const s = view.status;
     if (s === previousStatus) return;
     const prev = previousStatus;
     previousStatus = s;
-    if (
+    // `retry` 即失败阶段（= 重试该调的命令）：只拦 "check"，下载/安装失败仍提示
+    const shouldAutoOpen =
       (s === "available" && prev === "checking") ||
       (s === "downloaded" && prev === "downloading") ||
-      (s === "error" && prev !== "error")
-    ) {
+      (s === "error" && prev !== "error" && retry !== "check");
+    if (shouldAutoOpen) {
       isVisible = true;
     }
   });

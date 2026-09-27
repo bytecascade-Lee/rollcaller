@@ -4,7 +4,59 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.8.1
+## Table of Contents
+
+- [0.8.2](#0-8-2) — Address-driven in-app routing, multi-sheet import (.xls included), updater Checking transition frame.
+- [0.8.1](#0-8-1) — Automatic updates after refactoring, CLI diagnostics, idempotent dual-platform releases, log redaction, smaller binary.
+- [0.8.0](#0-8-0) — Three-stage updater pipeline, manifest v2, update sessions, release toolchain split.
+- [0.7.0](#0-7-0) — Plugin-based auto-update, help doc navigation, CNB mirror sync.
+- [0.6.0](#0-6-0) — TTS cache simplification, quick attendance switching, always-on-top, help full-text search.
+- [0.5.0](#0-5-0) — TTS frontend playback refactor, TriSwitch, custom titlebar/decorum.
+- [0.4.3](#0-4-3) — Prevent-default plugin, script rename, help link fixes.
+- [0.4.2](#0-4-2) — Split app/help capabilities, dialog/UI/type fixes.
+- [0.4.1](#0-4-1) — Fix tauri-cli extraction path in CI.
+- [0.4.0](#0-4-0) — Directory refactor, Python build toolchain, help window system, ARM64 CI.
+- [0.3.0](#0-3-0) — DB-backed attendance statuses, table sorting, import wizard, Switch.
+- [0.3.0-rc.2](#0-3-0-rc2) — Version sync script, VERSION env, ESLint setup.
+- [0.3.0-rc.1](#0-3-0-rc1) — Attendance status migration, sorting, import wizard.
+- [0.2.0](#0-2-0) — Click-outside/positioning utils, export modes/feedback, UI polish.
+- [0.1.0](#0-1-0) — First stable: CSS design system, components, rollcall engine.
+- [0.1.0-rc.1](#0-1-0-rc1) — Initial RC: core architecture, CRUD, import/export, SQLite, Svelte.
+
+## 0.8.2 {#0-8-2}
+
+### Added
+
+- 新增地址驱动的应用内路由体系 `frontend/src/lib/routing/`：`address`（地址值与解析）、`router`（窗口路由工厂）、`windowRouter`（窗口级单例）、`registry`（落点注册表）、`entries`（入口链与地址解释）、`appNavigate`（app 域唯一翻译者）、`helpNavigate`（帮助域栈与落点）
+- 新增后端跨窗口投递链路：`state/nav.rs` 单槽待取载荷（last-wins）、`cmd/nav.rs` 的 `nav_open` / `nav_take_pending`（唤醒事件不带载荷，载荷只走一条通路）、`windows::open_by_host` 按窗口名分发建窗与唤前台
+- 新增 `resources/app/meta.json`（节点树 + `parentId`）与 `scripts/generate_routing_entries.py`：由路由表同时派生 app 与 help 两域，产出 `entries.generated.ts`（`AppEntry` 句柄表、`APP_ENTRY_PARENT`、`HelpEntry` 深链），支持 `--check` 校验生成物
+- 新增导入向导的多工作表支持：`SheetPreview`（`name` / `rows` / `total_rows` / `total_columns`）取代 `ImportPreviewData`，`preview_excel` 一次返回全部工作表，`import_excel` 改按工作表名 + 学号列 / 姓名列索引导入
+- 新增 `frontend/tests/routing.test.mjs` 与 Node 侧别名解析钩子（`tests/_alias-resolver.mjs` / `_register-alias.mjs`）：直接运行生产 TS 源码，覆盖地址原语、入口链、注册表与生成物一致性；`pnpm test` 取代原 `test:help`
+- 新增 Dependabot 配置与安全更新 PR 的自动重定基线链路：`dependabot.yaml`、`dependabot-pr-signal.yaml`、`dependabot-security-pr-retarget.yaml`
+- 新增 `docs/architect/导航架构-地址驱动的全局跳转体系.md`
+
+### Changed
+
+- 帮助文档锚点与全局弹窗机制整体替换：标题行尾内联锚点声明 + `headingIdPlugin` + `HelpAddress` 统一地址类型；叠加层注册表由全局 `popupController` 改为按页面/窗口的 `EntryRegistry`，名字由手写联合类型改为常量数组派生并与 `meta.json` 断言一致；浮层可见性收敛为「是当前地址链链尾」不变量
+- 导入解析改用 `calamine::open_workbook_auto`（`Sheets`），按扩展名分派 xls / xlsx / xlsb / ods，`.xls` 由「无法打开」变为真实支持；预览行数收敛为 `import_service::PREVIEW_ROWS` 常量
+- 更新管线补上进入 `Checking` 的状态迁移帧：`service/update.rs::check` 新增 `on_view` 注入，`cmd/update.rs` 注入广播回调，与 `download` 的注入方式一致
+- 学生与记录列表的选择集改为按存在性派生（`liveSelected`）：表头全选只作用于当前可见行，删除后勾选态不再残留；删除学生弹窗改为展示待删学生的姓名与学号并支持展开详情
+- `sync-mirrors.yaml` 的 `push.branches` 排除 `dependabot/**`
+- `release.yaml` 的 validate 阶段新增 `publish_ci.py --check-notes`：复用发布时同一套抽章节入口，提前校验发布说明存在、唯一且非空，避免构建数十分钟后才发现
+
+### Fixed
+
+- 修复更新器自动弹窗不区分失败阶段的问题：`Updater.svelte` 的自动弹窗新增失败阶段判断，检查失败不再自动弹窗
+- 修复发布说明抽取把章节末尾的 `---` 分隔线一并带出的问题（`publish_ci.py::extract_release_notes`）：该行会同时进 Release 正文与更新清单 `notes`，在应用内更新弹窗里渲染出一条多余横线
+- 修复发布说明抽取在章节重复时静默取第一个的隐患：同名标题与空章节改为直接失败，并在报错中列出命中的标题行
+
+### Removed
+
+- 移除 `popupController` / `PopupName` / 全局 `overlayNames`、`appNav.ts`、手写 `HelpEntries`、`helpAnnotations.ts` / `helpLinks.ts` 与 `tests/help-address.test.mjs`
+
+---
+
+## 0.8.1 {#0-8-1}
 
 ### Added
 
@@ -31,7 +83,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.8.0
+## 0.8.0 {#0-8-0}
 
 ### Breaking Changes
 
@@ -112,7 +164,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.7.0
+## 0.7.0 {#0-7-0}
 
 ### Breaking Changes
 
@@ -158,7 +210,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.6.0
+## 0.6.0 {#0-6-0}
 
 ### Breaking Changes
 
@@ -187,7 +239,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.5.0
+## 0.5.0 {#0-5-0}
 
 ### Breaking Changes
 
@@ -250,7 +302,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.4.3
+## 0.4.3 {#0-4-3}
 
 ### Added
 
@@ -267,7 +319,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.4.2
+## 0.4.2 {#0-4-2}
 
 ### Changed
 
@@ -290,7 +342,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.4.1
+## 0.4.1 {#0-4-1}
 
 ### Fixed
 
@@ -299,7 +351,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.4.0
+## 0.4.0 {#0-4-0}
 
 ### Breaking Changes
 
@@ -368,7 +420,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.3.0
+## 0.3.0 {#0-3-0}
 
 ### Breaking Changes
 
@@ -424,7 +476,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.3.0-rc.2
+## 0.3.0-rc.2 {#0-3-0-rc2}
 
 ### Added
 
@@ -450,7 +502,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.3.0-rc.1
+## 0.3.0-rc.1 {#0-3-0-rc1}
 
 ### Breaking Changes
 
@@ -497,7 +549,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.2.0
+## 0.2.0 {#0-2-0}
 
 ### Added
 
@@ -534,7 +586,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.1.0
+## 0.1.0 {#0-1-0}
 
 基于 0.1.0-rc.1 的首个正式发布版本，包含全部新增功能、改进和修复。以下为 rc.1 之后的增量变更。
 
@@ -574,7 +626,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## 0.1.0-rc.1
+## 0.1.0-rc.1 {#0-1-0-rc1}
 
 首个候选发布版本。所有变更已并入 [0.1.0](#010)，以下为架构与核心实现概要。
 

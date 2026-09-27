@@ -1,5 +1,6 @@
 import {HelpCommand} from "$commands";
 import metaData from "$resources/help/meta.json";
+import type {HelpAddress} from "$utils/helpAddress";
 
 /** 特殊节点走独立命令，其余叶子走 help_load_markdown(id)。 */
 const SPECIAL_LOADERS: Record<string, () => Promise<string>> = {
@@ -25,7 +26,7 @@ class HelpStore {
   indexing = $state(false);
 
   /** 搜索结果选中后的跳转回调，由 Help 页面注册（复用导航 + 树高亮）。 */
-  navigate: ((id: string) => void) | null = null;
+  navigate: ((address: HelpAddress) => void) | null = null;
 
   #cache = new Map<string, string>();
   #clean = new Map<string, string>();
@@ -129,8 +130,8 @@ class HelpStore {
   /** 去除 markdown 符号得到纯文本：先清理再命中，链接只保留文字、URL 不参与搜索。 */
   #cleanText(md: string): string {
     return md
-      // 导航锚点注解行（[//]: # (@section: x) / @link），避免污染搜索命中
-      .replace(/^\s*\[\/\/\]:\s*#\s*\(@(?:section|link):[^)]*\)\s*$/gm, "")
+      // 标题锚点声明 `{#id}`：不参与命中（标题文字本身仍参与）
+      .replace(/\{#[a-z0-9-]+\}/g, " ")
       // 代码块围栏整段移除
       .replace(/```[\s\S]*?```/g, " ")
       // 行内代码

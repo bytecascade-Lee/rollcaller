@@ -4,8 +4,7 @@
 
 应用会实时检测学号是否与其他学生重复，确保学号始终唯一。
 
-[//]: # (@section: operation-steps)
-## 操作步骤
+## 操作步骤 {#operation-steps}
 
 1. 点击左侧导航栏进入「学生管理」页面。
 2. 在列表中找到目标学生（可使用顶部搜索框按学号或姓名快速定位）。
@@ -30,7 +29,5 @@
 
 ## 延伸阅读
 
-[//]: # (@link: operation-steps)
-- [添加学生](../add-student/add-student-zh-CN.md#操作步骤) — 新增学生到名单
-[//]: # (@link: operation-steps)
-- [删除学生](../delete-student/delete-student-zh-CN.md#操作步骤) — 移除不再需要的学生
+- [添加学生](../add-student/add-student-zh-CN.md#operation-steps) — 新增学生到名单
+- [删除学生](../delete-student/delete-student-zh-CN.md#operation-steps) — 移除不再需要的学生

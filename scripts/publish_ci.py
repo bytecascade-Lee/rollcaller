@@ -6,7 +6,8 @@
 common.manifest / common.versions_index，GitHub / CNB 命令统一走 common.gh / common.cnb，
 两端结构完全一致：
     1. 从 CI 环境提取并校验版本号（复用 build_ci.ci_version）
-    2. 从 RELEASE_NOTES.md 提取对应章节作为发布说明（草稿时为占位内容）
+    2. 从 RELEASE_NOTES.md 提取对应章节作为发布说明（草稿时为占位内容）；章节缺失、
+       重复或为空一律直接失败 —— validate 阶段可用 --check-notes 提前跑同一条校验
     3. 收集构建产物与 .sig 签名（setup/portable 均含），一次生成 latest-github.json 与
        latest-cnb.json（v2 结构，仅附件 URL 指向各自平台的附件直链；severity 取自仓库
        维护的 resources/update/versions.json）。.sig 不发布为附件，仅 base64 嵌进清单
@@ -31,6 +32,7 @@ common.manifest / common.versions_index，GitHub / CNB 命令统一走 common.gh
 
 用法:
     uv run python scripts/publish_ci.py [--assets-dir assets]
+    uv run python scripts/publish_ci.py --check-notes    # 仅校验发布说明章节（validate 阶段）
 """
 
 import argparse
@@ -108,7 +110,12 @@ def ensure_cnb_tag(cnb_repo: str, tag: str, target: str) -> None:
 
 
 def extract_release_notes(version: str) -> str:
-    """从 RELEASE_NOTES.md 提取 '## <version>' 章节。"""
+    """从 RELEASE_NOTES.md 提取 '## <version>' 章节。
+
+    章节标题允许带帮助文档锚点后缀（`## 0.8.2 {#v0-8-2}`）；正文末尾与下一章之间的
+    分隔线 `---` 不属于本章内容，必须剥掉——它会同时进 Release 正文与清单 `notes`，
+    在应用内更新弹窗里渲染出一条多余横线。
+    """
     if os.environ.get("DRAFT_RELEASE") == "true":
         return f"## Draft Release At {datetime.datetime.now()}\n\nComplete the draft here."
     notes_file = ROOT / "RELEASE_NOTES.md"
@@ -116,22 +123,35 @@ def extract_release_notes(version: str) -> str:
         fail(f"RELEASE_NOTES.md 不存在: {notes_file}")
     escaped = re.escape(version)
     lines = notes_file.read_text(encoding="utf-8").splitlines()
-    in_section = False
-    body = []
-    for line in lines:
-        # 跳过导航锚点注解行（[//]: # (@section: ...) / @link），避免混入发布正文
-        if re.match(r"^\s*\[\/\/\]:\s*#\s*\(", line):
-            continue
-        if re.match(rf"^## {escaped}\s*$", line):
-            in_section = True
-            continue
-        if in_section and re.match(r"^##\s", line):
-            break
-        if in_section:
-            body.append(line)
-    if not body:
+    # 标题行允许带锚点后缀（`## 0.8.2 {#v0-8-2}`）；同一版本只允许一个标题，
+    # 重复粘贴或误留旧章节时取第一个会静默发出错误说明
+    matches = [i for i, line in enumerate(lines) if re.match(rf"^## {escaped}(?:\s.*)?$", line)]
+    if len(matches) > 1:
+        fail(f"RELEASE_NOTES.md 中有 {len(matches)} 个匹配 '## {version}' 的标题，"
+             f"无法确定用哪一个：{[lines[i] for i in matches]}")
+    if not matches:
         fail(f"RELEASE_NOTES.md 中未找到 '## {version}' 章节")
-    return "\n".join(body).rstrip() + "\n"
+    body = []
+    for line in lines[matches[0] + 1:]:
+        if re.match(r"^##\s", line):
+            break
+        body.append(line)
+    # 章节末尾与下一章之间的分隔线 `---` 不属于本章内容：它会同时进 Release 正文与
+    # 清单 `notes`，在应用内更新弹窗里渲染出一条多余横线
+    text = re.sub(r"\n*-{3,}\s*$", "", "\n".join(body).rstrip()).rstrip()
+    if not text:
+        fail(f"RELEASE_NOTES.md 中 '## {version}' 章节为空")
+    return text + "\n"
+
+
+def check_notes_only(release_version: str) -> None:
+    """仅校验发布说明章节可用（不触碰产物、网络与令牌），供 CI 的 validate 阶段 fail-fast。
+
+    与正式发布共用 extract_release_notes，因此校验结论与 release 阶段完全一致——
+    避免构建几十分钟后才发现说明章节缺失或格式不对。
+    """
+    notes = extract_release_notes(release_version)
+    log("INFO", f"发布说明校验通过：'## {release_version}' 共 {len(notes.splitlines())} 行")
 
 
 def collect_assets(assets_dir: Path, release_version: str) -> tuple[list, dict]:
@@ -314,9 +334,16 @@ def load_index() -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description="发布 GitHub Release 并同步 CNB Release")
     parser.add_argument("--assets-dir", default="assets", help="构建产物目录（默认 assets）")
+    parser.add_argument(
+        "--check-notes", action="store_true",
+        help="仅校验 RELEASE_NOTES.md 存在对应版本章节后退出（CI validate 阶段 fail-fast 用）",
+    )
     args = parser.parse_args()
 
     release_version = ci_version()
+    if args.check_notes:
+        check_notes_only(release_version)
+        return
     tag = f"v{release_version}"
     notes = extract_release_notes(release_version)
     # 写入系统临时目录，避免在 Windows（大小写不敏感文件系统）上

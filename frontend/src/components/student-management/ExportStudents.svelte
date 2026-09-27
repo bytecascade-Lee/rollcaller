@@ -2,17 +2,26 @@
   import {studentStore} from "$stores/studentStore.svelte";
   import {save} from "@tauri-apps/plugin-dialog";
   import {StudentCommand} from "$commands";
-  import {overlayController} from "$controllers/popupController";
-  import {clickOutside, updatePosition} from "$actions";
-  import type {StudentTable} from "$types";
+  import type {EntryRegistry} from "$routing/registry";
+  import type {StudentOverlayName, StudentTable} from "$types";
   import {Result} from "$types";
+  import {AppEntry} from "$routing/entries.generated";
+  import {clickOutside, updatePosition} from "$actions";
+  import {appNavigate} from "$routing/appNavigate";
 
-  let {selected = $bindable(), display = $bindable(), anchor = $bindable()} = $props<{
+  let {selected, display, anchor, overlays} = $props<{
     selected: Set<bigint>;
     display: StudentTable[];
     anchor: HTMLElement | null;
+    overlays: EntryRegistry<StudentOverlayName>;
   }>();
   let isVisible = $state(false);
+
+  /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
+  function requestClose() {
+    appNavigate.leave(AppEntry.exportStudent);
+  }
+
   let isExporting = $state(false);
   let popoverStyle = $state("");
   let message = $state("");
@@ -45,7 +54,7 @@
       result = Result.Doing;
       await StudentCommand.expose(path, ids);
       result = Result.Success;
-      setTimeout(() => close(), 2500);
+      setTimeout(requestClose, 2500);
     } catch (e) {
       result = Result.Error;
       message = String(e);
@@ -68,11 +77,12 @@
   }
 
   $effect(() => {
-    overlayController.register("StudentExport", {
-      open: open,
-      close: close,
+    overlays.register(AppEntry.exportStudent, {
+      open,
+      close,
       isVisible: () => isVisible,
     })
+    return () => overlays.unregister(AppEntry.exportStudent);
   })
 </script>
 
@@ -82,7 +92,7 @@
   <div
     class="popup"
     style={popoverStyle}
-    use:clickOutside={{ callback: close, exclude: anchor}}
+    use:clickOutside={{ callback: requestClose, exclude: anchor}}
   >
     <h3 class="text-title">导出学生</h3>
     <span class="text-content">选择导出范围</span>
@@ -128,7 +138,7 @@
       <button
         type="button"
         class="button"
-        onclick={close}
+        onclick={requestClose}
         disabled={isExporting}
       >
         取消

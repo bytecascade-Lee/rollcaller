@@ -8,19 +8,19 @@
 
 准备一份包含**学号和姓名两列数据**的 Excel 文件即可。
 
-[//]: # (@section: import-steps)
-## 导入步骤
+## 导入步骤 {#import-steps}
 
 ### 步骤一：选择文件
 
 1. 在「学生管理」页面点击「导入」按钮，进入导入向导。
 2. 点击选择你准备好的 Excel 文件。
-3. 系统会读取并预览文件中的数据。
+3. 系统会读取并预览文件中**所有工作表**的数据。
 
 ### 步骤二：配置表头行数及列映射
 
-这一步告诉应用文件中表头行数有多少，哪一列是学号、哪一列是姓名：
+这一步告诉应用用哪张工作表，以及文件中表头行数有多少、哪一列是学号、哪一列是姓名：
 
+- **工作表**：文件含多个工作表时，在标题右侧的下拉框切换要导入的那一张（默认第一张），选项上标出了每张表的行列数。
 - **表头行数**：通过表格左侧冻结列内的拖拽箭头，将箭头指向某一行，即可忽略该行及之前的所有行（通常用于跳过标题行）。箭头指向表头表示不忽略任何行。
 - **列映射**：为“学号”和“姓名”分别指定对应的数据列，确保数据对应正确。
 
@@ -38,10 +38,9 @@
 ## 注意事项
 
 - **冲突必须处理完才能导入**：存在未决策的冲突时无法执行导入，避免误操作。
-- **列映射或表头行数改动后**，已做的冲突决策会被清空，请重新确认。
-[//]: # (@link: operation-steps)
-- 学生数量较少、不想准备 Excel 时，也可以直接 [添加学生](../add-student/add-student-zh-CN.md#操作步骤) 。
-- 目前仅支持加载第一个工作表，如果提供的 Excel 文件有多个工作表，请确保待导入的数据位于第一个，后续会支持选择指定工作表。
+- **切换工作表、修改列映射或表头行数后**，已做的冲突决策会被清空，请重新确认。
+- 学生数量较少、不想准备 Excel 时，也可以直接 [添加学生](../add-student/add-student-zh-CN.md#operation-steps) 。
+- 支持选择任意工作表：默认读取第一张，可在步骤二切换到同一文件的其他工作表。
 
 ## 常见问题
 
@@ -55,11 +54,7 @@
 
 ## 延伸阅读
 
-[//]: # (@link: operation-steps)
-- [添加学生](../add-student/add-student-zh-CN.md#操作步骤) — 逐个添加学生
-[//]: # (@link: operation-steps)
-- [编辑学生信息](../edit-student/edit-student-zh-CN.md#操作步骤) — 修改学生的姓名、学号等信息
-[//]: # (@link: operation-steps)
-- [删除学生](../delete-student/delete-student-zh-CN.md#操作步骤) — 移除不再需要的学生
-[//]: # (@link: operation-steps)
-- [导出学生](../export-student/export-student-zh-CN.md#操作步骤) — 将学生名单导出为 Excel
+- [添加学生](../add-student/add-student-zh-CN.md#operation-steps) — 逐个添加学生
+- [编辑学生信息](../edit-student/edit-student-zh-CN.md#operation-steps) — 修改学生的姓名、学号等信息
+- [删除学生](../delete-student/delete-student-zh-CN.md#operation-steps) — 移除不再需要的学生
+- [导出学生](../export-student/export-student-zh-CN.md#operation-steps) — 将学生名单导出为 Excel

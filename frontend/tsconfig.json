@@ -51,6 +51,12 @@
             "$resources/*": [
                 "./src/lib/resources/*"
             ],
+            "$routing": [
+                "./src/lib/routing"
+            ],
+            "$routing/*": [
+                "./src/lib/routing/*"
+            ],
             "$services": [
                 "./src/lib/services"
             ],

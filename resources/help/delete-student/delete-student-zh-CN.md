@@ -2,8 +2,7 @@
 
 > 本文介绍如何从学生名单中移除不再需要的学生（如转班、转学、退课等场景）。
 
-[//]: # (@section: operation-steps)
-## 操作步骤
+## 操作步骤 {#operation-steps}
 
 ### 删除单个学生
 
@@ -26,8 +25,7 @@
 
 **问：误删了学生怎么办？**
 
-[//]: # (@link: operation-steps)
-答：虽然当前版本没有独立的恢复按钮，但你可以通过「添加学生」功能输入相同的学号和姓名，系统会自动将其恢复为活跃状态，包括之前的考勤记录都会保留。详见 [添加学生](../add-student/add-student-zh-CN.md#操作步骤) 。
+答：虽然当前版本没有独立的恢复按钮，但你可以通过「添加学生」功能输入相同的学号和姓名，系统会自动将其恢复为活跃状态，包括之前的考勤记录都会保留。详见 [添加学生](../add-student/add-student-zh-CN.md#operation-steps) 。
 
 **问：删除后学生的历史考勤记录还在吗？**
 
@@ -35,14 +33,10 @@
 
 **问：能否批量恢复多个学生？**
 
-[//]: # (@link: import-steps)
-答：可以。逐一通过「添加学生」输入每位学生的学号和姓名即可批量恢复，也可使用 [批量导入学生](../batch-import/batch-import-zh-CN.md#导入步骤) 一次性恢复。
+答：可以。逐一通过「添加学生」输入每位学生的学号和姓名即可批量恢复，也可使用 [批量导入学生](../batch-import/batch-import-zh-CN.md#import-steps) 一次性恢复。
 
 ## 延伸阅读
 
-[//]: # (@link: operation-steps)
-- [添加学生](../add-student/add-student-zh-CN.md#操作步骤) — 恢复被删除的学生
-[//]: # (@link: import-steps)
-- [批量导入学生](../batch-import/batch-import-zh-CN.md#导入步骤) — 批量恢复多名学生
-[//]: # (@link: operation-steps)
-- [编辑学生信息](../edit-student/edit-student-zh-CN.md#操作步骤) — 编辑学生的姓名、学号等信息
+- [添加学生](../add-student/add-student-zh-CN.md#operation-steps) — 恢复被删除的学生
+- [批量导入学生](../batch-import/batch-import-zh-CN.md#import-steps) — 批量恢复多名学生
+- [编辑学生信息](../edit-student/edit-student-zh-CN.md#operation-steps) — 编辑学生的姓名、学号等信息

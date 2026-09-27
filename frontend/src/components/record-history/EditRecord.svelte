@@ -2,17 +2,29 @@
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import {RecordCommand} from "$commands";
   import {recordStore} from "$stores/recordStore.svelte";
-  import type {RollcallRecord} from "$types";
-  import {overlayController} from "$controllers/popupController";
+  import type {RecordOverlayName, RollcallRecord} from "$types";
+  import type {EntryRegistry} from "$routing/registry";
+  import {AppEntry} from "$routing/entries.generated";
   import {clickOutside, updatePosition} from "$actions";
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
+  import {appNavigate} from "$routing/appNavigate";
 
-  let {selected = $bindable(), anchor = $bindable()} = $props<{
+  let {selected, anchor, onselect, overlays} = $props<{
+    /** 生效的选择集（页面已按"记录仍然存在"过滤） */
     selected: Set<bigint>;
     anchor: HTMLElement | null;
+    /** 改完回报新的选择集（清空即 `[]`）。选中集归页面所有，弹窗不直接改它 */
+    onselect: (ids: readonly bigint[]) => void;
+    overlays: EntryRegistry<RecordOverlayName>;
   }>();
 
   let isVisible = $state(false);
+
+  /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
+  function requestClose() {
+    appNavigate.leave(AppEntry.editRecord);
+  }
+
   let updateStatus = $state(true);
   let updateRemark = $state(true);
   let attendanceStatus = $state<number | null>(null);
@@ -39,8 +51,9 @@
       records = []
     }
     records.forEach(record => recordStore.upsert(record));
-    selected.clear();
-    isVisible = false;
+    // 改完的这批记录仍然存在，故"按存在性派生"不会让它们自己掉出选中集 —— 这里显式回报清空
+    onselect([]);
+    requestClose();
   }
 
   export function open() {
@@ -66,11 +79,12 @@
   }
 
   $effect(() => {
-    overlayController.register("RecordEdit", {
-      open: open,
-      close: close,
+    overlays.register(AppEntry.editRecord, {
+      open,
+      close,
       isVisible: () => isVisible
     })
+    return () => overlays.unregister(AppEntry.editRecord);
   })
 </script>
 
@@ -80,7 +94,7 @@
   <div
     class="popup"
     style={popoverStyle}
-    use:clickOutside={{ callback: close, exclude: anchor }}
+    use:clickOutside={{ callback: requestClose, exclude: anchor }}
   >
     {#if selected.size == 1}
       <h3 class="text-title">修改记录</h3>
@@ -133,7 +147,7 @@
       <button
         type="button"
         class="button"
-        onclick={close}>
+        onclick={requestClose}>
         取消
       </button>
       <button

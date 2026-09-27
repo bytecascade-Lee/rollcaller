@@ -2,8 +2,7 @@
 
 > 本文介绍如何在连续点名进行中途手动暂停，提前结束本轮点名。暂停后剩余次数不再执行，已完成的记录全部保留。
 
-[//]: # (@section: operation-steps)
-## 操作步骤
+## 操作步骤 {#operation-steps}
 
 1. 点击左侧导航栏进入「点名」页面，设定点名次数（例如 5 次）。
 2. 点击「开始点名」。
@@ -14,8 +13,7 @@
 
 - **暂停即结束本轮**：剩余次数不会再点，也无法重新开始，程序自动重置，可进行下一轮点名。
 - **已完成的记录会保留**，不会被删除或丢失。
-[//]: # (@link: operation-steps)
-- 全程不干预、让程序自动点满次数，则为 [自动结束点名](../auto-finish/auto-finish-zh-CN.md#操作步骤) 。
+- 全程不干预、让程序自动点满次数，则为 [自动结束点名](../auto-finish/auto-finish-zh-CN.md#operation-steps) 。
 
 ## 常见问题
 
@@ -29,7 +27,5 @@
 
 ## 延伸阅读
 
-[//]: # (@link: operation-steps)
-- [自动结束点名](../auto-finish/auto-finish-zh-CN.md#操作步骤) — 设定次数后自动连续点名
-[//]: # (@link: operation-steps)
-- [修改考勤记录](../edit-record/edit-record-zh-CN.md#操作步骤) — 修改已完成的记录
+- [自动结束点名](../auto-finish/auto-finish-zh-CN.md#operation-steps) — 设定次数后自动连续点名
+- [修改考勤记录](../edit-record/edit-record-zh-CN.md#operation-steps) — 修改已完成的记录

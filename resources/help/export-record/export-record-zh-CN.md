@@ -12,8 +12,7 @@
 
 三个选项并不总是同时出现：只有存在筛选时才显示「导出筛选」，只有存在选中时才显示「导出选中」。当既未筛选也未选中时，直接点击「导出」默认导出全部。
 
-[//]: # (@section: operation-steps)
-## 操作步骤
+## 操作步骤 {#operation-steps}
 
 1. 点击左侧导航栏进入「历史记录」页面。
 2. 根据需求选择导出方式：
@@ -42,7 +41,5 @@
 
 ## 延伸阅读
 
-[//]: # (@link: operation-steps)
-- [编辑记录信息](../edit-record/edit-record-zh-CN.md#操作步骤) — 批量修改记录状态
-[//]: # (@link: operation-steps)
-- [导出学生数据](../export-student/export-student-zh-CN.md#操作步骤) — 导出学生名单
+- [编辑记录信息](../edit-record/edit-record-zh-CN.md#operation-steps) — 批量修改记录状态
+- [导出学生数据](../export-student/export-student-zh-CN.md#operation-steps) — 导出学生名单
