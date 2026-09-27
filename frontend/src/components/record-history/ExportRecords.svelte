@@ -4,6 +4,7 @@
   import type {EntryRegistry} from "$routing/registry";
   import type {RecordOverlayName, RollcallRecord} from "$types";
   import {Result} from "$types";
+  import {appLeave} from "$routing/entries";
   import {AppEntry} from "$routing/entries.generated";
   import {clickOutside, updatePosition} from "$actions";
   import {recordStore} from "$stores/recordStore.svelte";
@@ -15,6 +16,11 @@
     overlays: EntryRegistry<RecordOverlayName>;
   }>();
   let isVisible = $state(false);
+
+  /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
+  function requestClose() {
+    appLeave(AppEntry.exportRecord);
+  }
   let isExporting = $state(false);
   let popoverStyle = $state("");
   let message = $state("");
@@ -47,7 +53,7 @@
       result = Result.Doing;
       await RecordCommand.expose(path, ids);
       result = Result.Success;
-      setTimeout(() => close(), 2500);
+      setTimeout(requestClose, 2500);
     } catch (e) {
       result = Result.Error;
       message = String(e);
@@ -71,9 +77,9 @@
 
   $effect(() => {
     overlays.register(AppEntry.exportRecord, {
-      show: open,
-      hide: close,
-      isShown: () => isVisible,
+      open,
+      close,
+      isVisible: () => isVisible,
     })
     return () => overlays.unregister(AppEntry.exportRecord);
   })
@@ -85,7 +91,7 @@
   <div
     class="popup"
     style={popoverStyle}
-    use:clickOutside={{ callback: close, exclude: anchor}}
+    use:clickOutside={{ callback: requestClose, exclude: anchor}}
   >
     <h3 class="text-title">导出学生</h3>
     <span class="text-content">选择导出范围</span>
@@ -131,7 +137,7 @@
       <button
         type="button"
         class="button"
-        onclick={close}
+        onclick={requestClose}
         disabled={isExporting}
       >
         取消
