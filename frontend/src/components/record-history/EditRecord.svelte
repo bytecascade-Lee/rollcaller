@@ -3,15 +3,19 @@
   import {RecordCommand} from "$commands";
   import {recordStore} from "$stores/recordStore.svelte";
   import type {RollcallRecord} from "$types";
-  import type {OverlayRegistry} from "$routing/overlays";
-  import type {RecordOverlayName} from "$routing/overlayNames";
+  import type {EntryRegistry} from "$routing/registry";
+  import type {RecordOverlayName} from "$pages/overlays";
+  import {AppEntry} from "$routing/entries.generated";
   import {clickOutside, updatePosition} from "$actions";
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
 
-  let {selected = $bindable(), anchor = $bindable(), overlays} = $props<{
+  let {selected, anchor, onselect, overlays} = $props<{
+    /** 生效的选择集（页面已按"记录仍然存在"过滤） */
     selected: Set<bigint>;
     anchor: HTMLElement | null;
-    overlays: OverlayRegistry<RecordOverlayName>;
+    /** 改完回报新的选择集（清空即 `[]`）。选中集归页面所有，弹窗不直接改它 */
+    onselect: (ids: readonly bigint[]) => void;
+    overlays: EntryRegistry<RecordOverlayName>;
   }>();
 
   let isVisible = $state(false);
@@ -41,7 +45,8 @@
       records = []
     }
     records.forEach(record => recordStore.upsert(record));
-    selected.clear();
+    // 改完的这批记录仍然存在，故"按存在性派生"不会让它们自己掉出选中集 —— 这里显式回报清空
+    onselect([]);
     isVisible = false;
   }
 
@@ -68,12 +73,12 @@
   }
 
   $effect(() => {
-    overlays.register("edit", {
-      open: open,
-      close: close,
-      isVisible: () => isVisible
+    overlays.register(AppEntry.editRecord, {
+      show: open,
+      hide: close,
+      isShown: () => isVisible
     })
-    return () => overlays.unregister("edit");
+    return () => overlays.unregister(AppEntry.editRecord);
   })
 </script>
 
