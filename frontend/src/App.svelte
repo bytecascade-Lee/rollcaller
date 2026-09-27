@@ -33,12 +33,10 @@
   import {listen} from "@tauri-apps/api/event";
   import {createRouter} from "$routing/router";
   import {WindowRouter} from "$routing/windowRouter";
-  import {AppCardIds, AppCards, AppEntries, HelpEntries, type AppCard} from "$routing/entries";
-  import {type Action, parseRoute} from "$routing/address";
-
-  /** 卡片段的合法性归本窗口：只认 `AppCards` 声明过的 id */
-  const isAppCard = (value: string | undefined): value is AppCard =>
-    value !== undefined && AppCardIds.some((id) => id === value);
+  import {createEntryRegistry} from "$routing/registry";
+  import {appAction, appPath, chainOf, HelpEntries, resolveAppEntry} from "$routing/entries";
+  import {type AppEntryId, AppEntry, APP_ENTRY_PARENT} from "$routing/entries.generated";
+  import {type Payload, parseRoute} from "$routing/address";
 
   let APP_INFO = $state<AppInfo>(<AppInfo><unknown>{
     os: "",
@@ -51,19 +49,48 @@
     build_time: ""
   })
   const window = getCurrentWebviewWindow();
-  let currentPage = $state<AppCard>(AppCards.rollcall);
-  let currentAction = $state<Action | null>(null);
+
+  /** 本窗口的落点注册表：**只有叠加层注册**（平面的呈现见下面的 `activeChain` 投影） */
+  const overlays = createEntryRegistry<AppEntryId>();
+
+  /** 当前地址对应的入口链（根 → 目标）。平面的呈现 = 链首，故卡片不需要 handler */
+  let activeChain = $state<AppEntryId[]>([]);
+  const activeCard = $derived(activeChain[0] ?? null);
+
+  /**
+   * 转换语义：按新旧链的**共同前缀** diff。
+   *
+   * 旧的余段逆序 `hide`，新的余段顺序 `show`，载荷只交给最深的那一个（祖先只需被呈现）。
+   * 与 `show` 对称，且不会把共有的祖先（例如卡片）hide 掉再 show 回来 —— 从
+   * `edit-student` 切到 `delete-student` 时卡片纹丝不动。
+   */
+  function transition(entry: AppEntryId, payload?: Payload) {
+    const next = chainOf(entry);
+    const prev = activeChain;
+    let shared = 0;
+    while (shared < prev.length && shared < next.length && prev[shared] === next[shared]) {
+      shared += 1;
+    }
+    for (let i = prev.length - 1; i >= shared; i -= 1) {
+      overlays.hide(prev[i]);
+    }
+    for (let i = shared; i < next.length; i += 1) {
+      overlays.show(next[i], i === next.length - 1 ? payload : undefined);
+    }
+    activeChain = next;
+  }
 
   const router = createRouter({
     host: "app",
     handle: (action) => {
-      const parsed = parseRoute(action.route);
-      const page = parsed?.segments[0];
-      if (!isAppCard(page)) {
+      const segments = parseRoute(action.route)?.segments ?? [];
+      const entry = resolveAppEntry(segments);
+      if (!entry) {
+        // 降级：地址非法（入口名不认识，或父链与声明的 parentId 不一致）→ 原地不动
+        console.error(`[routing] 非法 app 地址：${action.route}`);
         return;
       }
-      currentPage = page;
-      currentAction = action;
+      transition(entry, action.payload);
       WindowRouter.replaceHash(action.route);
     },
     forward: (action) => NavCommand.navOpen(action),
@@ -75,23 +102,35 @@
 
     let disposeRouter: (() => void) | null = null;
     let unlisten: (() => void) | null = null;
+    let assertTimer: ReturnType<typeof setTimeout> | null = null;
 
     void (async () => {
       const pending = await NavCommand.navTakePending();
       const initial = pending
         ? {route: pending.route, payload: pending.payload ?? undefined}
         : undefined;
-      disposeRouter = router.start(AppEntries.rollcall, initial);
+      disposeRouter = router.start({route: appPath(AppEntry.rollcall)}, initial);
 
       unlisten = await listen(NavCommand.NAV_WAKE_EVENT, async () => {
         const next = await NavCommand.navTakePending();
         if (next) router.go({route: next.route, payload: next.payload ?? undefined});
       });
+
+      // 注册完整性断言：推迟到子组件的 effect 注册之后；根入口（卡片）是平面出口，不需要 handler
+      assertTimer = setTimeout(() => {
+        const missing = Object.values(AppEntry).filter(
+          (id) => APP_ENTRY_PARENT[id] !== null && !overlays.has(id),
+        );
+        if (missing.length > 0) {
+          console.error(`[routing] 以下入口声明了却没有实现：${missing.join(", ")}`);
+        }
+      }, 0);
     })();
 
     return () => {
       disposeRouter?.();
       unlisten?.();
+      if (assertTimer !== null) clearTimeout(assertTimer);
     };
   });
 </script>
@@ -105,8 +144,8 @@
       <button
         aria-label="点名"
         class="nav-icon"
-        class:active={currentPage == AppCards.rollcall}
-        onclick={() => WindowRouter.nav(AppEntries.rollcall)}
+        class:active={activeCard === AppEntry.rollcall}
+        onclick={() => WindowRouter.nav(appAction(AppEntry.rollcall))}
         title="点名"
       >
         <DiceFourIcon size="24"/>
@@ -114,8 +153,8 @@
       <button
         aria-label="学生管理"
         class="nav-icon"
-        class:active={currentPage == AppCards.studentManagement}
-        onclick={() => WindowRouter.nav(AppEntries.studentManagement)}
+        class:active={activeCard === AppEntry.studentManagement}
+        onclick={() => WindowRouter.nav(appAction(AppEntry.studentManagement))}
         title="学生管理"
       >
         <UsersIcon size="24"/>
@@ -123,8 +162,8 @@
       <button
         aria-label="历史记录"
         class="nav-icon"
-        class:active={currentPage == AppCards.recordHistory}
-        onclick={() => WindowRouter.nav(AppEntries.recordHistory)}
+        class:active={activeCard === AppEntry.recordHistory}
+        onclick={() => WindowRouter.nav(appAction(AppEntry.recordHistory))}
         title="历史记录"
       >
         <ClockCounterClockwiseIcon size="24"/>
@@ -149,12 +188,9 @@
   </aside>
 
   <main class="content">
-    <RollcallPage active={currentPage == AppCards.rollcall}/>
-    <RecordHistoryPage active={currentPage == AppCards.recordHistory}/>
-    <StudentManagementPage
-      action={currentPage == AppCards.studentManagement ? currentAction : null}
-      active={currentPage == AppCards.studentManagement}
-    />
+    <RollcallPage active={activeCard === AppEntry.rollcall}/>
+    <RecordHistoryPage active={activeCard === AppEntry.recordHistory} overlays={overlays}/>
+    <StudentManagementPage active={activeCard === AppEntry.studentManagement} overlays={overlays}/>
   </main>
 
   <footer class="footbar">
