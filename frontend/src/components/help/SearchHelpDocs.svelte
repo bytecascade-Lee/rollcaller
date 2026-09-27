@@ -91,9 +91,9 @@
 
   $effect(() => {
     overlays.register(HelpOverlay.search, {
-      show: open,
-      hide: close,
-      isShown: () => isVisible,
+      open,
+      close,
+      isVisible: () => isVisible,
     });
     return () => overlays.unregister(HelpOverlay.search);
   });
