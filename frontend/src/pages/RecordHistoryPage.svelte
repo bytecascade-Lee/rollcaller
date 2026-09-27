@@ -16,15 +16,17 @@
   import {recordService} from "$services/RecordService.svelte";
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import EditRecord from "$components/record-history/EditRecord.svelte";
-  import {createOverlayRegistry} from "$routing/overlays";
-  import type {RecordOverlayName} from "$routing/overlayNames";
+  import type {EntryRegistry} from "$routing/registry";
+  import type {RecordOverlayName} from "$pages/overlays";
+  import {AppEntry} from "$routing/entries.generated";
   import ExportRecords from "$components/record-history/ExportRecords.svelte";
 
-  /** 本页的叠加层注册表：`"edit"` / `"export"` 与学生管理页同名但互不相干 */
-  const overlays = createOverlayRegistry<RecordOverlayName>();
-
   let selected = $state<Set<bigint>>(new Set());
-  let {active = $bindable(false)} = $props();
+  let {active = $bindable(false), overlays}: {
+    active?: boolean;
+    /** 本页可见的落点表（类型收窄到本页子树） */
+    overlays: EntryRegistry<RecordOverlayName>;
+  } = $props();
   let sortKey = $state("")
   let isAsc = $state(true)
   let searchQuery = $state("");
@@ -67,7 +69,14 @@
   }
 
   let groupInfo = $derived<RecordGroupMetaData[]>(recordService.group(display));
-  let displaySelectedCount = $derived(display.filter(r => selected.has(r.id)).length)
+
+  /** 生效的选择集：按"记录仍然存在"过滤（与学生管理页同一套语义） */
+  let liveSelected = $derived.by(() => {
+    const existing = new Set(recordStore.records.map((record) => record.id));
+    return new Set([...selected].filter((id) => existing.has(id)));
+  });
+
+  let displaySelectedCount = $derived(display.filter(r => liveSelected.has(r.id)).length)
 
   export function select(id: bigint) {
     if (selected.has(id)) {
@@ -79,15 +88,19 @@
     }
   }
 
+  /** 子组件回报新的选择集：选中集归本页所有，弹窗不直接改它 */
+  export function setSelection(ids: readonly bigint[]) {
+    selected = new Set(ids);
+  }
+
+  /** 表头全选：只作用于当前可见的行，且不丢掉看不见的选中项 */
   export function selectAll() {
-    if (selected.size == recordStore.records.length) {
-      selected = new Set<bigint>();
+    if (display.length > 0 && displaySelectedCount === display.length) {
+      const rest = new Set(selected);
+      for (const record of display) rest.delete(record.id);
+      selected = rest;
     } else {
-      let set = new Set<bigint>();
-      for (let record of recordStore.records) {
-        set.add(record.id);
-      }
-      selected = set;
+      selected = new Set([...selected, ...display.map((record) => record.id)]);
     }
   }
 
@@ -100,10 +113,10 @@
       <button
         aria-label="批量修改记录"
         class="icon-button"
-        disabled={selected.size == 0}
+        disabled={liveSelected.size == 0}
         onclick={e => {
           anchor = e.currentTarget;
-          overlays.open("edit")
+          overlays.show(AppEntry.editRecord)
         }}
         title="批量修改记录"
       >
@@ -115,7 +128,7 @@
         disabled={recordStore.isLoading}
         onclick={e => {
           anchor = e.currentTarget;
-          overlays.open("export")
+          overlays.show(AppEntry.exportRecord)
         }}
         title="导出记录"
       >
@@ -267,5 +280,5 @@
   {/if}
 </div>
 
-<EditRecord bind:anchor={anchor} bind:selected={selected} {overlays}/>
-<ExportRecords bind:anchor={anchor} bind:display={display} bind:selected={selected} {overlays}/>
+<EditRecord anchor={anchor} selected={liveSelected} onselect={setSelection} {overlays}/>
+<ExportRecords anchor={anchor} display={display} selected={liveSelected} {overlays}/>
