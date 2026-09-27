@@ -19,7 +19,7 @@
   import type {EntryRegistry} from "$routing/registry";
   import {AppEntry} from "$routing/entries.generated";
   import ExportRecords from "$components/record-history/ExportRecords.svelte";
-  import {appEnter} from "$routing/appNav";
+  import {appNavigate} from "$routing/appNavigate";
 
   let selected = $state<Set<bigint>>(new Set());
   let {active = $bindable(false), overlays}: {
@@ -116,7 +116,7 @@
         disabled={liveSelected.size == 0}
         onclick={e => {
           anchor = e.currentTarget;
-          appEnter(AppEntry.editRecord)
+          appNavigate.enter(AppEntry.editRecord)
         }}
         title="批量修改记录"
       >
@@ -128,7 +128,7 @@
         disabled={recordStore.isLoading}
         onclick={e => {
           anchor = e.currentTarget;
-          appEnter(AppEntry.exportRecord)
+          appNavigate.enter(AppEntry.exportRecord)
         }}
         title="导出记录"
       >

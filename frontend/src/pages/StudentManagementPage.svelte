@@ -24,7 +24,7 @@
   import {AppEntry} from "$routing/entries.generated";
   import EditStudent from "$components/student-management/EditStudent.svelte";
   import ExportStudents from "$components/student-management/ExportStudents.svelte";
-  import {appEnter} from "$routing/appNav";
+  import {appNavigate} from "$routing/appNavigate";
 
   let selected = $state<Set<bigint>>(new Set())
   let {active = $bindable(false), overlays}: {
@@ -134,7 +134,7 @@
         aria-label="添加学生"
         class="icon-button"
         disabled={studentStore.isLoading}
-        onclick={() => appEnter(AppEntry.createStudent)}
+        onclick={() => appNavigate.enter(AppEntry.createStudent)}
         title="添加学生"
       >
         <PlusIcon size="24"/>
@@ -143,7 +143,7 @@
         aria-label="修改学生"
         class="icon-button"
         disabled={liveSelected.size != 1}
-        onclick={() => appEnter(AppEntry.editStudent, {ids: [...liveSelected].map(Number)})}
+        onclick={() => appNavigate.enter(AppEntry.editStudent, {ids: [...liveSelected].map(Number)})}
         title="修改学生"
       >
         <PencilIcon size="24"/>
@@ -152,7 +152,7 @@
         aria-label="删除学生"
         class="icon-button"
         disabled={liveSelected.size == 0}
-        onclick={() => appEnter(AppEntry.deleteStudent, {ids: [...liveSelected].map(Number)})}
+        onclick={() => appNavigate.enter(AppEntry.deleteStudent, {ids: [...liveSelected].map(Number)})}
         title="删除学生"
       >
         <TrashIcon size="24"/>
@@ -161,7 +161,7 @@
         aria-label="导入学生"
         class="icon-button"
         disabled={studentStore.isLoading}
-        onclick={() => appEnter(AppEntry.importStudent)}
+        onclick={() => appNavigate.enter(AppEntry.importStudent)}
         title="导入学生"
       >
         <FileArrowUpIcon size="24"/>
@@ -172,7 +172,7 @@
         disabled={studentStore.isLoading}
         onclick={e => {
           anchor = e.currentTarget;
-          appEnter(AppEntry.exportStudent)
+          appNavigate.enter(AppEntry.exportStudent)
         }}
         title="导出学生"
       >
