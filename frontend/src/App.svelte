@@ -60,9 +60,12 @@
   /**
    * 转换语义：按新旧链的**共同前缀** diff。
    *
-   * 旧的余段逆序 `hide`，新的余段顺序 `show`，载荷只交给最深的那一个（祖先只需被呈现）。
-   * 与 `show` 对称，且不会把共有的祖先（例如卡片）hide 掉再 show 回来 —— 从
-   * `edit-student` 切到 `delete-student` 时卡片纹丝不动。
+   * 旧的余段逆序 `close`，新的余段顺序 `open`，载荷只交给最深的那一个（祖先只需被呈现）。
+   * 与 `open` 对称，且不会把共有的祖先（例如卡片）关掉再开回来 —— 从 `edit-student`
+   * 切到 `delete-student` 时卡片纹丝不动。
+   *
+   * **整条链都相同（重放同一地址）时要单独再 `open` 一次目标**，否则会静默失效：
+   * 见下面 `shared === next.length` 那一支的注释。
    */
   function transition(entry: AppEntryId, payload?: Payload) {
     const next = chainOf(entry);
@@ -72,10 +75,17 @@
       shared += 1;
     }
     for (let i = prev.length - 1; i >= shared; i -= 1) {
-      overlays.hide(prev[i]);
+      overlays.close(prev[i]);
     }
     for (let i = shared; i < next.length; i += 1) {
-      overlays.show(next[i], i === next.length - 1 ? payload : undefined);
+      overlays.open(next[i], i === next.length - 1 ? payload : undefined);
+    }
+    // 重放同一地址：diff 会判定"无事可做"，但目标此刻未必真的开着 ——
+    // 关闭**不经过地址**（用户点"取消"不会让地址回退），所以"地址停在 delete-student
+    // 而弹窗早已关闭"是常见状态。按 §8「同 route 重放 = 重新应用初始状态」，这里补一次
+    // 目标的 open（载荷一并重放）。
+    if (shared === next.length) {
+      overlays.open(entry, payload);
     }
     activeChain = next;
   }
