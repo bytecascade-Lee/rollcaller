@@ -377,19 +377,7 @@
       aria-modal="true"
       aria-label="导入学生"
     >
-      <div class="title-row">
-        <h3 class="text-title">导入学生</h3>
-        <!-- 场景一：帮助按钮指向「批量导入 → 导入步骤」，跨窗口由路由自己转发 -->
-        <button
-          class="icon-button"
-          type="button"
-          aria-label="查看帮助"
-          title="查看帮助"
-          onclick={() => WindowRouter.nav({route: HelpEntry.batchImportImportSteps})}
-        >
-          <QuestionIcon size="18"/>
-        </button>
-      </div>
+      <h3 class="text-title">导入学生</h3>
       <span class="text-content">从 Excel 文件批量导入学生名单</span>
 
       <!-- 步骤引导 -->
@@ -449,7 +437,7 @@
                   {/each}
                 </select>
               {/if}
-              <span class="section-hint">在第一列拖动箭头忽略表头；在表头下拉选择「学号 / 姓名」列</span>
+              <span class="section-hint">在第一列拖动箭头忽略表头；<br>在表头下拉选择「学号 / 姓名」列</span>
             </div>
 
             {#if isPreviewing}
@@ -663,6 +651,16 @@
       </div>
 
       <div class="button-group">
+        <!-- 场景一：帮助按钮指向「批量导入 → 导入步骤」，跨窗口由路由自己转发 -->
+        <button
+          class="icon-button help-button"
+          type="button"
+          aria-label="查看帮助"
+          title="查看帮助"
+          onclick={() => WindowRouter.nav({route: HelpEntry.batchImportImportSteps})}
+        >
+          <QuestionIcon size="18"/>
+        </button>
         <button
           type="button"
           class="button"
@@ -731,12 +729,10 @@
 
 <style>
 
-  /* 标题行：标题在左、帮助按钮在右 */
-  .title-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-xs);
+  /* 帮助按钮：margin-right:auto 顶到按钮组最左侧，align-self 防止被 flex 拉伸（它是固定方形图标按钮） */
+  .help-button {
+    margin-right: auto;
+    align-self: center;
   }
 
   /* 步骤引导 */
