@@ -42,10 +42,13 @@ All notable changes to this project will be documented in this file.
 - 更新管线补上进入 `Checking` 的状态迁移帧：`service/update.rs::check` 新增 `on_view` 注入，`cmd/update.rs` 注入广播回调，与 `download` 的注入方式一致
 - 学生与记录列表的选择集改为按存在性派生（`liveSelected`）：表头全选只作用于当前可见行，删除后勾选态不再残留；删除学生弹窗改为展示待删学生的姓名与学号并支持展开详情
 - `sync-mirrors.yaml` 的 `push.branches` 排除 `dependabot/**`
+- `release.yaml` 的 validate 阶段新增 `publish_ci.py --check-notes`：复用发布时同一套抽章节入口，提前校验发布说明存在、唯一且非空，避免构建数十分钟后才发现
 
 ### Fixed
 
 - 修复更新器自动弹窗不区分失败阶段的问题：`Updater.svelte` 的自动弹窗新增失败阶段判断，检查失败不再自动弹窗
+- 修复发布说明抽取把章节末尾的 `---` 分隔线一并带出的问题（`publish_ci.py::extract_release_notes`）：该行会同时进 Release 正文与更新清单 `notes`，在应用内更新弹窗里渲染出一条多余横线
+- 修复发布说明抽取在章节重复时静默取第一个的隐患：同名标题与空章节改为直接失败，并在报错中列出命中的标题行
 
 ### Removed
 
