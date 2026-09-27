@@ -1,6 +1,6 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import type {ImportPreviewData, StudentOverlayName, StudentTable} from "$types";
+  import type {SheetPreview, StudentOverlayName, StudentTable} from "$types";
   import {Result} from "$types"
   import {open} from "@tauri-apps/plugin-dialog";
   import type {EntryRegistry} from "$routing/registry";
@@ -25,7 +25,11 @@
 
   let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();
 
-  let previewData = $state<ImportPreviewData | null>(null);
+  // 预览：一次拿回文件里的全部工作表（每张表自带前若干行与行列数）
+  let sheets = $state<SheetPreview[]>([]);
+  let activeSheetName = $state("");
+  // 当前工作表；切换工作表只是换数据源，不再走 IPC
+  let previewData = $derived(sheets.find((s) => s.name === activeSheetName) ?? sheets[0] ?? null);
   let filePath = $state("");
   let studentNoColumnIndex = $state(0);
   let nameColumnIndex = $state(1);
@@ -80,7 +84,8 @@
 
   function resetState() {
     clearAutoClose();
-    previewData = null;
+    sheets = [];
+    activeSheetName = "";
     filePath = "";
     studentNoColumnIndex = 0;
     nameColumnIndex = 1;
@@ -121,11 +126,28 @@
     }
   }
 
+  /** 按默认列序重置映射：第 1 列学号、第 2 列姓名（列数不足则留空待配） */
+  function applyDefaultMapping() {
+    const columns = previewData?.total_columns ?? 0;
+    studentNoColumnIndex = columns > 0 ? 0 : -1;
+    nameColumnIndex = columns > 1 ? 1 : -1;
+    headerRows = 0;
+  }
+
+  /** 越界索引回退到合法值，避免列数变化后映射失效 */
+  function clampMapping() {
+    const columns = previewData?.total_columns ?? 0;
+    const rows = previewData?.total_rows ?? 0;
+    if (studentNoColumnIndex >= columns) studentNoColumnIndex = columns > 0 ? 0 : -1;
+    if (nameColumnIndex >= columns) nameColumnIndex = columns > 1 ? 1 : -1;
+    if (headerRows >= rows) headerRows = Math.max(0, rows - 1);
+  }
+
   /**
-   * 预览文件。resetMapping=true 时按默认列序重置映射（选择新文件）；
-   * 向导内重新校验时传 false，保留用户已配置的映射。
+   * 预览文件（一次读回全部工作表）。resetSelection=true 时回到第一张表并按默认列序重置映射（选择新文件）；
+   * 向导内重新校验时传 false，保留用户已选的表与映射。
    */
-  async function preview(resetMapping = true) {
+  async function preview(resetSelection = true) {
     if (!filePath) return;
     isPreviewing = true;
     message = null;
@@ -133,31 +155,29 @@
     pendingChoices = new Map<string, boolean>();
     importSucceeded = false;
     try {
-      const result = await ImportCommand.preview(filePath);
-      previewData = result;
-      if (resetMapping) {
-        // 默认：第 1 列学号、第 2 列姓名（列数不足则留空待配）
-        studentNoColumnIndex = result.total_columns > 0 ? 0 : -1;
-        nameColumnIndex = result.total_columns > 1 ? 1 : -1;
-        headerRows = 0;
+      sheets = await ImportCommand.preview(filePath);
+      if (resetSelection || !sheets.some((s) => s.name === activeSheetName)) {
+        activeSheetName = sheets[0]?.name ?? "";
+      }
+      if (resetSelection) {
+        applyDefaultMapping();
       } else {
-        // 越界索引回退到合法值，避免重新校验后列映射失效
-        if (studentNoColumnIndex >= result.total_columns) {
-          studentNoColumnIndex = result.total_columns > 0 ? 0 : -1;
-        }
-        if (nameColumnIndex >= result.total_columns) {
-          nameColumnIndex = result.total_columns > 1 ? 1 : -1;
-        }
-        if (headerRows >= result.total_rows) {
-          headerRows = Math.max(0, result.total_rows - 1);
-        }
+        clampMapping();
       }
     } catch (e) {
-      previewData = null;
+      sheets = [];
+      activeSheetName = "";
       message = {type: Result.Error, content: "预览失败：" + e};
     } finally {
       isPreviewing = false;
     }
+  }
+
+  /** 切换工作表：换了一张表的结构，列映射、表头行数与冲突决策一律重置（不走 IPC） */
+  function onSheetChange(name: string) {
+    activeSheetName = name;
+    applyDefaultMapping();
+    onConfigChange();
   }
 
   /** 步骤一「下一步」：若尚未预览（如重新选择失败后）则先预览，再进入步骤二 */
@@ -274,7 +294,9 @@
   }
 
   async function runImport() {
-    if (!configValid || isImporting) return;
+    // 先取出当前工作表，避免 await 之后再读派生值
+    const sheet = previewData;
+    if (!configValid || isImporting || sheet === null) return;
     // 存在待决策冲突时必须全部处理完才能导入
     if (pendingDecisions.length > 0 && !allDecided) return;
 
@@ -283,10 +305,12 @@
     isImporting = true;
     message = null;
     try {
-      const result = await ImportCommand.load(filePath, headerRows, {
-          student_no: studentNoColumnIndex,
-          name: nameColumnIndex,
-        },
+      const result = await ImportCommand.load(
+        filePath,
+        sheet.name,
+        headerRows,
+        studentNoColumnIndex,
+        nameColumnIndex,
         decisions
       );
       switch (result.type) {
@@ -411,6 +435,20 @@
             <div class="section-head">
               <span class="section-no">2</span>
               <span class="section-title">预览与列映射</span>
+              <!-- 多工作表时才出现；切换后只换数据源，不重新读文件 -->
+              {#if sheets.length > 1}
+                <select
+                  class="sheet-select"
+                  value={activeSheetName}
+                  onchange={(e) => onSheetChange(e.currentTarget.value)}
+                  aria-label="选择要导入的工作表"
+                  title="选择要导入的工作表"
+                >
+                  {#each sheets as sheet (sheet.name)}
+                    <option value={sheet.name}>{sheet.name}（{sheet.total_rows} 行 × {sheet.total_columns} 列）</option>
+                  {/each}
+                </select>
+              {/if}
               <span class="section-hint">在第一列拖动箭头忽略表头；在表头下拉选择「学号 / 姓名」列</span>
             </div>
 
@@ -789,6 +827,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-xs);
+    flex-wrap: wrap;
   }
 
   .section-no {
@@ -814,6 +853,14 @@
     margin-left: auto;
     font-size: var(--font-size-xs);
     color: var(--text-color-secondary);
+  }
+
+  /* 工作表选择器：仅多表文件出现 */
+  .sheet-select {
+    max-width: 16rem;
+    padding: var(--space-xxs) var(--space-xs);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
   }
 
   /* 加载态 */
