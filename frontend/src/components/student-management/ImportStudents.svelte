@@ -3,8 +3,9 @@
   import type {ImportPreviewData, StudentTable} from "$types";
   import {Result} from "$types"
   import {open} from "@tauri-apps/plugin-dialog";
-  import type {OverlayRegistry} from "$routing/overlays";
-  import type {StudentOverlayName} from "$routing/overlayNames";
+  import type {EntryRegistry} from "$routing/registry";
+  import type {StudentOverlayName} from "$pages/overlays";
+  import {AppEntry} from "$routing/entries.generated";
   import {WindowRouter} from "$routing/windowRouter";
   import {HelpEntries} from "$routing/entries";
   import {ImportCommand} from "$commands";
@@ -23,7 +24,7 @@
     XIcon
   } from "phosphor-svelte";
 
-  let {overlays}: { overlays: OverlayRegistry<StudentOverlayName> } = $props();
+  let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();
 
   let previewData = $state<ImportPreviewData | null>(null);
   let filePath = $state("");
@@ -327,12 +328,12 @@
   }
 
   $effect(() => {
-    overlays.register("import", {
-      open: openDialog,
-      close: close,
-      isVisible: () => isVisible
+    overlays.register(AppEntry.importStudent, {
+      show: openDialog,
+      hide: close,
+      isShown: () => isVisible
     })
-    return () => overlays.unregister("import");
+    return () => overlays.unregister(AppEntry.importStudent);
   })
 </script>
 
