@@ -3,7 +3,7 @@ use crate::common::entity::student::Student;
 use crate::common::enums::student::StudentBatchCreateResult;
 use crate::service::student_service;
 use anyhow::anyhow;
-use calamine::{Data, Range, Reader, Xlsx};
+use calamine::{Data, Range, Reader, Sheets};
 use rbatis::RBatis;
 use std::collections::HashMap;
 use std::fs::File;
@@ -13,11 +13,11 @@ use std::path::Path;
 /// 单张工作表预览的行数上限
 pub const PREVIEW_ROWS: usize = 5;
 
-/// 当前只解析 xlsx；要支持 .xls/.ods 只需换成 `open_workbook_auto` + `Sheets`（同样实现 `Reader`）
-type Workbook = Xlsx<BufReader<File>>;
+/// 按扩展名/魔数分派到 Xls / Xlsx / Xlsb / Ods（`open_workbook_auto` 先看扩展名，认不出再逐个嗅探）
+type Workbook = Sheets<BufReader<File>>;
 
 fn open(path: &Path) -> anyhow::Result<Workbook> {
-    Ok(calamine::open_workbook(path)?)
+    Ok(calamine::open_workbook_auto(path)?)
 }
 
 /// 读表：全流程唯一的取表入口，避免 preview 与 import 各自解析导致表错配

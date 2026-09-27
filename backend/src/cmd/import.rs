@@ -5,7 +5,7 @@ use crate::service::import_service;
 use std::collections::HashMap;
 use std::path::Path;
 
-/// 预览 Excel 文件：读取每张工作表的前 8 行
+/// 预览 Excel 文件：读取每张工作表的前若干行（行数见 `import_service::PREVIEW_ROWS`）
 #[tauri::command]
 pub async fn preview_excel(file_path: String) -> Result<Vec<SheetPreview>, String> {
     let path = Path::new(&file_path);
