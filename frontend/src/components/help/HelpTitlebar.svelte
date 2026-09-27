@@ -107,7 +107,7 @@
       class="icon-button"
       onclick={(e) => {
         anchor = e.currentTarget;
-        overlays.show(HelpOverlay.search);
+        overlays.open(HelpOverlay.search);
       }}
       title="搜索"
     >
