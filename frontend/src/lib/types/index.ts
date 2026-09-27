@@ -1,7 +1,6 @@
 export * from "./AttendanceStatus"
 export * from "./AppInfo"
 export * from "./AppMode";
-export * from "./ImportPreviewData";
 export * from "./NavItem";
 export * from "./Record";
 export * from "./RecordGroupMetaData";
@@ -10,6 +9,7 @@ export * from "./Result";
 export * from "./RollcallEvent";
 export * from "./RollcallPhase";
 export * from "./RollcallRecord";
+export * from "./SheetPreview";
 export * from "./Student";
 export * from "./StudentBatchCreateResult";
 export * from "./StudentSingleCreateResult";
