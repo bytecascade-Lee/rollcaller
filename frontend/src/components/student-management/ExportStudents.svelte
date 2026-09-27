@@ -2,17 +2,18 @@
   import {studentStore} from "$stores/studentStore.svelte";
   import {save} from "@tauri-apps/plugin-dialog";
   import {StudentCommand} from "$commands";
-  import type {OverlayRegistry} from "$routing/overlays";
-  import type {StudentOverlayName} from "$routing/overlayNames";
+  import type {EntryRegistry} from "$routing/registry";
+  import type {StudentOverlayName} from "$pages/overlays";
+  import {AppEntry} from "$routing/entries.generated";
   import {clickOutside, updatePosition} from "$actions";
   import type {StudentTable} from "$types";
   import {Result} from "$types";
 
-  let {selected = $bindable(), display = $bindable(), anchor = $bindable(), overlays} = $props<{
+  let {selected, display, anchor, overlays} = $props<{
     selected: Set<bigint>;
     display: StudentTable[];
     anchor: HTMLElement | null;
-    overlays: OverlayRegistry<StudentOverlayName>;
+    overlays: EntryRegistry<StudentOverlayName>;
   }>();
   let isVisible = $state(false);
   let isExporting = $state(false);
@@ -70,12 +71,12 @@
   }
 
   $effect(() => {
-    overlays.register("export", {
-      open: open,
-      close: close,
-      isVisible: () => isVisible,
+    overlays.register(AppEntry.exportStudent, {
+      show: open,
+      hide: close,
+      isShown: () => isVisible,
     })
-    return () => overlays.unregister("export");
+    return () => overlays.unregister(AppEntry.exportStudent);
   })
 </script>
 
