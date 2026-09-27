@@ -6,7 +6,7 @@
  * 不必层层传 props、也不必各自认得路由对象。
  * 未安装时静默忽略。
  */
-import {type Action, isRouteHref, type Route} from "$routing/address";
+import {type Action, canonicalRoute, isRouteHref, type Route} from "$routing/address";
 import type {Router} from "$routing/router";
 
 let router: Router | null = null;
@@ -20,6 +20,16 @@ export const WindowRouter = {
   /** 发起跳转：判归属与跨窗口转发都在 router 内部完成 */
   nav(action: Action): void {
     router?.go(action);
+  },
+
+  /**
+   * 当前地址（读 `location.hash` 并规范化）；不是应用内地址时为 `null`。
+   *
+   * 它是**只读的现状**，供"要不要再推一次导航"这类判断使用：例如关闭某个浮层时，
+   * 得先确认自己仍是当前地址的目标——否则说明别处已经在导航，再推一次会把地址拽回去。
+   */
+  currentRoute(): Route | null {
+    return canonicalRoute(location.hash);
   },
 
   replaceHash(route: Route): void {
