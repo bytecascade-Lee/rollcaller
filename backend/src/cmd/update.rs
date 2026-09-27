@@ -10,8 +10,8 @@
 //!
 //! # 事件通道语义（两路隔离，防陈旧帧混淆）
 //!
-//! - [`UPDATE_VIEW_EVENT`]（view 通道）：只载**状态迁移帧**（含进入 Downloading 这一次）
-//!   与各命令**终态**——同通道内 emit 有序，迁移帧不可能迟到于终态；
+//! - [`UPDATE_VIEW_EVENT`]（view 通道）：只载**状态迁移帧**（进入 Checking / Downloading
+//!   这几次）与各命令**终态**——同通道内 emit 有序，迁移帧不可能迟到于终态；
 //! - [`DOWNLOAD_PROGRESS_EVENT`]（download 通道）：只载**进度窄帧**
 //!   （[`DownloadProgress`]，不带 info / severity / 状态）。进度帧迟到不会把
 //!   UI 从终态打回下载中——拆通道即隔离陈旧帧。
@@ -36,12 +36,16 @@ fn broadcast<T: Serialize>(event: &str, app: &AppHandle, payload: &T) {
     let _ = app.emit(event, payload);
 }
 
-/// 检查是否有可用更新（返回最新展示视图；终态走 view 通道）
+/// 检查是否有可用更新
+///
+/// 进入 Checking 的迁移帧与终态均走 view 通道
 #[tauri::command]
 pub async fn check(app: AppHandle) -> Result<UpdateView, String> {
     let state = app.state::<UpdaterState>();
     let current_version = app.package_info().version.clone();
-    let view = update_service::check(state.inner(), &current_version)
+    let view = update_service::check(state.inner(), &current_version,
+                                     |v| broadcast(UPDATE_VIEW_EVENT, &app, v),
+    )
         .await
         .map_err(|e| e.to_string())?;
     broadcast(UPDATE_VIEW_EVENT, &app, &view);
