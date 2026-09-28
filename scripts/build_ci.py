@@ -25,7 +25,8 @@ import os
 from pathlib import Path
 
 import update_version
-from common import builder, packager, signer, targets, tauri_cli, version
+from cli import tauri_cli
+from common import builder, packager, signer, targets, version
 from common.logger import log
 
 ROOT = Path(__file__).resolve().parent.parent

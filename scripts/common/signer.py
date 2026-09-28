@@ -24,7 +24,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from common import tauri_cli
+from cli import tauri_cli
 from common.logger import log
 
 # 与 tauri bundler / signer 约定一致的环境变量名

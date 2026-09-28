@@ -23,7 +23,7 @@
 
 import os
 
-from common.git import GitError, git
+from cli.git import GitError, git
 from common.logger import log
 from common.release import RELEASE_LINE
 

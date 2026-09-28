@@ -29,7 +29,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from common.git import get_branch, get_commit_count, get_head_hash, git
+from cli.git import get_branch, get_commit_count, get_head_hash, git
 from common.logger import log
 from common.release import RELEASE_LINE
 

@@ -36,7 +36,8 @@ import sys
 from pathlib import Path
 
 import update_version
-from common import builder, git, packager, signer, targets, tauri_cli, version
+from cli import git, tauri_cli
+from common import builder, packager, signer, targets, version
 from common import versions_index
 from common.logger import log
 

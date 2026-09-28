@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from common import git
+from cli import git
 
 
 def generate_markdown(commits: List[git.CommitInfo], start: str, end: str) -> str:
@@ -44,7 +44,7 @@ def generate_markdown(commits: List[git.CommitInfo], start: str, end: str) -> st
     for idx, commit in enumerate(commits, start=1):
         seq = f"{idx:0{digits}d}"
         lines.append(f"\n### {seq}-{commit.subject}\n")
-        lines.append(f"> Hash: {commit.short_hash}   At: {commit.datatime}\n")
+        lines.append(f"> Hash: {commit.short_hash}   At: {commit.datetime}\n")
         if commit.body:
             lines.append(commit.body + "\n")
         if idx != len(commits):

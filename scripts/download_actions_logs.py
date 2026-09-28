@@ -44,7 +44,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from common import git, gh
+from cli import git, gh
 from common.logger import log
 
 ROOT = Path(__file__).resolve().parent.parent

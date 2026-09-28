@@ -16,8 +16,8 @@ import argparse
 import json
 from pathlib import Path
 
+from cli.git import GitError, git, get_branch
 from common import version as version_mod
-from common.git import GitError, git, get_branch
 from common.logger import log
 
 ROOT = Path(__file__).resolve().parent.parent

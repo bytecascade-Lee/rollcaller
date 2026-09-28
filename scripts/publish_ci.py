@@ -45,7 +45,8 @@ import time
 from pathlib import Path
 
 from build_ci import ci_version
-from common import cnb, gh, manifest, version, versions_index
+from cli import gh, cnb
+from common import manifest, version, versions_index
 from common.logger import log
 
 ROOT = Path(__file__).resolve().parent.parent
