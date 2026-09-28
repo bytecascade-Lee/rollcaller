@@ -7,11 +7,11 @@ Git 操作模块：封装常用 git 命令，返回结构化数据
 """
 
 import subprocess
-from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from common.entity.commit_info import CommitInfo
 from common.logger import log
 
 
@@ -23,23 +23,6 @@ class GitError(Exception):
 class NotInRepoError(GitError):
     """不在 Git 仓库中"""
     pass
-
-
-@dataclass
-class CommitInfo:
-    hash: str
-    timestamp: int
-    subject: str = ""
-    body: str = ""
-    short_hash: Optional[str] = None  # 可选，不传则自动计算
-    datetime: Optional[str] = None  # 可选，不传则自动格式化
-
-    def __post_init__(self):
-        if self.short_hash is None:
-            self.short_hash = self.hash[:7]
-
-        if self.datetime is None:
-            self.datetime = datetime.fromtimestamp(self.timestamp).isoformat()
 
 
 def git(args: List[str], cwd: Optional[Path] = None) -> str:
@@ -144,6 +127,13 @@ def get_latest_tag(cwd: Optional[Path] = None) -> Optional[str]:
     return output.split("\n")[0]
 
 
+def get_last_commit_time(cwd: Optional[Path] = None) -> Optional[str]:
+    output = git(["log", "-1", "--format=%ct"], cwd)
+    if not output:
+        return None
+    return output.split("\n")[0]
+
+
 def commit_exists(tag: str) -> bool:
     """检查提交是否存在"""
     try:
@@ -226,31 +216,35 @@ def get_commit_range(
     cwd: Optional[Path] = None,
 ) -> List[CommitInfo]:
     """
-    获取指定范围的提交记录
+    获取指定范围的提交记录。
 
     Args:
-        start: 起始 commit/tag（不包含），None 表示从 root 开始
-        end: 结束 commit/tag（包含），None 表示 HEAD
+        start: 起始 commit/tag（不包含），"root" 表示从 root 开始
+        end: 结束 commit/tag（包含），"HEAD" 表示到 HEAD
         cwd: 当前工作目录
 
     Returns:
-        提交列表，每个提交包含以下字段：
-            hash: 完整 hash
-            short_hash: 短 hash
-            timestamp: Unix 时间戳
-            full_time: ISO 格式时间
-            subject: 提交标题
-            body: 提交正文
+        提交列表，按时间升序排列。每个 CommitInfo 包含：
+            commit_hash:      完整 hash
+            abbreviated_hash: 短 hash（派生）
+            commit_time:      带本地时区的 datetime
+            subject:          提交标题
+            body:             提交正文
+            author:           作者名
+            email:            作者邮箱
     """
     # 构建范围字符串
-    range_spec = f"{start}..{end}"
     if start == "root" and end == "HEAD":
         range_spec = "--root"
     elif start == "root":
         range_spec = end
+    else:
+        range_spec = f"{start}..{end}"
 
-    # 使用分隔符解析
-    format_str = "%H%x00%ct%x00%s%x00%b%x01"
+    # %H=完整 hash  %ct=committer 时间(Unix 秒)  %s=标题  %b=正文
+    # %an=作者名    %ae=作者邮箱
+    # \x00 分隔字段，\x01 分隔提交
+    format_str = "%H%x00%ct%x00%s%x00%b%x00%an%x00%ae%x01"
     cmd = [
         "log",
         range_spec,
@@ -267,10 +261,20 @@ def get_commit_range(
         if not block:
             continue
         parts = block.split("\x00")
-        if len(parts) < 4:
+        if len(parts) < 6:
             continue
-        hash, timestamp, subject, body = parts[:4]
-        commits.append(CommitInfo(hash, int(timestamp), subject, body))
+        commit_hash, ts, subject, body, author, email = parts[:6]
 
-    commits.sort(key=lambda x: x.timestamp)
+        commits.append(
+            CommitInfo(
+                commit_hash=commit_hash.strip(),
+                commit_time=datetime.fromtimestamp(int(ts), tz=timezone.utc),
+                subject=subject,
+                body=body,
+                author=author,
+                email=email,
+            )
+        )
+
+    commits.sort(key=lambda x: x.commit_time)
     return commits
