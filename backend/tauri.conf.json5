@@ -4,9 +4,9 @@
     version: "0.1.0-dev",
     identifier: "com.serene.client.rollcaller",
     build: {
-        beforeDevCommand: "uv run ./scripts/generate_routing_entries.py && cd ./frontend && pnpm dev",
+        beforeDevCommand: "uv run ./scripts/generate_routing_entries.py && uv run ./scripts/generate_build_info.py && cd ./frontend && pnpm dev",
         devUrl: "http://localhost:14650",
-        beforeBuildCommand: "cd ./frontend && pnpm build",
+        beforeBuildCommand: "uv run ./scripts/generate_build_info.py && cd ./frontend && pnpm build",
         frontendDist: "../frontend/dist"
     },
     app: {

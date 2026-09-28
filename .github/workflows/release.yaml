@@ -12,6 +12,10 @@ on:
                 description: '发布版本号（不带 v），例如 0.1.0 或 0.1.0-rc.1'
                 required: true
                 type: string
+            branch:
+                description: '发布来源确认：必须与上方所选 ref 完全一致的分支名（如 master）'
+                required: true
+                type: string
             draft:
                 description: '发布草稿'
                 required: false
@@ -31,9 +35,17 @@ jobs:
         steps:
             -   name: Checkout
                 uses: actions/checkout@v4
+                with:
+                    # 需要发布线的完整历史，用于校验 tag 是否位于发布线上
+                    fetch-depth: 0
 
             -   name: Setup uv
                 uses: astral-sh/setup-uv@v5
+
+            -   name: Check release source (fail fast)
+                env:
+                    INPUT_BRANCH: ${{ inputs.branch }}
+                run: uv run python scripts/check_release_source.py
 
             -   name: Check version (fail fast on alpha/beta)
                 env:

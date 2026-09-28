@@ -81,8 +81,10 @@ def cmd_build(target: str) -> None:
         full_target,
         cli_cmd,
         cli_label,
-        # BRANCH_NAME/VERSION 被 backend/build.rs 读取并嵌入二进制
-        env_overrides={"VERSION": release_version, "BRANCH_NAME": "master"},
+        # VERSION 注入保留；构建信息（branch / 提交 / 时间）已改由
+        # scripts/generate_build_info.py 生成到 backend/build-info.json
+        # （见 tauri.conf.json5 的 beforeBuildCommand）
+        env_overrides={"VERSION": release_version},
     )
     # CI 产物直接输出到工作区根目录，供 upload-artifact 收集
     setup = packager.package_setup(release_dir, release_version, arch, ROOT)
