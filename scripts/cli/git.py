@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
+# -*- coding: UTF-8 -*-
 """
 Git 操作模块：封装常用 git 命令，返回结构化数据
 
-所有函数均无环境嗅探，失败时抛出异常，由调用方决定如何处理。
-执行的命令行以 INFO 记入日志（gh.py / cnb.py 同此约定）。
+所有函数均无环境嗅探，失败时抛出异常，由调用方决定如何处理
 """
 
 import subprocess
@@ -32,14 +32,14 @@ class CommitInfo:
     subject: str = ""
     body: str = ""
     short_hash: Optional[str] = None  # 可选，不传则自动计算
-    datatime: Optional[str] = None  # 可选，不传则自动格式化
+    datetime: Optional[str] = None  # 可选，不传则自动格式化
 
     def __post_init__(self):
         if self.short_hash is None:
             self.short_hash = self.hash[:7]
 
-        if self.datatime is None:
-            self.datatime = datetime.fromtimestamp(self.timestamp).isoformat()
+        if self.datetime is None:
+            self.datetime = datetime.fromtimestamp(self.timestamp).isoformat()
 
 
 def git(args: List[str], cwd: Optional[Path] = None) -> str:
@@ -50,7 +50,7 @@ def git(args: List[str], cwd: Optional[Path] = None) -> str:
         NotInRepoError: 不在 git 仓库中
         GitError: 其他 git 错误
     """
-    log("INFO", f"执行: git {' '.join(args)}")
+    log("DEBUG", f"执行: git {' '.join(args)}")
     try:
         result = subprocess.run(
             ["git", *args],

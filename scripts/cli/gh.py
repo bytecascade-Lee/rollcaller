@@ -2,13 +2,6 @@
 """
 GitHub CLI 操作模块：封装常用 gh 命令 / REST 请求，返回结构化数据。
 
-与 git.py / cnb.py 保持相同约定：
-- 所有函数不做环境嗅探、不探测默认仓库（仓库以 "owner/repo" 显式传入），
-- 失败时抛出异常，由调用方决定如何处理，
-- 命令级日志（`执行: gh …`）由本模块统一打印，调用方只报"业务进展"；批量/循环调用
-  可传 log_command=False 关掉，由调用方自己报进度（见 download_run_log）。
-  所有日志输出经 logger.redact 统一脱敏（密钥环境变量 / URL 内嵌凭据 / 敏感查询参数）。
-
 repo 参数统一形如 "owner/repo"，例如 "bytecascade-Lee/rollcaller"。
 
 目前覆盖的用法：
@@ -67,7 +60,7 @@ def gh(args: List[str], log_command: bool = True) -> str:
         GhError: 其他 gh 错误
     """
     if log_command:
-        log("INFO", f"执行: gh {' '.join(args)}")
+        log("DEBUG", f"执行: gh {' '.join(args)}")
     try:
         result = subprocess.run(
             ["gh", *args],
@@ -97,7 +90,7 @@ def gh_bytes(args: List[str], log_command: bool = True) -> bytes:
         GhError: gh 执行失败
     """
     if log_command:
-        log("INFO", f"执行: gh {' '.join(args)}")
+        log("DEBUG", f"执行: gh {' '.join(args)}")
     try:
         result = subprocess.run(
             ["gh", *args],

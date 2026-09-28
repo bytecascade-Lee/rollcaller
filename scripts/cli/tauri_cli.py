@@ -2,7 +2,6 @@
 """
 tauri-cli 查找模块：确定构建时使用的 tauri-cli 来源。
 
-纯逻辑，无环境嗅探；仅根据文件系统与可执行文件判断。
 """
 
 from pathlib import Path

@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 """
-CNB（cnb.cool）CLI 操作模块：封装常用 cnb 命令，返回结构化数据。
-
-与 git.py / gh.py 保持相同约定：
-- 所有函数不做环境嗅探、不探测默认仓库（仓库以 "owner/repo" 显式传入），
-- 失败时抛出异常，由调用方决定如何处理。
+CNB CLI 操作模块：封装常用 cnb 命令，返回结构化数据。
 
 两条已内收的坑：
 1. Windows 上 npm 安装的 cnb 是 .cmd shim，无法被 subprocess 直接执行，且 cmd.exe /c
@@ -78,7 +74,7 @@ def cnb(args: List[str]) -> str:
         CnbError: cnb 不可用，或命令以非零退出码结束
     """
     cmd = [*_cli(), *args]
-    log("INFO", f"执行: cnb {' '.join(args)}")
+    log("DEBUG", f"执行: cnb {' '.join(args)}")
     proc = subprocess.run(
         cmd,
         capture_output=True,
