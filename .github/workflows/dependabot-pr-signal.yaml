@@ -21,4 +21,8 @@ jobs:
             -   name: Emit signal
                 env:
                     PR_NUMBER: ${{ github.event.pull_request.number }}
-                run: echo "dependabot PR #$PR_NUMBER targets master"
+                # 必须用块标量：若写成单行 `run: echo "... #$PR_NUMBER ..."`，其中的「 #」会被
+                # YAML 当作注释起点，真正执行的命令被截断成 `echo "dependabot PR`（引号未闭合），
+                # job 必然失败、PR 上挂红叉。
+                run: |
+                    echo "dependabot PR #$PR_NUMBER targets master"
