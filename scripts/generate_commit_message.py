@@ -18,16 +18,17 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from cli import git
+from common.entity import commit_info
 
 
-def generate_markdown(commits: List[git.CommitInfo], start: str, end: str) -> str:
+def generate_markdown(commits: List[commit_info.CommitInfo], start: str, end: str) -> str:
     """生成 Markdown 内容"""
     iso_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z")
     branch = git.get_branch()
-    lines = ["# 提交日志\n",
-             f"**生成时间**: {iso_time}\n",
-             f"**当前分支**: {branch}\n",
-             f"**版本范围**: {start} → {end}\n",
+    lines = ["# 提交日志\n\n",
+             f"**生成时间**: {iso_time}  \n",
+             f"**当前分支**: {branch}  \n",
+             f"**版本范围**: {start} → {end}  \n",
              f"**提交总数**: {len(commits)}\n",
              "\n---\n"
              ]
@@ -40,15 +41,10 @@ def generate_markdown(commits: List[git.CommitInfo], start: str, end: str) -> st
     # 提交列表
     lines.append("\n## 📦 提交列表\n")
 
-    digits = len(str(len(commits)))
     for idx, commit in enumerate(commits, start=1):
-        seq = f"{idx:0{digits}d}"
-        lines.append(f"\n### {seq}-{commit.subject}\n")
-        lines.append(f"> Hash: {commit.short_hash}   At: {commit.datetime}\n")
-        if commit.body:
-            lines.append(commit.body + "\n")
+        lines.append(commit.to_markdown())
         if idx != len(commits):
-            lines.append("\n---\n")
+            lines.append("\n\n---\n\n")
 
     return ''.join(lines)
 

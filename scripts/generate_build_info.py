@@ -23,23 +23,17 @@
     uv run python scripts/generate_build_info.py
 """
 
-import json
 import os
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from cli.git import get_branch, get_commit_count, get_head_hash, git
+from cli.git import get_branch, get_commit_count, get_head_hash, get_last_commit_time
+from common.entity.build_info import BuildInfo
 from common.logger import log
 from common.release import RELEASE_LINE
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "backend" / "build-info.json"
-
-
-def to_local_iso(ts: int) -> str:
-    """Unix 时间戳 → ISO 8601 字符串，显式转换为本机时区（如 2026-09-28T12:40:12+08:00）"""
-    return datetime.fromtimestamp(ts, tz=timezone.utc).astimezone().isoformat(timespec="seconds")
 
 
 def source_branch() -> str:
@@ -59,19 +53,21 @@ def source_branch() -> str:
 
 
 def main() -> None:
-    info = {
-        "branch": source_branch(),
-        "commit_count": str(get_commit_count(ROOT)),
-        "short_hash": get_head_hash(short=True, cwd=ROOT),
-        "commit_time": to_local_iso(int(git(["log", "-1", "--format=%ct"], ROOT))),
-        "build_time": to_local_iso(int(time.time())),
-    }
+    commit_time = get_last_commit_time(cwd=ROOT)
+    if commit_time is None:
+        commit_time = "0"
+    info = BuildInfo(
+        source_branch(),
+        get_commit_count(ROOT),
+        get_head_hash(cwd=ROOT),
+        datetime.fromtimestamp(int(commit_time)),
+        datetime.now(timezone.utc),
+    )
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    # 固定 LF：生成物不应随平台变化，且它不在版本控制内、无需迁就行尾约定
-    with OUTPUT.open("w", encoding="utf-8", newline="\n") as f:
-        json.dump(info, f, ensure_ascii=False, indent=4)
+    with OUTPUT.open("w", encoding="utf-8") as f:
+        f.write(info.to_json())
         f.write("\n")
-    log("INFO", f"已生成 {OUTPUT.relative_to(ROOT)}：{json.dumps(info, ensure_ascii=False)}")
+    log("INFO", f"已生成 {OUTPUT.relative_to(ROOT)}：{info.to_json()}")
 
 
 if __name__ == "__main__":
