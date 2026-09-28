@@ -1,20 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-import unicodedata
-
-
-def _display_width(s: str) -> int:
-    """按等宽终端里的列数计算字符串宽度：CJK 全角字符算 2，其余算 1。"""
-    return sum(
-        2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
-        for ch in s
-    )
-
-
-def _pad(s: str, width: int) -> str:
-    """左对齐补空格到指定显示宽度。"""
-    return s + " " * max(0, width - _display_width(s))
+from util.str_format import display_width, padding
 
 
 @dataclass
@@ -41,12 +28,12 @@ class CommitInfo:
     def to_markdown(self) -> str:
         left1 = f"Abbreviated hash: {self.abbreviated_hash}"
         left2 = f"Author: {self.author}"
-        width = max(_display_width(left1), _display_width(left2))
+        width = max(display_width(left1), display_width(left2))
 
         lines = [
             f"### {self.subject}",
-            f"> {_pad(left1, width)}  |  At: {self.commit_time}  ",
-            f"> {_pad(left2, width)}  |  Email: {self.email}",
+            f"> {padding(left1, width)}  |  At: {self.commit_time}  ",
+            f"> {padding(left2, width)}  |  Email: {self.email}",
             self.body.strip(),
         ]
         return "\n".join(lines)
