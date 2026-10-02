@@ -1,8 +1,8 @@
-from common.logger import log
+from common.logger import error
 
 
 def fail(message: str) -> None:
-    log("ERROR", message)
+    error(message)
     raise SystemExit(1)
 
 import re
