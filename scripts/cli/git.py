@@ -5,14 +5,16 @@ Git 操作模块：封装常用 git 命令，返回结构化数据
 
 所有函数均无环境嗅探，失败时抛出异常，由调用方决定如何处理
 """
-
+import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from common.constant.paths import PROJECT_BASE_DIR
 from common.entity.commit_info import CommitInfo
 from common.logger import log
+from common.release import RELEASE_LINE
 
 
 class GitError(Exception):
@@ -96,6 +98,22 @@ def get_branch(cwd: Optional[Path] = None) -> str:
                 return f"detached@{short_hash}"
             except GitError:
                 return "detached"
+
+
+def source_branch() -> str:
+    """
+    来源分支：
+        tag 发布    → 发布线（tag 位于其历史由 check_release_source.py 在 validate 阶段断言）
+        手动发布    → 所选 ref（validate 阶段已确认与输入框一致）
+        本地/其它   → 当前分支，detached HEAD 时形如 detached@<tag|短哈希>
+    """
+    ref_type = os.environ.get("GITHUB_REF_TYPE")
+    if ref_type == "tag":
+        return RELEASE_LINE
+    ref_name = os.environ.get("GITHUB_REF_NAME")
+    if ref_type == "branch" and ref_name:
+        return ref_name
+    return get_branch(PROJECT_BASE_DIR)
 
 
 def get_commit_count(cwd: Optional[Path] = None) -> int:
