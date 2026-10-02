@@ -9,37 +9,10 @@
 
 生成物 `frontend/src/lib/routing/entries.generated.ts` 内含
 
-app 段：
-
-1. `APP_HOST`：host
-2. `AppEntryId`：入口名
-3. `AppEntry`：入口句柄
-4. `APP_ENTRY_PARENT`：入口 → 父入口
-
-help 段：
-
-5. `HelpEntry`：深链句柄 → 地址
-
-## help 的句柄怎么来
-
-没有第二份声明，全部由 meta + md 推出：
-
-- **文档级**：`help/meta.json` 里**能找到 md 源**的节点各一个句柄（`quick-start` → `quickStart`）
-  → `#/help/quick-start`。md 源有两处（由 `doc_sources` 定位）：
-  - `resources/help/<id>/` 目录 —— 正文型文档；
-  - **仓库根同名文件** —— `README.md`/`LICENSE`/`CHANGELOG.md`/`RELEASE_NOTES.md`，
-    它们的正文由独立命令加载，但文件与锚点都在，故一并生成。
-  只有既无目录又无同名文件的分组节点（`rollcall`/`students`/`records`/`ui`/`about`/`multi-rollcall`）
-  没有句柄。
-- **锚点级**：文档 md 里每个 `{#anchor}` 声明各一个句柄，名为「文档句柄 + 锚点句柄」
-  （`tts` + `modes` → `ttsModes`）→ `#/help/tts/modes`。
-  同名锚点（`app-window` 与 `help-window` 都有 `titlebar`）因此天然区分。
-  同一目录下有多份语言版本时取**并集**（地址不带语言段，锚点必须在任意语言下都可达）。
-
 用法：
 
-    python scripts/generate_routing_entries.py            # 生成/更新
-    python scripts/generate_routing_entries.py --check    # 只校验是否与声明一致
+    uv run ./scripts/codegen/generate_routing_entries.py            # 生成/更新
+    uv run ./scripts/codegen/generate_routing_entries.py --check    # 只校验是否与声明一致
 """
 
 import argparse
@@ -49,18 +22,15 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+from common.constant.paths import FRONTEND_DIR, RESOURCES_DIR, PROJECT_BASE_DIR
+from common.logger import info, error, success
 
-from common.logger import log
+APP_META_PATH = FRONTEND_DIR / "src" / "lib" / "resources" / "app" / "meta.json"
+HELP_META_PATH = FRONTEND_DIR / "src" / "lib" / "resources" / "help" / "meta.json"
+HELP_DOC_ROOT = RESOURCES_DIR / "help"
+OUT_PATH = FRONTEND_DIR / "src" / "lib" / "routing" / "entries.generated.ts"
 
-ROOT = Path(__file__).resolve().parents[1]
-
-APP_META_PATH = ROOT / "frontend" / "src" / "lib" / "resources" / "app" / "meta.json"
-HELP_META_PATH = ROOT / "frontend" / "src" / "lib" / "resources" / "help" / "meta.json"
-HELP_DOC_ROOT = ROOT / "resources" / "help"
-OUT_PATH = ROOT / "frontend" / "src" / "lib" / "routing" / "entries.generated.ts"
-
-#: 两个域的 host（= 窗口名）。表的位置决定 host，不写进节点
+#: 两个域的 host
 APP_HOST = "app"
 HELP_HOST = "help"
 
@@ -165,7 +135,7 @@ def doc_sources(doc: str) -> List[Path]:
     if doc_dir.is_dir():
         return sorted(doc_dir.glob("*.md"))
 
-    root_file = ROOT / doc
+    root_file = PROJECT_BASE_DIR / doc
     return [root_file] if root_file.is_file() else []
 
 
@@ -173,7 +143,7 @@ def scan_anchors(source: str, mds: List[Path]) -> List[str]:
     """扫描一篇文档所有 md 源里的锚点声明，按首次出现的顺序取并集"""
     anchors: List[str] = []
     for md in mds:
-        rel = md.relative_to(ROOT).as_posix()
+        rel = md.relative_to(PROJECT_BASE_DIR).as_posix()
         for anchor in _ANCHOR_RE.findall(md.read_text(encoding="utf-8")):
             if not _KEBAB_RE.match(anchor):
                 raise MetaError(f"{rel} 里的锚点 `{anchor}` 不是 kebab-case，无法进地址")
@@ -307,33 +277,29 @@ def main() -> int:
                 )
         check_handles(help_pairs)
     except MetaError as e:
-        log("ERROR", f"声明校验失败: {e}")
+        error(f"声明校验失败: {e}")
         return 1
 
     content = render(app_parent_of, help_parent_of, help_anchors)
     app_roots = sum(1 for parent in app_parent_of.values() if parent is None)
     anchor_count = sum(len(anchors) for anchors in help_anchors.values())
-    summary = (
-        f"{len(app_parent_of)} 个入口 / {app_roots} 个根 · "
-        f"{len(help_anchors)} 篇文档 / {anchor_count} 个锚点"
-    )
 
     if args.check:
         if not OUT_PATH.exists():
-            log("ERROR", f"生成物不存在: {OUT_PATH}")
+            error(f"生成物不存在: {OUT_PATH}")
             return 1
         actual = OUT_PATH.read_text(encoding="utf-8")
         if actual != content:
-            log("ERROR", f"生成物与声明不一致: {OUT_PATH}（重新运行本脚本即可修复）")
+            error(f"生成物与声明不一致: {OUT_PATH}（重新运行本脚本即可修复）")
             return 1
-        log("INFO", f"生成物与声明一致（{summary}）")
+        info(f"生成物与声明一致，包括主窗口的 {len(app_parent_of)} 个入口 / {app_roots} 个根 "
+             f"和帮助文档窗口的 {len(help_anchors)} 篇文档 / {anchor_count} 个锚点")
         return 0
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with OUT_PATH.open("w", encoding="utf-8", newline="\n") as f:
         f.write(content)
-
-    log("INFO", f"已生成 {OUT_PATH.relative_to(ROOT)}（{summary}）")
+    success(f"已生成 {OUT_PATH}，大小为 {(OUT_PATH.stat().st_size / 1024):.3f} KB")
     return 0
 
 
