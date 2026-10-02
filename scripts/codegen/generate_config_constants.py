@@ -1,29 +1,26 @@
 from pathlib import Path
 from typing import List, Tuple, Optional
 
-from common.logger import log
+import util
+from common.constant.paths import RESOURCES_DIR, BACKEND_DIR, FRONTEND_DIR
+from common.logger import warning, error, success
+
+CONFIG_KEY_FILE = RESOURCES_DIR / "develop" / "config.key"
+RS_OUTPUT_FILE = BACKEND_DIR / "src" / "common" / "constant" / "app_config_keys.rs"
+TS_OUTPUT_FILE = FRONTEND_DIR / "src" / "lib" / "constants" / "AppConfigKeys.ts"
 
 
 def read_config_file(config_path: Path) -> Optional[str]:
-    """
-    读取配置文件内容
-
-    Args:
-        config_path: 配置文件路径
-
-    Returns:
-        文件内容字符串，如果读取失败返回 None
-    """
     if not config_path.exists():
-        log("WARNING", f"配置文件不存在: {config_path}")
-        log("WARNING", f"当前工作目录是: {Path.cwd()}")
+        warning(f"配置文件不存在: {config_path}")
+        warning(f"当前工作目录是: {Path.cwd()}")
         return None
 
     try:
         return config_path.read_text(encoding='utf-8')
     except Exception as e:
-        log("WARNING", f"读取配置文件失败: {config_path}")
-        log("WARNING", f"错误详情: {e}")
+        warning(f"读取配置文件失败: {config_path}")
+        warning(f"错误详情: {e}")
         return None
 
 
@@ -113,7 +110,7 @@ def write_rs_file(output_path: Path, content: str) -> None:
     try:
         output_path.write_text(content, encoding='utf-8')
     except Exception as e:
-        raise RuntimeError(f"写入 Rust 文件失败: {output_path} - {e}")
+        util.fail(f"写入 Rust 文件失败: {output_path} - {e}")
 
 
 def write_ts_file(output_path: Path, content: str) -> None:
@@ -131,38 +128,16 @@ def write_ts_file(output_path: Path, content: str) -> None:
     try:
         output_path.write_text(content, encoding='utf-8')
     except Exception as e:
-        raise RuntimeError(f"写入 TypeScript 文件失败: {output_path} - {e}")
+        util.fail(f"写入 TypeScript 文件失败: {output_path} - {e}")
 
 
-def generate_config_constant(
-    config_path: Optional[Path] = None,
-    rs_output_path: Optional[Path] = None,
-    ts_output_path: Optional[Path] = None
-) -> bool:
-    """
-    主函数：从配置文件生成 Rust 和 TypeScript 常量定义
-
-    Args:
-        config_path: 配置文件路径，默认为resources/develop/config.key
-        rs_output_path: Rust 输出路径，默认为 backend/src/common/constant/config.rs
-        ts_output_path: TypeScript 输出路径，默认为 frontend/src/lib/constants/config.ts
-
-    Returns:
-        bool: 成功返回 True，失败返回 False
-    """
-    # 设置默认路径（相对于项目根目录）
-    if config_path is None:
-        config_path = Path("resources/develop/config.key")
-
-    if rs_output_path is None:
-        rs_output_path = Path("backend/src/common/constant/app_config_keys.rs")
-
-    if ts_output_path is None:
-        ts_output_path = Path("frontend/src/lib/constants/AppConfigKeys.ts")
+def generate_config_constant(config_path: Path, rs_output_path: Path, ts_output_path: Path) -> int:
+    """从配置文件生成 Rust 和 TypeScript 常量定义"""
 
     content = read_config_file(config_path)
     if content is None:
-        return False
+        warning(f"文件 {config_path} 为空，没有待生成的内容")
+        return 1
 
     rs_lines, ts_lines = parse_config_lines(content)
 
@@ -173,23 +148,17 @@ def generate_config_constant(
         write_rs_file(rs_output_path, rs_content)
         write_ts_file(ts_output_path, ts_content)
     except RuntimeError as e:
-        log("ERROR", str(e))
+        error(str(e))
         return False
 
     if not rs_lines:
-        log("WARNING", "配置文件中没有有效的配置项，已清空所有常量")
+        warning("配置文件中没有有效的配置项，已清空所有常量")
         return True
 
-    log("INFO", "配置文件生成成功!")
+    success(f"配置文件 {rs_output_path} 生成成功，大小为 {rs_output_path.stat().st_size / 1024:.3f} KB")
+    success(f"配置文件 {ts_output_path} 生成成功，大小为 {ts_output_path.stat().st_size / 1024:.3f} KB")
     return True
 
 
-def main():
-    """命令行入口"""
-    success = generate_config_constant()
-    if not success:
-        exit(1)
-
-
 if __name__ == "__main__":
-    main()
+    SystemExit(generate_config_constant(CONFIG_KEY_FILE, RS_OUTPUT_FILE, TS_OUTPUT_FILE))
