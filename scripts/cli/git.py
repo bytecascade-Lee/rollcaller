@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
+
 """
 Git 操作模块：封装常用 git 命令，返回结构化数据
 
-所有函数均无环境嗅探，失败时抛出异常，由调用方决定如何处理
+进程与错误映射统一在 _run() 中：
+    任何失败均抛 GitError，调用方决定如何处理；
+    空值返回 None，调用方需自行判空。
+
+stdout 两种读法：
+    git()             元数据 —— UTF-8 解码，非法字节替换为 U+FFFD 后 strip
+    _capture_bytes()  内容   —— 原始字节
 """
 import os
 import subprocess
@@ -13,7 +20,7 @@ from typing import List, Optional, Tuple
 
 from common.constant.paths import PROJECT_BASE_DIR
 from common.entity.commit_info import CommitInfo
-from common.logger import log
+from common.logger import debug
 from common.release import RELEASE_LINE
 
 
@@ -22,70 +29,63 @@ class GitError(Exception):
     pass
 
 
-class NotInRepoError(GitError):
-    """不在 Git 仓库中"""
-    pass
-
-
-def git(args: List[str], cwd: Optional[Path] = None) -> str:
-    """
-    执行 git 命令，返回 stdout 字符串
-
-    Raises:
-        NotInRepoError: 不在 git 仓库中
-        GitError: 其他 git 错误
-    """
-    log("DEBUG", f"执行: git {' '.join(args)}")
+def _run(args: List[str], cwd: Optional[Path] = None) -> subprocess.CompletedProcess:
+    """执行 git 命令，返回 CompletedProcess"""
+    debug(f"执行: git {' '.join(args)}")
     try:
         result = subprocess.run(
             ["git", *args],
             cwd=cwd,
             capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             check=False,
         )
     except FileNotFoundError:
         raise GitError("未找到 git 命令，请确保已安装 Git")
 
     if result.returncode != 0:
-        stderr = result.stderr.strip()
-        if not is_repo(cwd):
-            raise NotInRepoError(f"当前目录{cwd}不在 Git 仓库中")
+        stderr = result.stderr.decode("utf-8", "replace").strip()
         raise GitError(f"git {' '.join(args)} 失败: {stderr}")
 
-    return result.stdout.strip()
+    return result
+
+
+def git(args: List[str], cwd: Optional[Path] = None) -> str:
+    """执行 git 命令，返回 stdout 字符串"""
+    return _run(args, cwd).stdout.decode("utf-8", "replace").strip()
+
+
+def _capture_bytes(args: List[str], cwd: Optional[Path] = None) -> bytes:
+    """执行 git 命令，返回未经加工的 stdout 字节"""
+    return _run(args, cwd).stdout
+
+
+def get_blob(ref: str, path: str, cwd: Optional[Path] = None) -> Optional[bytes]:
+    """取 `<ref>:<path>` 的 blob 原始内容"""
+    try:
+        return _capture_bytes(["show", f"{ref}:{path}"], cwd)
+    except GitError as e:
+        debug(f"{ref}:{path} 取不到内容，按「不存在」处理（{e}）")
+        return None
 
 
 def is_repo(cwd: Optional[Path] = None) -> bool:
     """检查当前目录是否在 Git 仓库中"""
     try:
-        git(["rev-parse", "--git-dir"], cwd)
+        _run(["rev-parse", "--git-dir"], cwd)
         return True
     except GitError:
         return False
 
 
 def get_head_hash(short: bool = False, cwd: Optional[Path] = None) -> str:
-    """
-    获取 HEAD 的 commit hash
-
-    Args:
-        short: True 返回短 hash（7位），False 返回完整 hash
-        cwd: 当前工作目录
-    """
+    """获取 HEAD 的 commit hash"""
     if short:
         return git(["rev-parse", "--short", "HEAD"], cwd)
     return git(["rev-parse", "HEAD"], cwd)
 
 
 def get_branch(cwd: Optional[Path] = None) -> str:
-    """
-    获取当前分支名
-
-    如果处于 detached HEAD 状态，返回 "detached"
-    """
+    """获取当前分支名，如果处于 detached HEAD 状态，返回 "detached"""
     try:
         return git(["symbolic-ref", "--short", "HEAD"], cwd)
     except GitError:
@@ -103,9 +103,9 @@ def get_branch(cwd: Optional[Path] = None) -> str:
 def source_branch() -> str:
     """
     来源分支：
-        tag 发布    → 发布线（tag 位于其历史由 check_release_source.py 在 validate 阶段断言）
-        手动发布    → 所选 ref（validate 阶段已确认与输入框一致）
-        本地/其它   → 当前分支，detached HEAD 时形如 detached@<tag|短哈希>
+        tag 发布  -> 发布线（tag 位于其历史由 check_release_source.py 在 validate 阶段断言）
+        手动发布  -> 所选 ref（validate 阶段已确认与输入框一致）
+        本地/其它 -> 当前分支，detached HEAD 时形如 detached@<tag|短哈希>
     """
     ref_type = os.environ.get("GITHUB_REF_TYPE")
     if ref_type == "tag":
@@ -133,12 +133,7 @@ def get_description(dirty: bool = True, cwd: Optional[Path] = None) -> Optional[
 
 
 def get_latest_tag(cwd: Optional[Path] = None) -> Optional[str]:
-    """
-    获取最新的 tag（按创建时间排序）
-
-    Returns:
-        最新的 tag 名称，如果没有 tag 则返回 None
-    """
+    """获取最新的 tag，按创建时间排序"""
     output = git(["tag", "--sort=-creatordate"], cwd)
     if not output:
         return None
@@ -162,16 +157,7 @@ def commit_exists(tag: str) -> bool:
 
 
 def get_tags_since(commit: str, cwd: Optional[Path] = None) -> List[str]:
-    """
-    获取从某个 commit 之后创建的所有 tag
-
-    Args:
-        commit: 起始 commit（不包含该 commit 本身）
-        cwd: 当前工作目录
-
-    Returns:
-        tag 列表，按创建时间从新到旧排序
-    """
+    """获取从某个 commit 之后创建的所有 tag"""
     output = git(["tag", "--sort=-creatordate", f"--contains={commit}"], cwd)
     if not output:
         return []
@@ -189,8 +175,7 @@ def get_build_info(cwd: Optional[Path] = None) -> str:
         例如: "master.142.a1b2c3d"
 
     Raises:
-        NotInRepoError: 不在 git 仓库中
-        GitError: git 命令执行失败
+        GitError: git 不可用，或命令返回非 0
     """
     branch = get_branch(cwd).replace("/", "-")
     count = get_commit_count(cwd)
