@@ -7,8 +7,10 @@
 公共日志模块。
 
 一、日志记录
-    底层入口为 log(level, message)，按级别封装为：
-        debug(msg) / info(msg) / warning(msg) / error(msg)
+    对外按级别封装为：
+        debug(msg) / info(msg) / warning(msg) / error(msg) / critical(msg) / success(msg)
+
+    旧的字符串级别入口 log(level, message) 仍可用，但已弃用。
 
     每条日志同时送往两个 handler：
       - 控制台：按级别带 ANSI 颜色，供开发者阅读。
@@ -200,40 +202,43 @@ def _setup_logging():
     _LOGGING_CONFIGURED = True
 
 
-def log(level: str, message: str) -> None:
+# logging.log 到调用方的固定层数：
+# logging.log -> _emit -> 包装函数 -> 调用方。
+# 每个对外函数都只隔着一层 _emit，故一律用 3。
+_STACKLEVEL = 3
+
+
+def _emit(level_value: int, message: str, stacklevel: int) -> None:
+    """统一落点：配置 logging、脱敏，并按 stacklevel 定位调用方位置。"""
     _setup_logging()
+    # 输出前统一脱敏
+    logging.log(level_value, redact(str(message)), stacklevel=stacklevel)
 
-    level_upper = level.upper()
-    level_value = getattr(logging, level_upper, logging.INFO)
 
-    # 输出前统一脱敏：密钥环境变量值 / URL 内嵌凭据 / 敏感查询参数
-    message = redact(str(message))
-
-    # stacklevel=2 让 logging 记录调用 log() 的调用者的位置
-    logging.log(level_value, message, stacklevel=2)
+def log(level: str, message: str) -> None:
+    """按字符串级别记录。已弃用，改用 debug/info/warning/error/critical/success"""
+    _emit(getattr(logging, level.upper(), logging.INFO), message, _STACKLEVEL)
 
 
 def debug(message: str) -> None:
-    log("DEBUG", message)
+    _emit(logging.DEBUG, message, _STACKLEVEL)
 
 
 def info(message: str) -> None:
-    log("INFO", message)
+    _emit(logging.INFO, message, _STACKLEVEL)
 
 
 def warning(message: str) -> None:
-    log("WARNING", message)
+    _emit(logging.WARNING, message, _STACKLEVEL)
 
 
 def error(message: str) -> None:
-    log("ERROR", message)
+    _emit(logging.ERROR, message, _STACKLEVEL)
 
 
 def critical(message: str) -> None:
-    log("CRITICAL", message)
+    _emit(logging.CRITICAL, message, _STACKLEVEL)
 
 
 def success(message: str) -> None:
-    _setup_logging()
-    message = redact(str(message))
-    logging.log(SUCCESS, message, stacklevel=2)
+    _emit(SUCCESS, message, _STACKLEVEL)
