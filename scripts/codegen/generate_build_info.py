@@ -12,7 +12,7 @@
 
 from datetime import datetime, timezone
 
-from cli.git import get_commit_count, get_last_commit_time, is_repo, source_branch
+from cli.git import get_commit_count, get_last_commit_time, is_repo, source_branch, get_head_hash
 from common.constant.paths import BACKEND_DIR, PROJECT_BASE_DIR
 from common.entity.build_info import BuildInfo
 from common.logger import success, info
@@ -25,8 +25,8 @@ def main() -> None:
         branch = commit_count = commit_hash = commit_time = None
     else:
         branch = source_branch()
-        commit_count = get_commit_count()
-        commit_hash = get_last_commit_time()
+        commit_count = get_commit_count(cwd=PROJECT_BASE_DIR)
+        commit_hash = get_head_hash(cwd=PROJECT_BASE_DIR)
         commit_time = get_last_commit_time(cwd=PROJECT_BASE_DIR)
     build_info = BuildInfo(
         branch,
@@ -35,12 +35,12 @@ def main() -> None:
         commit_time=datetime.fromtimestamp(int(commit_time)) if commit_time else None,
         build_time=datetime.now(timezone.utc),
     )
-    info(f"{build_info.to_json().replace(' ', '').replace('\n', ' ')})")
+    info(f"生成构建元数据：{build_info.to_json().replace(' ', '').replace('\n', ' ')})")
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     with OUTPUT.open("w", encoding="utf-8") as f:
         f.write(build_info.to_json())
         f.write("\n")
-    success(f"已生成构建元数据 {OUTPUT}，大小为 {OUTPUT.stat().st_size} B")
+    success(f"已生成构建元数据文件 {OUTPUT}，大小为 {OUTPUT.stat().st_size} B")
 
 
 if __name__ == "__main__":
