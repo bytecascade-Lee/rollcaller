@@ -38,7 +38,7 @@ def _cli_source() -> Tuple[str, List[str]]:
     """返回 (显示名, 命令前缀)，并把用的是哪一个打出来"""
     if TAURI_CLI_PATH.is_file():
         info(f"tauri-cli: 仓库内置 {TAURI_CLI_PATH}")
-        return f"仓库内置 {TAURI_CLI_PATH}", [str(TAURI_CLI_PATH), "tauri"]
+        return f"仓库内置 {TAURI_CLI_PATH}", [str(TAURI_CLI_PATH)]
     warning(
         f"未找到仓库内置的 tauri-cli（{TAURI_CLI_PATH}），回落到系统 cargo tauri；"
         f"两者可能不是同一版本，发布构建请先备好内置 CLI"
@@ -57,6 +57,14 @@ def _run(args: Sequence[str], env: Optional[Dict[str, str]] = None) -> None:
         raise TauriError(f"tauri-cli 不可用: {e}")
     if proc.returncode != 0:
         raise TauriError(f"tauri {' '.join(args)} 失败（退出码 {proc.returncode}）")
+
+
+def dev(target: str, wait_frontend: bool = False) -> None:
+    """执行 `tauri dev --target <triple>`"""
+    args = ["dev", "--target", target]
+    if not wait_frontend:
+        args.append(" --no-dev-server-wait")
+    _run(args)
 
 
 def build(
