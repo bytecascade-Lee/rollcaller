@@ -63,7 +63,7 @@ def dev(target: str, wait_frontend: bool = False) -> None:
     """执行 `tauri dev --target <triple>`"""
     args = ["dev", "--target", target]
     if not wait_frontend:
-        args.append(" --no-dev-server-wait")
+        args.append("--no-dev-server-wait")
     _run(args)
 
 
