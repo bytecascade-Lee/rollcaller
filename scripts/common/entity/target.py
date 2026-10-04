@@ -38,3 +38,6 @@ class Target:
         if arch is None:
             raise ArchTypeError(f"无法从目标三元组 {triple!r} 识别出 CPU 架构")
         return arch
+
+    def __str__(self) -> str:
+        return self.triple
