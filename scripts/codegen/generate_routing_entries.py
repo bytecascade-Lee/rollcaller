@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Tuple
 
 from common.constant.paths import FRONTEND_DIR, RESOURCES_DIR, PROJECT_BASE_DIR
 from common.logger import info, error, success
+from util.sigint import quiet_sigint
 
 APP_META_PATH = FRONTEND_DIR / "src" / "lib" / "resources" / "app" / "meta.json"
 HELP_META_PATH = FRONTEND_DIR / "src" / "lib" / "resources" / "help" / "meta.json"
@@ -304,4 +305,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    with quiet_sigint():
+        sys.exit(main())

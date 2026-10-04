@@ -16,6 +16,7 @@ from cli.git import get_commit_count, get_last_commit_time, is_repo, source_bran
 from common.constant.paths import BACKEND_DIR, PROJECT_BASE_DIR
 from common.entity.build_info import BuildInfo
 from common.logger import success, info
+from util.sigint import quiet_sigint
 
 OUTPUT = BACKEND_DIR / "gen" / "build-info.json"
 
@@ -44,4 +45,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    with quiet_sigint():
+        main()
