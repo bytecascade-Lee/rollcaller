@@ -1,8 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: UTF-8 -*-
+
+"""
+CPU 架构类型
+"""
+
 from enum import StrEnum
-
-import local.identifier
-
-local.identifier.identifier()
 
 
 class ArchTypeError(Exception):

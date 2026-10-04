@@ -1,8 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: UTF-8 -*-
+
+"""
+操作系统类型
+"""
+
 from enum import StrEnum
-
-import local.identifier
-
-local.identifier.identifier()
 
 
 class OSTypeError(Exception):
