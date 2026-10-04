@@ -1,55 +1,12 @@
 from dataclasses import dataclass, field
-from enum import StrEnum
 
-
-class OSTypeError(Exception):
-    """os 无法解析：未识别的操作系统类型"""
-    pass
-
-
-class ArchTypeError(Exception):
-    """arch 无法解析：未识别的CPU 架构类型"""
-    pass
+from common.enums.arch import ArchTypeError, Arch
+from common.enums.os import OSTypeError, OS
 
 
 class UnsupportedTargetError(Exception):
     """不支持的 rust 目标三元组"""
     pass
-
-
-class OS(StrEnum):
-    """操作系统"""
-
-    WINDOWS = "windows"
-    MACOS = "macos"
-    LINUX = "linux"
-
-    @classmethod
-    def parse(cls, raw: str) -> "OS | None":
-        token = raw.strip().lower()
-        if token == "windows":
-            return cls.WINDOWS
-        if token in {"macos", "darwin"}:
-            return cls.MACOS
-        if token == "linux":
-            return cls.LINUX
-        return None
-
-
-class Arch(StrEnum):
-    """CPU 架构"""
-
-    X86_64 = "x86_64"
-    ARM64 = "arm64"
-
-    @classmethod
-    def parse(cls, raw: str) -> "Arch | None":
-        token = raw.strip().lower()
-        if token in {"x86_64", "x64", "amd64"}:
-            return cls.X86_64
-        if token in {"arm64", "aarch64"}:
-            return cls.ARM64
-        return None
 
 
 @dataclass(frozen=True, slots=True)
