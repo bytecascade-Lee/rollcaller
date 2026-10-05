@@ -2,15 +2,7 @@
 # -*- coding: UTF-8 -*-
 
 """
-下载 GitHub Actions workflow run 的运行日志（zip），按 workflow 分目录归档。
-
-目录结构：
-    release/CI-CD/logs/
-    ├── Release/
-    │   ├── Release#4-34004489264.zip
-    │   └── Release#3-33312690776.zip
-    └── Sync Mirrors/
-        └── Sync Mirrors#13-34004489242.zip
+下载 GitHub Actions workflow run 的运行日志，按 workflow 分目录归档。
 
 命名规则：
     <workflow 显示名>#<run 序号>-<run 数据库 ID>.zip
@@ -22,18 +14,13 @@
     - 容错：单条失败记 WARNING 继续，结尾汇总各 workflow 的成功 / 跳过 / 失败数
     - 预检 gh 登录，未登录给出明确指引
     - 默认只处理 .github/workflows 下真实 workflow 的 run；
-      GitHub 内部自动 workflow（如 Dependency Graph 依赖更新）默认跳过，--include-gh-runs 可放开
-
-前置条件：
-    - 已安装并登录 GitHub CLI（gh auth login，或导出 GH_TOKEN）
-    - 目标仓库按 owner/repo 形式解析：GITHUB_REPOSITORY 环境变量
-      → git remote(github → origin) 顺序
+      GitHub 内部自动 workflow 默认跳过，--include-gh-runs 可放开
 
 用法:
-    uv run python scripts/download_actions_logs.py
-    uv run python scripts/download_actions_logs.py --workflow Release
-    uv run python scripts/download_actions_logs.py --since 2026-09-01 --dry-run
-    uv run python scripts/download_actions_logs.py --include-running --force
+    uv run ./scripts/tool/download_actions_logs.py
+    uv run ./scripts/tool/download_actions_logs.py --workflow Release
+    uv run ./scripts/tool/download_actions_logs.py --since 2026-09-01 --dry-run
+    uv run ./scripts/tool/download_actions_logs.py --include-running --force
 """
 
 import argparse
@@ -83,12 +70,6 @@ def resolve_repo() -> str:
     )
 
 
-def sanitize_dir_name(name: str) -> str:
-    """workflow 显示名用作目录名；替换 Windows 路径非法字符"""
-    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name).strip().rstrip(". ")
-    return cleaned or "unknown-workflow"
-
-
 def should_include_run(run: Dict, args: argparse.Namespace) -> bool:
     """按 --workflow / 状态 / --since 过滤单个 run"""
     if args.workflow and run.get("wf_display") not in args.workflow:
@@ -113,15 +94,15 @@ def group_runs(runs: List[Dict]) -> "OrderedDict[str, List[Dict]]":
     return groups
 
 
-def main() -> None:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="下载 GitHub Actions workflow run 日志并归档到 release/CI-CD/logs",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "示例:\n"
-            "  uv run python scripts/download_actions_logs.py\n"
-            "  uv run python scripts/download_actions_logs.py --workflow Release\n"
-            "  uv run python scripts/download_actions_logs.py --since 2026-09-01 --dry-run\n"
+            "  uv run ./scripts/tool/download_actions_logs.py\n"
+            "  uv run ./scripts/tool/download_actions_logs.py --workflow Release\n"
+            "  uv run ./scripts/tool/download_actions_logs.py --since 2026-09-01 --dry-run\n"
         ),
     )
     parser.add_argument(
@@ -147,8 +128,11 @@ def main() -> None:
     )
     parser.add_argument("--force", action="store_true", help="覆盖已存在的 zip")
     parser.add_argument("--dry-run", action="store_true", help="只打印将执行的动作，不落盘")
+    return parser.parse_args()
 
-    args = parser.parse_args()
+
+def main() -> None:
+    args = parse_args()
 
     repo = resolve_repo()
     info(f"目标仓库: {repo}")
@@ -226,9 +210,7 @@ def main() -> None:
 
     totals = {"downloaded": 0, "skipped": 0, "failed": 0, "expired": 0}
     for wf_name, wf_runs in groups.items():
-        # 目录与文件名前缀统一用 sanitize 后的安全名，避免 `:` `/` 等
-        # Windows 非法字符导致 mkdir / 写文件失败
-        safe = sanitize_dir_name(wf_name)
+        safe = util.sanitize_filename(wf_name)
         wf_dir = OUT_DIR / safe
         stats = {"downloaded": 0, "skipped": 0, "failed": 0, "expired": 0}
         info(f"--- workflow: {wf_name}（{len(wf_runs)} 条）---")
@@ -240,10 +222,8 @@ def main() -> None:
                 stats["failed"] += 1
                 error(f"{wf_name}: run 缺 id/run_number 字段，跳过（{run}）")
                 continue
-            fname = f"{safe}#{number}-{run_id}.zip"
-            dest = wf_dir / fname
-            verb = "跳过（已存在）" if dest.exists() and not args.force else "下载"
-            info(f"[{verb}] {dest}")
+            dest = wf_dir / f"{safe}#{number}-{run_id}.zip"
+            info(f"{run_id!r} 已存在，跳过" if dest.exists() and not args.force else f"下载 {run_id!r} 至 {dest!r}")
 
             if dest.exists() and not args.force:
                 stats["skipped"] += 1
@@ -260,10 +240,10 @@ def main() -> None:
                     code = gh.http_status(e)
                     if code in (404, 410):
                         stats["expired"] += 1
-                        warning(f"{fname}: 日志不可用（HTTP {code}，可能超过保留期或尚未生成）")
+                        warning(f"{safe}#{number}-{run_id}.zip: 日志不可用（HTTP {code}，可能超过保留期或尚未生成）")
                         continue
                 stats["failed"] += 1
-                error(f"{fname}: 下载失败: {e}")
+                error(f"{safe}#{number}-{run_id}.zip: 下载失败: {e}")
                 continue
 
             if args.interval > 0 and not args.dry_run:
