@@ -19,7 +19,7 @@ from typing import List, Tuple
 import util
 from cli import exec_py, rust, tauri
 from common.constant.paths import SCRIPTS_DIR
-from common.entity.target import Target, UnsupportedTargetError
+from common.entity.target import Target
 from common.logger import info
 from util.sigint import graceful_sigint
 
@@ -45,9 +45,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    target = Target(args.target or rust.get_host_triple())
-    if target.triple not in rust.get_triples():
-        raise UnsupportedTargetError(f"不是有效的 Rust 目标三元组: {target.triple!r}")
+    target = Target(rust.resolve_triple(args.target))
+    info(f"当前目标三元组为 {target.triple!r}")
 
     for label, script in CODEGEN:
         info(f"生成 {label}…")
