@@ -38,13 +38,13 @@ def check_env() -> None:
 def sign(file: Path) -> Path:
     """对文件做 minisign 签名，返回生成的 `.sig` 路径"""
     if not file.is_file():
-        raise SignError(f"待签名的文件 {file!r} 不存在")
+        raise SignError(f"待签名的文件 {str(file)!r} 不存在")
     check_env()
     tauri.sign(file)
     signature_file = file.with_name(file.name + ".sig")
     if not signature_file.is_file():
-        raise SignError(f"签名文件 {signature_file!r} 未生成")
+        raise SignError(f"签名文件 {str(signature_file)!r} 未生成")
     if not signature_file.read_bytes().strip():
-        raise SignError(f"签名文件 {signature_file!r} 内容为空")
-    success(f"已生成签名文件 {signature_file}")
+        raise SignError(f"签名文件 {str(signature_file)!r} 内容为空")
+    success(f"已生成签名文件 {str(signature_file)!r}")
     return signature_file
