@@ -41,10 +41,10 @@ def sign(file: Path) -> Path:
         raise SignError(f"待签名的文件 {file!r} 不存在")
     check_env()
     tauri.sign(file)
-    sig = file.with_name(file.name + ".sig")
-    if not sig.is_file():
-        raise SignError(f"签名文件 {sig!r} 未生成")
-    if not sig.read_bytes().strip():
-        raise SignError(f"签名文件 {sig!r} 内容为空")
-    success(f"已生成签名文件 {sig}")
-    return sig
+    signature_file = file.with_name(file.name + ".sig")
+    if not signature_file.is_file():
+        raise SignError(f"签名文件 {signature_file!r} 未生成")
+    if not signature_file.read_bytes().strip():
+        raise SignError(f"签名文件 {signature_file!r} 内容为空")
+    success(f"已生成签名文件 {signature_file}")
+    return signature_file
