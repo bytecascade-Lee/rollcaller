@@ -16,7 +16,7 @@ class Sha256Error(Exception):
 def sha256(file: Path, chunk_size: int = 1024 * 1024) -> Path:
     """对文件做 sha256 计算，返回生成的 `.sha256` 路径"""
     if not file.is_file():
-        raise Sha256Error(f"待计算的文件 {file!r} 不存在")
+        raise Sha256Error(f"待计算的文件 {str(file)!r} 不存在")
     h = hashlib.sha256()
     with open(file, "rb") as f:
         while True:
