@@ -51,8 +51,10 @@ import os
 import re
 import sys
 from datetime import date, datetime, timezone
+from functools import lru_cache
+from pathlib import Path
 
-from common.constant.paths import PROJECT_BASE_DIR
+from common.constant.paths import PROJECT_BASE_DIR, SCRIPTS_DIR
 
 # 这些环境变量的值一旦出现在日志里就按密钥处理，统一打码
 # （约定：密钥只经环境变量传递，绝不进命令行参数——argv 会被命令级日志原样打印）
@@ -80,8 +82,22 @@ _ASSIGNMENT_RE = re.compile(
 # 参与打码的环境变量值最小长度：短于它不替换，避免误伤普通短词
 _MIN_SECRET_LEN = 8
 
+
+@lru_cache(maxsize=1024)
+def _relpath(pathname: str) -> str:
+    """把绝对路径转成相对项目根的 POSIX 路径。
+
+    - 项目内文件：scripts/codegen/__init__.py
+    - 项目外文件（stdlib、第三方包）：退化为 basename
+    """
+    try:
+        return Path(pathname).resolve().relative_to(SCRIPTS_DIR).as_posix()
+    except (ValueError, OSError):
+        return Path(pathname).name
+
+
 # 日志行格式：文件与控制台共用，保证两侧内容一致，只有颜色不同
-_LOG_FORMAT = "[%(asctime)s] %(levelname_padded)s [%(filename)s:%(lineno)d] %(message)s"
+_LOG_FORMAT = "[%(asctime)s] %(levelname_padded)s [%(relpath)s:%(lineno)d] %(message)s"
 
 # 全局标志，防止重复配置
 _LOGGING_CONFIGURED = False
@@ -152,6 +168,7 @@ class FileFormatter(logging.Formatter):
         # 空格补在 "]" 之后，保证中括号紧贴标签，字体连写不被撑开。
         # 注入的是派生字段，不覆盖 record.levelname 本身，对上层无副作用。
         record.levelname_padded = f"[{record.levelname}]".ljust(self.LEVEL_WIDTH)
+        record.relpath = _relpath(record.pathname)
         return super().format(record)
 
 
@@ -205,7 +222,7 @@ def _setup_logging():
 # logging.log 到调用方的固定层数：
 # logging.log -> _emit -> 包装函数 -> 调用方。
 # 每个对外函数都只隔着一层 _emit，故一律用 3。
-_STACKLEVEL = 3
+_STACKLEVEL = 4
 
 
 def _emit(level_value: int, message: str, stacklevel: int) -> None:
