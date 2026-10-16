@@ -7,38 +7,23 @@
 串行刷新生成物，启动 tauri dev，前端由 beforeDevCommand 拉起
 
 用法:
-    uv run ./scripts/dev.py
-    uv run ./scripts/dev.py --target x86_64-pc-windows-msvc
-
+    uv run ./scripts/dev.py -t x86_64-pc-windows-msvc
+    uv run ./scripts/dev.py --target aarch64-pc-windows-msvc
 """
 
 import argparse
-from pathlib import Path
-from typing import List, Tuple
 
 import util
 from cli import exec_py, rust, tauri
-from common.constant.paths import SCRIPTS_DIR
+from codegen import CODEGEN_FILES
 from common.entity.target import Target
 from common.logger import info
 from util.sigint import graceful_sigint
 
-CODEGEN_DIR = SCRIPTS_DIR / "codegen"
-
-# 启动前必须刷新的一批生成物，顺序即依赖顺序
-CODEGEN: List[Tuple[str, Path]] = [
-    ("routing entries", CODEGEN_DIR / "generate_routing_entries.py"),
-    ("build info", CODEGEN_DIR / "generate_build_info.py"),
-]
-
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="开发环境入口：生成代码 → tauri dev")
-    parser.add_argument(
-        "--target",
-        metavar="TRIPLE",
-        help="完整三元组构建目标；缺省为本机三元组",
-    )
+    parser = argparse.ArgumentParser(description="开发环境入口：生成代码，然后执行 tauri dev")
+    parser.add_argument("-t", "--target", metavar="TRIPLE", help="完整三元组构建目标")
     return parser.parse_args()
 
 
@@ -48,8 +33,8 @@ def main() -> None:
     target = Target(rust.resolve_triple(args.target))
     info(f"当前目标三元组为 {target.triple!r}")
 
-    for label, script in CODEGEN:
-        info(f"生成 {label}…")
+    for script in CODEGEN_FILES:
+        info(f"执行 {script.name} 生成代码...")
         exec_py.run(script)
 
     tauri.dev(target)
