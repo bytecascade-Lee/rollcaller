@@ -74,5 +74,5 @@ VERSION_TRACKED_FILES = VERSION_FILES + VERSION_LOCK_FILES
 # 构建 / 签名 / 生成物
 FRONTEND_DIST_DIR = FRONTEND_DIR / "dist"
 BACKEND_TARGET_DIR = BACKEND_DIR / "target"
-BACKEND_BUILD_INFO_PATH = BACKEND_DIR / "build-info.json"
+BACKEND_BUILD_INFO_PATH = BACKEND_DIR / "gen" / "build" / "build_info.json"
 TAURI_CLI_PATH = RESOURCES_DIR / "tauri" / "cargo-tauri.exe"
