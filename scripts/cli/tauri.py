@@ -48,7 +48,7 @@ def _find_cli() -> Tuple[TauriCliSource, List[str]]:
 
 def _run(args: Sequence[str], env: Optional[Dict[str, str]] = None) -> None:
     """在 BACKEND_DIR 下执行一条 tauri 命令；启动失败或退出码非 0 抛 TauriError"""
-    _label, prefix = _find_cli()  # 显示名已在 _cli_source 内打印
+    _label, prefix = _find_cli()
     cmd = [*prefix, *args]
     debug(f"执行: {' '.join(cmd)} (cwd={BACKEND_DIR})")
     try:
@@ -74,10 +74,10 @@ def build(
     bundle: bool = True,
     env: Optional[Dict[str, str]] = None,
 ) -> None:
-    """执行 `tauri build`。
+    """执行 `tauri build --target <triple>` [--debug --bundle]
 
     :param target:      待构建的 Target 目标
-    :param debug_mode:  是否启用调试模式，产物将生成到 `BACKEND_DIR/target/<triple>/debug` 下
+    :param debug_mode:  是否启用调试模式，启用后产物将生成到 `BACKEND_DIR/target/<triple>/debug` 下
     :param bundle:      是否捆绑产出指定的分发产物
     :param env:         待替换的环境变量，注意需先 os.environ.copy() 后再改
     """
@@ -97,14 +97,3 @@ def sign(path: Path) -> None:
         path = path.resolve()
         debug(f"相对路径已按当前工作目录规范化为 {path!r}")
     _run(["signer", "sign", str(path)])
-
-
-def resolve(root: Path) -> Tuple[str, List[str]]:
-    """过渡，旧 CLI 来源查询，返回 (显示名, 命令前缀)。
-
-    在调用方迁移完成前保留，供 build_local.py / build_ci.py / common/signer.py 继续使用
-    （root 形参已无用，仅为不破坏旧调用）。与旧实现的差别：命令前缀改为**绝对路径**——
-    旧版返回相对路径，只有 cwd 恰好在仓库根时才碰巧可用。
-    等这些调用方都改走 build() / sign() 之后，本函数连同 root 形参一并删除。
-    """
-    return _find_cli()
