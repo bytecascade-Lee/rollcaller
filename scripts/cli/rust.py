@@ -56,12 +56,10 @@ def get_triples() -> List[str]:
 
 
 def is_supported(triple: str) -> bool:
-    return triple in get_triples
+    return triple in get_triples()
 
 
-def resolve_triple(triple: Optional[str]) -> str:
-    if triple is None:
-        return get_host_target().triple
+def resolve_triple(triple: str) -> str:
     if not is_supported(triple):
         raise UnsupportedTargetError(f"不是有效的 Rust 目标三元组: {triple!r}")
     return triple
