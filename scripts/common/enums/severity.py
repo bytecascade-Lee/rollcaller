@@ -1,10 +1,5 @@
 from enum import StrEnum
-
-_ORDER = {
-    "normal": 0,
-    "important": 1,
-    "critical": 2,
-}
+from typing import assert_never
 
 
 class Severity(StrEnum):
@@ -18,7 +13,15 @@ class Severity(StrEnum):
 
     @property
     def _rank(self) -> int:
-        return _ORDER[self.value]
+        match self:
+            case Severity.NORMAL:
+                return 0
+            case Severity.IMPORTANT:
+                return 1
+            case Severity.CRITICAL:
+                return 2
+            case _:
+                assert_never(self)
 
     def __lt__(self, other):
         if isinstance(other, Severity):
