@@ -24,19 +24,21 @@ DEVELOP_UPDATE_BIN_NAME = "rollcaller-update-from-develop.exe"
 
 
 def asset_name(version: Version, target: Target, kind: Kind) -> str:
-    """产物文件名：rollcaller-<version>-<os>-<arch>-<role>.<extension>"""
-    return f"rollcaller-{version}-{target.os}-{target.arch}-{kind.role}.{kind.extension}"
+    """产物文件名：rollcaller-<version>-<os>-<arch>-<role>[.<extension>]"""
+    return f"rollcaller-{version}-{target.os}-{target.arch}-{kind.role}{kind.extension_with_dot(target.os)}"
 
 
 def package_setup(version: Version, target: Target, kind: Kind) -> Path:
     """将安装包重命名为最终产物名"""
     setup_dir = release_dir(target, debug_mode=False) / "bundle" / str(kind)
-    setups = [p for p in setup_dir.glob(f"*-setup.{kind.extension}")]
+    setups = [p for p in setup_dir.glob(f"*-setup.{kind.extension_with_dot(target.os)}")]
     if len(setups) != 1:
         names = [p.name for p in setups]
         raise PackageError(f"{setup_dir} 下应恰好有一个符合要求的安装包，实际有 {len(setups)} 个: {names}")
-    setups[0].with_name(asset_name(version, target, kind))
-    return setup_dir / asset_name(version, target, kind)
+    dest = setup_dir / asset_name(version, target, kind)
+    # 存在时强制覆盖
+    setups[0].replace(dest)
+    return dest
 
 
 def package_zip(resources: List[str], version: Version, target: Target, kind: Kind, debug_mode: bool = False) -> Path:
