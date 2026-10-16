@@ -5,10 +5,10 @@
 将生成的产物进行打包
 """
 
-import shutil
 from pathlib import Path
 from typing import List
 
+from build.builder import release_dir
 from common.entity.target import Target
 from common.entity.version import Version
 from common.enums.kind import Kind
@@ -28,24 +28,22 @@ def asset_name(version: Version, target: Target, kind: Kind) -> str:
     return f"rollcaller-{version}-{target.os}-{target.arch}-{kind.role}.{kind.extension}"
 
 
-def package_setup(release_dir: Path, version: Version, target: Target, kind: Kind, output_dir: Path) -> Path:
-    """将安装包重命名为最终产物名并拷贝到 output_dir"""
-    setups = [p for p in release_dir.glob(f"{version}*.{kind.extension}")]
+def package_setup(version: Version, target: Target, kind: Kind) -> Path:
+    """将安装包重命名为最终产物名"""
+    setup_dir = release_dir(target, debug_mode=False) / "bundle" / str(kind)
+    setups = [p for p in setup_dir.glob(f"*-setup.{kind.extension}")]
     if len(setups) != 1:
         names = [p.name for p in setups]
-        raise PackageError(f"{release_dir} 下应恰好有一个符合要求的安装包，实际有 {len(setups)} 个: {names}")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    dest = output_dir / asset_name(version, target, kind)
-    shutil.copy2(setups[0], dest)
-    return dest
+        raise PackageError(f"{setup_dir} 下应恰好有一个符合要求的安装包，实际有 {len(setups)} 个: {names}")
+    setups[0].with_name(asset_name(version, target, kind))
+    return setup_dir / asset_name(version, target, kind)
 
 
-def package_zip(release_dir: Path, resources: List[str], version: Version,
-                target: Target, kind: Kind, output_dir: Path) -> Path:
+def package_zip(resources: List[str], version: Version, target: Target, kind: Kind, debug_mode: bool = False) -> Path:
     """将产物以及资源压缩为压缩包"""
+    zip_dir = release_dir(target, debug_mode=debug_mode)
     for name in resources:
-        if not (release_dir / name).exists():
-            raise PackageError(f"{release_dir} 下缺少 {name}，请确认构建产物完整")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    dest = output_dir / asset_name(version, target, kind)
-    return compress(release_dir, resources, dest, overwrite=True)
+        if not (zip_dir / name).exists():
+            raise PackageError(f"{zip_dir} 下缺少 {name}，请确认构建产物完整")
+    dest = zip_dir / asset_name(version, target, kind)
+    return compress(zip_dir, resources, dest, overwrite=True)
