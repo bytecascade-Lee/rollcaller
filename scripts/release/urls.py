@@ -37,6 +37,11 @@ def versions_index_url(source: Source) -> str:
     return f"{_base(source)}/releases/latest/download/versions.json"
 
 
+def manifest_name(source: Source) -> str:
+    """清单文件名：latest-github.json / latest-cnb.json / latest-develop.json"""
+    return f"latest-{source.value}.json"
+
+
 def manifest_url(source: Source, version: Version) -> str:
     """某个版本的清单直链：<base>/releases/download/v<version>/latest-<source>.json"""
-    return asset_url(source, version, f"latest-{source.value}.json")
+    return asset_url(source, version, manifest_name(source))
