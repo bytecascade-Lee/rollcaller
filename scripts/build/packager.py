@@ -31,14 +31,15 @@ def asset_name(version: Version, target: Target, kind: Kind) -> str:
 def package_setup(version: Version, target: Target, kind: Kind) -> Path:
     """将安装包重命名为最终产物名"""
     setup_dir = release_dir(target, debug_mode=False) / "bundle" / str(kind)
-    setups = [p for p in setup_dir.glob(f"*-setup.{kind.extension_with_dot(target.os)}")]
+    pattern = f"*-setup{kind.extension_with_dot(target.os)}"
+    setups = [p for p in setup_dir.glob(pattern)]
     if len(setups) != 1:
         names = [p.name for p in setups]
-        raise PackageError(f"{setup_dir} 下应恰好有一个符合要求的安装包，实际有 {len(setups)} 个: {names}")
+        raise PackageError(f"{str(setup_dir)!r} 下应恰好有一个符合 glob 要求 {pattern!r} 的安装包，"
+                           f"但实际有 {len(setups)} 个，分别为 {names!r}")
     dest = setup_dir / asset_name(version, target, kind)
-    # 存在时强制覆盖
-    setups[0].replace(dest)
-    return dest
+    # 使用 replace，存在时强制覆盖
+    return setups[0].replace(dest)
 
 
 def package_zip(resources: List[str], version: Version, target: Target, kind: Kind, debug_mode: bool = False) -> Path:
