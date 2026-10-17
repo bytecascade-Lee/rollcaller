@@ -71,13 +71,13 @@ def portable_resources(os: OS) -> list[str]:
 
 
 # [TODO]：后期统一把 Kind 抽取出来，将 `package()` 变为查表 + 分发，以适应跨平台
-def package(version: Version, target: Target, build_mode: str) -> list[Path]:
+def package(version: Version, target: Target, build_mode: Mode) -> list[Path]:
     """生成各种包，返回最终命名的产物路径"""
     artifacts = [
         packager.package_setup(version, target, Kind.NSIS),
         packager.package_zip(portable_resources(target.os), version, target, Kind.PORTABLE),
     ]
-    if build_mode == "local":
+    if build_mode == Mode.LOCAL:
         artifacts.append(packager.package_zip([exe("rollcaller", target.os)],
                                               version, target, Kind.DEVELOP, debug_mode=True))
     return artifacts
@@ -118,9 +118,9 @@ def main() -> int:
         warning(f"传递进来的版本号携带有构建信息 {input_build_info!r}，已自动忽略")
 
     target = Target(rust.resolve_triple(args.target))
-    mode = args.mode.lower()
+    mode = Mode(args.mode)
 
-    if mode == "local":
+    if mode == Mode.LOCAL:
         version = local_full_version(version)
         out_dir = LOCAL_RELEASE_DIR / str(version)
         if not version_files.check_git_status():
@@ -138,7 +138,7 @@ def main() -> int:
         # 3 执行构建
         builder.build(target, env=None)
         # develop 更新模式的 debug 构建
-        if mode == "local":
+        if mode == Mode.LOCAL:
             builder.build(target, debug_mode=True, bundle=False, env=None)
         # 4 生成各种包
         artifacts = package(version, target, build_mode=mode)
