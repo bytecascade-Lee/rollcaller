@@ -29,7 +29,8 @@ def build(target: Target, *, debug_mode: bool = False, bundle: bool = True, env:
     clean_dir(target, debug_mode=debug_mode)
 
     merged = os.environ.copy()
-    if merged.get("CI", "").lower() not in ("", "true", "false", "1"):
+    # CI=1 会让 tauri-cli 的 clap 解析失败
+    if merged.get("CI", "").lower() not in ("", "true", "false"):
         del merged["CI"]
     if env:
         merged.update(env)
