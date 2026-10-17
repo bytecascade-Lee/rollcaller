@@ -15,6 +15,7 @@ CNB CLI 操作模块：封装常用 cnb 命令，返回结构化数据。
 中；出错时 data 形如 {errcode, errmsg}。cnb_json() 负责剥壳并把 errcode 转成异常。
 
 目前覆盖的用法：
+- require_auth(): cnb 登录鉴权预检
 - tag_exists() / create_tag(): 标签查询与创建
 - release_id_by_tag() / create_release() / update_release(): 版本查询与创建/更新
 - upload_release_asset(): 附件三步上传（申请预签名 URL → PUT → 确认）
@@ -48,6 +49,20 @@ class CnbApiError(CnbError):
     def __init__(self, message: str, errcode: Optional[int] = None):
         super().__init__(message)
         self.errcode = errcode
+
+
+class CnbAuthError(CnbError):
+    """cnb 未登录或缺少凭据"""
+
+
+def require_auth() -> None:
+    """预检 cnb 登录状态；失败抛 CnbAuthError"""
+    try:
+        cnb(["status"])
+    except CnbError as e:
+        raise CnbAuthError(
+            f"cnb 未通过鉴权预检（{e}）。请先 cnb login，或在环境中注入 CNB_TOKEN。"
+        ) from e
 
 
 def _cli() -> List[str]:
