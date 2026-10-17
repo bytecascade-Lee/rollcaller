@@ -69,7 +69,7 @@ def portable_resources(os: OS) -> list[str]:
             ]
 
 
-# . 后期统一把 Kind 抽取出来，将 `package()` 变为查表 + 分发，以适应跨平台
+# [TODO]：后期统一把 Kind 抽取出来，将 `package()` 变为查表 + 分发，以适应跨平台
 def package(version: Version, target: Target, build_mode: str) -> list[Path]:
     """生成各种包，返回最终命名的产物路径"""
     artifacts = [
