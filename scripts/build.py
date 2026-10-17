@@ -26,6 +26,7 @@ from common.constant.paths import PROJECT_BASE_DIR, LOCAL_RELEASE_DIR, ASSETS_DI
 from common.entity.target import Target
 from common.entity.version import Version
 from common.enums.kind import Kind
+from common.enums.mode import Mode
 from common.enums.os import OS
 from common.logger import info, warning
 from util.execute import exe
@@ -37,12 +38,12 @@ class BuildError(Exception):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="构建入口：构建 → 打包 → 汇总 → 签名 + sha256")
+    parser = argparse.ArgumentParser(description="构建入口：构建 -> 打包 -> 汇总 -> 签名 + sha256")
 
-    parser.add_argument("-v", "--version", metavar="VERSION", help="语义化版本号（不允许自带 + 构建元数据）")
+    parser.add_argument("-v", "--version", metavar="VERSION", help="语义化版本号")
     parser.add_argument("-t", "--target", metavar="TRIPLE", help="完整 Rust 目标三元组")
-    parser.add_argument("-m", "--mode", choices=("ci", "local"), help="构建模式")
-    # [TODO]: parser.add_argument("-b", "--bundle", choices=("ci", "local"), help="是否捆绑")
+    parser.add_argument("-m", "--mode", choices=Mode.values(), help="构建模式")
+    # [TODO]: parser.add_argument("-b", "--bundle", help="是否捆绑")
 
     return parser.parse_args()
 
