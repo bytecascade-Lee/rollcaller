@@ -42,7 +42,7 @@ fn raw() -> String {
 }
 
 #[cfg(not(debug_assertions))]
-fn raw_build_info() -> &'static str {
+fn raw() -> &'static str {
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/gen/build/build_info.json"))
 }
 
