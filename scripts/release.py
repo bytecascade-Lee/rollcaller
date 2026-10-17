@@ -32,7 +32,7 @@ from common.enums.mode import Mode
 from common.enums.severity import Severity
 from common.enums.source import Source
 from common.logger import info, warning
-from release import assets as release_assets
+from release import assets as release_assets, urls
 from release import cnb as cnb_release
 from release import github as github_release
 from release import latest_manifest, local, release_notes, versions_index
@@ -64,8 +64,8 @@ def _local_full_version(version: Version) -> Version:
     try:
         build_info = git.get_build_info(cwd=PROJECT_BASE_DIR)
         return Version.parse(f"{version}+{build_info}")
-    except (git.GitError, ValueError) as e:
-        raise ReleaseError(f"无法推导本地完整版本号: {e}") from e
+    except (git.GitError, ValueError) as error:
+        raise ReleaseError(f"无法推导本地完整版本号: {error}") from error
 
 
 def _guard_tag_version(version: Version) -> None:
@@ -77,13 +77,14 @@ def _guard_tag_version(version: Version) -> None:
         raise ReleaseError("tag 发布缺少 GITHUB_REF_NAME")
     try:
         tagged = Version.parse(ref)
-    except ValueError as e:
-        raise ReleaseError(f"tag 名不是合法版本号: {ref!r}（{e}）") from e
+    except ValueError as error:
+        raise ReleaseError(f"tag 名不是合法版本号: {ref!r}（{error}）") from error
     if str(tagged) != str(version):
         raise ReleaseError(f"tag {ref!r} 与传入版本 {str(version)!r} 不一致")
 
 
-def release_local(version: Version, severity: Severity, rate: int) -> None:
+# def release_local(version: Version, severity: Severity, rate: int) -> None:
+def release_local(version: Version, severity: Severity) -> None:
     """LOCAL：full 版本 → 构建目录 → 清单 / 索引 → 驻留更新服务"""
     full_version = _local_full_version(version)
     build = local.find(full_version)
@@ -92,7 +93,7 @@ def release_local(version: Version, severity: Severity, rate: int) -> None:
     discovered = release_assets.discover(build.directory, full_version, Mode.LOCAL)
     notes = release_notes.default(full_version)
     manifest = latest_manifest.build(full_version, notes, severity, discovered, Source.DEVELOP)
-    manifest_path = latest_manifest.write(manifest, build.directory / f"latest-{Source.DEVELOP.value}.json")
+    manifest_path = latest_manifest.write(manifest, build.directory / urls.manifest_name(Source.DEVELOP))
     index_path = versions_index.write(
         build.directory / versions_index.FILENAME,
         [VersionIndex(version=full_version, severity=severity)],
@@ -109,8 +110,8 @@ def release_ci(version: Version, draft: bool) -> None:
     try:
         gh.require_auth()
         cnb_cli.require_auth()
-    except (gh.GhError, cnb_cli.CnbError) as e:
-        raise ReleaseError(f"发布鉴权失败: {e}") from e
+    except (gh.GhError, cnb_cli.CnbError) as error:
+        raise ReleaseError(f"发布鉴权失败: {error}") from error
 
     notes = release_notes.default(version) if draft else release_notes.extract(version)
     discovered = release_assets.discover(ASSETS_DIR, version, Mode.CI)
@@ -131,7 +132,7 @@ def release_ci(version: Version, draft: bool) -> None:
     manifests = []
     for source in (Source.GITHUB, Source.CNB):
         manifest = latest_manifest.build(version, notes, severity, discovered, source)
-        manifests.append(latest_manifest.write(manifest, ASSETS_DIR / f"latest-{source.value}.json"))
+        manifests.append(latest_manifest.write(manifest, ASSETS_DIR / urls.manifest_name(source)))
 
     # 上传顺序：二进制 -> 清单 -> 版本索引；.sig/.sha256 只经 artifact 传递
     files = [asset.path for asset in discovered] + manifests + [index_path]
@@ -152,8 +153,8 @@ def main() -> int:
 
     try:
         version = Version.parse(args.version)
-    except ValueError as e:
-        raise ReleaseError(f"版本号非法: {e}") from e
+    except ValueError as error:
+        raise ReleaseError(f"版本号非法: {error}") from error
 
     if version.build is not None:
         raise ReleaseError(f"版本号不允许携带构建元数据: {str(version)!r}")
@@ -162,7 +163,8 @@ def main() -> int:
 
     if mode == Mode.LOCAL:
         severity = Severity(args.severity) if args.severity is not None else Severity.default()
-        release_local(version, severity, args.rate)
+        # release_local(version, severity, args.rate)
+        release_local(version, severity)
         return 0
 
     if args.severity is not None:
