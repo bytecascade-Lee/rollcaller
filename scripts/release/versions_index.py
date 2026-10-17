@@ -25,6 +25,10 @@ class VersionIndexError(Exception):
     """versions.json 解析 / 写入错误"""
 
 
+# 版本索引文件名
+FILENAME = "versions.json"
+
+
 def _unique(entries: Sequence[VersionIndex]) -> list[VersionIndex]:
     """按版本字符串去重，后者覆盖前者，保留首次出现的位置"""
     return list({str(entry.version): entry for entry in entries}.values())
