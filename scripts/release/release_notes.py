@@ -16,7 +16,11 @@ class ReleaseNotesSectionEmpty(Exception):
     pass
 
 
-def extract_release_notes(version: Version) -> str:
+def default(version: Version) -> str:
+    return f"发布新版本 {version}"
+
+
+def extract(version: Version) -> str:
     """从 RELEASE_NOTES.md 提取 '## <version> {}' 章节"""
     if not RELEASE_NOTES_PATH.exists():
         raise ReleaseNotesNotFound(f"版本发布说明文件 {RELEASE_NOTES_PATH!r} 不存在")
