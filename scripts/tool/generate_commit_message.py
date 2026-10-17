@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: UTF-8 -*-
+
 """
 生成 Change Log 脚本
 根据 Git 标签状态生成 Markdown 格式的变更日志
@@ -21,6 +23,7 @@ from cli import git
 from common.constant.paths import DOCS_DIR
 from common.entity import commit_info
 from common.logger import info, success
+from util.str_format import display_width, padding
 
 
 def parse_args():
@@ -96,6 +99,21 @@ def parse_start_end_all(start: Optional[str], end: Optional[str], is_all: Option
     return start, end
 
 
+def _render_commit(commit: commit_info.CommitInfo) -> str:
+    """把单个提交渲染为 changelog 中的一个条目（版式归本工具，实体只提供值）"""
+    left1 = f"Abbreviated hash: {commit.abbreviated_hash}"
+    left2 = f"Author: {commit.author}"
+    width = max(display_width(left1), display_width(left2))
+
+    lines = [
+        f"### {commit.subject}",
+        f"> {padding(left1, width)}  |  At: {commit.commit_time}  ",
+        f"> {padding(left2, width)}  |  Email: {commit.email}",
+        commit.body.strip(),
+    ]
+    return "\n".join(lines)
+
+
 def generate_markdown(commits: List[commit_info.CommitInfo], start: str, end: str) -> str:
     """生成 Markdown 内容"""
     iso_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z")
@@ -117,7 +135,7 @@ def generate_markdown(commits: List[commit_info.CommitInfo], start: str, end: st
     lines.append("\n## 提交列表\n")
 
     for idx, commit in enumerate(commits, start=1):
-        lines.append(commit.to_markdown())
+        lines.append(_render_commit(commit))
         if idx != len(commits):
             lines.append("\n\n---\n\n")
 
