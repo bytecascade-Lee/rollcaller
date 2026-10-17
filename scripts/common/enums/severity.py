@@ -11,6 +11,10 @@ class Severity(StrEnum):
     def default(cls) -> "Severity":
         return Severity.NORMAL
 
+    @classmethod
+    def values(cls) -> tuple[str]:
+        return tuple(severity.value for severity in cls)
+
     @property
     def _rank(self) -> int:
         match self:
