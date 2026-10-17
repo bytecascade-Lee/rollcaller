@@ -48,14 +48,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def local_full_version(version: Version) -> Version:
-    """本地完整版本号 = 核心版本 + 构建元数据 <branch>.<提交数>.<短哈希>"""
-    branch = git.get_branch(cwd=PROJECT_BASE_DIR)
-    count = git.get_commit_count(cwd=PROJECT_BASE_DIR)
-    short_hash = git.get_head_hash(cwd=PROJECT_BASE_DIR)[:10]
-    return Version.parse(f"{version}+{branch}.{count}.{short_hash}")
-
-
 def codegen() -> None:
     """串行执行全部代码生成脚本"""
     for script in CODEGEN_FILES:
@@ -121,14 +113,14 @@ def main() -> int:
     mode = Mode(args.mode)
 
     if mode == Mode.LOCAL:
-        version = local_full_version(version)
+        version = Version.parse(f"{version}+{git.get_build_info(cwd=PROJECT_BASE_DIR)}")
         out_dir = LOCAL_RELEASE_DIR / str(version)
         if not version_files.check_git_status():
             raise BuildError("版本文件或锁文件存在未提交改动，请先提交或清理后再构建")
     else:
         out_dir = ASSETS_DIR
 
-    info(f"版本号: {str(version)!r} | 目标: {target.triple!r} | 模式: {mode!r}")
+    info(f"版本号: {str(version)!r} | 目标三元组: {target.triple!r} | 模式: {mode!r}")
 
     try:
         # 1 同步版本号
