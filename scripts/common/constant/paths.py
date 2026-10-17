@@ -72,6 +72,9 @@ VERSION_LOCK_FILES = (
 # 构建前后做「干净检查」与「还原」的全部文件 = 上述并集
 VERSION_TRACKED_FILES = VERSION_FILES + VERSION_LOCK_FILES
 
+# 仓库维护的版本索引（发布期 severity 的唯一标定处）
+VERSIONS_INDEX_SOURCE_PATH = RESOURCES_DIR / "update" / "versions.json"
+
 # 构建 / 签名 / 生成物
 FRONTEND_DIST_DIR = FRONTEND_DIR / "dist"
 BACKEND_TARGET_DIR = BACKEND_DIR / "target"
