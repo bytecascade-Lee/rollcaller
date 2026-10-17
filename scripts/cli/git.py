@@ -19,9 +19,9 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from common.constant.paths import PROJECT_BASE_DIR
+from common.constant.repo import RELEASE_LINE
 from common.entity.commit_info import CommitInfo
 from common.logger import debug
-from common.release import RELEASE_LINE
 
 
 class GitError(Exception):
@@ -103,8 +103,8 @@ def get_branch(cwd: Optional[Path] = None) -> str:
 def source_branch() -> str:
     """
     来源分支：
-        tag 发布  -> 发布线（tag 位于其历史由 check_release_source.py 在 validate 阶段断言）
-        手动发布  -> 所选 ref（validate 阶段已确认与输入框一致）
+        tag 发布  -> 发布线 RELEASE_LINE
+        手动发布  -> 所选 ref
         本地/其它 -> 当前分支，detached HEAD 时形如 detached@<tag|短哈希>
     """
     ref_type = os.environ.get("GITHUB_REF_TYPE")
@@ -165,22 +165,11 @@ def get_tags_since(commit: str, cwd: Optional[Path] = None) -> List[str]:
 
 
 def get_build_info(cwd: Optional[Path] = None) -> str:
-    """
-    获取构建信息字符串：分支名.提交总数.短哈希
-
-    分支名中的 '/' 替换为 '-',避免文件路径问题
-
-    Returns:
-        格式: "<branch>.<count>.<short_hash>"
-        例如: "master.142.a1b2c3d"
-
-    Raises:
-        GitError: git 不可用，或命令返回非 0
-    """
-    branch = get_branch(cwd).replace("/", "-")
+    """获取构建信息字符串：分支名.提交总数.短哈希"""
+    branch = get_branch(cwd)
     count = get_commit_count(cwd)
-    short_hash = get_head_hash(True, cwd)
-    return f"{branch}.{count}.{short_hash}"
+    abbreviated_hash = get_head_hash(cwd=cwd)[:10]
+    return f"{branch}.{count}.{abbreviated_hash}"
 
 
 def are_clean(files, cwd: Optional[Path] = None) -> Tuple[bool, str]:
