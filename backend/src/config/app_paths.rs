@@ -4,6 +4,8 @@ use std::env::current_dir;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use std::{env, fmt};
+use tauri::utils::config::BundleType;
+use tauri::utils::platform::bundle_type;
 use tracing::info;
 use ts_rs::TS;
 
@@ -73,29 +75,23 @@ static PATHS: LazyLock<AppPaths> = LazyLock::new(|| {
 /// 模式检测
 fn detect_mode() -> AppMode {
     // 开发模式: debug 构建自动启用
-    if cfg!(debug_assertions) {
-        return AppMode::Develop;
-    }
+    #[cfg(debug_assertions)]
+    return AppMode::Develop;
 
-    // 便携模式: 检测 .portable 文件
-    if let Some(exe_dir) = current_exe_dir() {
-        if exe_dir.join("portable.mode").is_file() {
-            return AppMode::Portable;
-        }
+    #[cfg(not(debug_assertions))]
+    match bundle_type() {
+        None => AppMode::Portable,
+        Some(_) => AppMode::Install,
     }
-
-    // 安装模式: 使用 directories 库获取各平台规范路径
-    AppMode::Install
 }
 
-/// 测试构建的用户数据根：项目 `data/test/{shot_uuid}/`，与开发 / 正式数据完全隔离
+/// 获取用户数据根目录，测试构建：指向 data/test/{uuid}
 ///
-/// - 每次 `cargo test`（一个测试进程）生成一个唯一 uuid 目录，
-/// 进程内所有用例共享该根（模拟真实 app 的共享目录语义）。
-/// - 运行结束 / panic 均**不自动清理**，保留失败现场，单次占用极小，可手动删除。
-/// - 仅数据类目录（config/data/cache/temp/logs）被替换，`mode` 仍为 Develop，`root_dir` / `resources_dir` 等真实资源路径不变。
+/// - 每次 `cargo test` 生成一个唯一 uuid 目录，进程内所有用例共享该根
+/// - 运行结束 / panic 均**不自动清理**，保留失败现场
+/// - 仅数据类目录被替换，`mode` 仍为 Develop，`root_dir` / `resources_dir` 等资源路径不变
 #[cfg(test)]
-fn test_data_dir() -> PathBuf {
+fn detect_user_data_dir(mode: AppMode) -> PathBuf {
     let parent = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("Project root has no parent")
@@ -108,19 +104,11 @@ fn test_data_dir() -> PathBuf {
     }
 }
 
-/// 获取用户数据根目录（测试构建：指向 data/test/{uuid} 独占空白根）
-#[cfg(test)]
-fn detect_user_data_dir(mode: AppMode) -> PathBuf {
-    test_data_dir()
-}
-
 /// 获取用户数据根目录
 #[cfg(not(test))]
 fn detect_user_data_dir(mode: AppMode) -> PathBuf {
     match mode {
         // 项目根目录下的 data
-        // 此处不能使用 current_exe_dir
-        // 因为编译出的二进制文件并不在项目根目录下面
         AppMode::Develop => PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("data"),
 
         // 可执行文件目录下的 data
