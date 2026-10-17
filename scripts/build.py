@@ -20,10 +20,10 @@ from pathlib import Path
 
 import util
 from build import builder, hasher, packager, signer, version_files
-from cli import exec_py, git, rust
+from cli import exec_py, git, rust, tauri
 from codegen import CODEGEN_FILES
 from common.constant.paths import PROJECT_BASE_DIR, LOCAL_RELEASE_DIR, ASSETS_DIR
-from common.entity.target import Target
+from common.entity.target import Target, UnsupportedTargetError
 from common.entity.version import Version
 from common.enums.kind import Kind
 from common.enums.mode import Mode
@@ -151,5 +151,13 @@ if __name__ == "__main__":
     with graceful_sigint(on_error=util.fail):
         try:
             sys.exit(main())
-        except BuildError as e:
+        except (
+                BuildError,
+                git.GitError,
+                signer.SignError,
+                tauri.TauriError,
+                packager.PackageError,
+                version_files.VersionFileError,
+                UnsupportedTargetError
+        ) as e:
             util.fail(f"构建失败: {e}")
