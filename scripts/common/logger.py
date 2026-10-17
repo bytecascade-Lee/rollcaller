@@ -54,7 +54,7 @@ from datetime import date, datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 
-from common.constant.paths import PROJECT_BASE_DIR, SCRIPTS_DIR
+from common.constant.paths import SCRIPTS_DIR, DEVELOP_DATA_DIR
 
 # 这些环境变量的值一旦出现在日志里就按密钥处理，统一打码
 # （约定：密钥只经环境变量传递，绝不进命令行参数——argv 会被命令级日志原样打印）
@@ -97,7 +97,7 @@ def _relpath(pathname: str) -> str:
 
 
 # 日志行格式：文件与控制台共用，保证两侧内容一致，只有颜色不同
-_LOG_FORMAT = "[%(asctime)s] %(levelname_padded)s [%(relpath)s:%(lineno)d] %(message)s"
+_LOG_FORMAT = "%(asctime)s %(levelname_padded)s [%(relpath)s:%(lineno)d] %(message)s"
 
 # 全局标志，防止重复配置
 _LOGGING_CONFIGURED = False
@@ -197,7 +197,7 @@ def _setup_logging():
     if _LOGGING_CONFIGURED:
         return
 
-    log_dir = PROJECT_BASE_DIR / "data" / "logs" / "p"
+    log_dir = DEVELOP_DATA_DIR / "logs" / "python"
     log_dir.mkdir(parents=True, exist_ok=True)
 
     file_handler = logging.FileHandler(log_dir / f"{date.today()}.log", encoding="utf-8")
@@ -222,6 +222,7 @@ def _setup_logging():
 # logging.log 到调用方的固定层数：
 # logging.log -> _emit -> 包装函数 -> 调用方。
 # 每个对外函数都只隔着一层 _emit，故一律用 3。
+# [FIXME]：此处栈层级需要仔细设计
 _STACKLEVEL = 4
 
 
