@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 
+from common.enums.action import Action, UnsupportedActionError
 from common.enums.arch import ArchTypeError, Arch
+from common.enums.kind import Kind
 from common.enums.os import OSTypeError, OS
 
 
@@ -41,3 +43,24 @@ class Target:
 
     def __str__(self) -> str:
         return self.triple
+
+
+@dataclass(frozen=True, slots=True)
+class SupportedTarget:
+    target: Target
+    actions: frozenset[Action]
+    kinds: frozenset[Kind]
+    runner: str
+
+    def supports(self, action: Action) -> bool:
+        """是否开放指定动作档位；不做 BUILD / RELEASE 之间的隐含推导"""
+        return action in self.actions
+
+    def require(self, action: Action) -> None:
+        """要求开放指定动作档位，否则抛 UnsupportedActionError"""
+        if self.supports(action):
+            return
+        opened = "、".join(sorted(a.value for a in self.actions))
+        raise UnsupportedActionError(
+            f"目标 {self.target.triple!r} 未开放 {action.value!r} 档位（已开放: {opened}）"
+        )
