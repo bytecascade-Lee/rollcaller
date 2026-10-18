@@ -52,13 +52,13 @@ def _require_no_unknown(directory: Path, expected_names: set[str]) -> None:
 
 
 def _discover_ci(directory: Path, version: Version) -> list[Asset]:
-    """CI 模式下，目录必须覆盖支持表中全部 RELEASE 目标与 RELEASE_KINDS"""
+    """CI 模式下，目录必须覆盖同时开放 BUILD 与 RELEASE 的目标及其 RELEASE_KINDS"""
     if not directory.is_dir():
         raise AssetDiscoveryError(f"产物目录不存在: {str(directory)!r}")
 
-    entries = support.entries(Action.RELEASE)
+    entries = support.pipeline_entries()
     if not entries:
-        raise AssetDiscoveryError("支持表中没有开放 RELEASE 档位的目标")
+        raise AssetDiscoveryError("支持表中没有同时开放 BUILD 与 RELEASE 的目标")
 
     assets: list[Asset] = []
     missing: list[str] = []
