@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 """
-项目内路径的唯一来源。
+项目内路径常量
 
 命名：`*_DIR` 目录、`*_PATH` 单个文件、`*_FILES` 一组文件。
 """
@@ -75,9 +75,9 @@ VERSION_TRACKED_FILES = VERSION_FILES + VERSION_LOCK_FILES
 # 仓库维护的版本索引（发布期 severity 的唯一标定处）
 VERSIONS_INDEX_SOURCE_PATH = RESOURCES_DIR / "update" / "versions.json"
 
-# 构建 / 签名 / 生成物
+# 依赖 / 构建 / 签名 / 生成物
+FRONTEND_NODE_DIR = FRONTEND_DIR / "node_modules"
 FRONTEND_DIST_DIR = FRONTEND_DIR / "dist"
 BACKEND_TARGET_DIR = BACKEND_DIR / "target"
 BACKEND_BUILD_INFO_PATH = BACKEND_DIR / "gen" / "build" / "build_info.json"
-TAURI_CLI_PATH = RESOURCES_DIR / "tauri" / "cargo-tauri.exe"
 LOCAL_RELEASE_DIR = RELEASE_DIR / "Local"
