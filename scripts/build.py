@@ -20,8 +20,8 @@ from pathlib import Path
 
 import util
 from build import builder, hasher, packager, signer, version_files, metadata
-from cli import exec_py, git, rust, tauri
-from codegen import CODEGEN_FILES
+from cli import git, rust, tauri
+from codegen import CodegenError, generate_all
 from common.constant.paths import LOCAL_RELEASE_DIR, ASSETS_DIR
 from common.entity.target import Target, UnsupportedTargetError
 from common.entity.version import Version, VersionError
@@ -46,13 +46,6 @@ def parse_args() -> argparse.Namespace:
     # [TODO]: parser.add_argument("-b", "--bundle", help="是否捆绑")
 
     return parser.parse_args()
-
-
-def codegen() -> None:
-    """串行执行全部代码生成脚本"""
-    for script in CODEGEN_FILES:
-        info(f"执行 {script.name} 生成代码...")
-        exec_py.run(script)
 
 
 def portable_resources(os: OS) -> list[str]:
@@ -122,7 +115,7 @@ def main() -> int:
         # 1 同步版本号
         version_files.sync(version)
         # 2 代码生成
-        codegen()
+        generate_all()
         # 3 执行构建
         builder.build(target, env=None)
         # develop 更新模式的 debug 构建
@@ -149,6 +142,7 @@ if __name__ == "__main__":
             sys.exit(main())
         except (
                 BuildError,
+                CodegenError,
                 VersionError,
                 git.GitError,
                 signer.SignError,
