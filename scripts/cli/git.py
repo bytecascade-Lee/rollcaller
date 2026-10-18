@@ -3,261 +3,159 @@
 
 """
 Git 操作模块：封装常用 git 命令，返回结构化数据
-
-进程与错误映射统一在 _run() 中：
-    任何失败均抛 GitError，调用方决定如何处理；
-    空值返回 None，调用方需自行判空。
-
-stdout 两种读法：
-    git()             元数据 —— UTF-8 解码，非法字节替换为 U+FFFD 后 strip
-    _capture_bytes()  内容   —— 原始字节
 """
+
 import os
 import subprocess
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Iterable, Sequence
 
 from common.constant.paths import PROJECT_BASE_DIR
-from common.entity.commit_info import CommitInfo
 from common.logger import debug
+
+# 单条 git 命令的超时（秒）
+DEFAULT_TIMEOUT = 60
+
+ABBREVIATED_HASH_SLICE = slice(0, 10)
 
 
 class GitError(Exception):
-    """Git 操作失败的基类"""
-    pass
+    """git 命令操作失败，未找到 git 命令，或命令超时，或命令执行失败"""
 
 
-def _run(args: List[str], cwd: Optional[Path] = None) -> subprocess.CompletedProcess:
-    """执行 git 命令，返回 CompletedProcess"""
-    debug(f"执行: git {' '.join(args)}")
+def _run(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int = DEFAULT_TIMEOUT,
+         allow: tuple[int, ...] = ()) -> subprocess.CompletedProcess:
+    """
+    执行 git 命令并返回 CompletedProcess
+
+
+    :param args: git 子命令及其参数，如 ["rev-parse", "HEAD"]
+    :param cwd: 工作目录，缺省 PROJECT_BASE_DIR
+    :param timeout: 超时秒数
+    :param allow: 额外允许的退出码，例如 `rev-parse --verify` 的 1 表示对象不存在，不在 allow 里的非零退出仍抛异常
+
+    :raise GitError: 未找到 git 命令，或命令超时，或命令执行失败
+    """
+    cwd = cwd or PROJECT_BASE_DIR
+    command = ["git", "--no-pager", "-c", "core.quotepath=false", *args]
+    debug(f"执行: {' '.join(command)}（cwd={cwd}）")
+
     try:
         result = subprocess.run(
-            ["git", *args],
+            command,
             cwd=cwd,
             capture_output=True,
             check=False,
+            timeout=timeout,
+            env={**os.environ, "LC_ALL": "C", "GIT_TERMINAL_PROMPT": "0"},
         )
-    except FileNotFoundError:
-        raise GitError("未找到 git 命令，请确保已安装 Git")
+    except FileNotFoundError as error:
+        raise GitError("未找到 git 命令，请确认已安装 Git 并加入 PATH") from error
+    except subprocess.TimeoutExpired as error:
+        raise GitError(f"git {' '.join(args)} 在 {timeout}s 内未执行完毕，超时") from error
 
-    if result.returncode != 0:
+    if result.returncode != 0 and result.returncode not in allow:
         stderr = result.stderr.decode("utf-8", "replace").strip()
-        raise GitError(f"git {' '.join(args)} 失败: {stderr}")
+        raise GitError(f"git {' '.join(args)} 失败，退出码为 {result.returncode}，错误信息为 {stderr}")
 
     return result
 
 
-def git(args: List[str], cwd: Optional[Path] = None) -> str:
-    """执行 git 命令，返回 stdout 字符串"""
-    return _run(args, cwd).stdout.decode("utf-8", "replace").strip()
+def _text(result: subprocess.CompletedProcess) -> str:
+    """CompletedProcess.stdout -> utf-8 字符串并 strip，非法字节替换为 U+FFFD"""
+    return result.stdout.decode("utf-8", "replace").strip()
 
 
-def _capture_bytes(args: List[str], cwd: Optional[Path] = None) -> bytes:
-    """执行 git 命令，返回未经加工的 stdout 字节"""
-    return _run(args, cwd).stdout
+def _paths(paths: Iterable[str | Path]) -> list[str]:
+    """把 Path / str 混用的路径集合归一成 str 列表"""
+    return [str(path) for path in paths]
 
 
-def get_blob(ref: str, path: str, cwd: Optional[Path] = None) -> Optional[bytes]:
-    """取 `<ref>:<path>` 的 blob 原始内容"""
-    try:
-        return _capture_bytes(["show", f"{ref}:{path}"], cwd)
-    except GitError as e:
-        debug(f"{ref}:{path} 取不到内容，按「不存在」处理（{e}）")
-        return None
+def stdout(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int = DEFAULT_TIMEOUT) -> str:
+    """执行 git 命令，返回 utf-8 解码并 strip 后的 stdout"""
+    return _text(_run(args, cwd=cwd, timeout=timeout))
 
 
-def is_repo(cwd: Optional[Path] = None) -> bool:
+def stdout_bytes(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int = DEFAULT_TIMEOUT) -> bytes:
+    """执行 git 命令，返回未解码的 stdout"""
+    return _run(args, cwd=cwd, timeout=timeout).stdout
+
+
+def is_repo(cwd: Path | None = None) -> bool:
     """检查当前目录是否在 Git 仓库中"""
-    try:
-        _run(["rev-parse", "--git-dir"], cwd)
-        return True
-    except GitError:
-        return False
+    result = _run(["rev-parse", "--git-dir"], cwd=cwd, allow=(128,))
+    return result.returncode == 0
 
 
-def get_head_hash(short: bool = False, cwd: Optional[Path] = None) -> str:
-    """获取 HEAD 的 commit hash"""
-    if short:
-        return git(["rev-parse", "--short", "HEAD"], cwd)
-    return git(["rev-parse", "HEAD"], cwd)
+def rev_parse(ref: str, *, cwd: Path | None = None) -> str:
+    """解析 ref 为完整对象哈希，不存在抛 GitError"""
+    return stdout(["rev-parse", "--verify", ref], cwd=cwd)
 
 
-def get_branch(cwd: Optional[Path] = None) -> str:
-    """获取当前分支名；detached HEAD 固定返回 "detached" """
-    try:
-        return git(["symbolic-ref", "--short", "HEAD"], cwd)
-    except GitError:
-        return "detached"
-
-
-def source_branch(cwd: Optional[Path] = None) -> str:
-    """
-    来源引用名：
-        tag 发布 / detached HEAD -> "detached"
-        CI 分支触发            -> 所选分支名
-        本地                    -> 当前分支名
-    """
-    ref_type = os.environ.get("GITHUB_REF_TYPE")
-    if ref_type == "tag":
-        return "detached"
-    ref_name = os.environ.get("GITHUB_REF_NAME")
-    if ref_type == "branch" and ref_name:
-        return ref_name
-    return get_branch(cwd or PROJECT_BASE_DIR)
-
-
-def get_commit_count(cwd: Optional[Path] = None) -> int:
-    """获取当前分支的 commit 总数（从初始提交到 HEAD）"""
-    output = git(["rev-list", "--count", "HEAD"], cwd)
-    return int(output)
-
-
-def get_description(dirty: bool = True, cwd: Optional[Path] = None) -> Optional[str]:
-    try:
-        args = ["describe", "--tags"]
-        if dirty:
-            args.append("--dirty")
-        return git(args, cwd)
-    except GitError:
+def try_rev_parse(ref: str, *, cwd: Path | None = None) -> str | None:
+    """同 rev_parse，但 ref 不存在时返回 None"""
+    result = _run(["rev-parse", "--verify", "--quiet", ref], cwd=cwd, allow=(1,))
+    if result.returncode != 0:
         return None
+    return _text(result) or None
 
 
-def get_latest_tag(cwd: Optional[Path] = None) -> Optional[str]:
-    """获取最新的 tag，按创建时间排序"""
-    output = git(["tag", "--sort=-creatordate"], cwd)
-    if not output:
+def head_hash(*, cwd: Path | None = None) -> str:
+    """HEAD 的完整提交哈希"""
+    return rev_parse("HEAD", cwd=cwd)
+
+
+def current_branch(*, cwd: Path | None = None) -> str | None:
+    """当前分支名；detached HEAD（含 tag 检出）返回 None"""
+    result = _run(["symbolic-ref", "--quiet", "--short", "HEAD"], cwd=cwd, allow=(1,))
+    if result.returncode != 0:
         return None
-    return output.split("\n")[0]
+    return _text(result) or None
 
 
-def get_last_commit_time(cwd: Optional[Path] = None) -> Optional[str]:
-    output = git(["log", "-1", "--format=%ct"], cwd)
-    if not output:
-        return None
-    return output.split("\n")[0]
-
-
-def commit_exists(tag: str) -> bool:
-    """检查提交是否存在"""
+def commit_count(*, cwd: Path | None = None) -> int:
+    """HEAD 的祖先提交总数"""
+    output = stdout(["rev-list", "--count", "HEAD"], cwd=cwd)
     try:
-        git(["rev-parse", tag])
-        return True
-    except GitError:
-        return False
+        return int(output)
+    except ValueError as error:
+        raise GitError(f"git rev-list --count HEAD 输出非整数: {output!r}") from error
 
 
-def get_tags_since(commit: str, cwd: Optional[Path] = None) -> List[str]:
-    """获取从某个 commit 之后创建的所有 tag"""
-    output = git(["tag", "--sort=-creatordate", f"--contains={commit}"], cwd)
+def commit_unix_time(ref: str = "HEAD", *, cwd: Path | None = None) -> int:
+    """提交的 committer 时间；仓库无提交时 git 会以 128 退出并抛 GitError"""
+    output = stdout(["log", "-1", "--format=%ct", ref], cwd=cwd)
     if not output:
-        return []
-    return output.split("\n")
+        raise GitError(f"{ref} 没有 committer 时间，仓库可能尚无提交")
+    try:
+        return int(output.splitlines()[0])
+    except ValueError as error:
+        raise GitError(f"git log --format=%ct 输出非整数: {output!r}") from error
 
 
-def get_build_info(cwd: Optional[Path] = None) -> str:
-    """获取构建信息字符串：<ref_name>.<提交总数>.<短哈希>"""
-    ref_name = source_branch(cwd)
-    count = get_commit_count(cwd)
-    abbreviated_hash = get_head_hash(cwd=cwd)[:10]
-    return f"{ref_name}.{count}.{abbreviated_hash}"
+def remote_url(name: str = "origin", *, cwd: Path | None = None) -> str | None:
+    """远端 URL；该远端不存在返回 None"""
+    # git 用退出码 2 表示 no such remote
+    result = _run(["remote", "get-url", name], cwd=cwd, allow=(2, 128))
+    if result.returncode != 0:
+        return None
+    return _text(result) or None
 
 
-def are_clean(files, cwd: Optional[Path] = None) -> Tuple[bool, str]:
-    """
-    判断给定文件在工作区是否无未提交改动（干净）。
-
-    Args:
-        files: 文件路径（Path 或 str）的可迭代对象
-        cwd: 当前工作目录
-    Returns:
-        True 表示这些文件相对 HEAD 无改动
-    """
-    paths = [str(f) for f in files]
-    output = git(["status", "--porcelain", "--", *paths], cwd=cwd)
-    return output.strip() == "", output
+def status_porcelain(paths: Iterable[str | Path], *, cwd: Path | None = None) -> str:
+    """执行 git status --porcelain -- <paths>；空串表示这些路径相对 HEAD 无改动"""
+    return stdout(["status", "--porcelain", "--", *_paths(paths)], cwd=cwd)
 
 
-def restore_files(files, cwd: Optional[Path] = None) -> None:
-    """
-    用 git checkout 还原给定文件到 HEAD 状态（丢弃工作区改动）。
-
-    用于本地构建后还原 update_version 临时改动的版本号文件，避免脚本写文件
-    引入换行符差异。
-
-    Args:
-        files: 文件路径（Path 或 str）的可迭代对象
-        cwd: 当前工作目录
-    """
-    paths = [str(f) for f in files]
-    git(["checkout", "--", *paths], cwd)
+def checkout_paths(paths: Iterable[str | Path], *, cwd: Path | None = None) -> None:
+    """丢弃工作区给定路径的改动"""
+    stdout(["checkout", "--", *_paths(paths)], cwd=cwd)
 
 
-def get_commit_range(
-    start: str,
-    end: str,
-    cwd: Optional[Path] = None,
-) -> List[CommitInfo]:
-    """
-    获取指定范围的提交记录。
-
-    Args:
-        start: 起始 commit/tag（不包含），"root" 表示从 root 开始
-        end: 结束 commit/tag（包含），"HEAD" 表示到 HEAD
-        cwd: 当前工作目录
-
-    Returns:
-        提交列表，按时间升序排列。每个 CommitInfo 包含：
-            commit_hash:      完整 hash
-            abbreviated_hash: 短 hash（派生）
-            commit_time:      带本地时区的 datetime
-            subject:          提交标题
-            body:             提交正文
-            author:           作者名
-            email:            作者邮箱
-    """
-    # 构建范围字符串
-    if start == "root" and end == "HEAD":
-        range_spec = "--root"
-    elif start == "root":
-        range_spec = end
-    else:
-        range_spec = f"{start}..{end}"
-
-    # %H=完整 hash  %ct=committer 时间(Unix 秒)  %s=标题  %b=正文
-    # %an=作者名    %ae=作者邮箱
-    # \x00 分隔字段，\x01 分隔提交
-    format_str = "%H%x00%ct%x00%s%x00%b%x00%an%x00%ae%x01"
-    cmd = [
-        "log",
-        range_spec,
-        f"--pretty=format:{format_str}",
-        "--reverse",
-    ]
-
-    output = git(cmd, cwd=cwd)
-    if not output:
-        return []
-
-    commits: List[CommitInfo] = []
-    for block in output.rstrip("\x01").split("\x01"):
-        if not block:
-            continue
-        parts = block.split("\x00")
-        if len(parts) < 6:
-            continue
-        commit_hash, ts, subject, body, author, email = parts[:6]
-
-        commits.append(
-            CommitInfo(
-                commit_hash=commit_hash.strip(),
-                commit_time=datetime.fromtimestamp(int(ts), tz=timezone.utc),
-                subject=subject,
-                body=body,
-                author=author,
-                email=email,
-            )
-        )
-
-    commits.sort(key=lambda x: x.commit_time)
-    return commits
+def show_blob(ref: str, path: str, *, cwd: Path | None = None) -> bytes | None:
+    """取 `<ref>:<path>` 的 blob 原始内容，该路径在 ref 下不存在时返回 None"""
+    try:
+        return stdout_bytes(["show", f"{ref}:{path}"], cwd=cwd)
+    except GitError as error:
+        debug(f"{ref}:{path} 读取失败，按「不存在」处理: {error}")
+        return None
