@@ -14,14 +14,16 @@
 """
 
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 import util
 from cli import git
-from common.constant.paths import DOCS_DIR
+from cli.git import stdout
+from common.constant.paths import DOCS_DIR, PROJECT_BASE_DIR
 from common.entity import commit_info
+from common.entity.commit_info import CommitInfo
 from common.logger import info, success
 from util.str_format import display_width, padding
 
@@ -68,15 +70,15 @@ def parse_start_end_all(start: Optional[str], end: Optional[str], is_all: Option
     | **6** | `False` (关闭) | `None` (未传) | `None` (未传) | **不存在**任何标签 | `"root"` | `"HEAD"` | 降级处理：无标签时从根提交开始 |
     """
     # 如果有参，验证 tags/commit 是否存在
-    if start is not None and not git.commit_exists(start):
+    if start is not None and not git.try_rev_parse(start):
         util.fail(f"无法解析 `{start}`，请确认标签或 commit hash 是否存在")
 
-    if end is not None and not git.commit_exists(end):
+    if end is not None and not git.try_rev_parse(end):
         util.fail(f"无法解析 `{end}`，请确认标签或 commit hash 是否存在")
 
     # 如果无参，自动检测最新标签
     if start is None and end is None and not is_all:
-        output = git.git(["tag", "--sort=-creatordate"])
+        output = git.stdout(["tag", "--sort=-creatordate"])
         if output:
             latest_tag = output.split("\n")[0]
             start = latest_tag
@@ -117,7 +119,7 @@ def _render_commit(commit: commit_info.CommitInfo) -> str:
 def generate_markdown(commits: List[commit_info.CommitInfo], start: str, end: str) -> str:
     """生成 Markdown 内容"""
     iso_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z")
-    branch = git.get_branch()
+    branch = git.current_branch()
     lines = ["# 提交日志\n\n",
              f"**生成时间**: {iso_time}  \n",
              f"**当前分支**: {branch}  \n",
@@ -152,13 +154,79 @@ def save_changelog(content: str, start: str, end: str) -> Path:
     return filepath
 
 
+def get_commit_range(start: str, end: str, cwd: Path = PROJECT_BASE_DIR) -> list[CommitInfo]:
+    """
+    获取指定范围的提交记录。
+
+    Args:
+        start: 起始 commit/tag（不包含），"root" 表示从 root 开始
+        end: 结束 commit/tag（包含），"HEAD" 表示到 HEAD
+        cwd: 当前工作目录
+
+    Returns:
+        提交列表，按时间升序排列。每个 CommitInfo 包含：
+            commit_hash:      完整 hash
+            abbreviated_hash: 短 hash（派生）
+            commit_time:      带本地时区的 datetime
+            subject:          提交标题
+            body:             提交正文
+            author:           作者名
+            email:            作者邮箱
+    """
+    # 构建范围字符串
+    if start == "root" and end == "HEAD":
+        range_spec = "--root"
+    elif start == "root":
+        range_spec = end
+    else:
+        range_spec = f"{start}..{end}"
+
+    # %H=完整 hash  %ct=committer 时间(Unix 秒)  %s=标题  %b=正文
+    # %an=作者名    %ae=作者邮箱
+    # \x00 分隔字段，\x01 分隔提交
+    format_str = "%H%x00%ct%x00%s%x00%b%x00%an%x00%ae%x01"
+    cmd = [
+        "log",
+        range_spec,
+        f"--pretty=format:{format_str}",
+        "--reverse",
+    ]
+
+    output = stdout(cmd, cwd=cwd)
+    if not output:
+        return []
+
+    commits: list[CommitInfo] = []
+    for block in output.rstrip("\x01").split("\x01"):
+        if not block:
+            continue
+        parts = block.split("\x00")
+        if len(parts) < 6:
+            continue
+        commit_hash, ts, subject, body, author, email = parts[:6]
+
+        commits.append(
+            CommitInfo(
+                commit_hash=commit_hash.strip(),
+                commit_time=datetime.fromtimestamp(int(ts), tz=timezone.utc),
+                subject=subject,
+                body=body,
+                author=author,
+                email=email,
+            )
+        )
+
+    commits.sort(key=lambda x: x.commit_time)
+    return commits
+
+
 def main():
     if not git.is_repo():
         util.fail("当前目录不在 Git 仓库")
     args = parse_args()
     start, end = parse_start_end_all(args.start, args.end, args.all)
     info(f"生成的范围是：{start} 至 {end}")
-    commits = git.get_commit_range(start, end)
+    commits = get_commit_range(start, end)
     info(f"在该范围内共找到 {len(commits)} 个提交")
 
     info("准备生成 Markdown 内容......")
