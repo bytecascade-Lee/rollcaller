@@ -4,12 +4,10 @@
 """
 CI 准备入口
 
-一次算出本次发布的全部事实，写入 GITHUB_OUTPUT：
-    version —— 规范化后的版本号（去掉 v 前缀）
-    draft   —— true / false
-    include —— 构建矩阵（单行 JSON）
-
-本地运行（无 GITHUB_OUTPUT）只做校验，不写文件。
+计算并写入下列信息到 GITHUB_OUTPUT：
+    version 规范化后的版本号
+    draft   true / false
+    matrix  构建矩阵
 
 用法:
     uv run ./scripts/prepare.py -v 0.1.0
@@ -36,15 +34,14 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def write_output(key: str, value: str) -> bool:
+def write_output(key: str, value: str) -> None:
     output_file = os.environ.get("GITHUB_OUTPUT")
     if not output_file:
         warning(f"未设置 GITHUB_OUTPUT，跳过对键值对 '{key}={value}' 输出的写入")
-        return False
+        return
     with open(output_file, "a", encoding="utf-8") as file:
         file.write(f"{key}={value}\n")
         info(f"追加 GitHub 输出内容 '{key}={value}' 到 {str(output_file)!r}")
-    return True
 
 
 def main() -> int:
