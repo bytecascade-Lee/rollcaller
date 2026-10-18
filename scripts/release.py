@@ -22,11 +22,12 @@ import os
 import sys
 
 import util
+from check.check_version import check_version
 from cli import cnb as cnb_cli
 from cli import gh, git
 from common.constant.paths import ASSETS_DIR, PROJECT_BASE_DIR, VERSIONS_INDEX_SOURCE_PATH
 from common.constant.repo import CNB_REPO, GITHUB_REPO
-from common.entity.version import Version
+from common.entity.version import Version, VersionError
 from common.entity.version_index import VersionIndex
 from common.enums.mode import Mode
 from common.enums.severity import Severity
@@ -152,12 +153,9 @@ def main() -> int:
     args = parse_args()
 
     try:
-        version = Version.parse(args.version)
-    except ValueError as error:
-        raise ReleaseError(f"版本号非法: {error}") from error
-
-    if version.build is not None:
-        raise ReleaseError(f"版本号不允许携带构建元数据: {str(version)!r}")
+        version = check_version(args.version)
+    except VersionError as error:
+        raise ReleaseError(str(error)) from error
 
     mode = Mode(args.mode)
 
