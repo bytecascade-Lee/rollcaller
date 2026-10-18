@@ -36,8 +36,8 @@ _REWRITE_RULES = (
 
 def check_git_status() -> bool:
     """版本文件与锁文件相对 HEAD 是否无未提交改动"""
-    clean, _detail = git.are_clean(VERSION_TRACKED_FILES, cwd=PROJECT_BASE_DIR)
-    return clean
+    clean = git.status_porcelain(VERSION_TRACKED_FILES)
+    return not clean.strip()
 
 
 def sync(version: Version) -> None:
@@ -50,7 +50,7 @@ def sync(version: Version) -> None:
 
 def restore() -> None:
     """用 git 把版本文件与锁文件还原到 HEAD，丢弃 sync 的临时改动"""
-    git.restore_files(VERSION_TRACKED_FILES, cwd=PROJECT_BASE_DIR)
+    git.checkout_paths(VERSION_TRACKED_FILES)
     info("已还原版本文件与 uv 锁文件")
 
 
