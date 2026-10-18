@@ -6,7 +6,7 @@ use ts_rs::TS;
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize, TS)]
 pub struct BuildInfo {
-    pub branch: String,
+    pub ref_name: String,
     pub commit_count: i32,
     pub commit_hash: String,
     pub abbreviated_hash: String,
