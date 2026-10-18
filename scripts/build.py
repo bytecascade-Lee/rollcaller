@@ -19,10 +19,10 @@ import sys
 from pathlib import Path
 
 import util
-from build import builder, hasher, packager, signer, version_files
+from build import builder, hasher, packager, signer, version_files, metadata
 from cli import exec_py, git, rust, tauri
 from codegen import CODEGEN_FILES
-from common.constant.paths import PROJECT_BASE_DIR, LOCAL_RELEASE_DIR, ASSETS_DIR
+from common.constant.paths import LOCAL_RELEASE_DIR, ASSETS_DIR
 from common.entity.target import Target, UnsupportedTargetError
 from common.entity.version import Version, VersionError
 from common.enums.kind import Kind
@@ -109,7 +109,7 @@ def main() -> int:
     signer.check_env()
 
     if mode == Mode.LOCAL:
-        version = Version.parse(f"{version}+{git.get_build_info(cwd=PROJECT_BASE_DIR)}")
+        version = Version.parse(f"{version}+{metadata.build_metadata()}")
         out_dir = LOCAL_RELEASE_DIR / str(version)
         if not version_files.check_git_status():
             raise BuildError("版本文件或锁文件存在未提交改动，请先提交或清理后再构建")
