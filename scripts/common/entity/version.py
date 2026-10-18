@@ -38,7 +38,7 @@ class Version(semver.Version):
 
         try:
             return super().parse(s, optional_minor_and_patch=optional_minor_and_patch)
-        except ValueError | TypeError as e:
+        except (ValueError, TypeError) as e:
             raise VersionError() from e
 
     def is_prerelease(self) -> bool:
