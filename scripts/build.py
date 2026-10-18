@@ -60,11 +60,11 @@ def package(version: Version, target: Target, build_mode: Mode) -> list[Path]:
     """生成各种包，返回最终命名的产物路径"""
     artifacts = [
         packager.package_setup(version, target, Kind.NSIS),
-        packager.package_zip(portable_resources(target.os), version, target, Kind.PORTABLE),
+        packager.package_archive(portable_resources(target.os), version, target, Kind.PORTABLE),
     ]
     if build_mode == Mode.LOCAL:
-        artifacts.append(packager.package_zip([exe("rollcaller", target.os)],
-                                              version, target, Kind.DEVELOP, debug_mode=True))
+        artifacts.append(packager.package_archive([exe("rollcaller", target.os)],
+                                                  version, target, Kind.DEVELOP, debug_mode=True))
     return artifacts
 
 
