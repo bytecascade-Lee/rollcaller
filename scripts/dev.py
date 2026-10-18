@@ -14,8 +14,8 @@
 import argparse
 
 import util
-from cli import exec_py, rust, tauri
-from codegen import CODEGEN_FILES
+from cli import rust, tauri
+from codegen import generate_all
 from common.entity.target import Target
 from common.logger import info
 from util.sigint import graceful_sigint
@@ -33,9 +33,7 @@ def main() -> None:
     target = Target(rust.resolve_triple(args.target))
     info(f"当前目标三元组为 {target.triple!r}")
 
-    for script in CODEGEN_FILES:
-        info(f"执行 {script.name} 生成代码...")
-        exec_py.run(script)
+    generate_all()
 
     tauri.dev(target)
 
