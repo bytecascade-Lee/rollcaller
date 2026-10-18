@@ -11,6 +11,10 @@ from typing import override
 import semver
 
 
+class VersionError(Exception):
+    pass
+
+
 class Version(semver.Version):
     """语义化版本号：解析容忍前导 v，输出 tag 时携带 v"""
 
@@ -32,7 +36,10 @@ class Version(semver.Version):
         else:
             s = base
 
-        return super().parse(s, optional_minor_and_patch=optional_minor_and_patch)
+        try:
+            return super().parse(s, optional_minor_and_patch=optional_minor_and_patch)
+        except ValueError | TypeError as e:
+            raise VersionError() from e
 
     def is_prerelease(self) -> bool:
         return self.prerelease is not None
