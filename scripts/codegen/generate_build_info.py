@@ -5,8 +5,7 @@
 生成 backend/gen/build/build_info.json，构建元数据的唯一载体
 
 调用时机：
-    1. 开发前
-    2. 构建前
+    开发、构建前
 
 用法:
     uv run ./scripts/codegen/generate_build_info.py
@@ -17,15 +16,16 @@ import sys
 from datetime import UTC, datetime
 
 from build import metadata
-from cli.git import commit_count, head_hash, commit_unix_time
+from cli.git import commit_count, commit_unix_time, head_hash
 from common.constant.paths import BACKEND_BUILD_INFO_PATH
 from common.entity.build_info import BuildInfo
 from common.logger import info, success
 from util.sigint import quiet_sigint
+from util.time import format_to_iso_8601
 
 
-def generate_build_info() -> BuildInfo:
-    """收集本次构建的 git 元数据"""
+def collect() -> BuildInfo:
+    """收集本次构建的元数据"""
     return BuildInfo(
         ref_name=metadata.ref_name(),
         commit_count=commit_count(),
@@ -41,21 +41,24 @@ def to_json_dict(build_info: BuildInfo) -> dict[str, str | int]:
         "commit_count": build_info.commit_count,
         "commit_hash": build_info.commit_hash,
         "abbreviated_hash": build_info.abbreviated_hash,
-        "commit_time": build_info.commit_time.isoformat(timespec="milliseconds"),
-        "build_time": build_info.build_time.isoformat(timespec="milliseconds"),
+        "commit_time": format_to_iso_8601(build_info.commit_time),
+        "build_time": format_to_iso_8601(build_info.build_time),
     }
 
 
-def main() -> int:
-    build_info = generate_build_info()
-    info(f"生成构建元数据：{build_info}")
+def generate() -> None:
+    """生成并写入 build_info.json"""
+    compact = json.dumps(to_json_dict(collect()), separators=(',', ':'))
+    info(f"生成构建元数据：{compact}")
 
     BACKEND_BUILD_INFO_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with BACKEND_BUILD_INFO_PATH.open("w", encoding="utf-8") as f:
-        json.dump(to_json_dict(build_info), f, indent=4)
-        f.write("\n")
+    BACKEND_BUILD_INFO_PATH.write_text(compact, encoding="utf-8")
+
     success(f"已生成构建元数据文件 {str(BACKEND_BUILD_INFO_PATH)!r}，大小为 {BACKEND_BUILD_INFO_PATH.stat().st_size} B")
 
+
+def main() -> int:
+    generate()
     return 0
 
 
