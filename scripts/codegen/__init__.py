@@ -8,7 +8,7 @@
 from types import ModuleType
 
 from common.logger import info
-from . import generate_build_info, generate_routing_entries
+from . import build_info, routing_entries
 
 
 class CodegenError(Exception):
@@ -16,7 +16,7 @@ class CodegenError(Exception):
 
 
 # 顺序即执行顺序
-GENERATORS: tuple[ModuleType, ...] = (generate_build_info, generate_routing_entries)
+GENERATORS: tuple[ModuleType, ...] = (build_info, routing_entries)
 
 
 def generate_all() -> None:
