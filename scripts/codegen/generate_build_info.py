@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: UTF-8 -*-
+
 """
 生成 backend/gen/build/build_info.json，构建元数据的唯一载体
 
@@ -14,27 +16,21 @@ import json
 import sys
 from datetime import UTC, datetime
 
-from cli.git import get_commit_count, get_head_hash, get_last_commit_time, is_repo, source_branch, GitError
-from common.constant.paths import BACKEND_BUILD_INFO_PATH, PROJECT_BASE_DIR
+from build import metadata
+from cli.git import commit_count, head_hash, commit_unix_time
+from common.constant.paths import BACKEND_BUILD_INFO_PATH
 from common.entity.build_info import BuildInfo
 from common.logger import info, success
 from util.sigint import quiet_sigint
 
 
 def generate_build_info() -> BuildInfo:
-    """收集本次构建的 git 元数据；不在仓库内或仓库无提交时失败"""
-    if not is_repo(PROJECT_BASE_DIR):
-        raise GitError(f"{PROJECT_BASE_DIR} 不是 Git 仓库：构建元数据只能在仓库内生成")
-
-    commit_time = get_last_commit_time(cwd=PROJECT_BASE_DIR)
-    if commit_time is None:
-        raise GitError("当前仓库没有任何提交，无法确定构建来源")
-
+    """收集本次构建的 git 元数据"""
     return BuildInfo(
-        ref_name=source_branch(),
-        commit_count=get_commit_count(cwd=PROJECT_BASE_DIR),
-        commit_hash=get_head_hash(cwd=PROJECT_BASE_DIR),
-        commit_time=datetime.fromtimestamp(int(commit_time), UTC),
+        ref_name=metadata.ref_name(),
+        commit_count=commit_count(),
+        commit_hash=head_hash(),
+        commit_time=datetime.fromtimestamp(commit_unix_time(), UTC),
         build_time=datetime.now(UTC),
     )
 
