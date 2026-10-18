@@ -120,7 +120,7 @@ def main() -> int:
     else:
         out_dir = ASSETS_DIR
 
-    info(f"版本号: {str(version)!r} | 目标三元组: {target.triple!r} | 模式: {mode!r}")
+    info(f"版本号: {str(version)!r} | 目标三元组: {target.triple!r} | 模式: {mode.value!r}")
 
     try:
         # 1 同步版本号
