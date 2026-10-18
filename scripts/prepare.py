@@ -62,9 +62,9 @@ def main() -> int:
         info(f"草稿模式，跳过发布说明")
         write_output("draft", "false")
 
-    include = render(build_matrix())
-    info(f"构建矩阵: {include}")
-    write_output("include", include)
+    matrix = render(build_matrix())
+    info(f"构建矩阵: {matrix}")
+    write_output("matrix", matrix)
 
     return 0
 
