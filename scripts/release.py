@@ -5,12 +5,12 @@
 发布入口
 
 LOCAL:
-    推导 full 版本 -> 定位构建目录 -> 发现产物 -> 写 latest-develop.json /
-    versions.json -> 前台驻留本地更新服务（Ctrl+C 收场）
+    推导 full 版本 -> 定位构建目录 -> 发现产物 -> 构造 versions.json ->
+    构造 latest-develop.json -> 前台驻留本地更新服务（需 Ctrl+C 手动结束）
 
 CI:
-    校验 tag -> 鉴权 -> release notes -> 发现产物 -> 版本索引 ->
-    写两份 latest-*.json -> GitHub / CNB 双平台发布
+    校验 tag -> 鉴权 -> release notes -> 发现产物 -> 构造 versions.json ->
+    构造 latest-{github|cnb}.json -> GitHub / CNB 双平台串行发布
 
 用法:
     uv run ./scripts/release.py -v 0.1.0 -m local -s normal
