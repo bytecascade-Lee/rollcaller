@@ -5,28 +5,19 @@
 uv 命令封装
 """
 
-import subprocess
 from pathlib import Path
 
+from cli import process
 from common.constant.paths import PROJECT_BASE_DIR
-from common.logger import debug, warning
+from common.logger import warning
 
-
-# class UvError(Exception):
-#     """uv 调用失败"""
-#     pass
+# 首次解析全部依赖可能较慢，给足时间
+LOCK_TIMEOUT = 300
 
 
 def lock(cwd: Path | None = None) -> None:
-    """执行 `uv lock` 刷新 uv.lock"""
-    workdir = cwd or PROJECT_BASE_DIR
-    cmd = ["uv", "lock"]
-    debug(f"执行: {' '.join(cmd)} (cwd={workdir})")
+    """执行 `uv lock` 刷新 uv.lock，失败只警告，锁文件滞后不该阻断构建"""
     try:
-        proc = subprocess.run(cmd, cwd=workdir, capture_output=True, check=False)
-    except FileNotFoundError as e:
-        warning(f"未找到 uv 命令: {e}")
-        exit(code=0)
-    if proc.returncode != 0:
-        stderr = proc.stderr.decode("utf-8", "replace").strip()
-        warning(f"uv lock 失败（退出码 {proc.returncode}）: {stderr}")
+        process.run(["uv", "lock"], cwd=cwd or PROJECT_BASE_DIR, timeout=LOCK_TIMEOUT)
+    except process.ProcessError as error:
+        warning(f"uv lock 未完成，uv.lock 可能滞后: {error}")
