@@ -65,30 +65,44 @@ class ProcessError(Exception):
         self.args = (self._describe(),)
 
 
-def resolve(program: str) -> str:
-    """把 program 解析为实际可执行文件路径"""
+def resolve(program: str, *, search_dir: Path | None = None) -> str:
+    """解析 program 为实际可执行文件路径
+
+    解析规则按优先级如下：
+        - 带路径分隔符或绝对路径：按路径直接使用，不做任何搜索，此时 ``search_dir`` 会被忽略
+        - 指定了 ``search_dir``：只在该目录内查找，Windows 上按 .cmd / .bat / .exe 优先级补全扩展名
+        - 其余情况：通过系统 ``PATH`` 搜索，Windows 上同样优先尝试特定扩展名
+
+    :param program: 逻辑 program 名称或路径，如 ``"git"``、``"./scripts/build.sh"``
+    :param search_dir: 限定搜索目录；None 表示走系统 PATH 搜索，若 program 已带路径分隔符，此参数无效
+
+    :raise ProcessError: 目标文件不存在或未找到（``not_found=True``）
+    """
     candidate = Path(program)
     if candidate.is_absolute() or os.sep in program or (os.altsep and os.altsep in program):
         if candidate.is_file():
             return os.path.abspath(str(candidate))
         raise ProcessError([program], not_found=True)
 
-    found = _which(program)
-    if not found:
-        raise ProcessError([program], not_found=True)
-    return found
+    for name in _candidate_names(program):
+        if search_dir is not None:
+            found = search_dir / name
+            if found.is_file():
+                return os.path.abspath(str(found))
+        else:
+            found = shutil.which(name)
+            if found:
+                return found
+    raise ProcessError([program], not_found=True)
 
 
-def _which(program: str) -> str | None:
-    """PATH 搜索，Windows 上优先 .cmd / .bat / .exe"""
-    if os.name == "nt":
-        lower = program.lower()
-        if not any(lower.endswith(s) for s in _ALL_WINDOWS_SUFFIXES):
-            for suffix in _WINDOWS_SUFFIXES:
-                found = shutil.which(program + suffix)
-                if found:
-                    return found
-    return shutil.which(program)
+def _candidate_names(program: str) -> tuple[str, ...]:
+    """按平台给出候选文件名，Windows 且未带已知扩展名时，优先 .cmd / .bat / .exe"""
+    if os.name != "nt":
+        return (program,)
+    if program.lower().endswith(_ALL_WINDOWS_SUFFIXES):
+        return (program,)
+    return *[program + suffix for suffix in _WINDOWS_SUFFIXES], program
 
 
 def build_argv(argv: Sequence[str]) -> list[str]:
