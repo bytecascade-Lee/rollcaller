@@ -2,13 +2,12 @@ name: Release
 
 on:
     push:
-        # 只匹配 v 开头的 tag（v0.1.0、v0.1.0-rc.1 等）
         tags:
             - 'v*'
     workflow_dispatch:
         inputs:
             version:
-                description: '待发布的语义化版本号，形如 0.1.0-rc.1，不得携带构建元数据'
+                description: '待发布的语义化版本号，形如 0.1.0-rc.1，携带的构建元数据会被静默擦除'
                 required: true
                 type: string
             draft:
@@ -113,7 +112,6 @@ jobs:
                     New-Item -ItemType Directory -Force -Path resources/tauri | Out-Null
                     Expand-Archive -Path cargo-tauri.zip -DestinationPath resources/tauri -Force
 
-            # 版本号与 draft 由 prepare job 统一给出
             -   name: Build & package
                 env:
                     MIMO_TTS_API_KEY: ${{ secrets.MIMO_TTS_API_KEY }}
