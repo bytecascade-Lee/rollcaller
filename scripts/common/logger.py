@@ -223,7 +223,7 @@ def _setup_logging():
 # logging.log -> _emit -> 包装函数 -> 调用方。
 # 每个对外函数都只隔着一层 _emit，故一律用 3。
 # [FIXME]：此处栈层级需要仔细设计
-_STACKLEVEL = 4
+_STACKLEVEL = 3
 
 
 def _emit(level_value: int, message: str, stacklevel: int) -> None:
