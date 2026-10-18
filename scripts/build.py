@@ -22,14 +22,12 @@ import util
 from build import builder, hasher, packager, signer, version_files, metadata
 from cli import git, rust, tauri
 from codegen import CodegenError, generate_all
-from common.constant.paths import LOCAL_RELEASE_DIR, ASSETS_DIR
+from common.constant.paths import LOCAL_RELEASE_DIR, ASSETS_DIR, RESOURCES_FILES
 from common.entity.target import Target, UnsupportedTargetError
 from common.entity.version import Version, VersionError
 from common.enums.kind import Kind
 from common.enums.mode import Mode
-from common.enums.os import OS
 from common.logger import info
-from util.execute import exe
 from util.sigint import graceful_sigint
 
 
@@ -48,23 +46,16 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def portable_resources(os: OS) -> list[str]:
-    return [exe("rollcaller", os),
-            "README.md", "LICENSE", "CHANGELOG.md", "RELEASE_NOTES.md",
-            "database", "help"
-            ]
-
-
 # [TODO]：后期统一把 Kind 抽取出来，将 `package()` 变为查表 + 分发，以适应跨平台
 def package(version: Version, target: Target, build_mode: Mode) -> list[Path]:
     """生成各种包，返回最终命名的产物路径"""
+    exe = [f"rollcaller{target.os.exe_suffix}"]
     artifacts = [
         packager.package_setup(version, target, Kind.NSIS),
-        packager.package_archive(portable_resources(target.os), version, target, Kind.PORTABLE),
+        packager.package_archive([*exe, *RESOURCES_FILES], version, target, Kind.PORTABLE),
     ]
     if build_mode == Mode.LOCAL:
-        artifacts.append(packager.package_archive([exe("rollcaller", target.os)],
-                                                  version, target, Kind.DEVELOP, debug_mode=True))
+        artifacts.append(packager.package_archive(exe, version, target, Kind.DEVELOP, debug_mode=True))
     return artifacts
 
 
