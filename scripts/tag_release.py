@@ -16,6 +16,7 @@ import argparse
 import json
 from pathlib import Path
 
+import util
 from cli.git import GitError, git, get_branch
 from common import version as version_mod
 from common.logger import log
@@ -26,11 +27,6 @@ ROOT = Path(__file__).resolve().parent.parent
 VERSIONS_INDEX_PATH = ROOT / "resources" / "update" / "versions.json"
 
 
-def fail(message: str) -> None:
-    log("ERROR", message)
-    raise SystemExit(1)
-
-
 def index_versions() -> set:
     """读取 versions.json 中已标定的版本号集合（规范化，不含前导 v）。
 
@@ -38,21 +34,21 @@ def index_versions() -> set:
     与 `update_versions_index.py` / `publish_*.py` 的读写格式一致，此处同样按裸数组解析。
     """
     if not VERSIONS_INDEX_PATH.exists():
-        fail(f"缺少版本索引源文件: {VERSIONS_INDEX_PATH}")
+        util.fail(f"缺少版本索引源文件: {VERSIONS_INDEX_PATH}")
     try:
         entries = json.loads(VERSIONS_INDEX_PATH.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
-        fail(f"versions.json 解析失败: {e}")
+        util.fail(f"versions.json 解析失败: {e}")
     if not isinstance(entries, list):
-        fail(f"{VERSIONS_INDEX_PATH} 不是合法的裸数组版本索引")
+        util.fail(f"{VERSIONS_INDEX_PATH} 不是合法的裸数组版本索引")
     versions = set()
     for item in entries:
         if not isinstance(item, dict) or not item.get("version"):
-            fail("versions.json 中存在缺少 version 的条目")
+            util.fail("versions.json 中存在缺少 version 的条目")
         try:
             versions.add(version_mod.validate(item["version"]))
         except version_mod.InvalidVersionError as e:
-            fail(f"versions.json 中存在非法版本号: {e}")
+            util.fail(f"versions.json 中存在非法版本号: {e}")
     return versions
 
 
@@ -74,20 +70,20 @@ def main() -> None:
     # 必须在 master 或 main 分支
     branch = get_branch()
     if branch not in ("master", "main"):
-        fail(f"必须在 master 或 main 分支打 tag（当前分支: {branch}）")
+        util.fail(f"必须在 master 或 main 分支打 tag（当前分支: {branch}）")
 
     # 去除前导 v + 格式校验；tag 带 v，versions.json 不带 v
     try:
         ver = version_mod.validate(args.version)
     except version_mod.InvalidVersionError as e:
-        fail(str(e))
+        util.fail(str(e))
     tag = f"v{ver}"
     message = args.message or f"Release {tag}"
 
     # 1. versions.json 必须已标定该版本
     versions = index_versions()
     if ver not in versions:
-        fail(
+        util.fail(
             f"versions.json 中未标定版本 {ver}（tag: {tag}），无法打 tag。\n"
             f"请先标定: python scripts/update_versions_index.py {ver} "
             f"[--severity normal|important|critical]"
@@ -97,15 +93,15 @@ def main() -> None:
     try:
         existing = git(["tag", "--list", tag])
     except GitError as e:
-        fail(str(e))
+        util.fail(str(e))
     if existing:
-        fail(f"本地 tag {tag} 已存在，如需重建请先删除: git tag -d {tag}")
+        util.fail(f"本地 tag {tag} 已存在，如需重建请先删除: git tag -d {tag}")
 
     # 3. 打 annotated tag
     try:
         git(["tag", "-a", tag, "-m", message])
     except GitError as e:
-        fail(str(e))
+        util.fail(str(e))
 
     log("INFO", f"已创建 tag {tag}（{message}）")
 
