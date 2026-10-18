@@ -27,10 +27,12 @@ env:
 
 jobs:
     prepare:
-        name: Prepare matrix
+        name: Prepare
         runs-on: ubuntu-latest
         outputs:
-            matrix: ${{ steps.matrix.outputs.include }}
+            version: ${{ steps.prepare.outputs.version }}
+            draft: ${{ steps.prepare.outputs.draft }}
+            matrix: ${{ steps.prepare.outputs.matrix }}
         steps:
             -   name: Checkout
                 uses: actions/checkout@v4
@@ -38,12 +40,12 @@ jobs:
             -   name: Setup uv
                 uses: astral-sh/setup-uv@v5
 
-            -   name: Generate matrix
-                id: matrix
-                run: uv run ./scripts/tool/generate_matrix.py
+            -   name: Check version & notes, generate matrix
+                id: prepare
+                run: uv run ./scripts/prepare.py -v "${{ inputs.version || github.ref_name }}" ${{ inputs.draft && '--draft' || '' }}
 
     build:
-        name: Build & upload assets (${{ matrix.target }})
+        name: Build & upload assets with ${{ matrix.target }}
         needs: prepare
         runs-on: ${{ matrix.runner }}
         strategy:
@@ -92,6 +94,7 @@ jobs:
                     key: ${{ matrix.target }}
 
             # 只在 ARM64 任务中配置 MSVC ARM64 环境
+            # [TODO]：跨平台的 arm64 配置
             -   name: Configure arm64 msvc development environment
                 if: matrix.arch == 'arm64'
                 uses: step-security/msvc-dev-cmd@v1
@@ -102,6 +105,7 @@ jobs:
             # 之前用 actions/cache 缓存同一静态 key：tag 触发的 workflow 缓存按 ref 隔离，
             # 每次发布都是新 tag → 永远 miss；且两个并行矩阵任务抢同一 key 保存导致 aarch64 保存失败。
             # 体积太小，缓存无收益，改为始终下载，行为确定。
+            # [TODO]：npm 安装 tauri，解决跨平台 + 预编译问题
             -   name: Install tauri-cli (prebuilt, no Tauri actions)
                 shell: pwsh
                 run: |
@@ -109,13 +113,13 @@ jobs:
                     New-Item -ItemType Directory -Force -Path resources/tauri | Out-Null
                     Expand-Archive -Path cargo-tauri.zip -DestinationPath resources/tauri -Force
 
-            # 版本号直接取输入或 tag 名；解析/校验由 build.py 入口负责
+            # 版本号与 draft 由 prepare job 统一给出
             -   name: Build & package
                 env:
                     MIMO_TTS_API_KEY: ${{ secrets.MIMO_TTS_API_KEY }}
                     TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
                     TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-                run: uv run ./scripts/build.py -v ${{ inputs.version || github.ref_name }} -t ${{ matrix.target }} -m ci
+                run: uv run ./scripts/build.py -v "${{ needs.prepare.outputs.version }}" -t ${{ matrix.target }} -m ci
 
             -   name: Upload artifacts
                 uses: actions/upload-artifact@v7
@@ -153,5 +157,4 @@ jobs:
                 env:
                     GH_TOKEN: ${{ github.token }}
                     CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
-                    DRAFT_RELEASE: ${{ inputs.draft }}
-                run: uv run ./scripts/release.py -v ${{ inputs.version || github.ref_name }} -m ci
+                run: uv run ./scripts/release.py -v "${{ needs.prepare.outputs.version }}" -m ci ${{ needs.prepare.outputs.draft == 'true' && '--draft' || '' }}
