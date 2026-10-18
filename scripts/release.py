@@ -18,11 +18,9 @@ CI:
 """
 
 import argparse
-import os
 import sys
 
 import util
-from check.check_version import check_version
 from cli import cnb as cnb_cli
 from cli import gh, git
 from common.constant.paths import ASSETS_DIR, PROJECT_BASE_DIR, VERSIONS_INDEX_SOURCE_PATH
@@ -50,14 +48,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-v", "--version", required=True, metavar="VERSION", help="语义化版本号")
     parser.add_argument("-m", "--mode", required=True, choices=Mode.values(), help="发布模式")
     parser.add_argument("-s", "--severity", choices=Severity.values(), help="严重级别")
+    parser.add_argument("--draft", action="store_true", help="是否草稿模式发布")
     # parser.add_argument("-r", "--rate", type=int, default=serve.DEFAULT_RATE_KB, metavar="KBPS", help="本地更新服务限速 KB/s")
 
     return parser.parse_args()
-
-
-def is_draft() -> bool:
-    """CI 草稿标记，DRAFT_RELEASE=true，大小写不敏感"""
-    return os.environ.get("DRAFT_RELEASE", "").strip().lower() == "true"
 
 
 def _local_full_version(version: Version) -> Version:
@@ -65,23 +59,8 @@ def _local_full_version(version: Version) -> Version:
     try:
         build_info = git.get_build_info(cwd=PROJECT_BASE_DIR)
         return Version.parse(f"{version}+{build_info}")
-    except (git.GitError, ValueError) as error:
+    except (git.GitError, VersionError) as error:
         raise ReleaseError(f"无法推导本地完整版本号: {error}") from error
-
-
-def _guard_tag_version(version: Version) -> None:
-    """tag 触发时，传入版本必须与 tag 名一致"""
-    if os.environ.get("GITHUB_REF_TYPE") != "tag":
-        return
-    ref = os.environ.get("GITHUB_REF_NAME", "").strip()
-    if not ref:
-        raise ReleaseError("tag 发布缺少 GITHUB_REF_NAME")
-    try:
-        tagged = Version.parse(ref)
-    except ValueError as error:
-        raise ReleaseError(f"tag 名不是合法版本号: {ref!r}（{error}）") from error
-    if str(tagged) != str(version):
-        raise ReleaseError(f"tag {ref!r} 与传入版本 {str(version)!r} 不一致")
 
 
 # def release_local(version: Version, severity: Severity, rate: int) -> None:
@@ -106,8 +85,6 @@ def release_local(version: Version, severity: Severity) -> None:
 
 def release_ci(version: Version, draft: bool) -> None:
     """CI：鉴权 → 说明 → 发现产物 → 版本索引 → 双清单 → 双平台发布"""
-    _guard_tag_version(version)
-
     try:
         gh.require_auth()
         cnb_cli.require_auth()
@@ -155,6 +132,8 @@ def main() -> int:
     mode = Mode(args.mode)
 
     if mode == Mode.LOCAL:
+        if args.draft:
+            warning("--draft 仅用于 CI，LOCAL 忽略")
         severity = Severity(args.severity) if args.severity is not None else Severity.default()
         # release_local(version, severity, args.rate)
         release_local(version, severity)
@@ -165,7 +144,7 @@ def main() -> int:
     # if args.rate != serve.DEFAULT_RATE_KB:
     #     warning("-r/--rate 仅用于 LOCAL")
 
-    release_ci(version, is_draft())
+    release_ci(version, args.draft)
     return 0
 
 
@@ -175,6 +154,7 @@ if __name__ == "__main__":
             sys.exit(main())
         except (
                 ReleaseError,
+                VersionError,
                 git.GitError,
                 local.LocalReleaseError,
                 release_assets.AssetDiscoveryError,
