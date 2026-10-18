@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Iterable, Any
 from urllib.parse import urlencode
 
-from common.logger import debug
+from cli import process
 
 DEFAULT_TIMEOUT = 120
 UPLOAD_TIMEOUT = 1800
@@ -34,52 +34,35 @@ class GhAuthError(GhError):
     pass
 
 
-def _run(args: list[str], *, timeout: float | int) -> subprocess.CompletedProcess:
+def _run(args: list[str], *, timeout: float | int, text: bool = True) -> subprocess.CompletedProcess:
     """
     执行 gh 命令并返回 CompletedProcess
 
     :param args: gh 子命令及其参数，如 ["auth", "status"]
     :param timeout: 超时秒数
+    :param text: True 返回 str，False 返回原始 bytes
 
     :raise GhError: 未找到 gh 命令，或命令超时，或命令执行失败
     :raise GhAuthError: HTTP 401，或 auth 子命令本身失败
     """
-    command = ["gh", *args]
-    debug(f"执行: gh {' '.join(args)}")
-
     try:
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            check=False,
-            timeout=timeout,
-        )
-    except FileNotFoundError as error:
-        raise GhError("未找到 gh 命令，请先访问 https://cli.github.com 安装 GitHub CLI") from error
-    except subprocess.TimeoutExpired as error:
-        raise GhError(f"gh {' '.join(args)} 在 {timeout}s 内未执行完毕，超时") from error
-
-    if result.returncode != 0:
-        stderr = result.stderr.decode("utf-8", "replace").strip()
-        stdout = result.stdout.decode("utf-8", "replace").strip()
-        detail = stderr or stdout
+        return process.run(["gh", *args], timeout=timeout, text=text)
+    except process.ProcessError as error:
         # 401 是凭据问题，任何调用点都应立刻可见；403 可能是限流，不并进来
-        if http_status_from_text(detail) == 401 or args[:2] == ["auth", "status"]:
-            raise GhAuthError(f"gh 鉴权失败: {detail}")
-        raise GhError(f"gh {' '.join(args)} 失败（退出码 {result.returncode}）: {detail}")
-
-    return result
+        if args[:2] == ["auth", "status"] or http_status_from_text(error.detail) == 401:
+            raise GhAuthError(f"gh 鉴权失败: {error.detail or error}") from error
+        raise GhError(str(error)) from error
 
 
 def stdout(args: list[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> str:
     """执行 gh 命令，返回 utf-8 解码并 strip 后的 stdout"""
     result = _run(args, timeout=timeout)
-    return result.stdout.decode("utf-8", "replace").strip()
+    return str(result.stdout).strip()
 
 
 def stdout_bytes(args: list[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> bytes:
     """执行 gh 命令，返回原始字节 stdout"""
-    return _run(args, timeout=timeout).stdout
+    return _run(args, timeout=timeout, text=False).stdout
 
 
 def auth() -> None:
