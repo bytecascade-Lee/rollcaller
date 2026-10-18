@@ -55,11 +55,11 @@ def main() -> int:
     write_output("version", str(version))
 
     if args.draft:
-        notes = release_notes.extract(version)
-        info(f"发布说明包括 {len(notes)} 个字符")
+        info(f"草稿模式，跳过发布说明的检查")
         write_output("draft", "true")
     else:
-        info(f"草稿模式，跳过发布说明")
+        notes = release_notes.extract(version)
+        info(f"版本 {version!r} 对应的发布说明包括 {len(notes.splitlines())} 行，{len(notes)} 个字符")
         write_output("draft", "false")
 
     matrix = render(build_matrix())
