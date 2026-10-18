@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from cli.git import GitError, get_blob, git
+from cli.git import GitError, show_blob, stdout
 from common.constant.paths import PROJECT_BASE_DIR, DOCS_DIR
 from common.logger import debug, error, info, success, warning
 from util import sanitize_filename
@@ -128,7 +128,7 @@ class Snapshot:
 
 def _blob_or_warn(ref: str, path: str) -> Optional[bytes]:
     """取 `<ref>:<path>` 的原始内容；取不到时告警并返回 None（原因见 DEBUG 日志）"""
-    data = get_blob(ref, path, PROJECT_BASE_DIR)
+    data = show_blob(ref, path)
     if data is None:
         warning(f"{ref}:{path} 取不到内容，按「不存在」处理")
     return data
@@ -164,7 +164,7 @@ def _list_changes(base: Sequence[str], selectors: Sequence[str]) -> List[Change]
     args = ["diff", *base, "--name-status", "-z", "-M"]
     if selectors:
         args += ["--", *selectors]
-    out = git(args, cwd=PROJECT_BASE_DIR)
+    out = stdout(args, cwd=PROJECT_BASE_DIR)
     if not out:
         return []
 
@@ -226,7 +226,7 @@ def _normalize_selectors(raw: Sequence[str]) -> List[str]:
 
 def _patch_of(base: Sequence[str], paths: Sequence[str], context: int) -> str:
     """取本文件的 unified diff；重命名要同时传新旧路径，否则 git 会退化成「新增+删除」"""
-    return git(
+    return stdout(
         ["diff", *base, f"-U{context}", "--no-color", "-M", "--", *paths],
         cwd=PROJECT_BASE_DIR,
     )
@@ -235,7 +235,7 @@ def _patch_of(base: Sequence[str], paths: Sequence[str], context: int) -> str:
 def _count_untracked() -> int:
     """未跟踪文件数（只用于日志说明它们被忽略了）"""
     try:
-        out = git(["ls-files", "--others", "--exclude-standard", "-z"], cwd=PROJECT_BASE_DIR)
+        out = stdout(["ls-files", "--others", "--exclude-standard", "-z"], cwd=PROJECT_BASE_DIR)
     except GitError:
         return 0
     return len([f for f in out.split("\0") if f]) if out else 0
