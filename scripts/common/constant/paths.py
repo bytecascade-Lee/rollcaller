@@ -55,6 +55,9 @@ CARGO_TOML_PATH = BACKEND_DIR / "Cargo.toml"
 CARGO_LOCK_PATH = BACKEND_DIR / "Cargo.lock"
 PACKAGE_JSON_PATH = FRONTEND_DIR / "package.json"
 
+# 打包时的资源文件
+RESOURCES_FILES = ("README.md", "LICENSE", "CHANGELOG.md", "RELEASE_NOTES.md", "database", "help")
+
 # 含版本号字段、由脚本按正则改写的文件
 VERSION_FILES = (
     PYPROJECT_PATH,
