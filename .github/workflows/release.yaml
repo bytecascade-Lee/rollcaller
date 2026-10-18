@@ -74,9 +74,7 @@ jobs:
 
             -   name: Install frontend dependencies
                 working-directory: frontend
-                run: |
-                    Write-Host "pnpm version: $(pnpm --version)"
-                    pnpm install --frozen-lockfile
+                run: pnpm install --frozen-lockfile
 
             -   name: Install Rust toolchain (cargo/rustc)
                 uses: dtolnay/rust-toolchain@stable
@@ -99,18 +97,6 @@ jobs:
                 uses: step-security/msvc-dev-cmd@v1
                 with:
                     arch: amd64_arm64
-
-            # 6.6MB 的预编译 tauri-cli（固定 2.11.4）直接从 GitHub Releases 下载。
-            # 之前用 actions/cache 缓存同一静态 key：tag 触发的 workflow 缓存按 ref 隔离，
-            # 每次发布都是新 tag → 永远 miss；且两个并行矩阵任务抢同一 key 保存导致 aarch64 保存失败。
-            # 体积太小，缓存无收益，改为始终下载，行为确定。
-            # [TODO]：npm 安装 tauri，解决跨平台 + 预编译问题
-            -   name: Install tauri-cli (prebuilt, no Tauri actions)
-                shell: pwsh
-                run: |
-                    Invoke-WebRequest -Uri "https://github.com/tauri-apps/tauri/releases/download/tauri-cli-v2.11.4/cargo-tauri-x86_64-pc-windows-msvc.zip" -OutFile cargo-tauri.zip
-                    New-Item -ItemType Directory -Force -Path resources/tauri | Out-Null
-                    Expand-Archive -Path cargo-tauri.zip -DestinationPath resources/tauri -Force
 
             -   name: Build & package
                 env:
@@ -149,8 +135,6 @@ jobs:
                     pattern: release-assets-*
                     merge-multiple: true
 
-            # 发布逻辑集中在 scripts/release.py：读 assets、生成双平台清单与 versions.json、
-            # 创建 tag 并发布 GitHub / CNB 两端
             -   name: Publish GitHub & CNB releases
                 env:
                     GH_TOKEN: ${{ github.token }}
