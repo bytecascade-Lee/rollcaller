@@ -151,12 +151,7 @@ def release_ci(version: Version, draft: bool) -> None:
 
 def main() -> int:
     args = parse_args()
-
-    try:
-        version = check_version(args.version)
-    except VersionError as error:
-        raise ReleaseError(str(error)) from error
-
+    version = Version.parse(args.version, erase_build_metadata=True)
     mode = Mode(args.mode)
 
     if mode == Mode.LOCAL:

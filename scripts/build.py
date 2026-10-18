@@ -24,11 +24,11 @@ from cli import exec_py, git, rust, tauri
 from codegen import CODEGEN_FILES
 from common.constant.paths import PROJECT_BASE_DIR, LOCAL_RELEASE_DIR, ASSETS_DIR
 from common.entity.target import Target, UnsupportedTargetError
-from common.entity.version import Version
+from common.entity.version import Version, VersionError
 from common.enums.kind import Kind
 from common.enums.mode import Mode
 from common.enums.os import OS
-from common.logger import info, warning
+from common.logger import info
 from util.execute import exe
 from util.sigint import graceful_sigint
 
@@ -102,13 +102,7 @@ def main() -> int:
     if missing:
         raise BuildError(f"未传递参数: {', '.join(missing)}")
 
-    signer.check_env()
-
-    version = Version.parse(args.version)
-    if (input_build_info := version.build) is not None:
-        version = Version.parse(args.version.split("+", 1)[0])
-        warning(f"传递进来的版本号携带有构建信息 {input_build_info!r}，已自动忽略")
-
+    version = Version.parse(args.version, erase_build_metadata=True)
     target = Target(rust.resolve_triple(args.target))
     mode = Mode(args.mode)
 
@@ -153,6 +147,7 @@ if __name__ == "__main__":
             sys.exit(main())
         except (
                 BuildError,
+                VersionError,
                 git.GitError,
                 signer.SignError,
                 tauri.TauriError,

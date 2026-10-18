@@ -50,7 +50,7 @@ def write_output(key: str, value: str) -> bool:
 def main() -> int:
     args = parse_args()
 
-    version = Version.parse_release(args.version)
+    version = Version.parse(args.version, erase_build_metadata=True)
     info(f"版本校验通过: {version}")
     write_output("version", str(version))
 
