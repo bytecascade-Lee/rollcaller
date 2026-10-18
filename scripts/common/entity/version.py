@@ -22,16 +22,16 @@ class Version(semver.Version):
 
     @classmethod
     @override
-    def parse(cls, version: str, optional_minor_and_patch: bool = False) -> "Version":
+    def parse(cls, version: str, optional_minor_and_patch: bool = False, erase_build_metadata: bool = False) -> "Version":
         s = version.strip().lower()
         if s.startswith("v"):
             s = s[1:]
 
         base, sep, build = s.partition("+")
 
-        base = base.replace("/", "-").replace("_", "-")
+        base = cls.sanitize_base_partition(base)
 
-        if sep:
+        if sep and (not erase_build_metadata):
             s = f"{base}+{cls.sanitize_build_partition(build)}"
         else:
             s = base
@@ -39,7 +39,7 @@ class Version(semver.Version):
         try:
             return super().parse(s, optional_minor_and_patch=optional_minor_and_patch)
         except (ValueError, TypeError) as e:
-            raise VersionError() from e
+            raise VersionError(f"版本号 {version!r} 格式非法: {e}") from e
 
     def is_prerelease(self) -> bool:
         return self.prerelease is not None
@@ -61,3 +61,7 @@ class Version(semver.Version):
         s = re.compile(r"[-.]{2,}").sub("-", s)
         s = re.compile(r"^[-.]+|[-.]+$").sub("", s)
         return s
+
+    @staticmethod
+    def sanitize_base_partition(value: str) -> str:
+        return value.strip().lower().replace("/", "-").replace("_", "-")
