@@ -10,7 +10,6 @@ from enum import StrEnum
 
 class OSTypeError(Exception):
     """os 无法解析：未识别的操作系统类型"""
-    pass
 
 
 class OS(StrEnum):
@@ -30,3 +29,9 @@ class OS(StrEnum):
         if token == "linux":
             return cls.LINUX
         return None
+
+    @property
+    def exe_suffix(self) -> str:
+        if self == OS.WINDOWS:
+            return ".exe"
+        return ""
