@@ -3,10 +3,6 @@
 
 """
 本地构建目录定位
-
-本地发布的版本号是 `<core>+<branch>.<count>.<hash>`，目录名必须与当前
-HEAD 推导出的 full 版本**完全一致**：只按 core 前缀择优会掩盖「构建后
-又切分支 / 产生新提交」这个错误。
 """
 
 from dataclasses import dataclass

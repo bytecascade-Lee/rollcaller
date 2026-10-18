@@ -1,5 +1,4 @@
 from enum import StrEnum
-from typing import assert_never
 
 
 class Severity(StrEnum):
@@ -24,8 +23,8 @@ class Severity(StrEnum):
                 return 1
             case Severity.CRITICAL:
                 return 2
-            case _:
-                assert_never(self)
+            case _ as unreachable:
+                raise AssertionError(unreachable)
 
     def __lt__(self, other):
         if isinstance(other, Severity):

@@ -6,7 +6,7 @@
 """
 
 from pathlib import Path
-from typing import Dict, Optional, Sequence
+from typing import Sequence
 
 from cli import process
 from common.constant.paths import BACKEND_DIR, FRONTEND_NODE_DIR
@@ -20,7 +20,7 @@ class TauriError(Exception):
 BIN_DIR = FRONTEND_NODE_DIR / ".bin"
 
 
-def _run(args: Sequence[str], env: Optional[Dict[str, str]] = None) -> None:
+def _run(args: Sequence[str], env: dict[str, str] | None = None) -> None:
     """在 BACKEND_DIR 下执行一条 tauri 命令；启动失败或退出码非 0 抛出 TauriError"""
     try:
         binary = process.resolve("tauri", search_dir=BIN_DIR)
@@ -42,8 +42,7 @@ def dev(target: Target, wait_frontend: bool = False) -> None:
     _run(args)
 
 
-def build(target: Target, *, debug_mode: bool = False, bundle: bool = True,
-          env: Optional[Dict[str, str]] = None) -> None:
+def build(target: Target, *, debug_mode: bool = False, bundle: bool = True, env: dict[str, str] | None = None) -> None:
     """执行 `tauri build --target <triple>` [--debug --bundle]
 
     :param target:      待构建的 Target 目标

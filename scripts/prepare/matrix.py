@@ -3,9 +3,6 @@
 
 """
 构建矩阵
-
-来源唯一：`common.support.pipeline_entries()`（同时开放 BUILD 与 RELEASE 的目标）。
-矩阵与产物发现共用这一份集合，避免 workflow 手写列表与支持表漂移。
 """
 
 import json

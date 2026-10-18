@@ -12,7 +12,7 @@ Ctrl+C 在控制台是广播，同一次按键会被每个进程各响应一次�
 import signal
 import sys
 from contextlib import contextmanager
-from typing import Callable, Iterator, Optional
+from typing import Callable, Iterator
 
 from common.logger import warning
 
@@ -32,13 +32,11 @@ class _InterruptGuard:
         if self.interrupted:
             raise KeyboardInterrupt
         self.interrupted = True
-        warning("执行 Ctrl+C，等待子进程退出...")
+        warning("执行 Ctrl+C，正在退出...")
 
 
 @contextmanager
-def graceful_sigint(
-    on_error: Optional[Callable[[str], None]] = None, exit_code: int = 130
-) -> Iterator[Callable[[], bool]]:
+def graceful_sigint(on_error: Callable[[str], None] | None = None, exit_code: int = 130) -> Iterator[Callable[[], bool]]:
     """接管 SIGINT
 
     第一次等待子进程退干净，第二次放行强制收场。中断态静默收场，

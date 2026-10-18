@@ -6,9 +6,9 @@
 import subprocess
 from functools import cache
 from pathlib import Path
-from typing import List, Optional
 
 from cli import process
+from common.constant.paths import PROJECT_BASE_DIR
 from common.entity.target import Target, UnsupportedTargetError
 
 
@@ -17,8 +17,9 @@ class RustError(Exception):
     pass
 
 
-def _run(args: List[str], cwd: Optional[Path] = None) -> subprocess.CompletedProcess:
+def _run(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
     """执行 rust 命令，失败抛 RustError"""
+    cwd = cwd or PROJECT_BASE_DIR
     try:
         return process.run(args, cwd=cwd)
     except process.ProcessError as error:
@@ -27,7 +28,7 @@ def _run(args: List[str], cwd: Optional[Path] = None) -> subprocess.CompletedPro
         raise RustError(str(error)) from error
 
 
-def rustc(args: List[str], cwd: Optional[Path] = None) -> str:
+def rustc(args: list[str], cwd: Path | None = None) -> str:
     return str(_run(["rustc", *args], cwd).stdout).strip()
 
 
@@ -40,7 +41,7 @@ def get_host_target() -> Target:
 
 
 @cache
-def get_triples() -> List[str]:
+def get_triples() -> list[str]:
     """rustc 支持的全部目标三元组"""
     return rustc(["--print", "target-list"]).splitlines()
 

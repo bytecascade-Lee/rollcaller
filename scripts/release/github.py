@@ -5,7 +5,7 @@
 GitHub Release 发布
 
 流程：
-    确保 tag（存在则复用，不存在则在当前提交创建）-> 创建 / 更新 Release -> 上传
+    确保 tag 存在/ 创建 tag -> 创建 / 更新 Release -> 上传
 """
 
 from collections.abc import Sequence
