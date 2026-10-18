@@ -106,6 +106,8 @@ def main() -> int:
     target = Target(rust.resolve_triple(args.target))
     mode = Mode(args.mode)
 
+    signer.check_env()
+
     if mode == Mode.LOCAL:
         version = Version.parse(f"{version}+{git.get_build_info(cwd=PROJECT_BASE_DIR)}")
         out_dir = LOCAL_RELEASE_DIR / str(version)
