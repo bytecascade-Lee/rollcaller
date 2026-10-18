@@ -5,7 +5,7 @@
 GitHub Release 发布
 
 流程：
-    断言 tag -> 创建 / 更新 Release -> 上传
+    确保 tag（存在则复用，不存在则在当前提交创建）-> 创建 / 更新 Release -> 上传
 """
 
 from collections.abc import Sequence
@@ -22,16 +22,18 @@ class GithubReleaseError(Exception):
 
 
 def ensure_tag(repo: str, tag: str, sha: str) -> None:
-    """确保 tag 存在且指向 sha；已存在但指向别处直接失败"""
+    """确保 tag 存在：已存在则原样复用，不存在则在 sha 处创建
+
+    不复核既有 tag 的指向：tag 触发时它由用户推送，目标提交以检出结果为准；
+    手动重发同一版本时，也允许在既有 tag 上覆盖 Release 附件。
+    """
     try:
         existing = gh.ref_commit_sha(repo, tag)
     except gh.GhError as e:
         raise GithubReleaseError(f"查询 GitHub tag {tag!r} 失败: {e}") from e
 
     if existing is not None:
-        if existing != sha:
-            raise GithubReleaseError(f"GitHub 已存在 tag {tag!r} 指向 {existing!r}，与本次发布的提交 {sha!r} 不一致")
-        info(f"GitHub tag {tag!r} 已存在 {sha!r}，无需再次创建")
+        info(f"GitHub tag {tag!r} 已存在（指向 {existing!r}），沿用")
         return
 
     try:
