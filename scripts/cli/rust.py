@@ -8,8 +8,8 @@ from functools import cache
 from pathlib import Path
 from typing import List, Optional
 
+from cli import process
 from common.entity.target import Target, UnsupportedTargetError
-from common.logger import debug
 
 
 class RustError(Exception):
@@ -19,26 +19,16 @@ class RustError(Exception):
 
 def _run(args: List[str], cwd: Optional[Path] = None) -> subprocess.CompletedProcess:
     """执行 rust 命令，失败抛 RustError"""
-    debug(f"执行: {' '.join(args)}")
     try:
-        result = subprocess.run(
-            args,
-            cwd=cwd,
-            capture_output=True,
-            check=False,
-        )
-    except FileNotFoundError:
-        raise RustError("未找到 rust 命令，请确保已安装 Rust 工具链")
-
-    if result.returncode != 0:
-        stderr = result.stderr.decode("utf-8", "replace").strip()
-        raise RustError(f"命令 {' '.join(args)} 失败: {stderr}")
-
-    return result
+        return process.run(args, cwd=cwd)
+    except process.ProcessError as error:
+        if error.not_found:
+            raise RustError(f"未找到 {args[0]!r}，请确保已安装 Rust 工具链并加入 PATH") from error
+        raise RustError(str(error)) from error
 
 
 def rustc(args: List[str], cwd: Optional[Path] = None) -> str:
-    return _run(["rustc", *args], cwd).stdout.decode("utf-8", "replace").strip()
+    return str(_run(["rustc", *args], cwd).stdout).strip()
 
 
 def get_host_target() -> Target:
