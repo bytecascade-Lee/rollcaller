@@ -76,7 +76,7 @@ def release_local(version: Version, severity: Severity, rate: int) -> None:
 def release_ci(version: Version, draft: bool) -> None:
     """CI：鉴权 → 说明 → 发现产物 → 版本索引 → 双清单 → 双平台发布"""
     try:
-        gh.require_auth()
+        gh.auth()
         cnb_cli.require_auth()
     except (gh.GhError, cnb_cli.CnbError) as error:
         raise ReleaseError(f"发布鉴权失败: {error}") from error
