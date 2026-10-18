@@ -37,6 +37,9 @@ _BY_TRIPLE: dict[str, SupportedTarget] = {
 RELEASE_KINDS: frozenset[Kind] = frozenset({Kind.NSIS, Kind.PORTABLE})
 LOCAL_KINDS: frozenset[Kind] = RELEASE_KINDS | {Kind.DEVELOP}
 
+# CI 构建 + 发布管线要求目标同时开放 Build 与 Release 两个动作
+PIPELINE_ACTIONS: frozenset[Action] = frozenset({Action.BUILD, Action.RELEASE})
+
 
 def validate() -> None:
     """导入期自检：任何一条不成立都说明注册表写错了"""
@@ -71,6 +74,11 @@ def require(target: Target, action: Action) -> SupportedTarget:
 def entries(action: Action) -> tuple[SupportedTarget, ...]:
     """开放指定动作档位的全部注册项，保持声明顺序，矩阵按此生成"""
     return tuple(entry for entry in SUPPORTED_TARGETS if entry.supports(action))
+
+
+def pipeline_entries() -> tuple[SupportedTarget, ...]:
+    """CI 矩阵与 release 发现下，同时开放 BUILD 与 RELEASE 的注册项"""
+    return tuple(entry for entry in SUPPORTED_TARGETS if entry.actions >= PIPELINE_ACTIONS)
 
 
 def targets(action: Action) -> tuple[Target, ...]:
