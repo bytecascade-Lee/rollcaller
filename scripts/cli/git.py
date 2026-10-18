@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from common.constant.paths import PROJECT_BASE_DIR
-from common.constant.repo import RELEASE_LINE
 from common.entity.commit_info import CommitInfo
 from common.logger import debug
 
@@ -85,35 +84,27 @@ def get_head_hash(short: bool = False, cwd: Optional[Path] = None) -> str:
 
 
 def get_branch(cwd: Optional[Path] = None) -> str:
-    """获取当前分支名，如果处于 detached HEAD 状态，返回 "detached"""
+    """获取当前分支名；detached HEAD 固定返回 "detached" """
     try:
         return git(["symbolic-ref", "--short", "HEAD"], cwd)
     except GitError:
-        try:
-            tag = git(["describe", "--tags", "--exact-match"], cwd)
-            return f"detached@{tag}"
-        except GitError:
-            try:
-                short_hash = get_head_hash(True, cwd)
-                return f"detached@{short_hash}"
-            except GitError:
-                return "detached"
+        return "detached"
 
 
-def source_branch() -> str:
+def source_branch(cwd: Optional[Path] = None) -> str:
     """
-    来源分支：
-        tag 发布  -> 发布线 RELEASE_LINE
-        手动发布  -> 所选 ref
-        本地/其它 -> 当前分支，detached HEAD 时形如 detached@<tag|短哈希>
+    来源引用名：
+        tag 发布 / detached HEAD -> "detached"
+        CI 分支触发            -> 所选分支名
+        本地                    -> 当前分支名
     """
     ref_type = os.environ.get("GITHUB_REF_TYPE")
     if ref_type == "tag":
-        return RELEASE_LINE
+        return "detached"
     ref_name = os.environ.get("GITHUB_REF_NAME")
     if ref_type == "branch" and ref_name:
         return ref_name
-    return get_branch(PROJECT_BASE_DIR)
+    return get_branch(cwd or PROJECT_BASE_DIR)
 
 
 def get_commit_count(cwd: Optional[Path] = None) -> int:
@@ -165,11 +156,11 @@ def get_tags_since(commit: str, cwd: Optional[Path] = None) -> List[str]:
 
 
 def get_build_info(cwd: Optional[Path] = None) -> str:
-    """获取构建信息字符串：分支名.提交总数.短哈希"""
-    branch = get_branch(cwd)
+    """获取构建信息字符串：<ref_name>.<提交总数>.<短哈希>"""
+    ref_name = source_branch(cwd)
     count = get_commit_count(cwd)
     abbreviated_hash = get_head_hash(cwd=cwd)[:10]
-    return f"{branch}.{count}.{abbreviated_hash}"
+    return f"{ref_name}.{count}.{abbreviated_hash}"
 
 
 def are_clean(files, cwd: Optional[Path] = None) -> Tuple[bool, str]:
