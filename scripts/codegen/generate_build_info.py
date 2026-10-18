@@ -31,7 +31,7 @@ def generate_build_info() -> BuildInfo:
         raise GitError("当前仓库没有任何提交，无法确定构建来源")
 
     return BuildInfo(
-        branch=source_branch(),
+        ref_name=source_branch(),
         commit_count=get_commit_count(cwd=PROJECT_BASE_DIR),
         commit_hash=get_head_hash(cwd=PROJECT_BASE_DIR),
         commit_time=datetime.fromtimestamp(int(commit_time), UTC),
@@ -41,7 +41,7 @@ def generate_build_info() -> BuildInfo:
 
 def to_json_dict(build_info: BuildInfo) -> dict[str, str | int]:
     return {
-        "branch": build_info.branch,
+        "ref_name": build_info.ref_name,
         "commit_count": build_info.commit_count,
         "commit_hash": build_info.commit_hash,
         "abbreviated_hash": build_info.abbreviated_hash,

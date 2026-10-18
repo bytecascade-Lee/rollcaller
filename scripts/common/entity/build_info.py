@@ -6,7 +6,7 @@ from datetime import datetime
 class BuildInfo:
     """一次构建的元数据，即 build_info.json 的全部内容"""
 
-    branch: str
+    ref_name: str
     commit_count: int
     commit_hash: str
     commit_time: datetime
