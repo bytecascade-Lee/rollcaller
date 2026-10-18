@@ -10,6 +10,7 @@ import subprocess
 from pathlib import Path
 from typing import Iterable, Sequence
 
+from cli import process
 from common.constant.paths import PROJECT_BASE_DIR
 from common.logger import debug
 
@@ -24,46 +25,37 @@ class GitError(Exception):
 
 
 def _run(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int = DEFAULT_TIMEOUT,
-         allow: tuple[int, ...] = ()) -> subprocess.CompletedProcess:
+         allow: tuple[int, ...] = (0,), text: bool = True) -> subprocess.CompletedProcess:
     """
     执行 git 命令并返回 CompletedProcess
 
+    统一加 `--no-pager` 与 `core.quotepath=false`，并固定 `LC_ALL=C`（输出可解析）、
+    关闭终端交互提示（凭据缺失时快速失败而不是挂在子进程里）。
 
     :param args: git 子命令及其参数，如 ["rev-parse", "HEAD"]
     :param cwd: 工作目录，缺省 PROJECT_BASE_DIR
     :param timeout: 超时秒数
-    :param allow: 额外允许的退出码，例如 `rev-parse --verify` 的 1 表示对象不存在，不在 allow 里的非零退出仍抛异常
+    :param allow: 额外允许的退出码，例如 `rev-parse --verify` 的 1 表示对象不存在
+    :param text: True 返回 str，False 返回原始 bytes
 
     :raise GitError: 未找到 git 命令，或命令超时，或命令执行失败
     """
-    cwd = cwd or PROJECT_BASE_DIR
-    command = ["git", "--no-pager", "-c", "core.quotepath=false", *args]
-    debug(f"执行: {' '.join(command)}（cwd={cwd}）")
-
     try:
-        result = subprocess.run(
-            command,
-            cwd=cwd,
-            capture_output=True,
-            check=False,
-            timeout=timeout,
+        return process.run(
+            ["git", "--no-pager", "-c", "core.quotepath=false", *args],
+            cwd=cwd or PROJECT_BASE_DIR,
             env={**os.environ, "LC_ALL": "C", "GIT_TERMINAL_PROMPT": "0"},
+            timeout=timeout,
+            text=text,
+            allow=allow,
         )
-    except FileNotFoundError as error:
-        raise GitError("未找到 git 命令，请确认已安装 Git 并加入 PATH") from error
-    except subprocess.TimeoutExpired as error:
-        raise GitError(f"git {' '.join(args)} 在 {timeout}s 内未执行完毕，超时") from error
-
-    if result.returncode != 0 and result.returncode not in allow:
-        stderr = result.stderr.decode("utf-8", "replace").strip()
-        raise GitError(f"git {' '.join(args)} 失败，退出码为 {result.returncode}，错误信息为 {stderr}")
-
-    return result
+    except process.ProcessError as error:
+        raise GitError(str(error)) from error
 
 
 def _text(result: subprocess.CompletedProcess) -> str:
-    """CompletedProcess.stdout -> utf-8 字符串并 strip，非法字节替换为 U+FFFD"""
-    return result.stdout.decode("utf-8", "replace").strip()
+    """CompletedProcess.stdout -> 字符串并 strip；非法字节已在 cli.process 中替换为 U+FFFD"""
+    return str(result.stdout).strip()
 
 
 def _paths(paths: Iterable[str | Path]) -> list[str]:
@@ -77,8 +69,8 @@ def stdout(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int
 
 
 def stdout_bytes(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int = DEFAULT_TIMEOUT) -> bytes:
-    """执行 git 命令，返回未解码的 stdout"""
-    return _run(args, cwd=cwd, timeout=timeout).stdout
+    """执行 git 命令，返回未解码的 stdout（blob 可能是二进制）"""
+    return _run(args, cwd=cwd, timeout=timeout, text=False).stdout
 
 
 def is_repo(cwd: Path | None = None) -> bool:
