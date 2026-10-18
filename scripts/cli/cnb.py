@@ -6,18 +6,16 @@ CNB CLI 操作模块，封装常用 cnb 命令，返回结构化数据
 """
 
 import json
-import os
 import re
-import shutil
 import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from common.logger import debug, info, warning
+from cli import process
+from common.logger import info, warning
 
 DEFAULT_TIMEOUT = 120
 UPLOAD_TIMEOUT = 1800
@@ -33,11 +31,7 @@ class CnbError(Exception):
 
 
 class CnbApiError(CnbError):
-    """
-    CNB API 返回 errcode（例如「标签/版本不存在」）。
-
-    注意：这类错误不会让 cnb 进程退出码变为非 0，只有在解析响应 JSON 时才能发现。
-    """
+    """CNB API 返回 errcode。注意：这类错误不会让 cnb 进程退出码变为非 0，只有在解析响应 JSON 时才能发现"""
 
     def __init__(self, message: str, errcode: int | None = None):
         super().__init__(message)
@@ -48,76 +42,41 @@ class CnbAuthError(CnbError):
     """cnb 未登录或缺少凭据"""
 
 
-@lru_cache(maxsize=1)
-def _cli() -> tuple[str, str]:
-    """解析 cnb cli 的调用方式（node + cli 入口），见模块 docstring 第 1 条。"""
-    node = os.environ.get("CNB_NODE") or shutil.which("node")
-    if not node:
-        raise CnbError("未找到 node（cnb cli 依赖 node，请先安装 Node.js）")
-
-    override = os.environ.get("CNB_CLI")
-    if override:
-        cli_path = Path(override)
-        if not cli_path.is_file():
-            raise CnbError(f"CNB_CLI 指向的文件不存在: {override!r}")
-        return node, str(cli_path)
-
-    shim = shutil.which("cnb")
-    if not shim:
-        raise CnbError("未找到 cnb 命令（请先安装 @cnbcool/cnb-cli，或设 CNB_CLI 指向 cnb.js）")
-
-    base = Path(shim).resolve().parent
-    candidates = (
-        base / "node_modules" / "@cnbcool" / "cnb-cli" / "bin" / "cnb.js",
-        base / ".." / "lib" / "node_modules" / "@cnbcool" / "cnb-cli" / "bin" / "cnb.js",
-    )
-    for candidate in candidates:
-        if candidate.is_file():
-            return node, str(candidate.resolve())
-    tried = "、".join(str(path) for path in candidates)
-    raise CnbError(f"未找到 cnb-cli 入口（已尝试: {tried}）；可用 CNB_CLI 显式指定")
-
-
 def _redact(text: str) -> str:
-    """把文本里的 http(s) URL 全部替换掉（预签名地址含一次性上传凭据）"""
+    """把文本里的 http(s) URL 全部替换掉"""
     return _URL_RE.sub("<redacted-url>", text)
 
 
-def _run(args: list[str], *, timeout: float | int) -> subprocess.CompletedProcess:
+def _run(args: list[str], *, timeout: float | int, text: bool = True) -> subprocess.CompletedProcess:
     """
     执行 cnb 命令并返回 CompletedProcess
 
     :param args: cnb 子命令及其参数，如 ["auth", "status"]
     :param timeout: 超时秒数
+    :param text: True 返回 str，False 返回原始 bytes
     """
-    node, cli = _cli()
-    command = [node, cli, *args]
-    debug(f"执行: cnb {' '.join(args)}")
-
     try:
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            check=False,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired as error:
-        raise CnbError(f"cnb {' '.join(args)} 超时（{timeout}s）") from error
-
-    if result.returncode != 0:
-        stderr = _redact(result.stderr.decode("utf-8", "replace").strip())
-        stdout = _redact(result.stdout.decode("utf-8", "replace").strip())
-        raise CnbError(f"cnb {' '.join(args)} 失败（退出码 {result.returncode}）: {stderr or stdout}")
-    return result
+        return process.run(["cnb", *args], timeout=timeout, text=text)
+    except process.ProcessError as error:
+        if error.not_found:
+            raise CnbError("未找到 cnb 命令，请先安装 @cnbcool/cnb-cli 并加入 PATH") from error
+        if error.timed_out:
+            reason = f"超时（{timeout}s）"
+        elif error.returncode is None:
+            reason = "无法启动"
+        else:
+            reason = f"退出码 {error.returncode}"
+        detail = _redact(error.detail)
+        raise CnbError(f"cnb {' '.join(args)} 失败（{reason}）" + (f": {detail}" if detail else "")) from error
 
 
 def stdout(args: list[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> str:
     result = _run(args, timeout=timeout)
-    return result.stdout.decode("utf-8", "replace").strip()
+    return str(result.stdout).strip()
 
 
 def stdout_byts(args: list[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> bytes:
-    return _run(args, timeout=timeout).stdout
+    return _run(args, timeout=timeout, text=False).stdout
 
 
 def auth() -> None:
