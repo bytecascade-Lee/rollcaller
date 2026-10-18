@@ -31,7 +31,7 @@ from common.enums.mode import Mode
 from common.enums.severity import Severity
 from common.enums.source import Source
 from common.logger import info, warning
-from release import assets as release_assets, urls
+from release import assets as release_assets, urls, serve
 from release import cnb as cnb_release
 from release import github as github_release
 from release import latest_manifest, local, release_notes, versions_index
@@ -49,38 +49,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-m", "--mode", required=True, choices=Mode.values(), help="发布模式")
     parser.add_argument("-s", "--severity", choices=Severity.values(), help="严重级别")
     parser.add_argument("--draft", action="store_true", help="是否草稿模式发布")
-    # parser.add_argument("-r", "--rate", type=int, default=serve.DEFAULT_RATE_KB, metavar="KBPS", help="本地更新服务限速 KB/s")
+    parser.add_argument("-r", "--rate", type=int, default=serve.DEFAULT_RATE_KB, metavar="KBPS",
+                        help="本地更新服务限速 KB/s")
 
     return parser.parse_args()
 
 
-def _local_full_version(version: Version) -> Version:
-    """本地版本 = core + branch.count.hash，与 build.py 的推导保持一致"""
-    try:
-        build_info = git.get_build_info(cwd=PROJECT_BASE_DIR)
-        return Version.parse(f"{version}+{build_info}")
-    except (git.GitError, VersionError) as error:
-        raise ReleaseError(f"无法推导本地完整版本号: {error}") from error
-
-
-# def release_local(version: Version, severity: Severity, rate: int) -> None:
-def release_local(version: Version, severity: Severity) -> None:
+def release_local(version: Version, severity: Severity, rate: int) -> None:
     """LOCAL：full 版本 → 构建目录 → 清单 / 索引 → 驻留更新服务"""
-    full_version = _local_full_version(version)
-    build = local.find(full_version)
+    version = Version.parse(f"{version}+{git.get_build_info(cwd=PROJECT_BASE_DIR)}")
+    build = local.find(version)
     info(f"本地构建目录: {build.directory}")
 
-    discovered = release_assets.discover(build.directory, full_version, Mode.LOCAL)
-    notes = release_notes.default(full_version)
-    manifest = latest_manifest.build(full_version, notes, severity, discovered, Source.DEVELOP)
+    notes = release_notes.default(version)
+    discovered = release_assets.discover(build.directory, version, Mode.LOCAL)
+
+    manifest = latest_manifest.build(version, notes, severity, discovered, Source.DEVELOP)
     manifest_path = latest_manifest.write(manifest, build.directory / urls.manifest_name(Source.DEVELOP))
-    index_path = versions_index.write(
-        build.directory / versions_index.FILENAME,
-        [VersionIndex(version=full_version, severity=severity)],
-    )
+    index_path = versions_index.write(build.directory / versions_index.FILENAME, [VersionIndex(version, severity)])
     info(f"已写入清单 {str(manifest_path)!r} 与版本索引 {str(index_path)!r}")
 
-    # serve.serve(build.directory, str(full_version), rate)
+    serve.serve(build.directory, str(version), rate)
 
 
 def release_ci(version: Version, draft: bool) -> None:
@@ -112,7 +101,7 @@ def release_ci(version: Version, draft: bool) -> None:
         manifest = latest_manifest.build(version, notes, severity, discovered, source)
         manifests.append(latest_manifest.write(manifest, ASSETS_DIR / urls.manifest_name(source)))
 
-    # 上传顺序：二进制 -> 清单 -> 版本索引；.sig/.sha256 只经 artifact 传递
+    # 上传顺序为 二进制 -> 清单 -> 版本索引，.sig/.sha256 只经 artifact 传递
     files = [asset.path for asset in discovered] + manifests + [index_path]
     sha = git.get_head_hash(cwd=PROJECT_BASE_DIR)
     tag = version.to_tag()
@@ -135,14 +124,13 @@ def main() -> int:
         if args.draft:
             warning("--draft 仅用于 CI，LOCAL 忽略")
         severity = Severity(args.severity) if args.severity is not None else Severity.default()
-        # release_local(version, severity, args.rate)
-        release_local(version, severity)
+        release_local(version, severity, args.rate)
         return 0
 
     if args.severity is not None:
         warning("-s/--severity 仅用于 LOCAL，CI 的 severity 来自仓库版本索引")
-    # if args.rate != serve.DEFAULT_RATE_KB:
-    #     warning("-r/--rate 仅用于 LOCAL")
+    if args.rate != serve.DEFAULT_RATE_KB:
+        warning("-r/--rate 仅用于 LOCAL")
 
     release_ci(version, args.draft)
     return 0
@@ -159,7 +147,7 @@ if __name__ == "__main__":
                 local.LocalReleaseError,
                 release_assets.AssetDiscoveryError,
                 latest_manifest.ManifestError,
-                # serve.ServeError,
+                serve.ServeError,
                 release_notes.ReleaseNotesNotFound,
                 release_notes.ReleaseNotesAmbiguous,
                 release_notes.ReleaseNotesSectionEmpty,
