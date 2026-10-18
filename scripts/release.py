@@ -21,6 +21,7 @@ import argparse
 import sys
 
 import util
+from build import metadata
 from cli import cnb as cnb_cli
 from cli import gh, git
 from common.constant.paths import ASSETS_DIR, PROJECT_BASE_DIR, VERSIONS_INDEX_SOURCE_PATH
@@ -57,7 +58,7 @@ def parse_args() -> argparse.Namespace:
 
 def release_local(version: Version, severity: Severity, rate: int) -> None:
     """LOCAL：full 版本 → 构建目录 → 清单 / 索引 → 驻留更新服务"""
-    version = Version.parse(f"{version}+{git.get_build_info(cwd=PROJECT_BASE_DIR)}")
+    version = Version.parse(f"{version}+{metadata.build_metadata()}")
     build = local.find(version)
     info(f"本地构建目录: {build.directory}")
 
@@ -103,7 +104,7 @@ def release_ci(version: Version, draft: bool) -> None:
 
     # 上传顺序为 二进制 -> 清单 -> 版本索引，.sig/.sha256 只经 artifact 传递
     files = [asset.path for asset in discovered] + manifests + [index_path]
-    sha = git.get_head_hash(cwd=PROJECT_BASE_DIR)
+    sha = git.head_hash(cwd=PROJECT_BASE_DIR)
     tag = version.to_tag()
 
     github_release.ensure_tag(GITHUB_REPO, tag, sha)
