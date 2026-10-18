@@ -239,7 +239,7 @@ def ref_commit_sha(repo: str, ref: str) -> Optional[str]:
     解析分支 / 标签 / 提交对应的提交哈希；不存在返回 None。
 
     用 /commits/{ref} 而不是 /git/refs/tags/{tag}：前者对附注标签也会解析出真实提交，
-    便于与待发布的提交做比对。
+    调用方拿到的是 commit 而不是 tag object。
 
     Args:
         repo: "owner/repo"
