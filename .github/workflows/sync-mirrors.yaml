@@ -16,6 +16,10 @@ on:
 permissions:
     contents: read
 
+env:
+    PYTHONPATH: ${{ github.workspace }}/scripts
+    NO_COLOR: 1
+
 jobs:
     sync:
         name: Sync code to CNB
