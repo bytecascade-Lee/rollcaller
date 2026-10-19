@@ -46,7 +46,7 @@ class ProcessError(Exception):
 
     @property
     def detail(self) -> str:
-        return (self.stderr.strip() or self.stdout.strip())[:500]
+        return (((self.stderr or "").strip() or (self.stdout or "") or "").strip())[:500]
 
     def _describe(self) -> str:
         command = " ".join(self.argv)
