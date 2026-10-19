@@ -116,7 +116,7 @@ jobs:
     release:
         name: Publish GitHub & CNB releases
         needs: build
-        runs-on: windows-latest
+        runs-on: ubuntu-latest
         steps:
             -   name: Checkout
                 uses: actions/checkout@v4
@@ -125,7 +125,6 @@ jobs:
                 uses: astral-sh/setup-uv@v5
 
             -   name: Install cnb cli
-                shell: pwsh
                 run: npm install -g @cnbcool/cnb-cli
 
             -   name: Download build artifacts
