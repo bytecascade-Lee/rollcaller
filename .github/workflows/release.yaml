@@ -17,7 +17,7 @@ on:
                 default: false
 
 permissions:
-    contents: write
+    contents: read
 
 env:
     PYTHONIOENCODING: utf-8
@@ -34,10 +34,10 @@ jobs:
             matrix: ${{ steps.prepare.outputs.matrix }}
         steps:
             -   name: Checkout
-                uses: actions/checkout@v4
+                uses: actions/checkout@v7
 
             -   name: Setup uv
-                uses: astral-sh/setup-uv@v5
+                uses: astral-sh/setup-uv@v10.3.0
 
             -   name: Check version & notes, generate matrix
                 id: prepare
@@ -53,12 +53,12 @@ jobs:
                 include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
         steps:
             -   name: Checkout
-                uses: actions/checkout@v4
+                uses: actions/checkout@v7
                 with:
                     fetch-depth: 0
 
             -   name: Setup uv
-                uses: astral-sh/setup-uv@v5
+                uses: astral-sh/setup-uv@v10.3.0
 
             -   name: Setup pnpm
                 uses: pnpm/action-setup@v6
@@ -66,7 +66,7 @@ jobs:
                     version: 11
 
             -   name: Setup Node.js
-                uses: actions/setup-node@v4
+                uses: actions/setup-node@v7
                 with:
                     node-version: 22
                     cache: pnpm
@@ -75,6 +75,24 @@ jobs:
             -   name: Install frontend dependencies
                 working-directory: frontend
                 run: pnpm install --frozen-lockfile
+
+            #-   name: Install Linux dependencies
+            #    if: matrix.os == 'linux'
+            #    run: |
+            #        sudo apt-get update
+            #        sudo apt-get install -y \
+            #            libwebkit2gtk-4.1-dev \
+            #            build-essential \
+            #            curl \
+            #            wget \
+            #            file \
+            #            libxdo-dev \
+            #            libssl-dev \
+            #            libayatana-appindicator3-dev \
+            #            librsvg2-dev \
+            #            patchelf \
+            #            pkg-config \
+            #            libfuse2
 
             -   name: Install Rust toolchain (cargo/rustc)
                 uses: dtolnay/rust-toolchain@stable
@@ -90,10 +108,8 @@ jobs:
                     # 架构特定的 target 目录缓存
                     key: ${{ matrix.target }}
 
-            # 只在 ARM64 任务中配置 MSVC ARM64 环境
-            # [TODO]：跨平台的 arm64 配置
             -   name: Configure arm64 msvc development environment
-                if: matrix.arch == 'arm64'
+                if: matrix.os == 'windows' && matrix.arch == 'arm64'
                 uses: step-security/msvc-dev-cmd@v1
                 with:
                     arch: amd64_arm64
@@ -117,18 +133,20 @@ jobs:
         name: Publish GitHub & CNB releases
         needs: build
         runs-on: ubuntu-latest
+        permissions:
+            contents: write
         steps:
             -   name: Checkout
-                uses: actions/checkout@v4
+                uses: actions/checkout@v7
 
             -   name: Setup uv
-                uses: astral-sh/setup-uv@v5
+                uses: astral-sh/setup-uv@v10.3.0
 
             -   name: Install cnb cli
                 run: npm install -g @cnbcool/cnb-cli
 
             -   name: Download build artifacts
-                uses: actions/download-artifact@v7
+                uses: actions/download-artifact@v8
                 with:
                     path: assets
                     pattern: release-assets-*
