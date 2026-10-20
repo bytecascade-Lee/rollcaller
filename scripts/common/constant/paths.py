@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
+
 """
 项目内路径常量
 
@@ -10,22 +11,19 @@ from pathlib import Path
 
 CURRENT = Path(__file__).resolve()
 
-# 根目录标记文件：命中即认为找到了项目根
+# 根目录标记文件
 _ROOT_MARKER = "pyproject.toml"
 
 
 class PathNotRightError(Exception):
-    """项目根目录定位失败（脚本被移出仓库或目录结构被改坏）"""
+    """项目根目录定位失败"""
 
 
 def _find_project_base_dir(start: Path) -> Path:
     for parent in start.parents:
         if (parent / _ROOT_MARKER).is_file():
             return parent
-    raise PathNotRightError(
-        f"未能从 {start} 向上找到含 {_ROOT_MARKER} 的项目根目录；"
-        f"脚本必须位于 rollcaller 仓库内运行"
-    )
+    raise PathNotRightError(f"未能从 {str(start)!r} 向上找到含 {_ROOT_MARKER!r} 的项目根目录，脚本必须位于仓库内运行")
 
 
 PROJECT_BASE_DIR = _find_project_base_dir(CURRENT)
@@ -75,7 +73,7 @@ VERSION_LOCK_FILES = (
 # 构建前后做「干净检查」与「还原」的全部文件 = 上述并集
 VERSION_TRACKED_FILES = VERSION_FILES + VERSION_LOCK_FILES
 
-# 仓库维护的版本索引（发布期 severity 的唯一标定处）
+# 仓库维护的版本索引
 VERSIONS_INDEX_SOURCE_PATH = RESOURCES_DIR / "update" / "versions.json"
 
 # 依赖 / 构建 / 签名 / 生成物

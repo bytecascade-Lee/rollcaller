@@ -7,5 +7,3 @@
 
 GITHUB_REPO = "bytecascade-Lee/rollcaller"
 CNB_REPO = "ordinary-glory/rollcaller"
-
-RELEASE_LINE = "master"
