@@ -1,12 +1,10 @@
 use directories::ProjectDirs;
 use serde::Serialize;
-use std::env::current_dir;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use std::{env, fmt};
-use tauri::utils::config::BundleType;
+#[cfg(not(debug_assertions))]
 use tauri::utils::platform::bundle_type;
-use tracing::info;
 use ts_rs::TS;
 
 /// 应用信息常量
@@ -55,9 +53,6 @@ static PATHS: LazyLock<AppPaths> = LazyLock::new(|| {
     let mode = detect_mode();
     let root_dir = detect_root_dir(mode);
     let user_data_dir = detect_user_data_dir(mode, &root_dir);
-    info!("current mode:{:#?}", &mode);
-    info!("root dir:{:#?}", &root_dir);
-    info!("base dir:{:#?}", &user_data_dir);
     AppPaths {
         mode,
         root_dir: root_dir.clone(),
@@ -95,16 +90,12 @@ fn detect_root_dir(mode: AppMode) -> PathBuf {
 
     match mode {
         AppMode::Develop => {
-            let mut dir = exe_path.as_path();
-            loop {
-                if dir.join(ROOT_MARKER).is_file() {
-                    return dir.to_path_buf();
-                }
-                match dir.parent() {
-                    Some(parent) => dir = parent,
-                    None => return exe_path, // 已经到根目录仍未找到
-                }
-            }
+            exe_path
+                .ancestors()
+                .filter(|dir| !dir.as_os_str().is_empty()) // 跳过 ancestors 末尾的空路径
+                .find(|dir| dir.join(ROOT_MARKER).is_file())
+                .map(Path::to_path_buf)
+                .expect("无法找到项目根目录")
         }
         AppMode::Portable | AppMode::Install => exe_path,
     }
@@ -118,14 +109,10 @@ fn detect_user_data_dir(mode: AppMode, root_dir: &Path) -> PathBuf {
         AppMode::Develop | AppMode::Portable => root_dir.join("data"),
 
         // 使用 directories 库获取各平台规范路径
-        // 失败时回退到当前目录
         AppMode::Install => {
             let data_dir = ProjectDirs::from(APP_QUALIFIER, APP_ORG, APP_NAME)
                 .map(|proj_dirs| proj_dirs.data_local_dir().to_path_buf())
-                .unwrap_or_else(|| {
-                    eprintln!("警告: 无法获取应用目录，使用当前目录作为回退");
-                    PathBuf::from(".")
-                });
+                .expect("无法确定数据目录");
             #[cfg(target_os = "windows")]
             {
                 data_dir
