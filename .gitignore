@@ -23,10 +23,8 @@ vite.config.ts.timestamp-*
 
 ### Backend ###
 /backend/target/
-/backend/gen/schemas/
+/backend/gen/
 /backend/tauri.conf.json5.local
-# 构建信息：由 scripts/generate_build_info.py 生成（构建期输入，不入库）
-/backend/build-info.json
 **/*.rs.bk
 *.profdata
 *.profraw
@@ -56,6 +54,9 @@ vite.config.ts.timestamp-*
 ### Git Commit Message File ###
 /docs/changes/
 
+### Git Diff Export File ###
+/docs/diff/
+
 ### Tauri CLI ###
 /resources/tauri/*
 
@@ -63,3 +64,6 @@ vite.config.ts.timestamp-*
 **/__pycache__/
 *.pyc
 *.pyo
+
+### Build Output Dir ###
+/assets/
