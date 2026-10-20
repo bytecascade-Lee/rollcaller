@@ -3,6 +3,9 @@
 
 """
 将生成的产物进行打包
+
+定位 / 改名交给 Kind 的 bundle + produced_glob；
+自打包形态的「根目录 + 成员」放在本模块的配方表里，避免 Kind 同时承担两种语义。
 """
 
 import tarfile
@@ -11,9 +14,11 @@ from pathlib import Path
 from typing import Iterator, Sequence
 
 from build.builder import release_dir
+from common.constant.paths import RESOURCES_FILES
 from common.entity.target import Target
 from common.entity.version import Version
-from common.enums.kind import Kind
+from common.enums.kind import Kind, KindStyle
+from common.enums.os import OS
 
 
 class PackageError(Exception):
@@ -21,28 +26,50 @@ class PackageError(Exception):
 
 
 def asset_name(version: Version, target: Target, kind: Kind) -> str:
-    """产物文件名：rollcaller-<version>-<os>-<arch>-<role>[.<extension>]"""
+    """产物文件名：rollcaller-<version>-<os>-<arch>-<role><extension>"""
     return f"rollcaller-{version}-{target.os}-{target.arch}-{kind.role}{kind.suffix(target.os)}"
 
 
-def package_setup(version: Version, target: Target, kind: Kind) -> Path:
-    """将安装包重命名为最终产物名"""
-    setup_dir = release_dir(target, debug_flag=False) / "bundle" / str(kind)
-    pattern = f"*-setup{kind.suffix(target.os)}"
-    setups = [p for p in setup_dir.glob(pattern)]
+def produce(version: Version, target: Target, kind: Kind) -> Path:
+    """按载荷样式产出最终文件"""
+    if kind.style is KindStyle.SETUP:
+        return _produce_setup(version, target, kind)
+    if kind.style in (KindStyle.PORTABLE, KindStyle.DEVELOP):
+        base_dir, resources = _archive_recipe(target, kind)
+        return _produce_archive(base_dir, resources, version, target, kind)
+    raise PackageError(f"未知的载荷样式: {kind.style!r}")
+
+
+def _produce_setup(version: Version, target: Target, kind: Kind) -> Path:
+    """把 tauri bundler 已产出的安装包重命名为最终产物名"""
+    if kind.bundle is None:
+        raise PackageError(f"载荷 {kind!s} 未声明 bundle，无法定位安装包")
+
+    setup_dir = release_dir(target) / "bundle" / kind.bundle
+    setups = [path for path in setup_dir.iterdir() if path.is_file() and not path.name.startswith(".")]
     if len(setups) != 1:
-        names = [repr(p.name) for p in setups]
-        raise PackageError(f"{str(setup_dir)!r} 下应恰好有一个符合 glob 要求 {pattern!r} 的安装包，"
-                           f"但实际有 {len(setups)} 个，分别为 {names!r}")
+        names = [repr(path.name) for path in setups]
+        raise PackageError(f"{str(setup_dir)!r} 下应恰好有一个安装包，但实际有 {len(setups)} 个，分别为 {names!r}")
     dest = setup_dir / asset_name(version, target, kind)
     # 使用 replace，存在时强制覆盖
     return setups[0].replace(dest)
 
 
-def package_archive(resources: Sequence[str], version: Version, target: Target, kind: Kind,
-                    debug_flag: bool = False) -> Path:
-    """把相对于构建目录下的 resources 打包成压缩包"""
-    base_dir = release_dir(target, debug_flag=debug_flag)
+def _archive_recipe(target: Target, kind: Kind) -> tuple[Path, tuple[str, ...]]:
+    """描述各平台的归档构成"""
+    exe = f"rollcaller{target.os.exe_suffix}"
+
+    if kind is Kind.PORTABLE and target.os == OS.WINDOWS:
+        return release_dir(target), (exe, *RESOURCES_FILES)
+    if kind is Kind.DEVELOP and target.os in (OS.WINDOWS, OS.LINUX):
+        return release_dir(target, debug_flag=True), (exe,)
+
+    raise PackageError(f"载荷 {kind!s} 在 {target.os.value!r} 上没有归档配方，"
+                       f"请确认 Kind.oses 与 packager 配方表一致")
+
+
+def _produce_archive(base_dir: Path, resources: Sequence[str], version: Version, target: Target, kind: Kind) -> Path:
+    """把相对于 base_dir 的 resources 打包成压缩包"""
     for name in resources:
         if not (base_dir / name).exists():
             raise PackageError(f"{base_dir} 下缺少 {name}，请确认构建产物完整")
