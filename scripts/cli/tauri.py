@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Sequence
 
 from cli import process
-from common.constant.paths import BACKEND_DIR, FRONTEND_NODE_DIR
+from common.constant.paths import FRONTEND_NODE_DIR, PROJECT_BASE_DIR
 from common.entity.target import Target
 
 
@@ -28,8 +28,7 @@ def _run(args: Sequence[str], env: dict[str, str] | None = None) -> None:
         raise TauriError(f"未在 {str(BIN_DIR)!r} 下找到 tauri-cli；请先在 frontend/ 下执行 pnpm install") from None
 
     try:
-        # 构建输出要实时可见，不捕获；构建可能很久，不设超时
-        process.run([binary, *args], cwd=BACKEND_DIR, env=env, capture=False, timeout=None)
+        process.run([binary, *args], cwd=PROJECT_BASE_DIR, env=env, capture=False, timeout=None)
     except process.ProcessError as error:
         raise TauriError(str(error)) from error
 
