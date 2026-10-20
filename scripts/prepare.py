@@ -21,7 +21,7 @@ import sys
 import util
 from common.entity.version import Version, VersionError
 from common.logger import info, warning
-from prepare.matrix import MatrixError, build_matrix, render
+from prepare.matrix import MatrixError, build_matrix
 from release import release_notes
 from release.release_notes import ReleaseNotesAmbiguous, ReleaseNotesNotFound, ReleaseNotesSectionEmpty
 from util.sigint import graceful_sigint
@@ -59,7 +59,7 @@ def main() -> int:
         info(f"版本 {version!r} 对应的发布说明包括 {len(notes.splitlines())} 行，{len(notes)} 个字符")
         write_output("draft", "false")
 
-    matrix = render(build_matrix())
+    matrix = build_matrix()
     info(f"构建矩阵: {matrix}")
     write_output("matrix", matrix)
 
