@@ -28,8 +28,11 @@ from common.entity.target import Target, UnsupportedTargetError
 from common.entity.version import Version, VersionError
 from common.enums.kind import Kind, KindOSError
 from common.enums.mode import Mode
+from common.enums.profile import Profile
 from common.logger import info
 from util.sigint import graceful_sigint
+
+SKIP_FRONTEND_BUILD = {"build": {"beforeBuildCommand": None}}
 
 
 class BuildError(Exception):
@@ -107,9 +110,8 @@ def main() -> int:
         generate_all()
         # 3 执行构建
         builder.build(target, env=None)
-        # develop 更新模式的 debug 构建；macOS 只发 dmg，不做 .app.tar.gz
         if mode == Mode.LOCAL and target.os in Kind.DEVELOP.oses:
-            builder.build(target, debug_flag=True, bundle=False, env=None)
+            builder.build(target, profile=Profile.DEVELOP, bundle=False, config=SKIP_FRONTEND_BUILD, env=None)
         # 4 生成各种包
         artifacts = package(version, target, build_mode=mode)
     finally:
