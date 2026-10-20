@@ -22,10 +22,11 @@ import util
 from build import builder, hasher, packager, signer, version_files, metadata
 from cli import git, rust, tauri
 from codegen import CodegenError, generate_all
-from common.constant.paths import LOCAL_RELEASE_DIR, ASSETS_DIR, RESOURCES_FILES
+from common import support
+from common.constant.paths import LOCAL_RELEASE_DIR, ASSETS_DIR
 from common.entity.target import Target, UnsupportedTargetError
 from common.entity.version import Version, VersionError
-from common.enums.kind import Kind
+from common.enums.kind import Kind, KindOSError
 from common.enums.mode import Mode
 from common.logger import info
 from util.sigint import graceful_sigint
@@ -46,17 +47,14 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-# [TODO]：后期统一把 Kind 抽取出来，将 `package()` 变为查表 + 分发，以适应跨平台
 def package(version: Version, target: Target, build_mode: Mode) -> list[Path]:
-    """生成各种包，返回最终命名的产物路径"""
-    exe = [f"rollcaller{target.os.exe_suffix}"]
-    artifacts = [
-        packager.package_setup(version, target, Kind.NSIS),
-        packager.package_archive([*exe, *RESOURCES_FILES], version, target, Kind.PORTABLE),
+    """按支持表查表，按 Kind 声明顺序产出该目标在指定模式下的载荷"""
+    declared = support.kinds(target)
+    kinds = [
+        kind for kind in Kind
+        if kind in declared and (build_mode == Mode.LOCAL or not kind.local_only)
     ]
-    if build_mode == Mode.LOCAL:
-        artifacts.append(packager.package_archive(exe, version, target, Kind.DEVELOP, debug_flag=True))
-    return artifacts
+    return [packager.produce(version, target, kind) for kind in kinds]
 
 
 def collect(artifacts: list[Path], out_dir: Path) -> list[Path]:
@@ -109,8 +107,8 @@ def main() -> int:
         generate_all()
         # 3 执行构建
         builder.build(target, env=None)
-        # develop 更新模式的 debug 构建
-        if mode == Mode.LOCAL:
+        # develop 更新模式的 debug 构建；macOS 只发 dmg，不做 .app.tar.gz
+        if mode == Mode.LOCAL and target.os in Kind.DEVELOP.oses:
             builder.build(target, debug_flag=True, bundle=False, env=None)
         # 4 生成各种包
         artifacts = package(version, target, build_mode=mode)
@@ -140,6 +138,7 @@ if __name__ == "__main__":
                 tauri.TauriError,
                 packager.PackageError,
                 version_files.VersionFileError,
+                KindOSError,
                 UnsupportedTargetError
         ) as e:
             util.fail(f"构建失败: {e}")
