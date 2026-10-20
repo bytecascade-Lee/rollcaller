@@ -8,6 +8,7 @@
 from common.entity.target import SupportedTarget, Target, UnsupportedTargetError
 from common.enums.action import Action
 from common.enums.kind import Kind
+from common.enums.os import OS
 
 
 class SupportTableError(Exception):
@@ -27,6 +28,30 @@ SUPPORTED_TARGETS: tuple[SupportedTarget, ...] = (
         kinds=frozenset({Kind.NSIS, Kind.PORTABLE, Kind.DEVELOP}),
         runner="windows-latest",
     ),
+    # SupportedTarget(
+    #     target=Target("x86_64-apple-darwin"),
+    #     actions=frozenset({Action.BUILD, Action.RELEASE}),
+    #     kinds=frozenset({Kind.DMG}),
+    #     runner="macos-15-intel",
+    # ),
+    # SupportedTarget(
+    #     target=Target("aarch64-apple-darwin"),
+    #     actions=frozenset({Action.BUILD, Action.RELEASE}),
+    #     kinds=frozenset({Kind.DMG}),
+    #     runner="macos-15",
+    # ),
+    # SupportedTarget(
+    #     target=Target("x86_64-unknown-linux-gnu"),
+    #     actions=frozenset({Action.BUILD, Action.RELEASE}),
+    #     kinds=frozenset({Kind.DEB, Kind.APPIMAGE, Kind.DEVELOP}),
+    #     runner="ubuntu-22.04",
+    # ),
+    # SupportedTarget(
+    #     target=Target("aarch64-unknown-linux-gnu"),
+    #     actions=frozenset({Action.BUILD, Action.RELEASE}),
+    #     kinds=frozenset({Kind.DEB, Kind.APPIMAGE, Kind.DEVELOP}),
+    #     runner="ubuntu-22.04-arm",
+    # ),
 )
 
 _BY_TRIPLE: dict[str, SupportedTarget] = {
@@ -34,11 +59,18 @@ _BY_TRIPLE: dict[str, SupportedTarget] = {
 }
 
 # 各模式期望产出的载荷；target 自身不支持某个 kind 时，取交集后自然忽略
-RELEASE_KINDS: frozenset[Kind] = frozenset({Kind.NSIS, Kind.PORTABLE})
+RELEASE_KINDS: frozenset[Kind] = frozenset(kind for kind in Kind if not kind.local_only)
 LOCAL_KINDS: frozenset[Kind] = RELEASE_KINDS | {Kind.DEVELOP}
 
 # CI 构建 + 发布管线要求目标同时开放 Build 与 Release 两个动作
 PIPELINE_ACTIONS: frozenset[Action] = frozenset({Action.BUILD, Action.RELEASE})
+
+# runner 前缀必须与目标 OS 一致
+_RUNNER_PREFIXES: dict[OS, str] = {
+    OS.WINDOWS: "windows-",
+    OS.MACOS: "macos-",
+    OS.LINUX: "ubuntu-",
+}
 
 
 def validate() -> None:
@@ -56,9 +88,20 @@ def validate() -> None:
         if not entry.runner.strip():
             raise SupportTableError(f"{triple!r} 未声明运行器")
 
+        allowed = {kind for kind in Kind if entry.target.os in kind.oses}
+        invalid = entry.kinds - allowed
+        if invalid:
+            names = "、".join(sorted(repr(kind.key) for kind in invalid))
+            raise SupportTableError(f"{triple!r} 声明了 {entry.target.os.value!r} 不支持的载荷: {names}")
+
+        prefix = _RUNNER_PREFIXES[entry.target.os]
+        if not entry.runner.startswith(prefix):
+            raise SupportTableError(f"{triple!r} 的 runner {entry.runner!r} 与目标系统 "
+                                    f"{entry.target.os.value!r} 不匹配，应以 {prefix!r} 开头")
+
 
 def get(target: Target) -> SupportedTarget | None:
-    """按 Target 或三元组字符串查找，未注册返回 None"""
+    """按 Target 查找，未注册返回 None"""
     return _BY_TRIPLE.get(target.triple)
 
 
@@ -90,7 +133,7 @@ def kinds(target: Target) -> frozenset[Kind]:
     """该目标可产出的全部载荷，未注册抛 UnsupportedTargetError"""
     entry = get(target)
     if entry is None:
-        raise UnsupportedTargetError(f"目标三元组 {target!r} 未在支持表中注册")
+        raise UnsupportedTargetError(f"目标三元组 {target.triple!r} 未在支持表中注册")
     return entry.kinds
 
 
