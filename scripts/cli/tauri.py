@@ -5,12 +5,14 @@
 构造并执行 tauri 的常见子命令
 """
 
+import json
 from pathlib import Path
 from typing import Sequence
 
 from cli import process
 from common.constant.paths import FRONTEND_NODE_DIR, PROJECT_BASE_DIR
 from common.entity.target import Target
+from common.enums.profile import Profile
 
 
 class TauriError(Exception):
@@ -41,19 +43,27 @@ def dev(target: Target, wait_frontend: bool = False) -> None:
     _run(args)
 
 
-def build(target: Target, *, debug_flag: bool = False, bundle: bool = True, env: dict[str, str] | None = None) -> None:
-    """执行 `tauri build --target <triple>` [--debug --bundle]
+def build(target: Target, *, profile: Profile = Profile.RELEASE,
+          bundle: bool = True, config: dict | None = None, env: dict[str, str] | None = None) -> None:
+    """执行 `tauri build --target <triple>` [--debug] [--no-bundle] [--config <json>] [-- --profile <profile>]
 
-    :param target:      待构建的 Target 目标
-    :param debug_flag:  是否启用调试模式，启用后产物将生成到 `BACKEND_DIR/target/<triple>/debug` 下
-    :param bundle:      是否捆绑产出指定的分发产物
-    :param env:         待替换的环境变量，注意需先 os.environ.copy() 后再改
+    :param target: 待构建的 Target 目标
+    :param profile: Cargo 构建配置；非 release 时以 `--debug` 调用，自定义档位再透传给 cargo
+    :param bundle: 是否捆绑产出指定的分发产物
+    :param config: 合并进 tauri 配置的覆盖项，序列化后经 `--config` 传入
+    :param env: 待替换的环境变量，注意需先 os.environ.copy() 后再改
     """
     args = ["build", "--target", target.triple]
-    if debug_flag:
+    # tauri-cli 只区分 release / 非 release 两档，非 release 一律按 --debug 调用
+    if profile != Profile.RELEASE:
         args.append("--debug")
     if not bundle:
         args.append("--no-bundle")
+    if config:
+        args += ["--config", json.dumps(config, separators=(",", ":"))]
+    if profile not in (Profile.RELEASE, Profile.DEBUG):
+        # 自定义档位只能透传给 cargo；tauri-cli 会解析它来定位产物目录
+        args += ["--", "--profile", profile.value]
     _run(args, env=env)
 
 
