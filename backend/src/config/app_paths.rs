@@ -14,13 +14,15 @@ const APP_QUALIFIER: &str = "com";
 const APP_ORG: &str = "serene";
 const APP_NAME: &str = "rollcaller";
 
+const ROOT_MARKER: &str = "pyproject.toml";
+
 /// 模式枚举
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, TS)]
 #[ts(export)]
 pub enum AppMode {
-    Develop,  // 开发模式: ./data
-    Portable, // 便携模式: exe_dir/data
-    Install,  // 安装模式: 系统规范路径
+    Develop,
+    Portable,
+    Install,
 }
 
 impl fmt::Display for AppMode {
@@ -52,7 +54,7 @@ pub struct AppPaths {
 static PATHS: LazyLock<AppPaths> = LazyLock::new(|| {
     let mode = detect_mode();
     let root_dir = detect_root_dir(mode);
-    let user_data_dir = detect_user_data_dir(mode);
+    let user_data_dir = detect_user_data_dir(mode, &root_dir);
     info!("current mode:{:#?}", &mode);
     info!("root dir:{:#?}", &root_dir);
     info!("base dir:{:#?}", &user_data_dir);
@@ -85,55 +87,65 @@ fn detect_mode() -> AppMode {
     }
 }
 
-/// 获取用户数据根目录，测试构建：指向 data/test/{uuid}
-///
-/// - 每次 `cargo test` 生成一个唯一 uuid 目录，进程内所有用例共享该根
-/// - 运行结束 / panic 均**不自动清理**，保留失败现场
-/// - 仅数据类目录被替换，`mode` 仍为 Develop，`root_dir` / `resources_dir` 等资源路径不变
-#[cfg(test)]
-fn detect_user_data_dir(mode: AppMode) -> PathBuf {
-    let parent = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("Project root has no parent")
-        .to_path_buf();
-    loop {
-        let path = parent.join(format!("data/test/{}", &uuid::Uuid::new_v4().to_string()[..6]));
-        if !path.exists() {
-            return path;
+fn detect_root_dir(mode: AppMode) -> PathBuf {
+    let exe_path = env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    match mode {
+        AppMode::Develop => {
+            let mut dir = exe_path.as_path();
+            loop {
+                if dir.join(ROOT_MARKER).is_file() {
+                    return dir.to_path_buf();
+                }
+                match dir.parent() {
+                    Some(parent) => dir = parent,
+                    None => return exe_path, // 已经到根目录仍未找到
+                }
+            }
         }
+        AppMode::Portable | AppMode::Install => exe_path,
     }
 }
 
 /// 获取用户数据根目录
 #[cfg(not(test))]
-fn detect_user_data_dir(mode: AppMode) -> PathBuf {
+fn detect_user_data_dir(mode: AppMode, root_dir: &Path) -> PathBuf {
     match mode {
-        // 项目根目录下的 data
-        AppMode::Develop => PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("data"),
+        // 根目录下的 data 文件夹
+        AppMode::Develop | AppMode::Portable => root_dir.join("data"),
 
-        // 可执行文件目录下的 data
-        AppMode::Portable => current_exe_dir().unwrap_or_else(|| PathBuf::from(".")).join("data"),
         // 使用 directories 库获取各平台规范路径
         // 失败时回退到当前目录
-        AppMode::Install => ProjectDirs::from(APP_QUALIFIER, APP_ORG, APP_NAME)
-            .map(|proj_dirs| proj_dirs.data_local_dir().parent().unwrap().to_path_buf())
-            .unwrap_or_else(|| {
-                eprintln!("警告: 无法获取应用目录，使用当前目录作为回退");
-                PathBuf::from(".")
-            }),
+        AppMode::Install => {
+            let data_dir = ProjectDirs::from(APP_QUALIFIER, APP_ORG, APP_NAME)
+                .map(|proj_dirs| proj_dirs.data_local_dir().to_path_buf())
+                .unwrap_or_else(|| {
+                    eprintln!("警告: 无法获取应用目录，使用当前目录作为回退");
+                    PathBuf::from(".")
+                });
+            #[cfg(target_os = "windows")]
+            {
+                data_dir
+                    .parent()
+                    .filter(|p| !p.as_os_str().is_empty())
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or(data_dir) // 如果无法获取 parent，直接返回原 path
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                data_dir
+            }
+        }
     }
 }
 
-fn detect_root_dir(mode: AppMode) -> PathBuf {
-    match mode {
-        AppMode::Develop => PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf(),
-        AppMode::Portable | AppMode::Install => current_exe_dir().unwrap_or_else(|| PathBuf::from(".")).to_path_buf(),
-    }
-}
-
-/// 辅助函数
-fn current_exe_dir() -> Option<PathBuf> {
-    env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf()))
+/// 获取用户数据根目录，测试构建：指向 data/test/{uuid}
+#[cfg(test)]
+fn detect_user_data_dir(mode: AppMode, root_dir: &Path) -> PathBuf {
+    root_dir.join(format!("data/test/{}", &uuid::Uuid::new_v4().to_string()[..6]))
 }
 
 /// 获取项目/软件根目录
