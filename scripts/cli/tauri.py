@@ -42,16 +42,16 @@ def dev(target: Target, wait_frontend: bool = False) -> None:
     _run(args)
 
 
-def build(target: Target, *, debug_mode: bool = False, bundle: bool = True, env: dict[str, str] | None = None) -> None:
+def build(target: Target, *, debug_flag: bool = False, bundle: bool = True, env: dict[str, str] | None = None) -> None:
     """执行 `tauri build --target <triple>` [--debug --bundle]
 
     :param target:      待构建的 Target 目标
-    :param debug_mode:  是否启用调试模式，启用后产物将生成到 `BACKEND_DIR/target/<triple>/debug` 下
+    :param debug_flag:  是否启用调试模式，启用后产物将生成到 `BACKEND_DIR/target/<triple>/debug` 下
     :param bundle:      是否捆绑产出指定的分发产物
     :param env:         待替换的环境变量，注意需先 os.environ.copy() 后再改
     """
     args = ["build", "--target", target.triple]
-    if debug_mode:
+    if debug_flag:
         args.append("--debug")
     if not bundle:
         args.append("--no-bundle")

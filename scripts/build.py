@@ -55,7 +55,7 @@ def package(version: Version, target: Target, build_mode: Mode) -> list[Path]:
         packager.package_archive([*exe, *RESOURCES_FILES], version, target, Kind.PORTABLE),
     ]
     if build_mode == Mode.LOCAL:
-        artifacts.append(packager.package_archive(exe, version, target, Kind.DEVELOP, debug_mode=True))
+        artifacts.append(packager.package_archive(exe, version, target, Kind.DEVELOP, debug_flag=True))
     return artifacts
 
 
@@ -111,7 +111,7 @@ def main() -> int:
         builder.build(target, env=None)
         # develop 更新模式的 debug 构建
         if mode == Mode.LOCAL:
-            builder.build(target, debug_mode=True, bundle=False, env=None)
+            builder.build(target, debug_flag=True, bundle=False, env=None)
         # 4 生成各种包
         artifacts = package(version, target, build_mode=mode)
     finally:

@@ -40,9 +40,9 @@ def package_setup(version: Version, target: Target, kind: Kind) -> Path:
 
 
 def package_archive(resources: Sequence[str], version: Version, target: Target, kind: Kind,
-                    debug_mode: bool = False) -> Path:
+                    debug_flag: bool = False) -> Path:
     """把相对于构建目录下的 resources 打包成压缩包"""
-    base_dir = release_dir(target, debug_mode=debug_mode)
+    base_dir = release_dir(target, debug_flag=debug_flag)
     for name in resources:
         if not (base_dir / name).exists():
             raise PackageError(f"{base_dir} 下缺少 {name}，请确认构建产物完整")
