@@ -22,13 +22,13 @@ class PackageError(Exception):
 
 def asset_name(version: Version, target: Target, kind: Kind) -> str:
     """产物文件名：rollcaller-<version>-<os>-<arch>-<role>[.<extension>]"""
-    return f"rollcaller-{version}-{target.os}-{target.arch}-{kind.role}{kind.extension_with_dot(target.os)}"
+    return f"rollcaller-{version}-{target.os}-{target.arch}-{kind.role}{kind.suffix(target.os)}"
 
 
 def package_setup(version: Version, target: Target, kind: Kind) -> Path:
     """将安装包重命名为最终产物名"""
-    setup_dir = release_dir(target, debug_mode=False) / "bundle" / str(kind)
-    pattern = f"*-setup{kind.extension_with_dot(target.os)}"
+    setup_dir = release_dir(target, debug_flag=False) / "bundle" / str(kind)
+    pattern = f"*-setup{kind.suffix(target.os)}"
     setups = [p for p in setup_dir.glob(pattern)]
     if len(setups) != 1:
         names = [repr(p.name) for p in setups]

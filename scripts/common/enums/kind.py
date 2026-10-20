@@ -33,7 +33,7 @@ class Kind(Enum):
     def __init__(self, role: str) -> None:
         self.role = role
 
-    def extension_with_dot(self, os: OS) -> str:
+    def suffix(self, os: OS) -> str:
         match self:
             case Kind.NSIS:
                 extension = "exe"
