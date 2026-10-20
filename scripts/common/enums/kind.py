@@ -27,23 +27,23 @@ class KindStyle(StrEnum):
 class Kind(Enum):
     """更新载荷类型"""
 
-    NSIS = (frozenset({OS.WINDOWS}), KindStyle.SETUP, ((OS.WINDOWS, ".exe"),))
+    NSIS = (KindStyle.SETUP, ((OS.WINDOWS, ".exe"),))
 
-    DMG = (frozenset({OS.MACOS}), KindStyle.SETUP, ((OS.MACOS, ".dmg"),))
+    DMG = (KindStyle.SETUP, ((OS.MACOS, ".dmg"),))
 
-    DEB = (frozenset({OS.LINUX}), KindStyle.SETUP, ((OS.LINUX, ".deb"),))
-    APPIMAGE = (frozenset({OS.LINUX}), KindStyle.SETUP, ((OS.LINUX, ".AppImage"),))
+    DEB = (KindStyle.SETUP, ((OS.LINUX, ".deb"),))
+    APPIMAGE = (KindStyle.SETUP, ((OS.LINUX, ".AppImage"),))
 
-    PORTABLE = (frozenset({OS.WINDOWS}), KindStyle.PORTABLE, ((OS.WINDOWS, ".zip"),))
-    DEVELOP = (frozenset({OS.WINDOWS, OS.LINUX}), KindStyle.DEVELOP, ((OS.WINDOWS, ".zip"), (OS.LINUX, ".tar.gz")))
+    PORTABLE = (KindStyle.PORTABLE, ((OS.WINDOWS, ".zip"),))
+    DEVELOP = (KindStyle.DEVELOP, ((OS.WINDOWS, ".zip"), (OS.LINUX, ".tar.gz")))
 
-    def __init__(self, oses: frozenset[OS], style: KindStyle, extensions: tuple[tuple[OS, str], ...]) -> None:
+    def __init__(self, style: KindStyle, extensions: tuple[tuple[OS, str], ...]) -> None:
         self.key = self.name.lower()
         self.role = style.value.lower()
-        self.oses = oses
         self.style = style
         self.bundle = self.name.lower() if style is KindStyle.SETUP else None
         self.extensions: Mapping[OS, str] = MappingProxyType(dict(extensions))
+        self.oses = frozenset(self.extensions)
 
     @property
     def local_only(self) -> bool:
