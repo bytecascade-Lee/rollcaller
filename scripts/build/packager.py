@@ -46,10 +46,14 @@ def _produce_setup(version: Version, target: Target, kind: Kind) -> Path:
         raise PackageError(f"载荷 {kind!s} 未声明 bundle，无法定位安装包")
 
     setup_dir = release_dir(target) / "bundle" / kind.bundle
-    setups = [path for path in setup_dir.iterdir() if path.is_file() and not path.name.startswith(".")]
+    if not setup_dir.is_dir():
+        raise PackageError(f"{str(setup_dir)!r} 不存在或不是一个目录")
+
+    setups = [p for p in setup_dir.iterdir()
+              if p.is_file() and not p.name.startswith(".") and p.name.endswith(kind.suffix(target.os))]
     if len(setups) != 1:
         names = [repr(path.name) for path in setups]
-        raise PackageError(f"{str(setup_dir)!r} 下应恰好有一个安装包，但实际有 {len(setups)} 个，分别为 {names!r}")
+        raise PackageError(f"{str(setup_dir)!r} 下应恰好有一个 bundler 产物，但实际有 {len(setups)} 个，分别为 {names!r}")
     dest = setup_dir / asset_name(version, target, kind)
     # 使用 replace，存在时强制覆盖
     return setups[0].replace(dest)
