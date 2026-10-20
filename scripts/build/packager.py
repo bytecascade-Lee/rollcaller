@@ -19,6 +19,7 @@ from common.entity.target import Target
 from common.entity.version import Version
 from common.enums.kind import Kind, KindStyle
 from common.enums.os import OS
+from common.enums.profile import Profile
 
 
 class PackageError(Exception):
@@ -66,7 +67,7 @@ def _archive_recipe(target: Target, kind: Kind) -> tuple[Path, tuple[str, ...]]:
     if kind is Kind.PORTABLE and target.os == OS.WINDOWS:
         return release_dir(target), (exe, *RESOURCES_FILES)
     if kind is Kind.DEVELOP and target.os in (OS.WINDOWS, OS.LINUX):
-        return release_dir(target, debug_flag=True), (exe,)
+        return release_dir(target, profile=Profile.DEVELOP), (exe,)
 
     raise PackageError(f"载荷 {kind!s} 在 {target.os.value!r} 上没有归档配方，"
                        f"请确认 Kind.oses 与 packager 配方表一致")
