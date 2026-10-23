@@ -133,6 +133,9 @@ jobs:
         name: Publish GitHub & CNB releases
         needs: build
         runs-on: ubuntu-latest
+        concurrency:
+            group: release
+            cancel-in-progress: false
         permissions:
             contents: write
         steps:
