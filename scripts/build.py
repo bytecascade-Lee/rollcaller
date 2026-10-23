@@ -22,10 +22,11 @@ import util
 from build import builder, hasher, packager, signer, version_files, metadata
 from cli import git, rust, tauri
 from codegen import CodegenError, generate_all
-from common import support
+from common import gate, support
 from common.constant.paths import LOCAL_RELEASE_DIR, ASSETS_DIR
 from common.entity.target import Target, UnsupportedTargetError
 from common.entity.version import Version, VersionError
+from common.enums.action import Action
 from common.enums.kind import Kind, KindOSError
 from common.enums.mode import Mode
 from common.enums.profile import Profile
@@ -45,7 +46,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-v", "--version", metavar="VERSION", help="语义化版本号")
     parser.add_argument("-t", "--target", metavar="TRIPLE", help="完整 Rust 目标三元组")
     parser.add_argument("-m", "--mode", choices=Mode.values(), help="构建模式")
-    # [TODO]: parser.add_argument("-b", "--bundle", help="是否捆绑")
 
     return parser.parse_args()
 
@@ -91,6 +91,9 @@ def main() -> int:
     target = Target(rust.resolve_triple(args.target))
     mode = Mode(args.mode)
 
+    action = Action.RELEASE if mode == Mode.CI else Action.BUILD
+    gate.ensure(target, action, host=rust.get_host_target())
+
     signer.check_env()
 
     if mode == Mode.LOCAL:
@@ -135,6 +138,7 @@ if __name__ == "__main__":
                 BuildError,
                 CodegenError,
                 VersionError,
+                gate.GateError,
                 git.GitError,
                 signer.SignError,
                 tauri.TauriError,
