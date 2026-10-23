@@ -18,7 +18,7 @@ from common.constant.paths import (
     VERSION_TRACKED_FILES,
 )
 from common.entity.version import Version
-from common.logger import info
+from common.logger import info, success
 
 
 class VersionFileError(Exception):
@@ -43,7 +43,7 @@ def check_git_status() -> bool:
 def sync(version: Version) -> None:
     """把版本号写入各版本文件，并刷新 uv 锁文件"""
     for path, pattern in _REWRITE_RULES:
-        _rewrite(path, pattern, str(version))
+        _rewrite(path, pattern, version)
     uv.lock()
     info("已同步版本号并刷新 uv 锁文件")
 
@@ -54,19 +54,19 @@ def restore() -> None:
     info("已还原版本文件与 uv 锁文件")
 
 
-def _rewrite(path: Path, pattern: re.Pattern[str], version: str) -> None:
+def _rewrite(path: Path, pattern: re.Pattern[str], version: Version) -> None:
     """按行匹配把单个文件的版本号字段改写为 version"""
     if not path.is_file():
-        raise VersionFileError(f"版本文件不存在: {str(path)!r}")
+        raise VersionFileError(f"版本文件 {str(path)!r} 不存在")
     content = path.read_text(encoding="utf-8")
     match = pattern.search(content)
     if match is None:
         raise VersionFileError(f"未在 {str(path)!r} 中找到版本号字段，文件格式可能已变化")
     old = match.group(2)
-    label = path.relative_to(PROJECT_BASE_DIR).as_posix()
-    if old == version:
-        info(f"{label}: 版本号已是 {version}，无需修改")
+    file_name = path.relative_to(PROJECT_BASE_DIR).as_posix()
+    if old == str(version):
+        info(f"文件 {file_name!r} 的版本号已是 {str(version)!r}，无需修改")
         return
-    new_content = pattern.sub(lambda m: m.group(1) + version + m.group(3), content, count=1)
+    new_content = pattern.sub(lambda m: m.group(1) + str(version) + m.group(3), content, count=1)
     path.write_text(new_content, encoding="utf-8")
-    info(f"{label}: {old} -> {version}")
+    success(f"文件 {file_name!r} 的版本号已从 {old} 更新为 {str(version)!r}")
