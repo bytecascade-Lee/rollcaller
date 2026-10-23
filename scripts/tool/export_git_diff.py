@@ -32,14 +32,16 @@ import argparse
 import os
 import re
 import sys
+from collections import Counter
 from dataclasses import dataclass
+from enum import Enum, auto
 from pathlib import Path, PurePosixPath
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Sequence
 
-from cli.git import GitError, show_blob, stdout
+from cli import git
 from common.constant.paths import PROJECT_BASE_DIR, DOCS_DIR
 from common.logger import debug, error, info, success, warning
-from util import sanitize_filename
+from util.fs import sanitize_filename
 from util.str_format import display_width, padding
 
 OUT_SUFFIX = ".md"  # 产物后缀：_out_name 与清理逻辑必须一致
@@ -98,13 +100,25 @@ class SkipError(Exception):
     """该文件无法导出（二进制 / 非 UTF-8 / 读取失败），原因在 str(e)"""
 
 
+class UsageError(Exception):
+    """参数组合不成立，退出码 2"""
+
+
+class Outcome(Enum):
+    """单个变更的导出结果"""
+
+    WRITTEN = auto()  # 已写盘（dry-run 下计为「会写」）
+    SKIPPED = auto()  # 取数失败 / 两侧都没内容，已记日志
+    EOL_ONLY = auto()  # 仅行尾差异，按「无实质变更」跳过
+
+
 @dataclass
 class Change:
     """一条 `git diff --name-status` 记录"""
 
     code: str  # 归一化后的单字母状态
     raw: str  # git 原始状态码，重命名/复制可能是 R100 / C75
-    old_path: Optional[str]  # 重命名/复制的旧路径（仓库相对，'/' 分隔）
+    old_path: str | None  # 重命名/复制的旧路径（仓库相对，'/' 分隔）
     new_path: str  # 当前路径
 
     @property
@@ -117,24 +131,39 @@ class Change:
 class Snapshot:
     """一个文件的取数结果"""
 
-    before: Optional[str]  # None = 该版本不存在此文件
-    after: Optional[str]
-    before_size: Optional[int]
-    after_size: Optional[int]
+    before: str | None  # None = 该版本不存在此文件
+    after: str | None
+    before_size: int | None
+    after_size: int | None
     patch: str
     added: int
     deleted: int
 
 
-def _blob_or_warn(ref: str, path: str) -> Optional[bytes]:
+@dataclass(frozen=True, slots=True)
+class Scope:
+    """一次导出的对比范围"""
+
+    diff_args: tuple[str, ...]  # 传给 git diff 的位置参数：HEAD / <from> / <from> <to>
+    before_ref: str
+    after_ref: str | None  # None 表示「修改后」取自工作区
+    labels: tuple[str, str]  # 渲染标题用的两侧名称
+
+    @property
+    def base_label(self) -> str:
+        """命令行等价的 base 描述，如 `v0.1.0 v0.2.0`"""
+        return " ".join(self.diff_args)
+
+
+def _blob_or_warn(ref: str, path: str) -> bytes | None:
     """取 `<ref>:<path>` 的原始内容；取不到时告警并返回 None（原因见 DEBUG 日志）"""
-    data = show_blob(ref, path)
+    data = git.show_blob(ref, path)
     if data is None:
         warning(f"{ref}:{path} 取不到内容，按「不存在」处理")
     return data
 
 
-def _read_worktree(path: str) -> Optional[bytes]:
+def _read_worktree(path: str) -> bytes | None:
     """读工作区文件；已被删掉时返回 None"""
     try:
         return (PROJECT_BASE_DIR / path).read_bytes()
@@ -159,17 +188,17 @@ def _same_content(before: str, after: str) -> bool:
     return _EOL_RE.sub("\n", before) == _EOL_RE.sub("\n", after)
 
 
-def _list_changes(base: Sequence[str], selectors: Sequence[str]) -> List[Change]:
+def _list_changes(diff_args: Sequence[str], selectors: Sequence[str]) -> list[Change]:
     """枚举变更"""
-    args = ["diff", *base, "--name-status", "-z", "-M"]
+    args = ["diff", *diff_args, "--name-status", "-z", "-M"]
     if selectors:
         args += ["--", *selectors]
-    out = stdout(args, cwd=PROJECT_BASE_DIR)
+    out = git.stdout(args, cwd=PROJECT_BASE_DIR)
     if not out:
         return []
 
     fields = out.split("\0")
-    changes: List[Change] = []
+    changes: list[Change] = []
     i = 0
     # 末位是结尾 NUL 产生的空串，故只走到 len(fields) - 1
     while i < len(fields) - 1:
@@ -197,7 +226,7 @@ def _list_changes(base: Sequence[str], selectors: Sequence[str]) -> List[Change]
     return changes
 
 
-def _normalize_selectors(raw: Sequence[str]) -> List[str]:
+def _normalize_selectors(raw: Sequence[str]) -> list[str]:
     """把位置参数归一化成相对仓库根的路径，作为 git pathspec 使用。
 
     - 相对路径按「当前工作目录」解释，与用户敲命令的位置一致
@@ -206,7 +235,7 @@ def _normalize_selectors(raw: Sequence[str]) -> List[str]:
       且天然跳过 .gitignore 的目录，不会去遍历 backend/target、node_modules）
     """
     cwd = Path.cwd()
-    normalized: List[str] = []
+    normalized: list[str] = []
     for item in raw:
         target = Path(item)
         if not target.is_absolute():
@@ -224,10 +253,10 @@ def _normalize_selectors(raw: Sequence[str]) -> List[str]:
     return normalized
 
 
-def _patch_of(base: Sequence[str], paths: Sequence[str], context: int) -> str:
+def _patch_of(diff_args: Sequence[str], paths: Sequence[str], context: int) -> str:
     """取本文件的 unified diff；重命名要同时传新旧路径，否则 git 会退化成「新增+删除」"""
-    return stdout(
-        ["diff", *base, f"-U{context}", "--no-color", "-M", "--", *paths],
+    return git.stdout(
+        ["diff", *diff_args, f"-U{context}", "--no-color", "-M", "--", *paths],
         cwd=PROJECT_BASE_DIR,
     )
 
@@ -235,20 +264,20 @@ def _patch_of(base: Sequence[str], paths: Sequence[str], context: int) -> str:
 def _count_untracked() -> int:
     """未跟踪文件数（只用于日志说明它们被忽略了）"""
     try:
-        out = stdout(["ls-files", "--others", "--exclude-standard", "-z"], cwd=PROJECT_BASE_DIR)
-    except GitError:
+        out = git.stdout(["ls-files", "--others", "--exclude-standard", "-z"], cwd=PROJECT_BASE_DIR)
+    except git.GitError:
         return 0
     return len([f for f in out.split("\0") if f]) if out else 0
 
 
-def _before_bytes(change: Change, before_ref: str) -> Optional[bytes]:
+def _before_bytes(change: Change, before_ref: str) -> bytes | None:
     if change.code == "A":
         return None  # 新增：该版本本来就没有
     path = change.old_path if change.is_rename else change.new_path
     return _blob_or_warn(before_ref, path)
 
 
-def _after_bytes(change: Change, after_ref: Optional[str]) -> Optional[bytes]:
+def _after_bytes(change: Change, after_ref: str | None) -> bytes | None:
     if change.code == "D":
         return None  # 删除：工作区（或 to 树）里没有了
     if after_ref is None:
@@ -264,13 +293,13 @@ def _status_text(change: Change) -> str:
     return f"{change.code}（{label}）"
 
 
-def _size_text(before: Optional[int], after: Optional[int]) -> str:
+def _size_text(before: int | None, after: int | None) -> str:
     b = "不存在" if before is None else f"{before:,} B"
     a = "不存在" if after is None else f"{after:,} B"
     return f"修改前 {b} -> 修改后 {a}"
 
 
-def _count_patch_lines(patch: str) -> Tuple[int, int]:
+def _count_patch_lines(patch: str) -> tuple[int, int]:
     """从补丁正文数增删行（+++/--- 表头与 `\\ No newline` 不计），与内嵌补丁必然一致"""
     added = deleted = 0
     for line in patch.splitlines():
@@ -281,7 +310,7 @@ def _count_patch_lines(patch: str) -> Tuple[int, int]:
     return added, deleted
 
 
-def _meta_block(rows: Sequence[Tuple[str, str]]) -> List[str]:
+def _meta_block(rows: Sequence[tuple[str, str]]) -> list[str]:
     """元数据块：标签按显示宽度右补空格对齐，行尾补两个空格触发 markdown 硬换行。"""
     width = max(display_width(label) for label, _ in rows)
     return [f"{padding(label, width)}{' ' * META_GAP}{value}  " for label, value in rows]
@@ -299,7 +328,7 @@ def _lang_of(path: str) -> str:
     return LANG_BY_EXT.get(ext, "text")
 
 
-def _code_block(text: Optional[str], lang: str, missing: str) -> List[str]:
+def _code_block(text: str | None, lang: str, missing: str) -> list[str]:
     """一个 fenced code block；text 为 None 时输出 missing 占位说明"""
     if text is None:
         return [missing]
@@ -313,11 +342,11 @@ def _code_block(text: Optional[str], lang: str, missing: str) -> List[str]:
 def _render(
     change: Change,
     snap: Snapshot,
-    labels: Tuple[str, str],
+    labels: tuple[str, str],
     base_label: str,
     context: int,
 ) -> str:
-    rows: List[Tuple[str, str]] = [
+    rows: list[tuple[str, str]] = [
         ("文件", f"`{change.new_path}`"),
         ("磁盘位置", f"`{PROJECT_BASE_DIR / change.new_path}`"),
         ("变更状态", _status_text(change)),
@@ -328,7 +357,7 @@ def _render(
     rows.append(("大小", _size_text(snap.before_size, snap.after_size)))
     rows.append(("变更行数", f"+{snap.added} / -{snap.deleted}"))
 
-    lines: List[str] = []
+    lines: list[str] = []
     lines += _meta_block(rows)
     lines.append("")
     lines.append(f"## 修改前（{labels[0]}）")
@@ -373,7 +402,7 @@ def _clean_out_dir(out_dir: Path) -> int:
 
 # 入口
 
-def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
+def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="导出 git 变更：每个文件一个 md（元数据 + 修改前全文 + unified diff）",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -414,50 +443,177 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
-    args = _parse_args(argv)
-
+def _resolve_scope(args: argparse.Namespace) -> Scope:
+    """把 --from / --to 归一成一次对比范围"""
     if args.to_rev and not args.from_rev:
-        error("--to 必须与 --from 同时给出（只有 --to 无法确定起点）")
-        return 2
+        raise UsageError("--to 必须与 --from 同时给出（只有 --to 无法确定起点）")
     if args.context < 0:
-        error(f"--context 不能为负: {args.context}")
+        raise UsageError(f"--context 不能为负: {args.context}")
+
+    if args.from_rev and args.to_rev:
+        return Scope(
+            diff_args=(args.from_rev, args.to_rev),
+            before_ref=args.from_rev,
+            after_ref=args.to_rev,
+            labels=(args.from_rev, args.to_rev),
+        )
+    if args.from_rev:
+        return Scope(
+            diff_args=(args.from_rev,),
+            before_ref=args.from_rev,
+            after_ref=None,
+            labels=(args.from_rev, "工作区"),
+        )
+    return Scope(
+        diff_args=("HEAD",),
+        before_ref="HEAD",
+        after_ref=None,
+        labels=("HEAD", "工作区"),
+    )
+
+
+def _plan(changes: Sequence[Change]) -> tuple[list[tuple[Change, str]], list[tuple[str, list[str]]]]:
+    """预先分配输出名，返回（可导出的变更及其文件名，输出名冲突的分组）
+
+    冲突必须在写盘前一次性暴露：边写边发现只会留下半套产物。
+    """
+    by_name: dict[str, list[Change]] = {}
+    for change in changes:
+        by_name.setdefault(_out_name(change), []).append(change)
+
+    planned: list[tuple[Change, str]] = []
+    conflicts: list[tuple[str, list[str]]] = []
+    for name, group in by_name.items():
+        if len(group) == 1:
+            planned.append((group[0], name))
+        else:
+            conflicts.append((name, [item.new_path for item in group]))
+    return planned, conflicts
+
+
+def _export_one(
+    change: Change,
+    name: str,
+    scope: Scope,
+    *,
+    context: int,
+    out_dir: Path,
+    dry_run: bool,
+) -> Outcome:
+    """导出一个变更；失败原因已记日志，由调用方按 Outcome 计数"""
+    try:
+        before_bytes = _before_bytes(change, scope.before_ref)
+        after_bytes = _after_bytes(change, scope.after_ref)
+        where_before = f"{scope.before_ref}:{change.old_path or change.new_path}"
+        before = None if before_bytes is None else _as_text(before_bytes, where_before)
+        after = None if after_bytes is None else _as_text(after_bytes, change.new_path)
+    except (SkipError, git.GitError) as e:
+        warning(f"跳过: {change.new_path}（{e}）")
+        return Outcome.SKIPPED
+
+    if before is None and after is None:
+        warning(f"跳过: {change.new_path}（两侧都取不到内容，git 状态 {change.raw}）")
+        return Outcome.SKIPPED
+
+    # 内容口径过滤：仅行尾不同（CRLF ↔ LF）的修改不导出。重命名/复制不适用。
+    if (
+        change.code == "M"
+        and before is not None
+        and after is not None
+        and _same_content(before, after)
+    ):
+        info(f"跳过: {change.new_path}（仅行尾差异，内容无实质变化）")
+        return Outcome.EOL_ONLY
+
+    paths = (
+        [p for p in (change.old_path, change.new_path) if p]
+        if change.is_rename
+        else [change.new_path]
+    )
+    try:
+        patch = _patch_of(scope.diff_args, paths, context)
+    except git.GitError as e:
+        warning(f"取补丁失败，只导出全文: {change.new_path}（{e}）")
+        patch = ""
+
+    added, deleted = _count_patch_lines(patch)
+    snap = Snapshot(
+        before=before,
+        after=after,
+        before_size=None if before_bytes is None else len(before_bytes),
+        after_size=None if after_bytes is None else len(after_bytes),
+        patch=patch,
+        added=added,
+        deleted=deleted,
+    )
+
+    biggest = max([s for s in (snap.before_size, snap.after_size) if s is not None], default=0)
+    if biggest > LARGE_WARN:
+        warning(f"文件较大（{biggest:,} B），导出内容将占用较多空间: {change.new_path}")
+
+    text = _render(change, snap, scope.labels, scope.base_label, context)
+
+    if dry_run:
+        info(f"[dry-run] {change.raw} {change.new_path} -> {name}（+{added}/-{deleted}）")
+        return Outcome.WRITTEN
+
+    target = out_dir / name
+    # newline="" 关掉换行翻译，否则正文里的行尾会被二次加工（embedded CRLF 亦受影响）
+    with target.open("w", encoding="utf-8", newline="") as f:
+        f.write(text)
+    info(
+        f"已导出 {change.raw} {change.new_path} -> {name}"
+        f"（+{added}/-{deleted}, {_size_text(snap.before_size, snap.after_size)}）"
+    )
+    return Outcome.WRITTEN
+
+
+def _report(changes: Sequence[Change], stats: Counter[Outcome], out_dir: Path) -> None:
+    """汇总本轮结果"""
+    untracked = _count_untracked()
+    same_content = stats[Outcome.EOL_ONLY]
+    same_note = f"（其中仅行尾差异 {same_content} 个）" if same_content else ""
+    success(
+        f"完成：导出 {stats[Outcome.WRITTEN]} 个"
+        f" / 跳过 {stats[Outcome.SKIPPED] + same_content} 个{same_note}"
+        f" / 未跟踪忽略 {untracked} 个 / 变更总数 {len(changes)} → {out_dir}"
+    )
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _parse_args(argv)
+    try:
+        scope = _resolve_scope(args)
+    except UsageError as e:
+        error(str(e))
         return 2
 
     out_dir = OUT_DIR
-
-    if args.from_rev and args.to_rev:
-        base = [args.from_rev, args.to_rev]
-        before_ref, after_ref = args.from_rev, args.to_rev
-        labels = (args.from_rev, args.to_rev)
-    elif args.from_rev:
-        base = [args.from_rev]
-        before_ref, after_ref = args.from_rev, None
-        labels = (args.from_rev, "工作区")
-    else:
-        base = ["HEAD"]
-        before_ref, after_ref = "HEAD", None
-        labels = ("HEAD", "工作区")
-
-    base_label = " ".join(base)
     selectors = _normalize_selectors(args.selectors)
 
     info(f"项目根: {PROJECT_BASE_DIR}")
-    info(f"对比: {base_label}" + ("" if after_ref else "（结束侧取工作区）"))
+    info(f"对比: {scope.base_label}" + ("" if scope.after_ref else "（结束侧取工作区）"))
     if selectors:
         info(f"范围: {' '.join(selectors)}")
     info(f"输出: {out_dir}{'（dry-run，不落盘）' if args.dry_run else ''}")
 
     try:
-        changes = _list_changes(base, selectors)
-    except GitError as e:
+        changes = _list_changes(scope.diff_args, selectors)
+    except git.GitError as e:
         error(str(e))
         return 1
 
     if not changes:
-        scope = f" {' '.join(selectors)}" if selectors else ""
-        info(f"没有变更（{base_label}{scope}）")
+        scope_note = f" {' '.join(selectors)}" if selectors else ""
+        info(f"没有变更（{scope.base_label}{scope_note}）")
         return 0
+
+    planned, conflicts = _plan(changes)
+    if conflicts:
+        for name, paths in conflicts:
+            error(f"输出名冲突: {' / '.join(paths)} 都映射到 {name}（请改用镜像目录结构或分批导出）")
+        error(f"共 {len(conflicts)} 组输出名冲突，本次不写出任何文件")
+        return 1
 
     if not args.dry_run:
         if not args.no_clean:
@@ -466,101 +622,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 info(f"已清理 {removed} 个旧产物")
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    written = skipped = same_content = 0
-    used: Dict[str, str] = {}
-
-    for change in changes:
-        name = _out_name(change)
-        if name in used:
-            error(
-                f"输出名冲突，跳过: {change.new_path}"
-                f"（与 {used[name]} 都映射到 {name}，请改用镜像目录结构）"
-            )
-            skipped += 1
-            continue
-        used[name] = change.new_path
-
-        try:
-            before_bytes = _before_bytes(change, before_ref)
-            after_bytes = _after_bytes(change, after_ref)
-            where_before = f"{before_ref}:{change.old_path or change.new_path}"
-            before = None if before_bytes is None else _as_text(before_bytes, where_before)
-            after = None if after_bytes is None else _as_text(after_bytes, change.new_path)
-        except SkipError as e:
-            warning(f"跳过: {change.new_path}（{e}）")
-            skipped += 1
-            continue
-        except GitError as e:
-            warning(f"跳过: {change.new_path}（{e}）")
-            skipped += 1
-            continue
-
-        if before is None and after is None:
-            warning(f"跳过: {change.new_path}（两侧都取不到内容，git 状态 {change.raw}）")
-            skipped += 1
-            continue
-
-        # 内容口径过滤：仅行尾不同（CRLF ↔ LF）的修改不导出。重命名/复制不适用。
-        if (
-            change.code == "M"
-            and before is not None
-            and after is not None
-            and _same_content(before, after)
-        ):
-            info(f"跳过: {change.new_path}（仅行尾差异，内容无实质变化）")
-            skipped += 1
-            same_content += 1
-            continue
-
-        paths = (
-            [p for p in (change.old_path, change.new_path) if p]
-            if change.is_rename
-            else [change.new_path]
+    stats: Counter[Outcome] = Counter()
+    for change, name in planned:
+        outcome = _export_one(
+            change,
+            name,
+            scope,
+            context=args.context,
+            out_dir=out_dir,
+            dry_run=args.dry_run,
         )
-        try:
-            patch = _patch_of(base, paths, args.context)
-        except GitError as e:
-            warning(f"取补丁失败，只导出全文: {change.new_path}（{e}）")
-            patch = ""
+        stats[outcome] += 1
 
-        added, deleted = _count_patch_lines(patch)
-        snap = Snapshot(
-            before=before,
-            after=after,
-            before_size=None if before_bytes is None else len(before_bytes),
-            after_size=None if after_bytes is None else len(after_bytes),
-            patch=patch,
-            added=added,
-            deleted=deleted,
-        )
-
-        biggest = max([s for s in (snap.before_size, snap.after_size) if s is not None], default=0)
-        if biggest > LARGE_WARN:
-            warning(f"文件较大（{biggest:,} B），导出内容将占用较多空间: {change.new_path}")
-
-        text = _render(change, snap, labels, base_label, args.context)
-
-        if args.dry_run:
-            info(f"[dry-run] {change.raw} {change.new_path} -> {name}（+{added}/-{deleted}）")
-            written += 1
-            continue
-
-        target = out_dir / name
-        # newline="" 关掉换行翻译，否则正文里的行尾会被二次加工（embedded CRLF 亦受影响）
-        with target.open("w", encoding="utf-8", newline="") as f:
-            f.write(text)
-        written += 1
-        info(
-            f"已导出 {change.raw} {change.new_path} -> {name}"
-            f"（+{added}/-{deleted}, {_size_text(snap.before_size, snap.after_size)}）"
-        )
-
-    untracked = _count_untracked()
-    same_note = f"（其中仅行尾差异 {same_content} 个）" if same_content else ""
-    success(
-        f"完成：导出 {written} 个 / 跳过 {skipped} 个{same_note}"
-        f" / 未跟踪忽略 {untracked} 个 / 变更总数 {len(changes)} → {out_dir}"
-    )
+    _report(changes, stats, out_dir)
     return 0
 
 
