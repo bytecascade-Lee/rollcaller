@@ -16,7 +16,9 @@ import argparse
 import util
 from cli import rust, tauri
 from codegen import generate_all
+from common import gate
 from common.entity.target import Target
+from common.enums.action import Action
 from common.logger import info
 from util.sigint import graceful_sigint
 
@@ -32,6 +34,8 @@ def main() -> None:
 
     target = Target(rust.resolve_triple(args.target))
     info(f"当前目标三元组为 {target.triple!r}")
+
+    gate.ensure(target, Action.BUILD, host=rust.get_host_target())
 
     generate_all()
 
