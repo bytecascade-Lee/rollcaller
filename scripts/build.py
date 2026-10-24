@@ -17,6 +17,7 @@ import argparse
 import shutil
 import sys
 from pathlib import Path
+from typing import Callable
 
 from build import builder, hasher, packager, signer, version_files, metadata
 from cli import git, rust, tauri
@@ -30,7 +31,7 @@ from common.enums.kind import Kind, KindOSError
 from common.enums.mode import Mode
 from common.enums.profile import Profile
 from common.logger import error, info
-from util.sigint import graceful_sigint
+from util.sigint import graceful_sigint, never_interrupted
 
 SKIP_FRONTEND_BUILD = {"build": {"beforeBuildCommand": None}}
 
@@ -78,7 +79,7 @@ def sign_and_hash(artifacts: list[Path]) -> None:
         info(f"已对 {str(artifact)!r} 签名并计算 sha256")
 
 
-def main() -> int:
+def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
     args = parse_args()
 
     required_args = (("-v/--version", args.version), ("-t/--target", args.target), ("-m/--mode", args.mode))
@@ -120,6 +121,11 @@ def main() -> int:
         # 5 还原版本号
         version_files.restore()
 
+    # 中断若落在构建 / 打包期间，版本号已还原，不要再汇总与签名（后者会写 assets/）
+    # 退出码由 graceful_sigint 统一给出
+    if is_interrupted():
+        return 0
+
     # 6 汇总各种包到统一目录
     collected = collect(artifacts, out_dir)
     # 7 为包进行签名 + 计算 sha256
@@ -132,7 +138,7 @@ def main() -> int:
 if __name__ == "__main__":
     with graceful_sigint() as is_interrupted:
         try:
-            sys.exit(main())
+            sys.exit(main(is_interrupted=is_interrupted))
         except (
                 BuildError,
                 CodegenError,

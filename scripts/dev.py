@@ -13,6 +13,7 @@
 
 import argparse
 import sys
+from typing import Callable
 
 from cli import git, rust, tauri
 from codegen import CodegenError, generate_all
@@ -20,7 +21,7 @@ from common import gate
 from common.entity.target import Target, UnsupportedTargetError
 from common.enums.action import Action
 from common.logger import error, info
-from util.sigint import graceful_sigint
+from util.sigint import graceful_sigint, never_interrupted
 
 
 def parse_args() -> argparse.Namespace:
@@ -29,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
+def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> None:
     args = parse_args()
 
     target = Target(rust.resolve_triple(args.target))
@@ -39,13 +40,17 @@ def main() -> None:
 
     generate_all()
 
+    # 中断若落在代码生成期间，生成物已落盘，但不应再拉起 dev server
+    if is_interrupted():
+        return
+
     tauri.dev(target)
 
 
 if __name__ == "__main__":
     with graceful_sigint(exit_code=0) as is_interrupted:
         try:
-            main()
+            main(is_interrupted=is_interrupted)
         except (
                 CodegenError,
                 gate.GateError,
