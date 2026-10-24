@@ -9,12 +9,12 @@
   import {recordStore} from "$stores/recordStore.svelte";
   import {appNavigate} from "$routing/appNavigate";
 
-  let {selected, display, anchor, overlays} = $props<{
+  let {selected, display, anchor, overlays}: {
     selected: Set<bigint>;
     display: RollcallRecord[];
     anchor: HTMLElement | null;
     overlays: EntryRegistry<RecordOverlayName>;
-  }>();
+  } = $props();
   let isVisible = $state(false);
 
   /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
@@ -28,7 +28,7 @@
   let result = $state<Result>(Result.None);
 
   function open() {
-    popoverStyle = updatePosition(anchor);
+    if (anchor) popoverStyle = updatePosition(anchor);
     if (selected.size == 0 && recordStore.records.length == display.length) {
       exportAll();
       return;
@@ -92,7 +92,7 @@
   <div
     class="popup"
     style={popoverStyle}
-    use:clickOutside={{ callback: requestClose, exclude: anchor}}
+    use:clickOutside={{ callback: requestClose, exclude: anchor ?? undefined}}
   >
     <h3 class="text-title">导出学生</h3>
     <span class="text-content">选择导出范围</span>
