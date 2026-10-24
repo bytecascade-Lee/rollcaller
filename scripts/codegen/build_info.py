@@ -20,7 +20,7 @@ from cli.git import ABBREVIATED_HASH_SLICE
 from cli.git import commit_count, commit_unix_time, head_hash
 from common.constant.paths import BACKEND_BUILD_INFO_PATH
 from common.logger import info, success
-from util.sigint import quiet_sigint
+from util.sigint import graceful_sigint
 from util.time import format_to_iso_8601
 
 
@@ -49,5 +49,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    with quiet_sigint():
+    with graceful_sigint():
         sys.exit(main())
