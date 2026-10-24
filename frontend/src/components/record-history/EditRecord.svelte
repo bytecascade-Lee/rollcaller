@@ -9,14 +9,14 @@
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
   import {appNavigate} from "$routing/appNavigate";
 
-  let {selected, anchor, onselect, overlays} = $props<{
+  let {selected, anchor, onselect, overlays}: {
     /** 生效的选择集（页面已按"记录仍然存在"过滤） */
     selected: Set<bigint>;
     anchor: HTMLElement | null;
     /** 改完回报新的选择集（清空即 `[]`）。选中集归页面所有，弹窗不直接改它 */
     onselect: (ids: readonly bigint[]) => void;
     overlays: EntryRegistry<RecordOverlayName>;
-  }>();
+  } = $props();
 
   let isVisible = $state(false);
 
@@ -61,11 +61,11 @@
     updateRemark = true;
     attendanceStatus = null;
     remark = "";
-    popoverStyle = updatePosition(anchor);
+    if (anchor) popoverStyle = updatePosition(anchor);
     isVisible = true;
     if (selected.size == 1) {
       // 必须拷贝，否则拿到的是引用，表格中的照样会变
-      let value: bigint = selected.values().next().value;
+      let value: bigint = selected.values().next().value ?? -1n;
       const original = recordStore.get(value ? value : -1n);
       if (original != null) {
         attendanceStatus = original.attendance_status;
@@ -94,7 +94,7 @@
   <div
     class="popup"
     style={popoverStyle}
-    use:clickOutside={{ callback: requestClose, exclude: anchor }}
+    use:clickOutside={{ callback: requestClose, exclude: anchor ?? undefined }}
   >
     {#if selected.size == 1}
       <h3 class="text-title">修改记录</h3>
