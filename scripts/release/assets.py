@@ -10,11 +10,12 @@ from pathlib import Path
 from build.packager import asset_name
 from common import support
 from common.entity.asset import Asset
-from common.entity.target import SupportedTarget
+from common.entity.target import SupportedTarget, Target
 from common.entity.version import Version
 from common.enums.action import Action
 from common.enums.kind import Kind
 from common.enums.mode import Mode
+from util.str_format import join_repr
 
 
 class AssetDiscoveryError(Exception):
@@ -61,7 +62,7 @@ def _discover_ci(directory: Path, version: Version) -> list[Asset]:
         raise AssetDiscoveryError("支持表中没有同时开放 BUILD 与 RELEASE 的目标")
 
     assets: list[Asset] = []
-    missing: list[str] = []
+    missing: dict[Target, list[str]] = {}
     expected_names: set[str] = set()
 
     for entry in entries:
@@ -73,12 +74,12 @@ def _discover_ci(directory: Path, version: Version) -> list[Asset]:
             if path.is_file():
                 assets.append(Asset(entry.target, kind, path))
             else:
-                missing.append(path.name)
+                missing.setdefault(entry.target, []).append(path.name)
 
-    # [TODO]：此处对于missing，最好也能展示三元组，这要求missing类型为 dict[Target, str]
     if missing:
-        names = "\n".join(f"{repr(name)}" for name in missing)
-        raise AssetDiscoveryError(f"在 {str(directory)!r} 中缺少 {len(missing)} 个期望产物: {names}")
+        detail = "\n".join(f"{target.triple!r}: {join_repr(names)}" for target, names in missing.items())
+        total = sum(len(names) for names in missing.values())
+        raise AssetDiscoveryError(f"在 {str(directory)!r} 中缺少 {total} 个期望产物:\n{detail}")
 
     _require_no_unknown(directory, expected_names)
     return assets
@@ -110,9 +111,8 @@ def _discover_local(directory: Path, version: Version) -> list[Asset]:
     entry, expected = next(iter(candidates.values()))
     missing = [path.name for _kind, path in expected if not path.is_file()]
     if missing:
-        names = "\n".join(f"{repr(name)}" for name in missing)
         raise AssetDiscoveryError(f"在 {str(directory)!r} 中对于目标三元组 {entry.target.triple!r} "
-                                  f"缺少 {len(missing)} 个期望产物: {names}")
+                                  f"缺少 {len(missing)} 个期望产物: {join_repr(missing)}")
 
     _require_no_unknown(directory, {path.name for _kind, path in expected})
     return [Asset(entry.target, kind, path) for kind, path in expected]
