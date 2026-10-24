@@ -18,9 +18,8 @@ import argparse
 import os
 import sys
 
-import util
 from common.entity.version import Version, VersionError
-from common.logger import info, warning
+from common.logger import error, info, warning
 from prepare.matrix import MatrixError, build_matrix
 from release import release_notes
 from release.release_notes import ReleaseNotesAmbiguous, ReleaseNotesNotFound, ReleaseNotesSectionEmpty
@@ -67,7 +66,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    with graceful_sigint(on_error=util.fail):
+    with graceful_sigint():
         try:
             sys.exit(main())
         except (
@@ -77,4 +76,5 @@ if __name__ == "__main__":
                 ReleaseNotesAmbiguous,
                 ReleaseNotesSectionEmpty,
         ) as e:
-            util.fail(f"准备失败: {e}")
+            error(f"准备失败: {e}")
+            sys.exit(1)
