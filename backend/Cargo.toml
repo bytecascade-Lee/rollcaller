@@ -68,6 +68,10 @@ debug = 1
 lto = false
 opt-level = 0
 
+
+[profile.develop]
+inherits = "dev"
+
 [profile.release]
 codegen-units = 1
 lto = true

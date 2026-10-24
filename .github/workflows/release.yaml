@@ -2,80 +2,63 @@ name: Release
 
 on:
     push:
-        # 只匹配 v 开头的 tag（v0.1.0、v0.1.0-rc.1 等）
-        # 含 alpha/beta 的在 build_ci.py 内校验并报错
         tags:
             - 'v*'
     workflow_dispatch:
         inputs:
             version:
-                description: '发布版本号（不带 v），例如 0.1.0 或 0.1.0-rc.1'
-                required: true
-                type: string
-            branch:
-                description: '发布来源确认：必须与上方所选 ref 完全一致的分支名（如 master）'
+                description: '待发布的语义化版本号，形如 0.1.0-rc.1，携带的构建元数据会被静默擦除'
                 required: true
                 type: string
             draft:
-                description: '发布草稿'
+                description: '是否发布为草稿'
                 required: false
                 type: boolean
                 default: false
 
 permissions:
-    contents: write
+    contents: read
 
 env:
     PYTHONIOENCODING: utf-8
+    PYTHONPATH: ${{ github.workspace }}/scripts
+    NO_COLOR: 1
 
 jobs:
-    validate:
-        name: Validate version
-        runs-on: windows-latest
+    prepare:
+        name: Prepare
+        runs-on: ubuntu-latest
+        outputs:
+            version: ${{ steps.prepare.outputs.version }}
+            draft: ${{ steps.prepare.outputs.draft }}
+            matrix: ${{ steps.prepare.outputs.matrix }}
         steps:
             -   name: Checkout
-                uses: actions/checkout@v4
-                with:
-                    # 需要发布线的完整历史，用于校验 tag 是否位于发布线上
-                    fetch-depth: 0
+                uses: actions/checkout@v7
 
             -   name: Setup uv
-                uses: astral-sh/setup-uv@v5
+                uses: astral-sh/setup-uv@v10.3.0
 
-            -   name: Check release source (fail fast)
-                env:
-                    INPUT_BRANCH: ${{ inputs.branch }}
-                run: uv run python scripts/check_release_source.py
-
-            -   name: Check version (fail fast on alpha/beta)
-                env:
-                    INPUT_VERSION: ${{ inputs.version }}
-                run: uv run python -c "import sys; sys.path.insert(0, 'scripts'); from build_ci import ci_version; ci_version()"
-
-            -   name: Check release notes section (fail fast)
-                env:
-                    INPUT_VERSION: ${{ inputs.version }}
-                    DRAFT_RELEASE: ${{ inputs.draft }}
-                run: uv run python scripts/publish_ci.py --check-notes
+            -   name: Check version & notes, generate matrix
+                id: prepare
+                run: uv run ./scripts/prepare.py -v "${{ inputs.version || github.ref_name }}" ${{ inputs.draft && '--draft' || '' }}
 
     build:
-        name: Build & upload assets (${{ matrix.target }})
-        needs: validate
-        runs-on: windows-latest
+        name: Build & upload assets with ${{ matrix.target }}
+        needs: prepare
+        runs-on: ${{ matrix.runner }}
         strategy:
             fail-fast: false
             matrix:
-                target:
-                    - x86_64-pc-windows-msvc
-                    - aarch64-pc-windows-msvc
+                include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
         steps:
             -   name: Checkout
-                uses: actions/checkout@v4
+                uses: actions/checkout@v7
                 with:
                     fetch-depth: 0
 
             -   name: Setup uv
-                uses: astral-sh/setup-uv@v5
+                uses: astral-sh/setup-uv@v10.3.0
 
             -   name: Setup pnpm
                 uses: pnpm/action-setup@v6
@@ -83,7 +66,7 @@ jobs:
                     version: 11
 
             -   name: Setup Node.js
-                uses: actions/setup-node@v4
+                uses: actions/setup-node@v7
                 with:
                     node-version: 22
                     cache: pnpm
@@ -91,9 +74,25 @@ jobs:
 
             -   name: Install frontend dependencies
                 working-directory: frontend
-                run: |
-                    Write-Host "pnpm version: $(pnpm --version)"
-                    pnpm install --frozen-lockfile
+                run: pnpm install --frozen-lockfile
+
+            #-   name: Install Linux dependencies
+            #    if: matrix.os == 'linux'
+            #    run: |
+            #        sudo apt-get update
+            #        sudo apt-get install -y \
+            #            libwebkit2gtk-4.1-dev \
+            #            build-essential \
+            #            curl \
+            #            wget \
+            #            file \
+            #            libxdo-dev \
+            #            libssl-dev \
+            #            libayatana-appindicator3-dev \
+            #            librsvg2-dev \
+            #            patchelf \
+            #            pkg-config \
+            #            libfuse2
 
             -   name: Install Rust toolchain (cargo/rustc)
                 uses: dtolnay/rust-toolchain@stable
@@ -109,84 +108,55 @@ jobs:
                     # 架构特定的 target 目录缓存
                     key: ${{ matrix.target }}
 
-            # 只在 ARM64 任务中配置 MSVC ARM64 环境
             -   name: Configure arm64 msvc development environment
-                if: matrix.target == 'aarch64-pc-windows-msvc'
+                if: matrix.os == 'windows' && matrix.arch == 'arm64'
                 uses: step-security/msvc-dev-cmd@v1
                 with:
                     arch: amd64_arm64
 
-            # 6.6MB 的预编译 tauri-cli（固定 2.11.4）直接从 GitHub Releases 下载。
-            # 之前用 actions/cache 缓存同一静态 key：tag 触发的 workflow 缓存按 ref 隔离，
-            # 每次发布都是新 tag → 永远 miss；且两个并行矩阵任务抢同一 key 保存导致 aarch64 保存失败。
-            # 体积太小，缓存无收益，改为始终下载，行为确定。
-            -   name: Install tauri-cli (prebuilt, no Tauri actions)
-                shell: pwsh
-                run: |
-                    Invoke-WebRequest -Uri "https://github.com/tauri-apps/tauri/releases/download/tauri-cli-v2.11.4/cargo-tauri-x86_64-pc-windows-msvc.zip" -OutFile cargo-tauri.zip
-                    New-Item -ItemType Directory -Force -Path resources/tauri | Out-Null
-                    Expand-Archive -Path cargo-tauri.zip -DestinationPath resources/tauri -Force
-
-                # 版本号/arch/产物命名全部由 build_ci.py 从 GitHub 环境变量推导，workflow 不再重复实现
             -   name: Build & package
                 env:
-                    INPUT_VERSION: ${{ inputs.version }}
                     MIMO_TTS_API_KEY: ${{ secrets.MIMO_TTS_API_KEY }}
                     TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
                     TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-                run: uv run python scripts/build_ci.py build --target ${{ matrix.target }}
+                run: uv run ./scripts/build.py -v "${{ needs.prepare.outputs.version }}" -t ${{ matrix.target }} -m ci
 
-            # setup.exe.sig 与 portable.zip.sig 均不发布为 Release 附件，仅经 artifact 传递到
-            # release job，供 publish_ci.py 生成自动更新清单（base64 嵌入 latest-*.json）
             -   name: Upload artifacts
                 uses: actions/upload-artifact@v7
                 with:
                     name: release-assets-${{ matrix.target }}
                     path: |
-                        rollcaller-*-windows-*-setup.exe
-                        rollcaller-*-windows-*-portable.zip
-                        rollcaller-*-windows-*-setup.exe.sig
-                        rollcaller-*-windows-*-portable.zip.sig
+                        assets/rollcaller-*
                     if-no-files-found: error
 
     release:
         name: Publish GitHub & CNB releases
         needs: build
-        runs-on: windows-latest
+        runs-on: ubuntu-latest
+        concurrency:
+            group: release
+            cancel-in-progress: false
+        permissions:
+            contents: write
         steps:
             -   name: Checkout
-                uses: actions/checkout@v4
+                uses: actions/checkout@v7
 
             -   name: Setup uv
-                uses: astral-sh/setup-uv@v5
+                uses: astral-sh/setup-uv@v10.3.0
 
             -   name: Install cnb cli
-                shell: pwsh
                 run: npm install -g @cnbcool/cnb-cli
 
             -   name: Download build artifacts
-                uses: actions/download-artifact@v7
+                uses: actions/download-artifact@v8
                 with:
                     path: assets
                     pattern: release-assets-*
                     merge-multiple: true
 
-            -   name: List assets
-                shell: pwsh
-                run: |
-                    if (Test-Path assets) {
-                      Get-ChildItem assets -Recurse
-                    } else {
-                      Write-Host "assets directory not found"
-                    }
-
-            # 先发布 GitHub Release，后同步发布 CNB Release（含自动更新清单），
-            # 逻辑集中在 scripts/publish_ci.py
             -   name: Publish GitHub & CNB releases
                 env:
                     GH_TOKEN: ${{ github.token }}
                     CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
-                    CNB_REPO: ordinary-glory/rollcaller
-                    DRAFT_RELEASE: ${{ inputs.draft }}
-                    INPUT_VERSION: ${{ inputs.version }}
-                run: uv run python scripts/publish_ci.py
+                run: uv run ./scripts/release.py -v "${{ needs.prepare.outputs.version }}" -m ci ${{ needs.prepare.outputs.draft == 'true' && '--draft' || '' }}

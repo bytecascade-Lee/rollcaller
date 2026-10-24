@@ -1,12 +1,15 @@
 <script lang="ts">
   import MarkdownIt from "markdown-it";
-  import hljs from "highlight.js";
+  import hljs from "highlight.js/lib/core";
+  import bash from "highlight.js/lib/languages/bash";
   import DOMPurify from "dompurify";
   import "highlight.js/styles/github.css";
   import {error} from "@fltsci/tauri-plugin-tracing";
   import {openUrl} from "@tauri-apps/plugin-opener";
   import {HelpAddress} from "$utils/helpAddress";
   import {headingIdPlugin} from "$utils/markdownHeadingId";
+
+  hljs.registerLanguage("bash", bash);
 
   let {markdown = "", onnavigate}: {
     markdown?: string;

@@ -4,5 +4,9 @@ version = "0.1.0-dev"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.115",
+    "semver>=3.1.0",
     "uvicorn>=0.30",
 ]
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true

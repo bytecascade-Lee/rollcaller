@@ -1,17 +1,13 @@
 name: Sync Mirrors
 
-# 代码镜像：GitHub 任意分支/tag 推送后，直接同步推送到 CNB（https://cnb.cool/ordinary-glory/rollcaller）
-# 以便 CNB 侧创建 Release 时 tag/commit 已存在；GitHub 是唯一数据源，CNB 为只读镜像。
-
 on:
     push:
-        # Dependabot 推分支会触发 push，而 Dependabot 触发的运行拿不到 Actions secrets
-        # （CNB_TOKEN 为空）⇒ 每个 dependabot 分支都会刷一次失败；这些分支也无需镜像到 CNB
         branches:
             - '**'
             - '!dependabot/**'
         tags:
             - '**'
+    workflow_dispatch:
 
 permissions:
     contents: read
@@ -22,7 +18,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             -   name: Checkout
-                uses: actions/checkout@v4
+                uses: actions/checkout@v7
                 with:
                     fetch-depth: 0
 
