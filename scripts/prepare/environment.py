@@ -17,13 +17,17 @@ from pathlib import Path
 
 from cli import git, process
 from common.constant.paths import (
+    DEVELOP_DATA_DIR,
     FRONTEND_DIR,
     FRONTEND_NODE_DIR,
+    LOCAL_RELEASE_DIR,
     PROJECT_BASE_DIR,
+    RELEASE_DIR,
     SITECUSTOMIZE_TEMPLATE_PATH,
     VENV_DIR,
 )
 from common.logger import info, success
+from util.fs import relative_path
 
 
 class EnvError(Exception):
@@ -62,6 +66,13 @@ LOCAL_GIT_CONFIG: tuple[tuple[str, str], ...] = (
     ("fetch.prune", "true"),
 )
 
+# setup 需要预建的运行期目录：都在 .gitignore 里，全新克隆不带，缺了要等到运行时才炸
+DIRECTORIES: tuple[Path, ...] = (
+    DEVELOP_DATA_DIR,
+    LOCAL_RELEASE_DIR,
+    RELEASE_DIR / "CI-CD",
+)
+
 # 工具 `--version` 输出里的第一段 x.y[.z]
 _VERSION_RE = re.compile(r"(\d+(?:\.\d+)+)")
 
@@ -76,12 +87,13 @@ def check() -> list[str]:
 
 
 def setup() -> None:
-    """把仓库准备到可开发状态: 写仓库级 git 配置、装依赖、修脚本导入钩子"""
+    """把仓库准备到可开发状态: 写仓库级 git 配置、预建运行期目录、装依赖、修脚本导入钩子"""
     problems = _toolchain_problems()
     if problems:
         raise EnvError("工具链不满足要求: " + "；".join(problems))
 
     _apply_git_config()
+    _ensure_directories()
     _install_frontend_dependencies()
     _sync_python_dependencies()
     _install_sitecustomize()
@@ -126,14 +138,6 @@ def _format(version: tuple[int, ...]) -> str:
     return ".".join(str(part) for part in version[:3])
 
 
-def _relative(path: Path) -> str:
-    """相对仓库根的 POSIX 路径；仓库外退化为原样，仅用于日志"""
-    try:
-        return path.resolve().relative_to(PROJECT_BASE_DIR).as_posix()
-    except (ValueError, OSError):
-        return str(path)
-
-
 def _toolchain_problems() -> list[str]:
     """逐条探测工具链；通过的写 info，不通过的收进返回值"""
     problems: list[str] = []
@@ -161,13 +165,13 @@ def _dependency_problems() -> list[str]:
     """检查依赖与导入钩子是否就位（只看存在性，不联网）"""
     problems: list[str] = []
     if not FRONTEND_NODE_DIR.is_dir():
-        problems.append(f"前端依赖未安装: {_relative(FRONTEND_NODE_DIR)} 不存在；执行 `just setup`")
+        problems.append(f"前端依赖未安装: {relative_path(FRONTEND_NODE_DIR)} 不存在；执行 `just setup`")
     if not VENV_DIR.is_dir():
-        problems.append(f"Python 虚拟环境未创建: {_relative(VENV_DIR)} 不存在；执行 `just setup`")
+        problems.append(f"Python 虚拟环境未创建: {relative_path(VENV_DIR)} 不存在；执行 `just setup`")
     elif not (VENV_DIR / "sitecustomize.py").is_file():
-        problems.append(f"脚本导入钩子缺失: {_relative(VENV_DIR / 'sitecustomize.py')}；执行 `just setup` 重新复制")
+        problems.append(f"脚本导入钩子缺失: {relative_path(VENV_DIR / 'sitecustomize.py')}；执行 `just setup` 重新复制")
     if not problems:
-        info(f"依赖与导入钩子就位: {_relative(FRONTEND_NODE_DIR)}、{_relative(VENV_DIR)}")
+        info(f"依赖与导入钩子就位: {relative_path(FRONTEND_NODE_DIR)}、{relative_path(VENV_DIR)}")
     return problems
 
 
@@ -176,6 +180,13 @@ def _apply_git_config() -> None:
     for key, value in LOCAL_GIT_CONFIG:
         git.set_config(key, value)
         info(f"git 配置 {key}={value}")
+
+
+def _ensure_directories() -> None:
+    """预建运行期目录：数据目录、本地发布产物、CI 日志归档（均在 .gitignore 中）"""
+    for directory in DIRECTORIES:
+        directory.mkdir(parents=True, exist_ok=True)
+        info(f"目录就绪: {relative_path(directory, PROJECT_BASE_DIR)}")
 
 
 def _install_frontend_dependencies() -> None:
@@ -208,10 +219,10 @@ def _install_sitecustomize() -> None:
     .venv 不纳入版本控制，重建虚拟环境后钩子会丢，所以每次 setup 都重做一次
     """
     if not VENV_DIR.is_dir():
-        raise EnvError(f"虚拟环境目录 {_relative(VENV_DIR)} 不存在，uv sync 未成功")
+        raise EnvError(f"虚拟环境目录 {relative_path(VENV_DIR)} 不存在，uv sync 未成功")
     target = VENV_DIR / "sitecustomize.py"
     try:
         shutil.copyfile(SITECUSTOMIZE_TEMPLATE_PATH, target)
     except OSError as error:
         raise EnvError(f"复制脚本导入钩子失败: {error}") from error
-    info(f"已更新脚本导入钩子: {_relative(target)}")
+    info(f"已更新脚本导入钩子: {relative_path(target)}")
