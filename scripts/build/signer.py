@@ -18,6 +18,7 @@ from pathlib import Path
 
 from cli import tauri
 from common.logger import success
+from util.str_format import join_repr
 
 KEY_ENV = "TAURI_SIGNING_PRIVATE_KEY"
 PASSWORD_ENV = "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
@@ -31,7 +32,7 @@ def check_env() -> None:
     """校验签名环境变量齐备"""
     missing = [name for name in (KEY_ENV, PASSWORD_ENV) if not os.environ.get(name)]
     if missing:
-        keys = " 和 ".join(repr(key) for key in missing)
+        keys = join_repr(missing, sep=" 和 ")
         raise SignError(f"缺少签名环境变量: {keys}，请先在环境中注入")
 
 
