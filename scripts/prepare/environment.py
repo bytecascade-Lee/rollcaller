@@ -26,7 +26,8 @@ from common.constant.paths import (
     SITECUSTOMIZE_TEMPLATE_PATH,
     VENV_DIR,
 )
-from common.logger import info, success
+from common.constant.repo import GITHUB_REPO
+from common.logger import info, success, warning
 from util.fs import relative_path
 
 
@@ -66,6 +67,9 @@ LOCAL_GIT_CONFIG: tuple[tuple[str, str], ...] = (
     ("fetch.prune", "true"),
 )
 
+# 远端统一使用这个名字：文档里的命令、发布流程与 bump 都按它写，新 clone 默认叫 origin
+REMOTE_NAME = "github"
+
 # setup 需要预建的运行期目录：都在 .gitignore 里，全新克隆不带，缺了要等到运行时才炸
 DIRECTORIES: tuple[Path, ...] = (
     DEVELOP_DATA_DIR,
@@ -83,17 +87,20 @@ INSTALL_TIMEOUT = 900
 
 def check() -> list[str]:
     """只读体检，返回未通过项的描述；空列表表示全部通过"""
-    return [*_toolchain_problems(), *_git_config_problems(), *_dependency_problems()]
+    return [*_toolchain_problems(), *_remote_problems(), *_git_config_problems(), *_dependency_problems()]
 
 
 def setup() -> None:
     """把仓库准备到可开发状态: 写仓库级 git 配置、预建运行期目录、装依赖、修脚本导入钩子"""
+    # 必须先建目录: 日志本身写在 data/logs 下，全新克隆里目录不存在时第一条日志就会失败
+    _ensure_directories()
+
     problems = _toolchain_problems()
     if problems:
         raise EnvError("工具链不满足要求: " + "；".join(problems))
 
+    _ensure_remote()
     _apply_git_config()
-    _ensure_directories()
     _install_frontend_dependencies()
     _sync_python_dependencies()
     _install_sitecustomize()
@@ -149,6 +156,17 @@ def _toolchain_problems() -> list[str]:
     return problems
 
 
+def _remote_problems() -> list[str]:
+    """检查远端是否已统一命名为 github 并指向本仓库"""
+    remotes = git.remotes()
+    if not remotes:
+        return []
+    if REMOTE_NAME in remotes and _is_our_repo(git.remote_url(REMOTE_NAME)):
+        info(f"远端 {REMOTE_NAME} 指向 {GITHUB_REPO}")
+        return []
+    return [f"远端 {REMOTE_NAME} 未就位（当前远端: {', '.join(remotes)}）；执行 `just setup` 自动归一"]
+
+
 def _git_config_problems() -> list[str]:
     """检查仓库级配置是否已按 LOCAL_GIT_CONFIG 写入"""
     problems: list[str] = []
@@ -173,6 +191,50 @@ def _dependency_problems() -> list[str]:
     if not problems:
         info(f"依赖与导入钩子就位: {relative_path(FRONTEND_NODE_DIR)}、{relative_path(VENV_DIR)}")
     return problems
+
+
+def _ensure_remote() -> None:
+    """
+    把指向本仓库的远端统一改名为 `github`
+
+    其它地方（文档命令、发布流程、bump）都按 `github` 写，而 `git clone` 只会给出 `origin`；
+    只改指向本仓库的那个，别人的 fork 或额外远端一律不动。
+    """
+    remotes = git.remotes()
+    if not remotes:
+        warning("仓库没有配置任何远端，跳过远端归一")
+        return
+
+    current_url = git.remote_url(REMOTE_NAME)
+    if REMOTE_NAME in remotes and _is_our_repo(current_url):
+        info(f"远端 {REMOTE_NAME} 已指向 {GITHUB_REPO}")
+        return
+
+    candidates = [name for name in remotes if name != REMOTE_NAME and _is_our_repo(git.remote_url(name))]
+    if not candidates:
+        if REMOTE_NAME in remotes:
+            raise EnvError(f"远端 {REMOTE_NAME} 指向的不是 {GITHUB_REPO}（当前 {current_url!r}），请自行确认")
+        warning(f"没有远端指向 {GITHUB_REPO}（当前远端: {', '.join(remotes)}），跳过远端归一")
+        return
+
+    if REMOTE_NAME in remotes:
+        raise EnvError(f"已存在远端 {REMOTE_NAME}（{current_url!r}），无法把 {candidates[0]!r} 改名过去")
+
+    source = candidates[0]
+    git.rename_remote(source, REMOTE_NAME)
+    success(f"远端 {source} 已重命名为 {REMOTE_NAME}")
+
+
+def _is_our_repo(url: str | None) -> bool:
+    """远端 URL 是否指向本仓库的 GitHub 地址；SSH 与 HTTPS 写法都归一后比 host + owner/name"""
+    if not url:
+        return False
+    parts = re.split(r"[/:]", url.strip().rstrip("/").removesuffix(".git"))
+    if len(parts) < 3:
+        return False
+    host = parts[-3].rsplit("@", 1)[-1].lower()
+    repository = f"{parts[-2]}/{parts[-1]}".lower()
+    return host == "github.com" and repository == GITHUB_REPO.lower()
 
 
 def _apply_git_config() -> None:
