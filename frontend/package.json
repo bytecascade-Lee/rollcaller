@@ -1,7 +1,7 @@
 {
     "name": "rollcaller",
     "version": "0.1.0-dev",
-    "packageManager": "pnpm@11.22.0",
+    "packageManager": "pnpm@12.15.0",
     "description": "",
     "type": "module",
     "scripts": {

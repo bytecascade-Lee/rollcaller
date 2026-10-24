@@ -4,6 +4,8 @@ packages:
 allowBuilds:
     esbuild: true
 
+minimumReleaseAge: 1440
+
 minimumReleaseAgeExclude:
     - argparse@3.0.4
     - flexilexi@0.1.24
