@@ -20,7 +20,6 @@ CI:
 import argparse
 import sys
 
-import util
 from build import metadata
 from cli import cnb as cnb_cli
 from cli import gh, git
@@ -31,7 +30,7 @@ from common.entity.version_index import VersionIndex
 from common.enums.mode import Mode
 from common.enums.severity import Severity
 from common.enums.source import Source
-from common.logger import info, warning
+from common.logger import error, info, warning
 from release import assets as release_assets, urls, serve
 from release import cnb as cnb_release
 from release import github as github_release
@@ -138,7 +137,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    with graceful_sigint(on_error=util.fail):
+    with graceful_sigint():
         try:
             sys.exit(main())
         except (
@@ -158,4 +157,5 @@ if __name__ == "__main__":
                 gh.GhError,
                 cnb_cli.CnbError,
         ) as e:
-            util.fail(f"发布失败: {e}")
+            error(f"发布失败: {e}")
+            sys.exit(1)
