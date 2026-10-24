@@ -21,10 +21,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
-import util
 from cli import git
 from common.constant.paths import DOCS_DIR
-from common.logger import info, success
+from common.logger import error, info, success
 from util import fs
 from util.str_format import display_width, padding
 
@@ -243,4 +242,5 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except (git.GitError, ChangelogError) as e:
-        util.fail(f"生成提交日志失败: {e}")
+        error(f"生成提交日志失败: {e}")
+        sys.exit(1)
