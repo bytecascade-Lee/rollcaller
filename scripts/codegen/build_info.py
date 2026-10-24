@@ -8,7 +8,7 @@
     开发、构建前
 
 用法:
-    uv run ./scripts/codegen/generate_build_info.py
+    uv run ./scripts/codegen/build_info.py
 """
 
 import json
