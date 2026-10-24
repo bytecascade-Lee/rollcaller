@@ -6,7 +6,7 @@
 
 - 入口：debug / info / success / warning / error，其中success 是自定义级别 25
 - 行格式：``<UTC 时间> [级别] [文件:行号] 消息``，两条通道完全一致，只差颜色
-- 文件：``data/logs/python/<YYYY-MM-DD>.log``，UTF-8、无颜色，按天归档，可直接 rg
+- 文件：``data/logs/python/<YYYY-MM>/<YYYY-MM-DD>.log``，UTF-8、无颜色，按天归档，可直接 rg
 - 级别：root 与控制台 ``DEBUG``，文件 ``INFO``
 - 所有消息先过 redact() 打码，规则只在该函数里维护
 """
@@ -15,8 +15,9 @@ import logging
 import os
 import re
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from functools import cache
+from pathlib import Path
 
 from common.constant.paths import DEVELOP_DATA_DIR
 from util.fs import relative_path
@@ -141,18 +142,41 @@ class LogFormatter(logging.Formatter):
         return f"{_DIM}{stamp}{_RESET} {level} {_DIM}{location}{_RESET} {_BODY}{message}{_RESET}"
 
 
+class DailyFileHandler(logging.FileHandler):
+    """按记录时间跨天 / 跨月自动切文件"""
+
+    def __init__(self, log_root: Path, encoding: str = "UTF-8") -> None:
+        self._log_root = log_root
+        self._current_date = datetime.now(tz=timezone.utc).date()
+        super().__init__(self._path_for(self._current_date), encoding=encoding, delay=True)
+
+    def _path_for(self, d: date) -> Path:
+        return self._log_root / f"{d.year}-{d.month:02}" / f"{d.isoformat()}.log"
+
+    def emit(self, record: logging.LogRecord) -> None:
+        # 用记录自身的 created 时间，保证异步/队列场景正确
+        try:
+            d = datetime.fromtimestamp(record.created, tz=timezone.utc).date()
+            if d != self._current_date:
+                self._current_date = d
+                self.close()
+                path = self._path_for(d)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                self.baseFilename = os.fspath(path)
+        except Exception:
+            self.handleError(record)
+            return
+        super().emit(record)
+
+
 @cache
 def _setup() -> None:
     """首次记录日志时装配 handler"""
-    today = date.today()
-    log_dir = DEVELOP_DATA_DIR / "logs" / "python" / f"{today.year}-{today.month:02}"
-    log_dir.mkdir(parents=True, exist_ok=True)
-
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.DEBUG)
     console_handler.setFormatter(LogFormatter(color=use_color()))
 
-    file_handler = logging.FileHandler(log_dir / f"{today.isoformat()}.log", encoding="UTF-8")
+    file_handler = DailyFileHandler(DEVELOP_DATA_DIR / "logs" / "python")
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(LogFormatter(color=False))
 
