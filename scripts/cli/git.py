@@ -164,6 +164,26 @@ def create_tag(tag: str, message: str, *, cwd: Path | None = None) -> None:
     stdout(["tag", "-a", tag, "-m", message], cwd=cwd)
 
 
+def rename_remote(old: str, new: str, *, cwd: Path | None = None) -> None:
+    """重命名远端；git 会一并改写 `branch.<name>.remote` 与远程跟踪引用"""
+    stdout(["remote", "rename", old, new], cwd=cwd)
+
+
+def remotes(*, cwd: Path | None = None) -> list[str]:
+    """远端名列表；克隆来的仓库通常只有一个 `origin`"""
+    output = stdout(["remote"], cwd=cwd)
+    return [line for line in output.splitlines() if line]
+
+
+def upstream(*, cwd: Path | None = None) -> str | None:
+    """当前分支的上游引用，形如 `origin/develop`；未设置上游时返回 None"""
+    # 未设置上游时 git 以 128 退出
+    result = _run(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], cwd=cwd, allow=(128,))
+    if result.returncode != 0:
+        return None
+    return _text(result) or None
+
+
 def tracked_changes(*, cwd: Path | None = None) -> str:
     """已跟踪文件的改动（porcelain，忽略未跟踪文件）；空串表示工作区干净"""
     return stdout(["status", "--porcelain", "--untracked-files=no"], cwd=cwd)
