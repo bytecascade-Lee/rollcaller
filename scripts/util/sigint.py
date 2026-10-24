@@ -36,18 +36,17 @@ class _InterruptGuard:
 
 
 @contextmanager
-def graceful_sigint(on_error: Callable[[str], None] | None = None, exit_code: int = 130) -> Iterator[Callable[[], bool]]:
+def graceful_sigint(exit_code: int = 130) -> Iterator[Callable[[], bool]]:
     """接管 SIGINT
 
-    第一次等待子进程退干净，第二次放行强制收场。中断态静默收场，
-    其余异常原样传播；未给 on_error 时不做兜底，直接抛给调用方。
+    第一次等待子进程退干净，第二次放行强制收场。只处理 KeyboardInterrupt，
+    其余异常原样传播（保留原始 traceback），由调用方的顶层 except 负责。
 
     仅限主线程，"子进程一起退"只对控制台 Ctrl+C 成立，
     IDE 停止、taskkill 等只发给本进程的信号不会连带子进程。
 
     不可单线程嵌套使用。
 
-    :param on_error:    错误出口回调；未给则异常原样抛出
     :param exit_code:   中断后的退出码，默认 130
     """
     guard = _InterruptGuard()
@@ -56,12 +55,6 @@ def graceful_sigint(on_error: Callable[[str], None] | None = None, exit_code: in
         yield guard.is_interrupted
     except KeyboardInterrupt:
         pass
-    except Exception as e:
-        if not guard.is_interrupted():
-            if on_error is None:
-                raise
-            on_error(str(e))
-            sys.exit(1)
     finally:
         signal.signal(signal.SIGINT, prevent)
     if guard.is_interrupted():
