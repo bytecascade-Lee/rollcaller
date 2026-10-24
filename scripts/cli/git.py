@@ -134,6 +134,25 @@ def remote_url(name: str = "origin", *, cwd: Path | None = None) -> str | None:
     return _text(result) or None
 
 
+def set_config(key: str, value: str, *, cwd: Path | None = None) -> None:
+    """
+    写入仓库级配置
+
+    :param key: 配置键，如 `pull.ff`
+    :param value: 配置值，如 `only`
+    :param cwd: 当前工作目录
+    """
+    stdout(["config", "--local", key, value], cwd=cwd)
+
+
+def get_config(key: str, *, cwd: Path | None = None) -> str | None:
+    """读取仓库级配置，未设置返回 None"""
+    result = _run(["config", "--local", "--get", key], cwd=cwd, allow=(1,))
+    if result.returncode != 0:
+        return None
+    return _text(result) or None
+
+
 def status_porcelain(paths: Iterable[str | Path], *, cwd: Path | None = None) -> str:
     """执行 git status --porcelain -- <paths>；空串表示这些路径相对 HEAD 无改动"""
     return stdout(["status", "--porcelain", "--", *_paths(paths)], cwd=cwd)
