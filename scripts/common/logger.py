@@ -1,63 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
-# @Author  : Serene Lee
-# @Date    : 2026/6/6
 
 """
-公共日志模块。
+日志模块
 
-一、日志记录
-    对外按级别封装为：
-        debug(msg) / info(msg) / warning(msg) / error(msg) / critical(msg) / success(msg)
-
-    旧的字符串级别入口 log(level, message) 仍可用，但已弃用。
-
-    每条日志同时送往两个 handler：
-      - 控制台：按级别带 ANSI 颜色，供开发者阅读。
-      - 文件：无颜色、纯文本，路径为 <项目根>/data/logs/p/<YYYY-MM-DD>.log，
-        UTF-8 编码，按当天日期归档，可放心 grep 与解析。
-
-    两侧行格式一致：
-        [<UTC 时间>] [<级别>] [<文件名>:<行号>] <消息>
-    时间为 UTC、ISO 8601、毫秒精度、以 Z 结尾，不随机器时区漂移。
-    两个 handler 及 root logger 的级别均为 INFO。
-
-二、密钥打码
-    redact(message) 抹掉消息中的疑似凭据。log() 在输出与落盘前对每条消息调用它。
-
-    依次应用四条规则：
-      1. 已知密钥环境变量（_SECRET_ENV_VARS）的值原样出现 ->
-        替换为 `<变量名>=***`；值短于 _MIN_SECRET_LEN 的不处理，避免误伤短词。
-      2. URL 内嵌凭据 scheme://user:password@host ->
-        密码段替换为 `***`。
-      3. 查询串中名字含 `token` / `key` / `secret` / `password`/ `signature` / `credential` / `sig` 的参数 ->
-        只保留参数名，值替换为 `***`。
-      4. 形如 *TOKEN=* / *PASSWORD=* 等赋值样式的值 ->
-        替换为 `***`。
-
-    注意：redact() 是"尽力而为"，不是"证明安全"。
-    新增密钥传递方式时，应同步扩充 _SECRET_ENV_VARS 或补充相应正则。
-
-三、用法
-    from common.logger import info, warning, error, debug
-
-    info("开始构建")
-    error(f"下载失败：{url}")   # url 中若含 token，会被自动打码
-
-    首次调用任一函数时完成 logging 配置，之后复用；日志目录不存在会自动创建。
+- 入口：debug / info / success / warning / error，其中success 是自定义级别 25
+- 行格式：``<UTC 时间> [级别] [文件:行号] 消息``，两条通道完全一致，只差颜色
+- 文件：``data/logs/python/<YYYY-MM-DD>.log``，UTF-8、无颜色，按天归档，可直接 rg
+- 级别：root 与控制台 ``DEBUG``，文件 ``INFO``
+- 所有消息先过 redact() 打码，规则只在该函数里维护
 """
+
 import logging
 import os
 import re
 import sys
-from datetime import date, datetime, timezone
-from functools import lru_cache
-from pathlib import Path
+from datetime import date, datetime
+from functools import cache
 
-from common.constant.paths import SCRIPTS_DIR, DEVELOP_DATA_DIR
+from common.constant.paths import DEVELOP_DATA_DIR
+from util.fs import relative_path
+from util.time import format_to_iso_8601
 
-# 这些环境变量的值一旦出现在日志里就按密钥处理，统一打码
-# （约定：密钥只经环境变量传递，绝不进命令行参数——argv 会被命令级日志原样打印）
+SUCCESS = 25
+logging.addLevelName(SUCCESS, "SUCCESS")
+
+# 此处环境变量的值一旦出现在日志里就按密钥处理，统一打码
 _SECRET_ENV_VARS = (
     "CNB_TOKEN",
     "GH_TOKEN",
@@ -66,66 +34,32 @@ _SECRET_ENV_VARS = (
     "TAURI_SIGNING_PRIVATE_KEY",
     "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
 )
-# URL 内嵌凭据（如 https://user:token@host）中的密码段
+# URL 内嵌凭据中的密码段，如 https://user:token@host
 _URL_USERINFO_RE = re.compile(r"(?<=://)([^/@:\s]+):([^@\s/]+)@")
-# 查询串中名字带敏感词的参数值（如 ?signature=...&upload_token=...）
+# 查询串中名字带敏感词的参数值，如 ?signature=...&upload_token=...
 _SENSITIVE_QUERY_RE = re.compile(
     r"([?&][^&\s=]*(?:token|key|secret|password|signature|credential|sig)[^&\s=]*=)[^&\s]+",
-    re.IGNORECASE,
+    re.IGNORECASE
 )
-# 通用兜底：形如 <含 TOKEN/KEY/SECRET/PASSWORD/CREDENTIAL 的变量名>=值 或 ": 值" 的赋值样式，
-# 值一律打码——防的是未列入 _SECRET_ENV_VARS 的密钥变量被人打印
+# 形如 <含 TOKEN/KEY/SECRET/PASSWORD/CREDENTIAL 的变量名> 值 或 ": 值" 的赋值样式，值一律打码
 _ASSIGNMENT_RE = re.compile(
     r"([A-Za-z0-9_]*(?:token|key|secret|password|credential)[A-Za-z0-9_]*\s*[=:]\s*)(\S+)",
     re.IGNORECASE,
 )
-# 参与打码的环境变量值最小长度：短于它不替换，避免误伤普通短词
+# 参与打码的环境变量值最小长度
 _MIN_SECRET_LEN = 8
 
 
-@lru_cache(maxsize=1024)
-def _relpath(pathname: str) -> str:
-    """把绝对路径转成相对项目根的 POSIX 路径。
-
-    - 项目内文件：scripts/codegen/__init__.py
-    - 项目外文件（stdlib、第三方包）：退化为 basename
-    """
-    try:
-        return Path(pathname).resolve().relative_to(SCRIPTS_DIR).as_posix()
-    except (ValueError, OSError):
-        return Path(pathname).name
-
-
-# 日志行格式：文件与控制台共用，保证两侧内容一致，只有颜色不同
-_LOG_FORMAT = "%(asctime)s %(levelname_padded)s [%(relpath)s:%(lineno)d] %(message)s"
-
-# 全局标志，防止重复配置
-_LOGGING_CONFIGURED = False
-
-SUCCESS = 25
-logging.addLevelName(SUCCESS, "SUCCESS")
-
-
-def _fg(r: int, g: int, b: int) -> str:
-    """前景色（文字色）转义序列。"""
-    return f"\033[38;2;{r};{g};{b}m"
-
-
-def _bg_fg(bg_r: int, bg_g: int, bg_b: int, fg_r: int, fg_g: int, fg_b: int) -> str:
-    """背景色 + 前景色 转义序列。"""
-    return f"\033[48;2;{bg_r};{bg_g};{bg_b};38;2;{fg_r};{fg_g};{fg_b}m"
-
-
 def redact(message: str) -> str:
-    """抹掉消息里的疑似密钥，返回安全文本。
+    """
+    抹掉消息里的疑似密钥，返回安全文本。
 
-    三条规则：
-    1. 已知密钥环境变量（_SECRET_ENV_VARS）的值原样出现 → 替换为 `<变量名>=***`；
-       值短于 _MIN_SECRET_LEN 的不处理，避免把普通短词误伤。
-    2. URL 内嵌凭据 `scheme://user:password@host` → 密码段替换为 ***。
-    3. 查询串中名字含 token/key/secret/password/signature/credential/sig 的参数
-       → 只留参数名，值替换为 ***。
-    4. 兜底：形如 `*TOKEN=*` / `*PASSWORD=*` 等赋值样式的值 → 替换为 ***。
+    1. 已知密钥环境变量的值原样出现 -> 替换为 `<变量名>=***`，值短于 _MIN_SECRET_LEN 的不处理
+    2. URL 内嵌凭据 `scheme://user:password@host` -> 密码段替换为 ***
+    3. 查询串中名字含 token/key/secret/password/signature/credential/sig 的参数 -> 只留参数名，值替换为 ***
+    4. 形如 `*TOKEN=*` / `*PASSWORD=*` 等赋值样式的值 -> 替换为 ***。
+
+    此函数只保证 「尽力而为」
     """
     for name in _SECRET_ENV_VARS:
         value = os.environ.get(name, "")
@@ -137,126 +71,118 @@ def redact(message: str) -> str:
     return message
 
 
-def use_color() -> bool:
-    """决定控制台 handler 是否输出 ANSI 颜色。
+def _fg(r: int, g: int, b: int) -> str:
+    """前景色转义序列"""
+    return f"\033[38;2;{r};{g};{b}m"
 
-    优先级：显式开关 > 环境能力 > 兜底关闭。
-    """
+
+def _bg_fg(bg_r: int, bg_g: int, bg_b: int, fg_r: int, fg_g: int, fg_b: int) -> str:
+    """背景色 + 前景色转义序列"""
+    return f"\033[48;2;{bg_r};{bg_g};{bg_b};38;2;{fg_r};{fg_g};{fg_b}m"
+
+
+_RESET = "\033[0m"
+_DIM = _fg(128, 128, 128)  # 时间戳、位置，以及 DEBUG 标签
+_BODY = _fg(180, 180, 180)  # 正文颜色
+_LEVEL_COLORS = {
+    logging.DEBUG: _DIM,
+    logging.INFO: _fg(80, 160, 255),
+    logging.WARNING: _fg(255, 200, 0),
+}
+_SUCCESS_STYLE = _fg(80, 255, 120)  # SUCCESS 整行绿字
+_ERROR_STYLE = _bg_fg(200, 0, 0, 255, 255, 255)  # ERROR 整行红底白字
+
+TAG_WIDTH = 10  # 级别标签补齐宽度
+
+
+def use_color() -> bool:
+    """控制台是否输出 ANSI 颜色：显式开关 > 终端能力 > 兜底关闭"""
     if os.environ.get("NO_COLOR"):  # 社区约定：存在且非空即强制关闭
         return False
-    if os.environ.get("FORCE_COLOR"):  # 社区约定：存在即强制开启
+    if os.environ.get("FORCE_COLOR", "") not in ("", "0"):  # FORCE_COLOR=0 视为关闭
         return True
     if os.environ.get("TERM") == "dumb":
         return False
     # 非 tty（重定向、管道、CI 抓取）一律不上色
-    return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+    return sys.stdout.isatty()
 
 
-# 自定义 Formatter，输出 UTC 时间；文件 handler 使用，不带任何颜色转义
-class FileFormatter(logging.Formatter):
-    LEVEL_WIDTH = 10
+class LogFormatter(logging.Formatter):
+    """把一条记录渲染成一行"""
 
-    def formatTime(self, record, datefmt=None):
-        # record.created 是 UTC 时间戳
-        dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
-        if datefmt:
-            return dt.strftime(datefmt)
-        return dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+    def __init__(self, *, color: bool) -> None:
+        super().__init__()
+        self.color = color
 
-    def format(self, record):
-        # 提前构造好带中括号、且右补空格的级别标签，如 "[DEBUG]   "。
-        # 空格补在 "]" 之后，保证中括号紧贴标签，字体连写不被撑开。
-        # 注入的是派生字段，不覆盖 record.levelname 本身，对上层无副作用。
-        record.levelname_padded = f"[{record.levelname}]".ljust(self.LEVEL_WIDTH)
-        record.relpath = _relpath(record.pathname)
-        return super().format(record)
+    def formatTime(self, record, datefmt: str | None = None) -> str:
+        """UTC、ISO 8601、毫秒、以 Z 结尾，不随机器时区漂移"""
+        return format_to_iso_8601(datetime.fromtimestamp(record.created))
 
+    def format(self, record: logging.LogRecord) -> str:
+        stamp = self.formatTime(record)
+        tag = f"[{record.levelname}]".ljust(TAG_WIDTH)
+        location = f"[{relative_path(record.pathname)}:{record.lineno}]"
+        message = record.getMessage()
 
-# 控制台专用：在 FileFormatter 的输出上按日志级别包一层 ANSI 颜色。
-# 除颜色外，时间戳格式、字段顺序、异常栈等都完全继承自 FileFormatter。
-class ConsoleFormatter(FileFormatter):
-    COLORS = {
-        logging.DEBUG: _fg(128, 128, 128),  # 中灰,
-        logging.INFO: _fg(80, 160, 255),  # 亮蓝,
-        logging.WARNING: _fg(255, 200, 0),  # 琥珀黄,
-        logging.ERROR: _fg(255, 80, 80),  # 亮红,
-        logging.CRITICAL: _bg_fg(200, 0, 0, 255, 255, 255),  # 红底白字
-        SUCCESS: _fg(80, 255, 120)  # 绿色
-    }
-    RESET = "\033[0m"
+        if record.exc_info and not record.exc_text:
+            record.exc_text = self.formatException(record.exc_info)
+        if record.exc_text:
+            message = f"{message}\n{record.exc_text}"
 
-    def format(self, record):
-        s = super().format(record)
-        color = self.COLORS.get(record.levelno, "")
-        # 未知级别 color 为空串，此时不加 RESET，避免往输出里塞无意义的转义
-        return f"{color}{s}{self.RESET}" if color else s
+        if not self.color:
+            return f"{stamp} {tag} {location} {message}"
+        if record.levelno == logging.ERROR:
+            return f"{_ERROR_STYLE}{stamp} {tag} {location} {message}{_RESET}"
+        if record.levelno == SUCCESS:
+            return f"{_SUCCESS_STYLE}{stamp} {tag} {location} {message}{_RESET}"
+
+        tag_color = _LEVEL_COLORS.get(record.levelno)
+        level = f"{tag_color}{tag}{_RESET}" if tag_color else tag
+        return f"{_DIM}{stamp}{_RESET} {level} {_DIM}{location}{_RESET} {_BODY}{message}{_RESET}"
 
 
-def _setup_logging():
-    global _LOGGING_CONFIGURED
-    if _LOGGING_CONFIGURED:
-        return
-
-    log_dir = DEVELOP_DATA_DIR / "logs" / "python"
+@cache
+def _setup() -> None:
+    """首次记录日志时装配 handler"""
+    today = date.today()
+    log_dir = DEVELOP_DATA_DIR / "logs" / "python" / f"{today.year}-{today.month:02}"
     log_dir.mkdir(parents=True, exist_ok=True)
-
-    file_handler = logging.FileHandler(log_dir / f"{date.today()}.log", encoding="utf-8")
-    file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(FileFormatter(_LOG_FORMAT))
 
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.DEBUG)
-    if use_color():
-        console_handler.setFormatter(ConsoleFormatter(_LOG_FORMAT))
-    else:
-        console_handler.setFormatter(FileFormatter(_LOG_FORMAT))
+    console_handler.setFormatter(LogFormatter(color=use_color()))
 
-    root_logger = logging.getLogger()
-    root_logger.addHandler(console_handler)
-    root_logger.addHandler(file_handler)
-    root_logger.setLevel(logging.DEBUG)
+    file_handler = logging.FileHandler(log_dir / f"{today.isoformat()}.log", encoding="UTF-8")
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(LogFormatter(color=False))
 
-    _LOGGING_CONFIGURED = True
-
-
-# logging.log 到调用方的固定层数：
-# logging.log -> _emit -> 包装函数 -> 调用方。
-# 每个对外函数都只隔着一层 _emit，故一律用 3。
-# [FIXME]：此处栈层级需要仔细设计
-_STACKLEVEL = 3
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+    root.addHandler(console_handler)
+    root.addHandler(file_handler)
 
 
-def _emit(level_value: int, message: str, stacklevel: int) -> None:
-    """统一落点：配置 logging、脱敏，并按 stacklevel 定位调用方位置。"""
-    _setup_logging()
-    # 输出前统一脱敏
-    logging.log(level_value, redact(str(message)), stacklevel=stacklevel)
+def _emit(level: int, message: str, stacklevel: int) -> None:
+    """统一落点：装配、脱敏、定位调用方"""
+    _setup()
+    logging.log(level, redact(str(message)), stacklevel=stacklevel + 2)
 
 
-def log(level: str, message: str) -> None:
-    """按字符串级别记录。已弃用，改用 debug/info/warning/error/critical/success"""
-    _emit(getattr(logging, level.upper(), logging.INFO), message, _STACKLEVEL)
+def debug(message: str, *, stacklevel: int = 1) -> None:
+    _emit(logging.DEBUG, message, stacklevel)
 
 
-def debug(message: str) -> None:
-    _emit(logging.DEBUG, message, _STACKLEVEL)
+def info(message: str, *, stacklevel: int = 1) -> None:
+    _emit(logging.INFO, message, stacklevel)
 
 
-def info(message: str) -> None:
-    _emit(logging.INFO, message, _STACKLEVEL)
+def success(message: str, *, stacklevel: int = 1) -> None:
+    _emit(SUCCESS, message, stacklevel)
 
 
-def warning(message: str) -> None:
-    _emit(logging.WARNING, message, _STACKLEVEL)
+def warning(message: str, *, stacklevel: int = 1) -> None:
+    _emit(logging.WARNING, message, stacklevel)
 
 
-def error(message: str) -> None:
-    _emit(logging.ERROR, message, _STACKLEVEL)
-
-
-def critical(message: str) -> None:
-    _emit(logging.CRITICAL, message, _STACKLEVEL)
-
-
-def success(message: str) -> None:
-    _emit(SUCCESS, message, _STACKLEVEL)
+def error(message: str, *, stacklevel: int = 1) -> None:
+    _emit(logging.ERROR, message, stacklevel)
