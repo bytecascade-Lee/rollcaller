@@ -15,7 +15,7 @@ from pathlib import Path
 
 from common.constant.paths import FRONTEND_DIR, RESOURCES_DIR, PROJECT_BASE_DIR
 from common.logger import error, success
-from util.sigint import quiet_sigint
+from util.sigint import graceful_sigint
 
 APP_META_PATH = FRONTEND_DIR / "src" / "lib" / "resources" / "app" / "meta.json"
 HELP_META_PATH = FRONTEND_DIR / "src" / "lib" / "resources" / "help" / "meta.json"
@@ -289,5 +289,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    with quiet_sigint():
+    with graceful_sigint():
         sys.exit(main())
