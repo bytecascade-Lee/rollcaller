@@ -33,18 +33,25 @@ jobs:
             draft: ${{ steps.prepare.outputs.draft }}
             matrix: ${{ steps.prepare.outputs.matrix }}
         steps:
-            -   name: Checkout
+            -   name: Check out repository
                 uses: actions/checkout@v7
 
-            -   name: Setup uv
+            -   name: Set up uv
                 uses: astral-sh/setup-uv@v10.3.0
+                with:
+                    enable-cache: true
 
-            -   name: Check version & notes, generate matrix
+            -   name: Install Python dependencies
+                run: |
+                    uv lock --check
+                    uv sync --frozen
+
+            -   name: Validate version and notes, and generate matrix
                 id: prepare
-                run: uv run ./scripts/prepare.py -v "${{ inputs.version || github.ref_name }}" ${{ inputs.draft && '--draft' || '' }}
+                run: uv run --frozen ./scripts/prepare.py -v "${{ inputs.version || github.ref_name }}" ${{ inputs.draft && '--draft' || '' }}
 
     build:
-        name: Build & upload assets with ${{ matrix.target }}
+        name: Build (${{ matrix.target }})
         needs: prepare
         runs-on: ${{ matrix.runner }}
         strategy:
@@ -52,25 +59,32 @@ jobs:
             matrix:
                 include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
         steps:
-            -   name: Checkout
+            -   name: Check out repository
                 uses: actions/checkout@v7
                 with:
                     fetch-depth: 0
 
-            -   name: Setup uv
+            -   name: Set up uv
                 uses: astral-sh/setup-uv@v10.3.0
+                with:
+                    enable-cache: true
 
-            -   name: Setup pnpm
+            -   name: Set up pnpm
                 uses: pnpm/action-setup@v6
                 with:
-                    version: 11
+                    version: 12.15.0
 
-            -   name: Setup Node.js
+            -   name: Set up Node.js
                 uses: actions/setup-node@v7
                 with:
-                    node-version: 22
+                    node-version: 26
                     cache: pnpm
                     cache-dependency-path: frontend/pnpm-lock.yaml
+
+            -   name: Install Python dependencies
+                run: |
+                    uv lock --check
+                    uv sync --frozen
 
             -   name: Install frontend dependencies
                 working-directory: frontend
@@ -94,12 +108,12 @@ jobs:
             #            pkg-config \
             #            libfuse2
 
-            -   name: Install Rust toolchain (cargo/rustc)
+            -   name: Install Rust toolchain
                 uses: dtolnay/rust-toolchain@stable
                 with:
                     targets: ${{ matrix.target }}
 
-            -   name: Cache cargo
+            -   name: Cache Rust build
                 uses: Swatinem/rust-cache@v2
                 with:
                     workspaces: backend
@@ -108,18 +122,22 @@ jobs:
                     # 架构特定的 target 目录缓存
                     key: ${{ matrix.target }}
 
-            -   name: Configure arm64 msvc development environment
+            -   name: Configure MSVC environment for arm64
                 if: matrix.os == 'windows' && matrix.arch == 'arm64'
                 uses: step-security/msvc-dev-cmd@v1
                 with:
                     arch: amd64_arm64
 
-            -   name: Build & package
+            -   name: Fetch Rust dependencies
+                working-directory: backend
+                run: cargo fetch --locked
+
+            -   name: Build and package
                 env:
                     MIMO_TTS_API_KEY: ${{ secrets.MIMO_TTS_API_KEY }}
                     TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
                     TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-                run: uv run ./scripts/build.py -v "${{ needs.prepare.outputs.version }}" -t ${{ matrix.target }} -m ci
+                run: uv run --frozen ./scripts/build.py -v "${{ needs.prepare.outputs.version }}" -t ${{ matrix.target }} -m ci
 
             -   name: Upload artifacts
                 uses: actions/upload-artifact@v7
@@ -130,7 +148,7 @@ jobs:
                     if-no-files-found: error
 
     release:
-        name: Publish GitHub & CNB releases
+        name: Publish
         needs: build
         runs-on: ubuntu-latest
         concurrency:
@@ -139,24 +157,34 @@ jobs:
         permissions:
             contents: write
         steps:
-            -   name: Checkout
+            -   name: Check out repository
                 uses: actions/checkout@v7
 
-            -   name: Setup uv
+            -   name: Set up uv
                 uses: astral-sh/setup-uv@v10.3.0
+                with:
+                    enable-cache: true
 
-            -   name: Install cnb cli
-                run: npm install -g @cnbcool/cnb-cli
+            -   name: Set up Node.js
+                uses: actions/setup-node@v7
+                with:
+                    node-version: 26
 
-            -   name: Download build artifacts
+            -   name: Install Python dependencies
+                run: uv sync --frozen
+
+            -   name: Install CNB CLI
+                run: npm install -g @cnbcool/cnb-cli@1.10.17
+
+            -   name: Download artifacts
                 uses: actions/download-artifact@v8
                 with:
                     path: assets
                     pattern: release-assets-*
                     merge-multiple: true
 
-            -   name: Publish GitHub & CNB releases
+            -   name: Publish to GitHub and CNB
                 env:
                     GH_TOKEN: ${{ github.token }}
                     CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
-                run: uv run ./scripts/release.py -v "${{ needs.prepare.outputs.version }}" -m ci ${{ needs.prepare.outputs.draft == 'true' && '--draft' || '' }}
+                run: uv run --frozen ./scripts/release.py -v "${{ needs.prepare.outputs.version }}" -m ci ${{ needs.prepare.outputs.draft == 'true' && '--draft' || '' }}
