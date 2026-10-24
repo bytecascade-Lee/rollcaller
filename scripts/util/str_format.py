@@ -1,4 +1,10 @@
 import unicodedata
+from collections.abc import Iterable
+
+
+def join_repr(items: Iterable[object], *, sep: str = "、") -> str:
+    """把一组对象按 repr 拼成清单，供错误信息指出具体的名字。"""
+    return sep.join(repr(item) for item in items)
 
 
 def display_width(s: str) -> int:
