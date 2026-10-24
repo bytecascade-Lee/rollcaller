@@ -148,6 +148,8 @@ class DailyFileHandler(logging.FileHandler):
     def __init__(self, log_root: Path, encoding: str = "UTF-8") -> None:
         self._log_root = log_root
         self._current_date = datetime.now(tz=timezone.utc).date()
+        # 全新克隆里 data/logs 不存在，而 delay=True 会把建文件拖到第一次 emit 之后
+        self._path_for(self._current_date).parent.mkdir(parents=True, exist_ok=True)
         super().__init__(self._path_for(self._current_date), encoding=encoding, delay=True)
 
     def _path_for(self, d: date) -> Path:
