@@ -10,18 +10,21 @@
 - ``setup()``  体检通过后写仓库级 git 配置、装依赖、修好脚本导入钩子（对应 ``just setup``）
 """
 
+import os
 import re
 import shutil
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-from cli import git, process
+from cli import git, process, rust, uv
 from common.constant.paths import (
     DEVELOP_DATA_DIR,
     FRONTEND_DIR,
     FRONTEND_NODE_DIR,
     LOCAL_RELEASE_DIR,
     PROJECT_BASE_DIR,
+    PYPROJECT_PATH,
     RELEASE_DIR,
     SITECUSTOMIZE_TEMPLATE_PATH,
     VENV_DIR,
@@ -29,6 +32,7 @@ from common.constant.paths import (
 from common.constant.repo import GITHUB_REPO
 from common.logger import info, success, warning
 from util.fs import relative_path
+from util.str_format import join_repr
 
 
 class EnvError(Exception):
@@ -70,6 +74,12 @@ LOCAL_GIT_CONFIG: tuple[tuple[str, str], ...] = (
 # 远端统一使用这个名字：文档里的命令、发布流程与 bump 都按它写，新 clone 默认叫 origin
 REMOTE_NAME = "github"
 
+# uv 的默认源只允许声明在 pyproject.toml；这几个位置一旦指向别的源，uv 会重写 uv.lock
+UV_DEFAULT_INDEX_ENV = "UV_DEFAULT_INDEX"
+UV_CONFIG_FILE_ENV = "UV_CONFIG_FILE"
+# 只有 http(s) 值才是源地址，`default-index = "tsinghua"` 这类按名字引用不算
+_URL_PREFIXES = ("http://", "https://")
+
 # setup 需要预建的运行期目录：都在 .gitignore 里，全新克隆不带，缺了要等到运行时才炸
 DIRECTORIES: tuple[Path, ...] = (
     DEVELOP_DATA_DIR,
@@ -87,11 +97,12 @@ INSTALL_TIMEOUT = 900
 
 def check() -> list[str]:
     """只读体检，返回未通过项的描述；空列表表示全部通过"""
-    return [*_toolchain_problems(), *_remote_problems(), *_git_config_problems(), *_dependency_problems()]
+    return [*_toolchain_problems(), *_remote_problems(), *_uv_index_problems(),
+            *_git_config_problems(), *_dependency_problems()]
 
 
 def setup() -> None:
-    """把仓库准备到可开发状态: 写仓库级 git 配置、预建运行期目录、装依赖、修脚本导入钩子"""
+    """把仓库准备到可开发状态: 写仓库级配置、预建目录、核对源、下载前后端依赖、修导入钩子"""
     # 必须先建目录: 日志本身写在 data/logs 下，全新克隆里目录不存在时第一条日志就会失败
     _ensure_directories()
 
@@ -101,7 +112,10 @@ def setup() -> None:
 
     _ensure_remote()
     _apply_git_config()
+    _ensure_uv_index()
+    _warn_if_lock_stale()
     _install_frontend_dependencies()
+    _fetch_backend_dependencies()
     _sync_python_dependencies()
     _install_sitecustomize()
 
@@ -251,6 +265,132 @@ def _ensure_directories() -> None:
         info(f"目录就绪: {relative_path(directory, PROJECT_BASE_DIR)}")
 
 
+def _uv_index_problems() -> list[str]:
+    """uv 的默认源必须与 pyproject.toml 声明的一致，否则 uv.lock 会被按别的源重写"""
+    project_index = _project_uv_index()
+    if project_index is None:
+        return []
+
+    conflicts = _conflicting_indexes(project_index)
+    if not conflicts:
+        info(f"uv 源与本仓库一致: {project_index}")
+        return []
+    return [
+        f"{item}={url}，与本仓库声明的 {project_index} 不一致；源不一致会让 uv 在 sync 时重写 uv.lock"
+        for item, url in conflicts
+    ]
+
+
+def _ensure_uv_index() -> None:
+    """源不一致直接失败"""
+    problems = _uv_index_problems()
+    if problems:
+        raise EnvError("uv 源配置与本仓库冲突: " + join_repr(problems))
+
+
+def _project_uv_index() -> str | None:
+    """从 pyproject.toml 读 [[tool.uv.index]] 中 default = true 的地址"""
+    try:
+        data = tomllib.loads(PYPROJECT_PATH.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        raise EnvError(f"读取 {relative_path(PYPROJECT_PATH)} 失败: {error}") from error
+
+    indexes = data.get("tool", {}).get("uv", {}).get("index", [])
+    if isinstance(indexes, dict):
+        indexes = [indexes]
+    if not indexes:
+        return None
+    default = [entry for entry in indexes if isinstance(entry, dict) and entry.get("default")]
+    chosen = default[0] if default else indexes[0]
+    url = chosen.get("url") if isinstance(chosen, dict) else None
+    return url if isinstance(url, str) else None
+
+
+def _conflicting_indexes(project_index: str) -> list[tuple[str, str]]:
+    """收集本机上指向别的源的 uv 配置，返回 (来源描述, 地址)"""
+    expected = _normalize_index(project_index)
+    conflicts: list[tuple[str, str]] = []
+
+    env_value = os.environ.get(UV_DEFAULT_INDEX_ENV)
+    if env_value and _normalize_index(env_value) != expected:
+        conflicts.append((f"环境变量 {UV_DEFAULT_INDEX_ENV}", env_value))
+
+    for path in _uv_config_candidates():
+        if not path.is_file():
+            continue
+        label = relative_path(path, PROJECT_BASE_DIR)
+        try:
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+        except (OSError, tomllib.TOMLDecodeError) as error:
+            raise EnvError(f"读取 uv 配置 {label} 失败: {error}") from error
+        for url in _declared_default_indexes(data):
+            if _normalize_index(url) != expected:
+                conflicts.append((f"{label} 的默认源", url))
+    return conflicts
+
+
+def _declared_default_indexes(data: dict) -> list[str]:
+    """从一份 uv 配置里取出「默认源」的地址；按名字引用别处 index 的写法不算"""
+    values: list[str] = []
+    for key in ("default-index", "index-url"):
+        value = data.get(key)
+        if isinstance(value, str) and value.startswith(_URL_PREFIXES):
+            values.append(value)
+
+    entries = data.get("index") or []
+    if isinstance(entries, dict):
+        entries = [entries]
+    for entry in entries:
+        if isinstance(entry, dict) and entry.get("default"):
+            url = entry.get("url")
+            if isinstance(url, str) and url.startswith(_URL_PREFIXES):
+                values.append(url)
+    return values
+
+
+def _uv_config_candidates() -> list[Path]:
+    """uv 会读取的配置文件：显式指定的优先，其次是平台用户配置，最后是仓库根的同名文件"""
+    explicit = os.environ.get(UV_CONFIG_FILE_ENV)
+    if explicit:
+        return [Path(explicit)]
+
+    candidates: list[Path] = []
+    if os.name == "nt":
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            candidates.append(Path(appdata) / "uv" / "uv.toml")
+    else:
+        xdg = os.environ.get("XDG_CONFIG_HOME")
+        base = Path(xdg) if xdg else Path.home() / ".config"
+        candidates.append(base / "uv" / "uv.toml")
+    candidates.append(PROJECT_BASE_DIR / "uv.toml")
+    return candidates
+
+
+def _normalize_index(url: str) -> str:
+    """比较前归一：去首尾空白与结尾斜杠，大小写不敏感"""
+    return url.strip().rstrip("/").lower()
+
+
+def _warn_if_lock_stale() -> None:
+    """
+    uv.lock 与 pyproject.toml 是否一致
+
+    只警告不失败：锁过期属于仓库状态问题，应当回到开发流程里跑 `uv lock` 并提交；
+    而且 `sync --frozen` 仍能按旧锁装出可用的环境，没必要因此卡住整台机器的准备。
+    """
+    try:
+        fresh = uv.lock_check()
+    except uv.UvError as error:
+        warning(f"无法校验 uv.lock，跳过: {error}")
+        return
+
+    if fresh:
+        info("uv.lock 与 pyproject.toml 一致")
+        return
+    warning("uv.lock 已过期，依赖集合可能与仓库声明不同；请运行 `uv lock` 并提交结果")
+
+
 def _install_frontend_dependencies() -> None:
     """按 lockfile 安装前端依赖；capture=False 让进度直接打到控制台"""
     info("安装前端依赖: pnpm install --frozen-lockfile")
@@ -265,12 +405,21 @@ def _install_frontend_dependencies() -> None:
         raise EnvError(f"前端依赖安装失败: {error}") from error
 
 
-def _sync_python_dependencies() -> None:
-    """按 uv.lock 同步虚拟环境；首次会下载缺失的 Python 解释器，需要外网"""
-    info("同步 Python 依赖: uv sync")
+def _fetch_backend_dependencies() -> None:
+    """下载 Rust 依赖"""
+    info("下载后端依赖: cargo fetch --locked")
     try:
-        process.run(["uv", "sync"], cwd=PROJECT_BASE_DIR, timeout=INSTALL_TIMEOUT, capture=False)
-    except process.ProcessError as error:
+        rust.fetch()
+    except rust.RustError as error:
+        raise EnvError(f"后端依赖下载失败: {error}") from error
+
+
+def _sync_python_dependencies() -> None:
+    """按 uv.lock 同步虚拟环境"""
+    info("同步 Python 依赖: uv sync --frozen")
+    try:
+        uv.sync_frozen()
+    except uv.UvError as error:
         raise EnvError(f"Python 依赖同步失败: {error}") from error
 
 
