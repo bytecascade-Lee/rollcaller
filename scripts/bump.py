@@ -35,7 +35,7 @@ from common.entity.version import Version, VersionError
 from common.logger import error, info, success, warning
 from util.sigint import graceful_sigint
 
-# 远端名：只用于核对 master 是否已推送，本脚本不推送任何东西
+# 远端名
 REMOTE = "github"
 
 # 预发布档位，顺序即推进方向
@@ -105,15 +105,16 @@ def _ensure_worktree_clean() -> None:
 
 def _ensure_master_in_sync() -> None:
     """本地 master 必须与远端一致，否则 tag 会指向一个尚未推送的提交"""
-    remote = git.try_rev_parse(f"{REMOTE}/master")
+    ref = f"{REMOTE}/master"
+    remote = git.try_rev_parse(ref)
     if remote is None:
-        warning(f"找不到 {REMOTE}/master，跳过与远端的一致性检查，可先 git fetch {REMOTE}")
+        warning(f"找不到 {ref}，跳过与远端的一致性检查，可先 git fetch {REMOTE}")
         return
 
     head = git.head_hash()
     if remote != head:
         raise BumpError(f"本地 master {head[git.ABBREVIATED_HASH_SLICE]} 与 "
-                        f"{REMOTE}/master {remote[git.ABBREVIATED_HASH_SLICE]} 不一致，请先同步")
+                        f"{ref} {remote[git.ABBREVIATED_HASH_SLICE]} 不一致，请先同步")
 
 
 def _ensure_tag_absent(tag: str) -> None:
