@@ -59,22 +59,3 @@ def graceful_sigint(exit_code: int = 130) -> Iterator[Callable[[], bool]]:
         signal.signal(signal.SIGINT, prevent)
     if guard.is_interrupted():
         sys.exit(exit_code)
-
-
-@contextmanager
-def quiet_sigint(exit_code: int = 130) -> Iterator[None]:
-    """静默收场
-
-    收到 SIGINT 立刻按 exit_code 退出
-
-    :param exit_code:   退出码，默认 130
-    """
-
-    def on_sigint(_signum: int, _frame: object) -> None:
-        sys.exit(exit_code)
-
-    prevent = signal.signal(signal.SIGINT, on_sigint)
-    try:
-        yield
-    finally:
-        signal.signal(signal.SIGINT, prevent)
