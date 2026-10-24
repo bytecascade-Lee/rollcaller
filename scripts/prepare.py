@@ -66,7 +66,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    with graceful_sigint():
+    with graceful_sigint() as is_interrupted:
         try:
             sys.exit(main())
         except (
@@ -76,5 +76,6 @@ if __name__ == "__main__":
                 ReleaseNotesAmbiguous,
                 ReleaseNotesSectionEmpty,
         ) as e:
-            error(f"准备失败: {e}")
-            sys.exit(1)
+            if not is_interrupted():
+                error(f"准备失败: {e}")
+                sys.exit(1)

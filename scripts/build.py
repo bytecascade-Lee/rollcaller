@@ -130,7 +130,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    with graceful_sigint():
+    with graceful_sigint() as is_interrupted:
         try:
             sys.exit(main())
         except (
@@ -146,5 +146,6 @@ if __name__ == "__main__":
                 KindOSError,
                 UnsupportedTargetError
         ) as e:
-            error(f"构建失败: {e}")
-            sys.exit(1)
+            if not is_interrupted():
+                error(f"构建失败: {e}")
+                sys.exit(1)

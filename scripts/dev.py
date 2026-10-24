@@ -43,7 +43,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    with graceful_sigint(exit_code=0):
+    with graceful_sigint(exit_code=0) as is_interrupted:
         try:
             main()
         except (
@@ -54,5 +54,6 @@ if __name__ == "__main__":
                 tauri.TauriError,
                 UnsupportedTargetError,
         ) as e:
-            error(f"开发环境启动失败: {e}")
-            sys.exit(1)
+            if not is_interrupted():
+                error(f"开发环境启动失败: {e}")
+                sys.exit(1)
