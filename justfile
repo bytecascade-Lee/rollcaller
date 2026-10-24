@@ -1,4 +1,4 @@
-set shell := ["pwsh", "-NoLogo", "-NoProfile", "-Command"]
+set windows-shell := ["pwsh", "-NoLogo", "-NoProfile", "-Command"]
 
 # 变量
 uv := "uv"
@@ -78,8 +78,13 @@ clean-be:
     cd {{ backend_dir }} && cargo clean
 
 # 清理前端构建产物
+[windows]
 clean-fe:
     Remove-Item -Recurse -Force {{ frontend_dir }}/dist, {{ frontend_dir }}/node_modules/.vite
+
+[unix]
+clean-fe:
+    rm -rf {{ frontend_dir }}/dist {{ frontend_dir }}/node_modules/.vite
 
 # 清理所有构建产物
 clean: clean-be clean-fe
