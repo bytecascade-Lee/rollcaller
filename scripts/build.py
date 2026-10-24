@@ -18,7 +18,6 @@ import shutil
 import sys
 from pathlib import Path
 
-import util
 from build import builder, hasher, packager, signer, version_files, metadata
 from cli import git, rust, tauri
 from codegen import CodegenError, generate_all
@@ -30,7 +29,7 @@ from common.enums.action import Action
 from common.enums.kind import Kind, KindOSError
 from common.enums.mode import Mode
 from common.enums.profile import Profile
-from common.logger import info
+from common.logger import error, info
 from util.sigint import graceful_sigint
 
 SKIP_FRONTEND_BUILD = {"build": {"beforeBuildCommand": None}}
@@ -131,7 +130,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    with graceful_sigint(on_error=util.fail):
+    with graceful_sigint():
         try:
             sys.exit(main())
         except (
@@ -147,4 +146,5 @@ if __name__ == "__main__":
                 KindOSError,
                 UnsupportedTargetError
         ) as e:
-            util.fail(f"构建失败: {e}")
+            error(f"构建失败: {e}")
+            sys.exit(1)
