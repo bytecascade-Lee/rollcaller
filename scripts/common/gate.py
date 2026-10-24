@@ -14,6 +14,7 @@
 from common import support
 from common.entity.target import SupportedTarget, Target
 from common.enums.action import Action
+from util.str_format import join_repr
 
 
 class GateError(Exception):
@@ -30,11 +31,11 @@ def ensure(target: Target, action: Action, *, host: Target) -> SupportedTarget:
     """
     entry = support.get(target)
     if entry is None:
-        known = "、".join(repr(item.target.triple) for item in support.entries(Action.BUILD))
+        known = join_repr(item.target.triple for item in support.entries(Action.BUILD))
         raise GateError(f"目标三元组 {target.triple!r} 未在支持表中注册；当前可构建: {known}")
 
     if not entry.supports(action):
-        opened = "、".join(sorted(repr(item.value) for item in entry.actions))
+        opened = join_repr(sorted(item.value for item in entry.actions))
         raise GateError(f"目标 {target.triple!r} 未开放 {action.value!r} 档位（已开放: {opened}）")
 
     if entry.target.os != host.os:

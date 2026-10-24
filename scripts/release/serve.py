@@ -27,6 +27,7 @@ from common.enums.source import Source
 from common.logger import info
 from release.urls import manifest_name
 from release.versions_index import FILENAME
+from util.str_format import join_repr
 
 HOST = "localhost"
 PORT = 14652
@@ -53,7 +54,7 @@ def validate_dir(serve_dir: Path) -> None:
     missing = [name for name in REQUIRED_FILES if not (serve_dir / name).is_file()]
     if missing:
         raise ServeError(
-            f"目录 {str(serve_dir)!r} 缺少必要文件: {', '.join(missing)}；"
+            f"目录 {str(serve_dir)!r} 缺少必要文件: {join_repr(missing)}；"
             f"请先完成本地发布写入清单与版本索引"
         )
 

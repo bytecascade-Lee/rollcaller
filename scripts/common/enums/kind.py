@@ -10,6 +10,7 @@ from enum import Enum, StrEnum
 from types import MappingProxyType
 
 from common.enums.os import OS
+from util.str_format import join_repr
 
 
 class KindOSError(Exception):
@@ -53,8 +54,8 @@ class Kind(Enum):
     def suffix(self, os: OS) -> str:
         """该载荷在指定系统上的扩展名，系统不匹配时抛 KindOSError"""
         if os not in self.oses:
-            allowed = "、".join(sorted(o.value for o in self.oses))
-            raise KindOSError(f"载荷 {self.key!r} 不支持 {os.value!r}（仅支持: {allowed}）")
+            raise KindOSError(
+                f"载荷 {self.key!r} 不支持 {os.value!r}，当前仅支持 {join_repr(o.value for o in self.oses)}")
         return self.extensions[os]
 
     def __str__(self) -> str:

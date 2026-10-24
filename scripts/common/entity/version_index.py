@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 
 from common.entity.version import Version
 from common.enums.severity import Severity
+from util.str_format import join_repr
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,8 +33,7 @@ class VersionIndex:
         try:
             severity = Severity(raw_severity)
         except ValueError as e:
-            legal = "/".join(repr(item.value) for item in Severity)
-            raise ValueError(f"severity {raw_severity!r} 非法，应为 {legal}") from e
+            raise ValueError(f"severity {raw_severity!r} 非法，应为 {join_repr(s.value for s in Severity)}") from e
         return cls(version=version, severity=severity)
 
     def to_dict(self) -> dict[str, str]:

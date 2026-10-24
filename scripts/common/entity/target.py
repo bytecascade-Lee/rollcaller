@@ -4,6 +4,7 @@ from common.enums.action import Action, UnsupportedActionError
 from common.enums.arch import ArchTypeError, Arch
 from common.enums.kind import Kind
 from common.enums.os import OSTypeError, OS
+from util.str_format import join_repr
 
 
 class UnsupportedTargetError(Exception):
@@ -60,7 +61,5 @@ class SupportedTarget:
         """要求开放指定动作档位，否则抛 UnsupportedActionError"""
         if self.supports(action):
             return
-        opened = "、".join(sorted(a.value for a in self.actions))
-        raise UnsupportedActionError(
-            f"目标 {self.target.triple!r} 未开放 {action.value!r} 档位（已开放: {opened}）"
-        )
+        actions = join_repr(a.value for a in self.actions)
+        raise UnsupportedActionError(f"目标 {self.target.triple!r} 未开放 {action.value!r} 档位，当前已开放 {actions}")

@@ -9,6 +9,7 @@ from common.entity.target import SupportedTarget, Target, UnsupportedTargetError
 from common.enums.action import Action
 from common.enums.kind import Kind
 from common.enums.os import OS
+from util.str_format import join_repr
 
 
 class SupportTableError(Exception):
@@ -91,7 +92,7 @@ def validate() -> None:
         allowed = {kind for kind in Kind if entry.target.os in kind.oses}
         invalid = entry.kinds - allowed
         if invalid:
-            names = "、".join(sorted(repr(kind.key) for kind in invalid))
+            names = join_repr(sorted(kind.key for kind in invalid))
             raise SupportTableError(f"{triple!r} 声明了 {entry.target.os.value!r} 不支持的载荷: {names}")
 
         prefix = _RUNNER_PREFIXES[entry.target.os]
