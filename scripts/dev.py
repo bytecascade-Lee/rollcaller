@@ -12,14 +12,14 @@
 """
 
 import argparse
+import sys
 
-import util
-from cli import rust, tauri
-from codegen import generate_all
+from cli import git, rust, tauri
+from codegen import CodegenError, generate_all
 from common import gate
-from common.entity.target import Target
+from common.entity.target import Target, UnsupportedTargetError
 from common.enums.action import Action
-from common.logger import info
+from common.logger import error, info
 from util.sigint import graceful_sigint
 
 
@@ -43,5 +43,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    with graceful_sigint(on_error=util.fail, exit_code=0):
-        main()
+    with graceful_sigint(exit_code=0):
+        try:
+            main()
+        except (
+                CodegenError,
+                gate.GateError,
+                git.GitError,
+                rust.RustError,
+                tauri.TauriError,
+                UnsupportedTargetError,
+        ) as e:
+            error(f"开发环境启动失败: {e}")
+            sys.exit(1)
