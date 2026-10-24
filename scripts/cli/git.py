@@ -153,6 +153,22 @@ def get_config(key: str, *, cwd: Path | None = None) -> str | None:
     return _text(result) or None
 
 
+def tags(pattern: str = "*", *, cwd: Path | None = None) -> list[str]:
+    """列出匹配 pattern 的 tag 名；`*` 由 git 解析，不经过 shell"""
+    output = stdout(["tag", "--list", pattern], cwd=cwd)
+    return [line for line in output.splitlines() if line]
+
+
+def create_tag(tag: str, message: str, *, cwd: Path | None = None) -> None:
+    """在 HEAD 上创建附注 tag（`-a -m`）"""
+    stdout(["tag", "-a", tag, "-m", message], cwd=cwd)
+
+
+def tracked_changes(*, cwd: Path | None = None) -> str:
+    """已跟踪文件的改动（porcelain，忽略未跟踪文件）；空串表示工作区干净"""
+    return stdout(["status", "--porcelain", "--untracked-files=no"], cwd=cwd)
+
+
 def status_porcelain(paths: Iterable[str | Path], *, cwd: Path | None = None) -> str:
     """执行 git status --porcelain -- <paths>；空串表示这些路径相对 HEAD 无改动"""
     return stdout(["status", "--porcelain", "--", *_paths(paths)], cwd=cwd)
