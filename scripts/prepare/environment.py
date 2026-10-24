@@ -17,10 +17,9 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-from cli import git, process, rust, uv
+from cli import git, pnpm, process, rust, uv
 from common.constant.paths import (
     DEVELOP_DATA_DIR,
-    FRONTEND_DIR,
     FRONTEND_NODE_DIR,
     LOCAL_RELEASE_DIR,
     PROJECT_BASE_DIR,
@@ -90,9 +89,8 @@ DIRECTORIES: tuple[Path, ...] = (
 # 工具 `--version` 输出里的第一段 x.y[.z]
 _VERSION_RE = re.compile(r"(\d+(?:\.\d+)+)")
 
-# 单次版本探测与依赖安装的超时（秒）
+# 单次版本探测的超时（秒）；依赖安装的超时由各 cli 模块自己持有
 PROBE_TIMEOUT = 30
-INSTALL_TIMEOUT = 900
 
 
 def check() -> list[str]:
@@ -123,11 +121,7 @@ def setup() -> None:
 
 
 def _probe(requirement: Requirement) -> str:
-    """
-    探测单个工具，返回它自报的版本串
-
-    :raise EnvironmentError: 未安装、无法解析版本，或低于下限
-    """
+    """探测单个工具，返回它自报的版本串"""
     program = requirement.program
     try:
         result = process.run([program, "--version"], timeout=PROBE_TIMEOUT)
@@ -392,16 +386,11 @@ def _warn_if_lock_stale() -> None:
 
 
 def _install_frontend_dependencies() -> None:
-    """按 lockfile 安装前端依赖；capture=False 让进度直接打到控制台"""
+    """按 lockfile 安装前端依赖"""
     info("安装前端依赖: pnpm install --frozen-lockfile")
     try:
-        process.run(
-            ["pnpm", "install", "--frozen-lockfile"],
-            cwd=FRONTEND_DIR,
-            timeout=INSTALL_TIMEOUT,
-            capture=False,
-        )
-    except process.ProcessError as error:
+        pnpm.install()
+    except pnpm.PnpmError as error:
         raise EnvError(f"前端依赖安装失败: {error}") from error
 
 
