@@ -32,7 +32,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
-import util
 from cli import gh, git
 from common.constant.paths import RELEASE_DIR
 from common.logger import error, info, success, warning
@@ -368,4 +367,5 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except (gh.GhError, git.GitError, LogsError) as e:
-        util.fail(f"下载 workflow 日志失败: {e}")
+        error(f"下载 workflow 日志失败: {e}")
+        sys.exit(1)
