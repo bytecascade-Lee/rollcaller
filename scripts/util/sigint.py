@@ -33,6 +33,11 @@ class _InterruptGuard:
         warning("执行 Ctrl+C，正在退出...")
 
 
+def never_interrupted() -> bool:
+    """未被 graceful_sigint 接管时的默认查询：永不中断"""
+    return False
+
+
 @contextmanager
 def graceful_sigint(exit_code: int = 130) -> Iterator[Callable[[], bool]]:
     """接管 SIGINT
