@@ -19,3 +19,9 @@ end_of_line = crlf
 ### Markdown files remain unchanged ###
 [*.md]
 trim_trailing_whitespace = false
+
+### 数据库迁移脚本：checksum 按工作区字节计算，行尾/尾部空白都会改变哈希 ###
+### 与 .gitattributes 的 `resources/database/migrations/*.sql text eol=crlf` 必须同步 ###
+[resources/database/migrations/*.sql]
+end_of_line = crlf
+trim_trailing_whitespace = false
