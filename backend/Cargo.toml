@@ -11,7 +11,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 jiff = "0.2"
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.7", features = [] }
 
 [dependencies]
 anyhow = "1.0"
@@ -22,7 +22,7 @@ hex = "0.4"
 jiff = { version = "0.2", features = ["serde"] }
 parking_lot = "0.12"
 rand = "0.10"
-rbatis = { version = "4.8", features = ["debug_mode"] }
+rbatis = { version = "4.9", features = ["debug_mode"] }
 rbs = "4.8"
 rbdc-sqlite = { version = "4.9", features = ["sqlite-bundled"] }
 regex = "1.13"
@@ -32,12 +32,12 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 sha2 = "0.11"
-tauri = { version = "2.11", features = ["config-json5", "unstable"] }
+tauri = { version = "2.12", features = ["config-json5", "unstable"] }
 tauri-plugin-decorum = "1.1"
-tauri-plugin-dialog = "2.7"
-tauri-plugin-opener = "2.5"
+tauri-plugin-dialog = "2.8"
+tauri-plugin-opener = "2.7"
 tauri-plugin-tracing = "0.3"
-tauri-plugin-prevent-default = "5.0"
+tauri-plugin-prevent-default = "6.0.1"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-core = "0.1.36"
@@ -46,16 +46,16 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "json"] }
 ts-rs = "12.0"
 semver = { version = "1.0.28", features = ["serde"] }
 url = "2.5.8"
-uuid = { version = "1", features = ["v4"] }
+uuid = { version = "1.27", features = ["v4"] }
 zip = "8.6"
-minisign-verify = "0.2"
+minisign-verify = "0.3"
 
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2.4"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.60", features = [
+windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_System_Console",
     "Win32_UI_WindowsAndMessaging",
@@ -79,5 +79,5 @@ opt-level = "s"
 strip = true
 
 [dev-dependencies]
-minisign = "0.7"
+minisign = "0.10.0"
 tiny_http = "0.12"
