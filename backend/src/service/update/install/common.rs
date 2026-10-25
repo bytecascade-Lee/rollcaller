@@ -45,18 +45,21 @@ fn verify_payload(bytes: &[u8], artifact: &Artifact) -> anyhow::Result<()> {
     }
 }
 
-/// 缓存里的更新器（ensure 已把目录收敛到只剩锁定版本）
+/// 文件名是否属于锁定版本（`updater-0.3.0-windows-x86_64.exe`）
+fn is_pinned_name(name: &str) -> bool {
+    name.contains(&format!("-{UPDATER_VERSION}-"))
+}
+
+/// 本地锁定版本的更新器（只看文件名里的版本段：不联网、不执行）
 pub(in crate::service::update) fn updater_exe() -> Option<PathBuf> {
     fs::read_dir(paths::updater_bin_dir())
         .ok()?
         .flatten()
         .map(|entry| entry.path())
-        .find(|path| path.extension().and_then(|ext| ext.to_str()) == Some("exe"))
-}
-
-/// 缓存里的锁定产物是否就绪（字节数与校验都过）
-fn cached_is_ready(path: &Path, artifact: &Artifact) -> bool {
-    fs::read(path).is_ok_and(|bytes| bytes.len() as u64 == artifact.size && verify_payload(&bytes, artifact).is_ok())
+        .find(|path| {
+            path.extension().and_then(|ext| ext.to_str()) == Some("exe")
+                && path.file_name().and_then(|name| name.to_str()).is_some_and(is_pinned_name)
+        })
 }
 
 /// 删掉缓存里除锁定产物以外的所有 exe
@@ -127,12 +130,17 @@ pub(in crate::service::update) fn spawn_updater(
 
 /// 便携版更新器就绪（安装前 ensure；幂等）
 ///
-/// 清单按锁定版本对应的 tag 取（不用 latest），产物各项以清单为准；缓存里已是该产物且
-/// 校验通过就复用，否则按清单下载并清掉其他版本。触发点 = Portable / Develop 安装前的
-/// 编排层异步段。
+/// 本地已有锁定版本 → 直接用，不联网；没有才拉该版本 tag 的清单，按清单下载 / 校验 / 落盘。
+/// 两条路径最后都把目录收敛到只剩锁定版本。触发点 = Portable / Develop 安装前的编排层异步段。
 #[cfg(target_os = "windows")]
 pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
-    // 1. 拉锁定版本（tag）的清单
+    // 1. 本地已有 → 直接复用（不拉清单）
+    if let Some(local) = updater_exe() {
+        discard_others(&local);
+        return Ok(local);
+    }
+
+    // 2. 拉锁定版本（tag）的清单
     let text = http_client::client()
         .get(updater_manifest_url())
         .header("Accept", "application/json")
@@ -146,7 +154,7 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
         .context(anyhow!("拉取更新器清单失败：读取响应失败"))?;
     let manifest: serde_json::Value = serde_json::from_str(&text).context(anyhow!("更新器清单不是合法 JSON"))?;
 
-    // 2. 清单自报版本必须就是锁定的那个（tag 被重发时能立刻发现）
+    // 清单自报版本必须就是锁定的那个（tag 被重发时能立刻发现）
     let version = manifest["version"].as_str().unwrap_or_default();
     if version != UPDATER_VERSION {
         anyhow::bail!("更新器清单版本不符：期望 {UPDATER_VERSION}，实际 {version:?}");
@@ -157,13 +165,7 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
         .ok_or_else(|| anyhow!("更新器下载地址缺少文件名：{}", artifact.url))?;
     let dest = paths::portable_updater_bin(&file_name);
 
-    // 3. 已就绪 → 复用
-    if cached_is_ready(&dest, &artifact) {
-        discard_others(&dest);
-        return Ok(dest);
-    }
-
-    // 4. 下载（体积小，内存收齐后整体校验再落盘）
+    // 3. 下载（体积小，内存收齐后整体校验再落盘）
     let bytes = http_client::download()
         .get(artifact.url.clone())
         .send()
@@ -185,7 +187,7 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
     }
     fs::write(&dest, bytes).map_err(|e| anyhow!("写入更新器失败（{}）：{e}", dest.display()))?;
 
-    // 5. 只留锁定版本
+    // 4. 只留锁定版本
     discard_others(&dest);
     Ok(dest)
 }
@@ -232,6 +234,15 @@ mod tests {
 
         // 缺当前平台项 → 报错而不是拿空值去下载
         assert!(platform_artifact(&serde_json::json!({ "version": UPDATER_VERSION })).is_err());
+    }
+
+    /// 本地判定：文件名里带锁定版本才算（改名/换平台都认），其他版本不算
+    #[test]
+    fn pinned_name_matches_only_locked_version() {
+        assert!(is_pinned_name("updater-0.3.0-windows-x86_64.exe"));
+        assert!(is_pinned_name(&format!("updater-{UPDATER_VERSION}-macos-arm64")));
+        assert!(!is_pinned_name("updater-0.2.0-windows-x86_64.exe"));
+        assert!(!is_pinned_name("updater-windows-x86_64.exe"));
     }
 
     /// 只留锁定产物：其他 exe 删掉，非 exe 不动
