@@ -3,11 +3,25 @@ use anyhow::{anyhow, Context};
 use parking_lot::RwLock;
 use rbatis::RBatis;
 use rbdc_sqlite::SqliteDriver;
-use std::env;
 use std::fs::File;
 use std::io;
+use std::path::PathBuf;
 use std::sync::{Arc, LazyLock};
 use tracing::info;
+
+/// 数据库文件路径
+pub fn db_path() -> PathBuf {
+    #[cfg(debug_assertions)]
+    {
+        let name = env!("DEVELOP_DATABASE_FILENAME");
+        assert!(!name.is_empty(), "DEVELOP_DATABASE_FILENAME not set");
+        return app_paths::data_dir().join(name);
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        app_paths::data_dir().join("sqlite.db")
+    }
+}
 
 /// 数据库连接池单例
 static DATABASE_POOL: LazyLock<DatabasePool> = LazyLock::new(|| DatabasePool { pool: RwLock::new(None) });
@@ -49,23 +63,10 @@ impl DatabasePool {
 
     /// 创建连接池
     ///
-    /// 使用 `app_paths::data_dir()` 获取数据库文件路径，
-    /// 连接 SQLite 数据库并返回 `RBatis` 实例。
-    /// 如果数据库文件不存在，SQLite 会自动创建。
+    /// 使用 [`db_path`] 获取数据库文件路径，连接 SQLite 数据库并返回 `RBatis` 实例。
     async fn create_pool() -> anyhow::Result<RBatis> {
         let rb = RBatis::new();
-        #[cfg(debug_assertions)]
-        let db_path = {
-            let name = env!("DEVELOP_DATABASE_FILENAME");
-            if !name.is_empty() {
-                app_paths::data_dir().join(name)
-            } else {
-                panic!("DEVELOP_DATABASE_FILENAME not set");
-            }
-        };
-
-        #[cfg(not(debug_assertions))]
-        let db_path = app_paths::data_dir().join("sqlite.db");
+        let db_path = db_path();
         match File::create_new(&db_path) {
             Ok(_) => info!("数据库文件不存在，已创建: {}", db_path.display()),
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
@@ -103,17 +104,6 @@ impl DatabasePool {
 /// # 返回
 /// - `Ok(Arc<RBatis>)`: 成功获取连接池
 /// - `Err(std::error::Error)`: 初始化或连接失败
-///
-/// # 示例
-/// ```no_run
-/// use crate::config::database_pool;
-///
-/// async fn example() -> anyhow::Result<()> {
-///     let db = database_pool::database().await?;
-///     // 使用 db 执行数据库操作
-///     Ok(())
-/// }
-/// ```
 pub async fn database() -> anyhow::Result<Arc<RBatis>> {
     let instance = DatabasePool::instance();
 
@@ -143,16 +133,6 @@ pub async fn database() -> anyhow::Result<Arc<RBatis>> {
 /// # 返回
 /// - `Ok(())`: 成功关闭
 /// - `Err(std::error::Error)`: 关闭失败
-///
-/// # 示例
-/// ```no_run
-/// use crate::config::database_pool;
-///
-/// async fn shutdown() -> anyhow::Result<()> {
-///     database_pool::close().await?;
-///     Ok(())
-/// }
-/// ```
 pub async fn close() -> anyhow::Result<()> {
     let instance = DatabasePool::instance();
     let mut guard = instance.pool.write();
@@ -160,35 +140,5 @@ pub async fn close() -> anyhow::Result<()> {
         // RBatis 没有显式的 close 方法，drop 时会自动清理
         drop(pool);
     }
-    Ok(())
-}
-
-/// 重置数据库连接池
-///
-/// 关闭现有连接池并立即重新初始化。
-/// 主要用于测试场景，或在连接池状态异常时强制重建。
-///
-/// # 注意
-/// - 重置过程中，所有正在使用的连接（通过 `Arc` 持有）不会立即失效，
-///   但旧连接池将在所有持有者释放后自动清理。
-/// - 新初始化将创建全新的连接池实例。
-///
-/// # 返回
-/// - `Ok(())`: 重置成功
-/// - `Err(std::error::Error)`: 关闭或重新初始化失败
-///
-/// # 示例
-/// ```no_run
-/// use crate::config::database_pool;
-///
-/// async fn force_reconnect() -> anyhow::Result<()> {
-///     database_pool::reset().await?;
-///     Ok(())
-/// }
-/// ```
-#[allow(dead_code)]
-pub async fn reset() -> anyhow::Result<()> {
-    close().await?;
-    database().await?;
     Ok(())
 }

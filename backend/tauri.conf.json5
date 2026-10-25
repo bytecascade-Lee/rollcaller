@@ -31,8 +31,6 @@
             "icons/icon.ico"
         ],
         resources: {
-            "../resources/config/": "config/",
-            "../resources/database/": "database/",
             "../resources/help/": "help/",
             "../README.md": "README.md",
             "../LICENSE": "LICENSE",
