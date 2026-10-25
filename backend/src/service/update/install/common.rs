@@ -122,18 +122,30 @@ pub(in crate::service::update) fn extract_zip(zip_path: &Path, dest: &Path) -> a
     }
 }
 
-/// 分离式 spawn updater.exe（`CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`）
-///
-/// 分离式：updater 不随本进程退出而终止，独立完成更新流程，失败返回 `Err`。
+/// 分离式 spawn updater.exe
 #[cfg(target_os = "windows")]
-pub(in crate::service::update) fn spawn_updater(exec_path: &Path, config_path: &Path) -> anyhow::Result<()> {
+pub(in crate::service::update) fn spawn_updater(
+    exec_path: &Path,
+    config_path: &Path,
+    log_file: &Path,
+) -> anyhow::Result<()> {
     use std::os::windows::process::CommandExt;
 
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
     const DETACHED_PROCESS: u32 = 0x0000_0008;
 
+    let output_path = log_file.with_extension("stderr.log");
+    let stdout =
+        fs::File::create(&output_path).map_err(|e| anyhow!("创建更新器输出日志失败（{}）：{e}", output_path.display()))?;
+    let stderr = stdout
+        .try_clone()
+        .map_err(|e| anyhow!("复制更新器输出日志句柄失败（{}）：{e}", output_path.display()))?;
+
     Command::new(exec_path)
         .arg(config_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(stdout))
+        .stderr(Stdio::from(stderr))
         .creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS)
         .spawn()
         .map(|_| ())
@@ -147,23 +159,19 @@ pub(in crate::service::update) fn spawn_updater(exec_path: &Path, config_path: &
 ///
 /// # 流程
 ///
-/// 1. [`find_updater`] 在 cache 已发现更新器 → 直接返回（幂等，不重复下载）；
-/// 2. 拉更新器仓库 latest manifest（与主源一致用 CNB，[`PORTABLE_UPDATER_LATEST_MANIFEST_CNB`]）；
-/// 3. 更新器清单是**扁平结构**（`{version, publishDate, windows:{x86_64|arm64:{url,sha256,size}}}`，
-///    无 signature / severity / platforms 包装），故不建新结构体，直接 `serde_json::Value`
-///    按 `data["windows"][arch]` 索引。url 文件名须为 `updater-{semver}-windows-{arch}.exe`
-///    （[`find_updater`] 按该命名解析版本号）。
-///    注：本函数刻意不转 `Artifact` 走标准 verify 管线——落点是持久 cache（非 temp
-///    packages）、且仅 sha256；**一旦更新器支持 minisign，本函数即废弃**，届时走
-///    标准 Artifact + verify 管线（需为更新器产物补 `signature` 字段：`verify_artifact_path`
-///    已改为**签名必填、fail closed**，不再有空签名跳过分支）。
-/// 4. 下载到 [`paths::portable_updater_bin`]（url 最后一段），内存收齐后整体校验再落盘
-///    ——磁盘上从不出现"未校验的正式产物"。
+/// 1. [`find_updater`] 在 cache 已发现更新器且版本不低于 [`MIN_UPDATER_VERSION`]
+/// 2. 拉更新器仓库 latest manifest
+/// 3. 更新器清单是**扁平结构**
+/// 4. 下载到 [`paths::portable_updater_bin`]
+/// 5. 落盘后再验一次自报版本
 #[cfg(target_os = "windows")]
 pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
-    // 1. 已存在任意版本 → 幂等返回
+    // 1. 已存在且版本够用 → 幂等返回；过旧则删掉重下
     if let Some(existing) = find_updater() {
-        return Ok(existing);
+        if is_usable(&existing) {
+            return Ok(existing);
+        }
+        let _ = fs::remove_file(&existing);
     }
 
     // 2. 拉更新器最新清单（与主源一致的 CNB 源）
@@ -184,7 +192,8 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
     let entry = &value[OS.to_string().to_ascii_lowercase()][ARCH.to_string().to_ascii_lowercase()];
     let url_str = entry["url"].as_str().context(anyhow!(format!(
         "更新器清单缺少 windows.{}.url，实际内容为{}",
-        ARCH.to_string().to_ascii_lowercase(), value
+        ARCH.to_string().to_ascii_lowercase(),
+        value
     )))?;
 
     let artifact = Artifact {
@@ -229,6 +238,15 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
         fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新器目录失败（{}）：{e}", parent.display()))?;
     }
     fs::write(&dest, bytes).map_err(|e| anyhow!("写入更新器失败（{}）：{e}", dest.display()))?;
+
+    // 5. 落盘后再验自报版本：发布源落后于最低版本时明确报错（否则安装阶段会静默失败）
+    if !is_usable(&dest) {
+        anyhow::bail!(
+            "更新器清单版本过旧：{} 自报版本低于最低要求 {}，请先发布支持 config version 3 的更新器",
+            dest.display(),
+            MIN_UPDATER_VERSION
+        );
+    }
     Ok(dest)
 }
 
@@ -236,4 +254,24 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
 #[cfg(not(target_os = "windows"))]
 pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
     anyhow::bail!("便携版安装仅支持 Windows")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 版本提取口径：只认 semver 本身，前后噪声（"updater version"、换行）不影响
+    #[test]
+    fn version_regex_extracts_semver() {
+        let find = |text: &str| VERSION_RE.find(text).map(|m| m.as_str().to_string());
+        assert_eq!(find("0.3.0\n").as_deref(), Some("0.3.0"));
+        assert_eq!(find("updater version 1.2.3-beta.1\n").as_deref(), Some("1.2.3-beta.1"));
+        assert_eq!(find("no version here"), None);
+    }
+
+    /// 读不出版本一律判不可用（fail closed），不能因为"文件在"就放行
+    #[test]
+    fn missing_updater_is_unusable() {
+        assert!(!is_usable(Path::new("rollcaller-no-such-updater.exe")));
+    }
 }
