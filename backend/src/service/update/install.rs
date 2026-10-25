@@ -21,9 +21,9 @@ use std::path::Path;
 
 /// 安装前确保更新器就绪（Portable / Develop 形态需要；Install 无更新器直接返回）
 ///
-/// 挂接在编排层 `install` 的异步段：Portable / Develop 模式先下载 / 校验更新器到
-/// `cache/update/bin/`（幂等，已有则跳过），再由各安装器的 `find_updater`
-/// 原样发现；失败返回 `Err`（不触碰会话，由编排层落错误）。
+/// 挂接在编排层 `install` 的异步段：Portable / Develop 模式先按**锁定版本**把更新器
+/// 准备到 `cache/update/bin/`（缓存里就是这一版且校验通过则跳过），再由各安装器的
+/// `updater_exe` 原样取用；失败返回 `Err`（不触碰会话，由编排层落错误）。
 pub async fn ensure_updater(mode: AppMode) -> anyhow::Result<()> {
     if mode == AppMode::Portable || mode == AppMode::Develop {
         common::ensure_updater().await?;
