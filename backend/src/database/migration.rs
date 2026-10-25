@@ -1,7 +1,10 @@
 //! 数据库结构迁移
+//!
+//! 启动顺序：`app_meta` -> 账本收敛 -> 读已应用集合 -> 单事务执行待执行迁移
 
 mod ledger;
 mod migrate;
+mod snapshot;
 mod sql;
 
 use crate::util::time_utils::current_timestamp_millis;
@@ -13,7 +16,21 @@ use tracing::{error, info};
 
 /// 执行启动期数据库迁移
 pub async fn run(rb: &RBatis, db_path: &Path) -> Result<()> {
-    ledger::ensure_schema(rb, db_path).await?;
+    rb.exec(migrate::CREATE_META_SQL, vec![])
+        .await
+        .context("创建 app_meta 表失败")?;
+
+    let state = ledger::inspect(rb).await?;
+    let rebuilding = matches!(state, ledger::State::Legacy { .. });
+    match state {
+        ledger::State::Missing => ledger::create(rb).await?,
+        ledger::State::Ready => {}
+        ledger::State::Legacy { rows } => {
+            // 收敛要 DROP 旧表：先留一份可回退的快照
+            snapshot::database(rb, db_path).await;
+            ledger::rebuild(rb, rows).await?;
+        }
+    }
 
     let applied: BTreeSet<i64> = migrate::select_applied(rb)
         .await
@@ -30,6 +47,11 @@ pub async fn run(rb: &RBatis, db_path: &Path) -> Result<()> {
     if pending.is_empty() {
         info!("数据库结构已是最新（V{}）", latest_version());
         return Ok(());
+    }
+
+    // 只有"已经在用的库"才需要备份；全新安装备份一个空库没有意义
+    if !rebuilding && !applied.is_empty() {
+        snapshot::database(rb, db_path).await;
     }
 
     let planned: Vec<String> = pending.iter().map(|m| format!("V{}", m.version)).collect();
@@ -116,6 +138,22 @@ mod tests {
         assert!(!once.contains('\r'));
     }
 
+    /// 外键约束由驱动默认开启
+    #[test]
+    fn foreign_keys_are_enabled() {
+        tauri::async_runtime::block_on(async {
+            let path = temp_db();
+            let rb = RBatis::new();
+            rb.link(SqliteDriver {}, &format!("sqlite:{}", path.display())).await.unwrap();
+
+            let enabled: i64 = rb.exec_decode("PRAGMA foreign_keys", vec![]).await.unwrap();
+            assert_eq!(enabled, 1);
+
+            drop(rb);
+            let _ = std::fs::remove_file(&path);
+        });
+    }
+
     /// 空库上跑完全部迁移：建表 + 账本记账，重复执行不再动
     #[test]
     fn fresh_database_runs_all_migrations_once() {
@@ -154,6 +192,66 @@ mod tests {
                 .unwrap();
             assert_eq!(total, 3);
 
+            // 全新库首次迁移不该留下备份文件
+            let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
+            let backups = std::fs::read_dir(std::env::temp_dir())
+                .unwrap()
+                .flatten()
+                .filter(|entry| entry.file_name().to_string_lossy().starts_with(&format!("{stem}-bak-")))
+                .count();
+            assert_eq!(backups, 0, "全新库迁移不应产生快照");
+
+            drop(rb);
+            let _ = std::fs::remove_file(&path);
+        });
+    }
+
+    /// 旧账本收敛 + 无待执行迁移：只应留下一份快照，不重复备份
+    #[test]
+    fn legacy_rebuild_takes_exactly_one_snapshot() {
+        tauri::async_runtime::block_on(async {
+            let path = temp_db();
+            let rb = RBatis::new();
+            rb.link(SqliteDriver {}, &format!("sqlite:{}", path.display())).await.unwrap();
+            rb.exec(
+                "CREATE TABLE migration_history (
+                     version INTEGER PRIMARY KEY, executed_at INTEGER, created_at INTEGER
+                 );",
+                vec![],
+            )
+                .await
+                .unwrap();
+            rb.exec(
+                "INSERT INTO migration_history (version, executed_at) VALUES (0, 1), (20, 2), (30, 3);",
+                vec![],
+            )
+                .await
+                .unwrap();
+
+            run(&rb, &path).await.unwrap();
+
+            let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
+            let backups: Vec<PathBuf> = std::fs::read_dir(std::env::temp_dir())
+                .unwrap()
+                .flatten()
+                .map(|entry| entry.path())
+                .filter(|file| {
+                    file.file_name()
+                        .map(|name| name.to_string_lossy().starts_with(&format!("{stem}-bak-")))
+                        .unwrap_or(false)
+                })
+                .collect();
+            assert_eq!(backups.len(), 1, "旧账本收敛只该打一份快照: {backups:?}");
+
+            let total: i64 = rb
+                .exec_decode("SELECT COUNT(*) FROM database_migration_history", vec![])
+                .await
+                .unwrap();
+            assert_eq!(total, 3);
+
+            for backup in backups {
+                let _ = std::fs::remove_file(backup);
+            }
             drop(rb);
             let _ = std::fs::remove_file(&path);
         });
