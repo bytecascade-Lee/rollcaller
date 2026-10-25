@@ -3,17 +3,9 @@
 //! # 流程
 //!
 //! 1. 解压已下载并校验的 develop zip 到 [`paths::zip_staging`]
-//!    （`temp/update/staging/develop-source-{目标版本}/`），source 目录内是待写入的
-//!    debug exe（文件名见 [`DEVELOP_UPDATE_BIN_NAME`]）；
-//! 2. 组装 Go updater 的 config.json 写盘（落 [`paths::updater_config`]）：
-//!    **不备份、不清空、不 preserve、不回滚**——target 是编译目录
-//!    （Develop 下即 `backend/target/debug`），只允许 updater 把 source 内那个 exe
-//!    写入 target 同名文件，**绝不能整目录清理**；
-//! 3. 分离式 spawn `updater.exe`（`CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`），
-//!    传入 config.json 路径；
-//! 4. spawn 成功后返回 `Ok(())`——由调用方执行退出前清理后 `exit(0)`，
-//!    由 updater 执行 wait（旧进程退出）→ update（写入）→ launch（**分离**启动新 exe，
-//!    updater 随即退出；分离的原因见 `compose_config` 中 `stayAlive = 0` 的说明）。
+//! 2. 组装 Go updater 的 config.json 写盘
+//! 3. 分离式 spawn `updater.exe`，传入 config.json 路径
+//! 4. spawn 成功后返回 `Ok(())`——由调用方执行退出前清理后 `exit(0)`
 //!
 //! # 注意
 //!
