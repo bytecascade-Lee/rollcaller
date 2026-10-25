@@ -16,10 +16,10 @@ pub async fn ensure_schema(rb: &RBatis, db_path: &Path) -> Result<()> {
     // *1. 已经是新表 -> 确认关键列在，多余列容忍，缺列说明结构不可信
     if migrate::table_exists(rb, migrate::HISTORY_TABLE).await? > 0 {
         let ready = migrate::column_exists(rb, migrate::HISTORY_TABLE, "version").await? > 0
-            && migrate::column_exists(rb, migrate::HISTORY_TABLE, "applied_at").await? > 0;
+            && migrate::column_exists(rb, migrate::HISTORY_TABLE, "migrated_at").await? > 0;
         if !ready {
             return Err(anyhow!(
-                "账本表 {} 缺少 version / applied_at 列，拒绝启动",
+                "账本表 {} 缺少 version / migrated_at 列，拒绝启动",
                 migrate::HISTORY_TABLE
             ));
         }
@@ -40,7 +40,7 @@ pub async fn ensure_schema(rb: &RBatis, db_path: &Path) -> Result<()> {
     rebuild_from_legacy(rb, db_path).await
 }
 
-/// 旧账本表重建为 `version` + `applied_at`
+/// 旧账本表重建为 `version` + `migrated_at`
 async fn rebuild_from_legacy(rb: &RBatis, db_path: &Path) -> Result<()> {
     if migrate::column_exists(rb, migrate::LEGACY_TABLE, "version").await? == 0 {
         return Err(anyhow!(
@@ -181,11 +181,11 @@ mod tests {
             assert_eq!(migrate::table_exists(&rb, migrate::HISTORY_TABLE).await.unwrap(), 1);
 
             // FAILED 行代表"曾成功应用过"，时间戳也要留住
-            let applied_at: i64 = rb
-                .exec_decode("SELECT applied_at FROM database_migration_history WHERE version = 10", vec![])
+            let migrated_at: i64 = rb
+                .exec_decode("SELECT migrated_at FROM database_migration_history WHERE version = 10", vec![])
                 .await
                 .unwrap();
-            assert_eq!(applied_at, 222);
+            assert_eq!(migrated_at, 222);
 
             // 幂等：再跑一次不报错、不重复
             ensure_schema(&rb, &path).await.unwrap();

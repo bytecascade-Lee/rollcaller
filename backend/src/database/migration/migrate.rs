@@ -11,7 +11,7 @@ pub const HISTORY_TABLE: &str = "database_migration_history";
 /// 新账本表的建表语句
 pub const CREATE_HISTORY_SQL: &str = "CREATE TABLE IF NOT EXISTS database_migration_history (
          version    INTEGER PRIMARY KEY,
-         applied_at INTEGER NOT NULL
+         migrated_at INTEGER NOT NULL
      )";
 
 /// `app_meta` 的建表语句
@@ -51,14 +51,14 @@ pub async fn select_applied(rb: &RBatis) -> Result<Vec<AppliedMigration>, rbs::E
 }
 
 /// 记录一条已应用的迁移；**必须与迁移 SQL 处在同一个事务里**
-#[py_sql("INSERT INTO database_migration_history (version, applied_at) VALUES (#{version}, #{applied_at})")]
-pub async fn insert_applied(tx: &mut RBatisTxExecutor, version: i64, applied_at: i64) -> Result<ExecResult, rbs::Error> {
+#[py_sql("INSERT INTO database_migration_history (version, migrated_at) VALUES (#{version}, #{migrated_at})")]
+pub async fn insert_applied(tx: &mut RBatisTxExecutor, version: i64, migrated_at: i64) -> Result<ExecResult, rbs::Error> {
     impled!()
 }
 
 /// 把旧账本的版本集合搬进新表（一次性收敛用）
 #[py_sql(
-    "INSERT INTO database_migration_history (version, applied_at)
+    "INSERT INTO database_migration_history (version, migrated_at)
      SELECT version, COALESCE(executed_at, created_at, 0) FROM migration_history"
 )]
 pub async fn copy_legacy_rows(tx: &mut RBatisTxExecutor) -> Result<ExecResult, rbs::Error> {

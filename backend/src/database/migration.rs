@@ -65,9 +65,9 @@ async fn apply_batch(rb: &RBatis, pending: &[&sql::SqlMigration]) -> Result<()> 
             return Err(anyhow!("迁移后存在 {violations} 条外键违例，整批回滚"));
         }
 
-        let applied_at = current_timestamp_millis();
+        let migrated_at = current_timestamp_millis();
         for migration in pending {
-            migrate::insert_applied(&mut tx, migration.version, applied_at)
+            migrate::insert_applied(&mut tx, migration.version, migrated_at)
                 .await
                 .with_context(|| format!("记录 V{} 到迁移账本失败", migration.version))?;
         }
