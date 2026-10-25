@@ -1,5 +1,4 @@
 pub mod attendance_status_service;
-pub mod database_migrate_service;
 pub mod export_service;
 pub mod import_service;
 pub mod record_service;
