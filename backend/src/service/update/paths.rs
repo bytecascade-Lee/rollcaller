@@ -88,6 +88,17 @@ pub fn package(file_name: &str) -> PathBuf {
     temp_dir().join(format!("update/packages/{file_name}"))
 }
 
+/// 更新器缓存目录
+///
+/// `cache/update/bin/`：更新器 exe 平铺存放于此，`ensure_updater` 只留锁定版本，
+/// 其余版本在就绪后被清理。
+///
+/// # 返回
+/// `cache_dir/update/bin/`
+pub fn updater_bin_dir() -> PathBuf {
+    cache_dir().join("update/bin")
+}
+
 /// 更新器（Go updater）可执行文件的存放路径
 ///
 /// 更新器与主包产物同风格命名：文件名自带完整信息
@@ -105,7 +116,7 @@ pub fn package(file_name: &str) -> PathBuf {
 /// `portable_updater_bin("updater-1.2.3-windows-x86_64.exe")` → `.../cache/update/bin/updater-1.2.3-windows-x86_64.exe`
 ///
 pub fn portable_updater_bin(file_name: &str) -> PathBuf {
-    cache_dir().join(format!("update/bin/{file_name}"))
+    updater_bin_dir().join(file_name)
 }
 
 /// 便携版解压的暂存根目录
