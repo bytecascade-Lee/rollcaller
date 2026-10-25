@@ -1,30 +1,79 @@
-*[en-US](README-en-US.md)*
+<!-- help:hide -->
+<p align="center">
+  <img src="docs/assets/logo.png" width="160" height="160" alt="Rollcaller">
+</p>
 
-# Rollcaller
+<h1 align="center">Rollcaller</h1>
 
-课堂自动点名工具，基于 Tauri + Svelte 构建。
+<p align="center">课堂自动点名工具 · 随机抽人，自动记考勤</p>
 
----
+<p align="center">
+  <a href="README-en-US.md">English</a> ｜ <b>简体中文</b>
+</p>
 
-## 功能
+<p align="center">
+  <a href="https://github.com/bytecascade-Lee/rollcaller/releases/latest"><img src="https://img.shields.io/github/v/release/bytecascade-Lee/rollcaller?include_prereleases&sort=semver&style=flat-square" alt="最新版本"></a>
+  <a href="https://github.com/bytecascade-Lee/rollcaller/blob/develop/LICENSE"><img src="https://img.shields.io/github/license/bytecascade-Lee/rollcaller?style=flat-square" alt="许可证"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-0078D6?style=flat-square&logo=windows&logoColor=white" alt="支持平台">
+</p>
 
-- **随机点名**：从学生列表中随机抽取，支持单次和连续点名
-- **学生管理**：增删改查、软删除与恢复、批量操作
-- **考勤记录**：自动保存点名结果，支持批量修改状态和备注
-- **导入导出**：Excel 导入学生名单，导出学生数据和考勤记录
-- **便携模式**：解压即用，数据跟随软件目录
+<p align="center">
+  <a href="https://github.com/bytecascade-Lee/rollcaller/actions/workflows/release.yaml"><img src="https://img.shields.io/github/actions/workflow/status/bytecascade-Lee/rollcaller/release.yaml?style=flat-square&label=release" alt="发布流水线"></a>
+  <a href="https://github.com/bytecascade-Lee/rollcaller/actions/workflows/sync-mirrors.yaml"><img src="https://img.shields.io/github/actions/workflow/status/bytecascade-Lee/rollcaller/sync-mirrors.yaml?style=flat-square&label=sync-mirrors" alt="镜像同步"></a>
+  <a href="https://github.com/bytecascade-Lee/rollcaller/commits/develop"><img src="https://img.shields.io/github/last-commit/bytecascade-Lee/rollcaller?style=flat-square" alt="最近提交"></a>
+</p>
 
----
+<p align="center">
+  <a href="https://github.com/bytecascade-Lee/rollcaller/stargazers"><img src="https://img.shields.io/github/stars/bytecascade-Lee/rollcaller?style=flat-square" alt="Star"></a>
+  <a href="https://github.com/bytecascade-Lee/rollcaller/forks"><img src="https://img.shields.io/github/forks/bytecascade-Lee/rollcaller?style=flat-square" alt="Fork"></a>
+  <a href="https://github.com/bytecascade-Lee/rollcaller/issues"><img src="https://img.shields.io/github/issues/bytecascade-Lee/rollcaller?style=flat-square" alt="议题"></a>
+  <a href="https://github.com/bytecascade-Lee/rollcaller/pulls"><img src="https://img.shields.io/github/issues-pr/bytecascade-Lee/rollcaller?style=flat-square" alt="拉取请求"></a>
+
+<p align="center">
+  <a href="https://github.com/bytecascade-Lee/rollcaller/releases"><img src="https://img.shields.io/github/downloads/bytecascade-Lee/rollcaller/total?style=flat-square" alt="下载量"></a>
+  <a href="https://cnb.cool/ordinary-glory/rollcaller"><img src="https://img.shields.io/badge/mirror-cnb.cool-1A7AF8?style=flat-square" alt="国内镜像"></a>
+</p>
+<!-- help:show -->
+
+课堂自动点名工具，面向需要随机提问和考勤记录的老师：从名单里随机抽人、自动记录结果、随时导出统计。数据全部保存在本机，断网也能正常使用。
+
+## 功能特性
+
+| 功能     | 说明                                                                   |
+|:---------|:-----------------------------------------------------------------------|
+| 随机点名 | 从学生名单中随机抽取，支持单次点名与连续点名，可设定次数、是否允许重复 |
+| 语音播报 | 点名后朗读学生姓名，支持本地语音与云端 AI 两种模式                     |
+| 学生管理 | 增删改查、软删除与恢复、搜索排序、批量操作                             |
+| 批量导入 | 从 Excel（`.xlsx` / `.xls`）导入名单，可选工作表，自动处理重复学号     |
+| 考勤记录 | 点名结果自动落库，按轮次分组查看，支持批量修改状态与备注               |
+| 数据导出 | 学生名单与考勤记录导出为 Excel，可按全部、筛选结果或选中项导出         |
+| 便携模式 | 解压即用，数据跟随程序目录，适合 U 盘携带                              |
+| 自动更新 | 应用内检查并安装新版本，无需手动下载覆盖                               |
+| 内置帮助 | 帮助窗口提供使用文档、全文搜索与锚点导航                               |
+
+## 下载安装
+
+前往 [最新版本](https://github.com/bytecascade-Lee/rollcaller/releases/latest) 下载：
+
+| 版本   | 文件名                                          | 说明                             |
+|:-------|:------------------------------------------------|:---------------------------------|
+| 安装版 | `rollcaller-<版本>-windows-<架构>-setup.exe`    | 标准安装，数据存放在系统用户目录 |
+| 便携版 | `rollcaller-<版本>-windows-<架构>-portable.zip` | 解压即用，数据跟随程序目录       |
+
+- 支持新版 Windows 10 与 Windows 11，提供 x64 与 ARM64 两种架构
+- 依赖 WebView2 运行时：安装版会在安装过程中引导安装，便携版需自行[下载安装](https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/#download-section)
+- 每个产物都附带 `.sha256` 校验与 `.sig` 签名文件
+- 国内用户可通过 [CNB 镜像](https://cnb.cool/ordinary-glory/rollcaller) 克隆源码或下载，实际发布产物以 GitHub Releases 为准
 
 ## 技术栈
 
-- 前端：Svelte 5 + TypeScript + Vite + pnpm
-- 后端：Rust + Tauri 2.11
-- 数据库：SQLite + RBatis
-- 样式：Open Props + Phosphor
-- 脚本与构建：Python（由 uv 管理）+ just
-
----
+| 层次       | 技术                                                                                   |
+|:-----------|:---------------------------------------------------------------------------------------|
+| 桌面客户端 | [Tauri 2](https://tauri.app/)（Rust）                                                  |
+| 前端       | [Svelte 5](https://svelte.dev/) + TypeScript + [Vite](https://vite.dev/)               |
+| 数据       | SQLite + [RBatis](https://github.com/rbatis/rbatis)                                    |
+| 样式       | [Open Props](https://open-props.style/) + [Phosphor Icons](https://phosphoricons.com/) |
+| 脚本与构建 | Python 3.14（[uv](https://docs.astral.sh/uv/) 管理）+ [just](https://just.systems/)    |
 
 ## 开发
 
@@ -41,7 +90,7 @@
 
 Python 解释器（3.14）由 `uv sync` 自动下载，不需要单独安装。`just doctor` 会逐条核对上表，并检查仓库级 git 配置与依赖是否就位。
 
-### 初始化（有 just）
+### 使用 just 初始化
 
 ```bash
 git clone git@github.com:bytecascade-Lee/rollcaller.git
@@ -49,11 +98,13 @@ cd rollcaller
 just setup
 ```
 
+没有配置 SSH key 时，把克隆地址换成 `https://github.com/bytecascade-Lee/rollcaller.git`。
+
 `just setup` 依次完成：体检工具链 → 写仓库级 git 配置 → `pnpm install --frozen-lockfile` → `uv sync` → 刷新脚本导入钩子。它是幂等的，重建虚拟环境后可以再跑一次。
 
-写入的 git 配置（`--local`，不影响其他仓库）见 [Git.md](Git.md) §1.1，其中 `pull.ff=only` 决定拉取行为，不要随手改回默认。
+写入的 git 配置（`--local`，不影响其他仓库）见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §1.1，其中 `pull.ff=only` 决定拉取行为，不要随手改回默认。
 
-### 初始化（没有 just）
+### 逐步初始化
 
 逐条执行等价命令即可，顺序与 `just setup` 一致：
 
@@ -101,23 +152,7 @@ cd frontend && pnpm install --frozen-lockfile && cd ..
 ### 构建产物
 
 - 本地构建与出包：`release/Local/`
-- 正式发布：由 `master` 上的 tag 触发 CI 构建、签名并发布，见 [Git.md](Git.md) §六
-
----
-
-## 数据库迁移
-
-迁移文件位于 `resources/migrations/`，命名格式：
-
-```
-V{version}__{description}.sql
-```
-
-示例：`V1__create-student-table.sql`
-
-应用启动时会自动执行未运行的迁移。
-
----
+- 正式发布：由 `master` 上的 tag 触发 CI 构建、签名并发布，见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §六
 
 ## 配置
 
@@ -129,14 +164,27 @@ V{version}__{description}.sql
 | 安装模式 | 通过安装包安装，数据位于系统标准目录  |
 | 便携模式 | 数据跟随应用目录                      |
 
----
+## 目录结构
 
-## 许可证
-
-[MIT](LICENSE)
-
----
+```text
+rollcaller/
+├─ backend/      Rust 后端（cmd → service → repo 三层）与 Tauri 配置
+├─ frontend/     Svelte 5 前端（组件、路由、自动生成的类型）
+├─ resources/    运行期资源：帮助文档、图标等
+├─ scripts/      构建、发布与代码生成脚本（Python）
+├─ docs/         架构与决策文档
+└─ justfile      任务入口
+```
 
 ## 贡献
 
-欢迎提交 [Issue](https://github.com/bytecascade-Lee/rollcaller/issues) 。
+欢迎提交 [Issue](https://github.com/bytecascade-Lee/rollcaller/issues) 与 Pull Request。
+
+- 默认分支是 `develop`，功能从它切出 `<type>/<简述>`，修复走 `hotfix/<版本>/<简述>`
+- 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/)：`feat:`、`fix:`、`refactor:`、`docs:` …
+- 提交 PR 前请先跑通 `just check` 与 `just test`
+- 分支模型与发布流程见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md)
+
+## 许可证
+
+本项目基于 [MIT](LICENSE) 许可证开源。
