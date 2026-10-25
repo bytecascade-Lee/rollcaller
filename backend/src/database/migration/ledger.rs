@@ -6,14 +6,22 @@ use crate::database::migration::migrate;
 use crate::util::time_utils::current_timestamp_millis;
 use anyhow::{anyhow, Context, Result};
 use rbatis::{RBatis, RBatisTxExecutor};
-use std::path::Path;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
-/// 把账本表收敛到当前形状；失败即中止启动
-pub async fn ensure_schema(rb: &RBatis, db_path: &Path) -> Result<()> {
-    migrate::create_meta_table(rb).await.context("创建 app_meta 表失败")?;
+/// 账本当前所处的形状
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum State {
+    /// 新旧表都不存在：全新数据库
+    Missing,
+    /// 已经是 `version` + `migrated_at`
+    Ready,
+    /// 旧账本表待收敛；`rows` 是旧表行数，用于日志与搬迁后的行数校验
+    Legacy { rows: i64 },
+}
 
-    // *1. 已经是新表 -> 确认关键列在，多余列容忍，缺列说明结构不可信
+/// 探测账本形状
+pub(crate) async fn inspect(rb: &RBatis) -> Result<State> {
+    // *1. 新表在：确认关键列齐全，多余列容忍
     if migrate::table_exists(rb, migrate::HISTORY_TABLE).await? > 0 {
         let ready = migrate::column_exists(rb, migrate::HISTORY_TABLE, "version").await? > 0
             && migrate::column_exists(rb, migrate::HISTORY_TABLE, "migrated_at").await? > 0;
@@ -23,40 +31,39 @@ pub async fn ensure_schema(rb: &RBatis, db_path: &Path) -> Result<()> {
                 migrate::HISTORY_TABLE
             ));
         }
-        if migrate::table_exists(rb, migrate::LEGACY_TABLE).await? > 0 {
-            debug!("检测到遗留的旧账本表 {}，已忽略", migrate::LEGACY_TABLE);
-        }
-        return Ok(());
+        return Ok(State::Ready);
     }
 
-    // *2. 既没有新表也没有旧表 -> 全新数据库
+    // *2. 新表不在、旧表也不在：全新数据库
     if migrate::table_exists(rb, migrate::LEGACY_TABLE).await? == 0 {
-        migrate::create_history_table(rb).await.context("创建账本表失败")?;
-        info!("已创建迁移账本表 {}", migrate::HISTORY_TABLE);
-        return Ok(());
+        return Ok(State::Missing);
     }
 
-    // *3. 旧表 -> 新表
-    rebuild_from_legacy(rb, db_path).await
-}
-
-/// 旧账本表重建为 `version` + `migrated_at`
-async fn rebuild_from_legacy(rb: &RBatis, db_path: &Path) -> Result<()> {
+    // *3. 只剩旧表：必须能认出它的版本列，否则交给人处理
     if migrate::column_exists(rb, migrate::LEGACY_TABLE, "version").await? == 0 {
         return Err(anyhow!(
             "旧账本表 {} 缺少 version 列，无法自动收敛；请备份数据库后手动处理",
             migrate::LEGACY_TABLE
         ));
     }
+    let rows = migrate::count_legacy_rows(rb).await.context("读取旧账本行数失败")?;
+    Ok(State::Legacy { rows })
+}
 
-    let before = migrate::count_legacy_rows(rb).await.context("读取旧账本行数失败")?;
+/// 全新库：建账本表
+pub(crate) async fn create(rb: &RBatis) -> Result<()> {
+    rb.exec(migrate::CREATE_HISTORY_SQL, vec![]).await.context("创建账本表失败")?;
+    info!("已创建迁移账本表 {}", migrate::HISTORY_TABLE);
+    Ok(())
+}
+
+/// 旧账本 -> 新账本：整表搬迁后删旧表，行数对不上就整批回滚
+pub(crate) async fn rebuild(rb: &RBatis, before: i64) -> Result<()> {
     info!(
         "检测到旧账本表 {}，共 {before} 行，开始收敛到 {}",
         migrate::LEGACY_TABLE,
         migrate::HISTORY_TABLE
     );
-
-    snapshot_database(rb, db_path).await;
 
     let mut tx = rb.try_acquire_begin().await.context("开启账本收敛事务失败")?;
     match rebuild_in_tx(&mut tx, before).await {
@@ -83,8 +90,8 @@ async fn rebuild_in_tx(tx: &mut RBatisTxExecutor, before: i64) -> Result<()> {
         .await
         .context("创建新账本表失败")?;
 
-    migrate::copy_legacy_rows(tx).await.context("搬迁旧账本记录失败")?;
-    let after = migrate::count_history_rows(tx).await.context("校验新账本行数失败")?;
+    let copied = migrate::copy_legacy_rows(tx).await.context("搬迁旧账本记录失败")?;
+    let after = copied.rows_affected as i64;
     if after != before {
         return Err(anyhow!("账本收敛行数不一致（{before} -> {after}），已放弃"));
     }
@@ -93,20 +100,6 @@ async fn rebuild_in_tx(tx: &mut RBatisTxExecutor, before: i64) -> Result<()> {
         .await
         .context("删除旧账本表失败")?;
     Ok(())
-}
-
-/// 收敛前打一份数据库快照
-async fn snapshot_database(rb: &RBatis, source: &Path) {
-    let stem = source.file_stem().and_then(|name| name.to_str()).unwrap_or("sqlite");
-    let target = source
-        .to_path_buf()
-        .with_file_name(format!("{stem}-bak-{}.db", current_timestamp_millis()));
-    // 使用 VACUUM INTO，确保 WAL 里的页也被算进去
-    let literal = target.display().to_string().replace('\'', "''");
-    match rb.exec(&format!("VACUUM INTO '{literal}'"), vec![]).await {
-        Ok(_) => info!("已备份数据库: {}", target.display()),
-        Err(e) => warn!("数据库备份失败（继续收敛，收敛本身在事务内）: {e}"),
-    }
 }
 
 #[cfg(test)]
@@ -155,6 +148,15 @@ mod tests {
         ))
     }
 
+    /// 收敛旧表；调用方负责先打快照
+    async fn converge(rb: &RBatis) -> Result<()> {
+        match inspect(rb).await? {
+            State::Missing => create(rb).await,
+            State::Ready => Ok(()),
+            State::Legacy { rows } => rebuild(rb, rows).await,
+        }
+    }
+
     #[test]
     fn legacy_ledger_is_rebuilt_and_preserved() {
         tauri::async_runtime::block_on(async {
@@ -164,7 +166,8 @@ mod tests {
             rb.exec(LEGACY_DDL, vec![]).await.unwrap();
             rb.exec(LEGACY_ROWS, vec![]).await.unwrap();
 
-            ensure_schema(&rb, &path).await.unwrap();
+            assert!(matches!(inspect(&rb).await.unwrap(), State::Legacy { rows: 3 }));
+            converge(&rb).await.unwrap();
 
             let versions: Vec<i64> = migrate::select_applied(&rb)
                 .await
@@ -182,13 +185,17 @@ mod tests {
 
             // FAILED 行代表"曾成功应用过"，时间戳也要留住
             let migrated_at: i64 = rb
-                .exec_decode("SELECT migrated_at FROM database_migration_history WHERE version = 10", vec![])
+                .exec_decode(
+                    "SELECT migrated_at FROM database_migration_history WHERE version = 10",
+                    vec![],
+                )
                 .await
                 .unwrap();
             assert_eq!(migrated_at, 222);
 
             // 幂等：再跑一次不报错、不重复
-            ensure_schema(&rb, &path).await.unwrap();
+            assert!(matches!(inspect(&rb).await.unwrap(), State::Ready));
+            converge(&rb).await.unwrap();
             let total: i64 = rb
                 .exec_decode("SELECT COUNT(*) FROM database_migration_history", vec![])
                 .await
@@ -207,10 +214,30 @@ mod tests {
             let rb = RBatis::new();
             rb.link(SqliteDriver {}, &format!("sqlite:{}", path.display())).await.unwrap();
 
-            ensure_schema(&rb, &path).await.unwrap();
+            assert!(matches!(inspect(&rb).await.unwrap(), State::Missing));
+            converge(&rb).await.unwrap();
 
             assert_eq!(migrate::table_exists(&rb, migrate::HISTORY_TABLE).await.unwrap(), 1);
             assert!(migrate::select_applied(&rb).await.unwrap().is_empty());
+
+            drop(rb);
+            let _ = std::fs::remove_file(&path);
+        });
+    }
+
+    /// 账本表存在但缺关键列：拒绝启动，不许建空表顶上去
+    #[test]
+    fn unrecognized_ledger_is_refused() {
+        tauri::async_runtime::block_on(async {
+            let path = temp_db();
+            let rb = RBatis::new();
+            rb.link(SqliteDriver {}, &format!("sqlite:{}", path.display())).await.unwrap();
+            rb.exec("CREATE TABLE database_migration_history (id INTEGER PRIMARY KEY)", vec![])
+                .await
+                .unwrap();
+
+            let error = inspect(&rb).await.unwrap_err();
+            assert!(error.to_string().contains("拒绝启动"), "{error}");
 
             drop(rb);
             let _ = std::fs::remove_file(&path);
