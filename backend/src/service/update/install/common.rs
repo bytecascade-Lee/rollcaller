@@ -9,7 +9,26 @@ use regex::Regex;
 use semver::Version;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::sync::LazyLock;
+
+const MIN_UPDATER_VERSION: &str = "0.3.0";
+
+/// 从 `<exe> -v` 输出里提 semver 的正则
+static VERSION_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\d+\.\d+\.\d+(?:-[.\w]+)?").unwrap());
+
+/// 更新器版本
+fn probe_version(exe: &Path) -> Option<Version> {
+    let output = Command::new(exe).arg("-v").output().ok()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    Version::parse(VERSION_RE.find(&stdout)?.as_str()).ok()
+}
+
+/// 是否满足最低版本要求
+fn is_usable(exe: &Path) -> bool {
+    let min = Version::parse(MIN_UPDATER_VERSION).expect("MIN_UPDATER_VERSION 必须是合法 semver");
+    probe_version(exe).is_some_and(|ver| ver >= min)
+}
 
 pub(in crate::service::update) fn find_updater() -> Option<PathBuf> {
     // 1. 收集所有 .exe 文件
@@ -24,37 +43,15 @@ pub(in crate::service::update) fn find_updater() -> Option<PathBuf> {
         }
     }
 
-
     if exe_paths.is_empty() {
         return None;
     }
 
-    // 2. 对每个 exe 获取版本，并记录有效项
+    // 2. 对每个 exe 问版本
     let mut versioned = Vec::new(); // (Version, PathBuf)
-    let mut to_delete = Vec::new(); // 存放需要删除的路径（包括无效和未被选中的）
-
-    // 预编译正则，用于从输出中提取 semver
-    let regex = Regex::new(r"\d+\.\d+\.\d+(?:-[.\w]+)?").unwrap();
-
     for exe in &exe_paths {
-        match Command::new(exe).arg("-v").output() {
-            Ok(output) => {
-                // 尝试从 stdout 中提取版本
-                let stdout = String::from_utf8_lossy(&output.stdout);
-
-                if let Some(ver_str) = regex.find(&stdout).map(|m| m.as_str()) {
-                    if let Ok(ver) = Version::parse(ver_str) {
-                        versioned.push((ver, exe.clone()));
-                        continue; // 成功解析，不加入删除列表
-                    }
-                }
-                // 解析失败，标记删除
-                to_delete.push(exe.clone());
-            }
-            Err(_) => {
-                // 执行失败，标记删除
-                to_delete.push(exe.clone());
-            }
+        if let Some(ver) = probe_version(exe) {
+            versioned.push((ver, exe.clone()));
         }
     }
 
