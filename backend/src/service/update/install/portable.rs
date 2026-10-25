@@ -89,7 +89,7 @@ pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow
         .map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", config_path.display()))?;
 
     // 6. 分离式 spawn updater（成功后由调用方执行退出清理并 exit(0)）
-    common::spawn_updater(&updater_exe, &config_path)
+    common::spawn_updater(&updater_exe, &config_path, &log_file)
 }
 
 /// 非 Windows 平台：便携版安装不可用
