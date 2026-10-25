@@ -104,17 +104,6 @@ impl DatabasePool {
 /// # 返回
 /// - `Ok(Arc<RBatis>)`: 成功获取连接池
 /// - `Err(std::error::Error)`: 初始化或连接失败
-///
-/// # 示例
-/// ```no_run
-/// use crate::config::database_pool;
-///
-/// async fn example() -> anyhow::Result<()> {
-///     let db = database_pool::database().await?;
-///     // 使用 db 执行数据库操作
-///     Ok(())
-/// }
-/// ```
 pub async fn database() -> anyhow::Result<Arc<RBatis>> {
     let instance = DatabasePool::instance();
 
@@ -144,16 +133,6 @@ pub async fn database() -> anyhow::Result<Arc<RBatis>> {
 /// # 返回
 /// - `Ok(())`: 成功关闭
 /// - `Err(std::error::Error)`: 关闭失败
-///
-/// # 示例
-/// ```no_run
-/// use crate::config::database_pool;
-///
-/// async fn shutdown() -> anyhow::Result<()> {
-///     database_pool::close().await?;
-///     Ok(())
-/// }
-/// ```
 pub async fn close() -> anyhow::Result<()> {
     let instance = DatabasePool::instance();
     let mut guard = instance.pool.write();
@@ -177,16 +156,6 @@ pub async fn close() -> anyhow::Result<()> {
 /// # 返回
 /// - `Ok(())`: 重置成功
 /// - `Err(std::error::Error)`: 关闭或重新初始化失败
-///
-/// # 示例
-/// ```no_run
-/// use crate::config::database_pool;
-///
-/// async fn force_reconnect() -> anyhow::Result<()> {
-///     database_pool::reset().await?;
-///     Ok(())
-/// }
-/// ```
 #[allow(dead_code)]
 pub async fn reset() -> anyhow::Result<()> {
     close().await?;
