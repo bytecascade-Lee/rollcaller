@@ -1,4 +1,4 @@
-//! 迁移账本 `database_migration_history` 与 `app_meta` 的 SQL
+//! 账本 `database_migration_history`、元数据 `app_meta` 与迁移期外键校验的 SQL
 
 use rbatis::rbdc::ExecResult;
 use rbatis::{py_sql, RBatis, RBatisTxExecutor};
@@ -56,7 +56,7 @@ pub async fn insert_applied(tx: &mut RBatisTxExecutor, version: i64, migrated_at
     impled!()
 }
 
-/// 把旧账本的版本集合搬进新表（一次性收敛用）
+/// 把旧账本的版本集合搬进新表（一次性收敛用）；`rows_affected` 即搬迁行数
 #[py_sql(
     "INSERT INTO database_migration_history (version, migrated_at)
      SELECT version, COALESCE(executed_at, created_at, 0) FROM migration_history"
@@ -69,24 +69,6 @@ pub async fn copy_legacy_rows(tx: &mut RBatisTxExecutor) -> Result<ExecResult, r
 #[py_sql("SELECT COUNT(*) FROM pragma_foreign_key_check")]
 pub async fn foreign_key_violations(tx: &mut RBatisTxExecutor) -> Result<i64, rbs::Error> {
     impled!()
-}
-
-/// 新账本表的行数（收敛时校验用，在事务内执行）
-#[py_sql("SELECT COUNT(*) FROM database_migration_history")]
-pub async fn count_history_rows(tx: &mut RBatisTxExecutor) -> Result<i64, rbs::Error> {
-    impled!()
-}
-
-/// 建新账本表
-pub async fn create_history_table(rb: &RBatis) -> Result<(), rbs::Error> {
-    rb.exec(CREATE_HISTORY_SQL, vec![]).await?;
-    Ok(())
-}
-
-/// 建应用元数据表（形状永不变化，只加行不加列）
-pub async fn create_meta_table(rb: &RBatis) -> Result<(), rbs::Error> {
-    rb.exec(CREATE_META_SQL, vec![]).await?;
-    Ok(())
 }
 
 /// 写一条元数据（存在则覆盖）
