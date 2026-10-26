@@ -4,32 +4,26 @@ use anyhow::{anyhow, Context, Result};
 use std::fs;
 use std::io;
 use std::path::Path;
-use tracing::info;
+use tracing::{debug, info};
 
 /// 启动初始化：统筹整个启动流程
 ///
 /// 执行顺序：
-/// 1. 创建应用运行所需的全部目录（config / data / cache / temp / logs / webview）
-/// 2. 校验数据目录可读可写（打包后的常见失败点：安装目录不可写）
-/// 3. 初始化数据库连接池并执行迁移
+/// 1. 初始化日志系统——最先，之后每一步的输出与失败原因都能落进日志；也可先于
+///    目录准备调用（`logger::build` 建不出文件层时降级，不 panic）
+/// 2. 回显应用路径（与 `--app-paths` 同形的单行 JSON，debug 级）
+/// 3. 创建应用运行所需的全部目录（config / data / cache / temp / logs / webview）
+/// 4. 校验数据目录可读可写（打包后的常见失败点：安装目录不可写）
+/// 5. 初始化数据库连接池并执行迁移
 ///
 /// 任一步骤失败都会返回错误，由调用方（Tauri setup 钩子）弹出原生对话框提示，
 /// 避免打包后应用启动失败却无任何报错输出。
 pub async fn init() -> Result<()> {
-    println!(
-        "root dir = {:?}\nconfig dir = {:?}\ndata dir = {:?}\ncache dir = {:?}\nlogs dir = {:?}\ntemp dir = {:?}\nresources dir = {:?}\nwebview2 dir = {:?}",
-        app_paths::root_dir(),
-        app_paths::config_dir(),
-        app_paths::data_dir(),
-        app_paths::cache_dir(),
-        app_paths::logs_dir(),
-        app_paths::temp_dir(),
-        app_paths::resources_dir(),
-        app_paths::webview2_dir()
-    );
+    logger::init();
+    debug!("应用路径：{}", serde_json::to_string(app_paths::paths()).unwrap_or_default());
+
     ensure_directories()?;
     ensure_data_dir_writable()?;
-    logger::init();
     database_bootstrap::init().await?;
     register_exit_hooks();
     Ok(())
