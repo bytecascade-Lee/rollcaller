@@ -20,6 +20,7 @@
 <p align="center">
   <a href="https://github.com/bytecascade-Lee/rollcaller/actions/workflows/release.yaml"><img src="https://img.shields.io/github/actions/workflow/status/bytecascade-Lee/rollcaller/release.yaml?style=flat-square&label=release" alt="Release workflow"></a>
   <a href="https://github.com/bytecascade-Lee/rollcaller/actions/workflows/sync-mirrors.yaml"><img src="https://img.shields.io/github/actions/workflow/status/bytecascade-Lee/rollcaller/sync-mirrors.yaml?style=flat-square&label=sync-mirrors" alt="Mirror sync"></a>
+  <a href="https://github.com/bytecascade-Lee/rollcaller/actions/workflows/quality-gate.yaml"><img src="https://img.shields.io/github/actions/workflow/status/bytecascade-Lee/rollcaller/quality-gate.yaml?style=flat-square&label=quality%20gate" alt="Quality Gate"></a>
   <a href="https://github.com/bytecascade-Lee/rollcaller/commits/develop"><img src="https://img.shields.io/github/last-commit/bytecascade-Lee/rollcaller?style=flat-square" alt="Last commit"></a>
 </p>
 
@@ -200,7 +201,7 @@ rollcaller/
 
 - The default branch is `develop`
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
-- Make sure `just check <triple>` and `just test <triple>` both pass before opening a PR
+- Make sure `just check <triple>` and `just test <triple>` both pass before opening a PR; CI repeats them on every merge into `develop` / `master` (Quality Gate)
 - Branch model and release flow: see [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md)
 
 ## License

@@ -403,7 +403,16 @@ tag 推送后，`release.yaml` 依次执行：
 没有 `branch` 输入：跑的就是 ref 下拉框选中的那个提交， **CI
 不会校验它是不是 `master`**，手动触发前必须自己确认。发布末尾会调用 `ensure_tag`：同名 tag 不存在时在检出提交上创建，已存在则原样沿用（见 §6.4 末段），所以不要拿它重发已有 tag 的版本号。
 
-### 6.7 发布后
+### 6.7 合入即校验
+
+`develop` / `master` 收到 push 会跑 `.github/workflows/quality-gate.yaml`：前端类型检查 -> `test.py`（codegen + 后端 `cargo test` + 前端单测）-> 生成物是否已提交。
+
+- 纯文档改动（`**.md`、`docs/**`、`LICENSE`）不触发；同一分支来了新 push 会取消仍在跑的旧 run
+- 只做校验、不产出任何可发布产物，与 §6.1 的发布链路互不影响
+- 目标三元组写死为 `x86_64-pc-windows-msvc`：只有 x64 能在 `windows-latest` 上原生执行，arm64 交叉编译出来的测试二进制跑不起来
+
+
+### 6.8 发布后
 
 - 确认 GitHub Release 与 CNB Release 都已生成，产物齐全
 - `dependabot.yml` 的配置会被重新读取（默认分支上的版本才是生效版本）
