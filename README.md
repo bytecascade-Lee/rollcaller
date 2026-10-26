@@ -28,6 +28,7 @@
   <a href="https://github.com/bytecascade-Lee/rollcaller/forks"><img src="https://img.shields.io/github/forks/bytecascade-Lee/rollcaller?style=flat-square" alt="Fork"></a>
   <a href="https://github.com/bytecascade-Lee/rollcaller/issues"><img src="https://img.shields.io/github/issues/bytecascade-Lee/rollcaller?style=flat-square" alt="议题"></a>
   <a href="https://github.com/bytecascade-Lee/rollcaller/pulls"><img src="https://img.shields.io/github/issues-pr/bytecascade-Lee/rollcaller?style=flat-square" alt="拉取请求"></a>
+</p>
 
 <p align="center">
   <a href="https://github.com/bytecascade-Lee/rollcaller/releases"><img src="https://img.shields.io/github/downloads/bytecascade-Lee/rollcaller/total?style=flat-square" alt="下载量"></a>
@@ -82,13 +83,13 @@
 | 工具                             | 最低版本 | 用途                   |
 |:---------------------------------|:---------|:-----------------------|
 | [git](https://git-scm.com/)      | 2.30     | 版本控制               |
-| [uv](https://docs.astral.sh/uv/) | 0.5      | 管理 Python 与脚本依赖 |
-| [just](https://just.systems/)    | 1.0      | 统一任务入口           |
+| [Rust](https://rustup.rs/)       | 1.80     | 后端与 Tauri           |
 | [Node.js](https://nodejs.org/)   | 22       | 前端构建               |
 | [pnpm](https://pnpm.io/)         | 11       | 前端依赖               |
-| [Rust](https://rustup.rs/)       | 1.80     | 后端与 Tauri           |
+| [uv](https://docs.astral.sh/uv/) | 0.5      | 管理 Python 与脚本依赖 |
+| [just](https://just.systems/)    | 1.0      | 统一任务入口           |
 
-Python 解释器（3.14）由 `uv sync` 自动下载，不需要单独安装。`just doctor` 会逐条核对上表，并检查仓库级 git 配置与依赖是否就位。
+Python 解释器由 `uv sync` 自动下载，无需单独安装。`just doctor` 会逐条核对上表，并检查仓库级 git 配置与依赖是否就位。
 
 ### 使用 just 初始化
 
@@ -98,11 +99,21 @@ cd rollcaller
 just setup
 ```
 
-没有配置 SSH key 时，把克隆地址换成 `https://github.com/bytecascade-Lee/rollcaller.git`。
+未配置 SSH key 时，请使用 `https://github.com/bytecascade-Lee/rollcaller.git` 克隆仓库。
 
-`just setup` 依次完成：体检工具链 → 写仓库级 git 配置 → `pnpm install --frozen-lockfile` → `uv sync` → 刷新脚本导入钩子。它是幂等的，重建虚拟环境后可以再跑一次。
+`just setup` 依次完成：体检工具链 -> 设置仓库级 git 配置 -> `pnpm install --frozen-lockfile` -> `uv sync` -> 刷新脚本导入钩子。该命令是幂等的，重建虚拟环境后可以再跑一次。
 
-写入的 git 配置（`--local`，不影响其他仓库）见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §1.1，其中 `pull.ff=only` 决定拉取行为，不要随手改回默认。
+写入的 git 配置见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §1.1，其中 `pull.ff=only` 决定拉取行为，请勿轻易修改。
+
+### 使用 Python 脚本初始化
+
+```bash
+git clone git@github.com:bytecascade-Lee/rollcaller.git
+cd rollcaller
+uv run ./scripts/setup.py
+```
+
+该脚本与 just 命令的初始化机制是一致的，just 仅将该脚本的调用封装为命令。
 
 ### 逐步初始化
 
@@ -128,30 +139,31 @@ cp scripts/tool/sitecustomize.py .venv/sitecustomize.py
 cd frontend && pnpm install --frozen-lockfile && cd ..
 ```
 
-`sitecustomize.py` 是 CPython 启动时自动加载的钩子，它把 `<项目根>/scripts` 注入 `sys.path`，因此 `scripts/` 下的脚本可以直接 `from cli import git`、`from common.logger import info`。`.venv/` 不进版本控制，
-**重建虚拟环境后需要重新复制一次**（`just setup` 会自动做）。
+`sitecustomize.py` 是 CPython 启动时自动加载的钩子，用于注入 `<项目根>/scripts` 到 `sys.path`， **重建虚拟环境后需要重新复制一次**（`just setup` 会自动完成复制）。
 
 > Windows PowerShell 下把 `cp` 换成 `Copy-Item`。
 
 ### 常用命令
 
-| 目的             | 有 just              | 没有 just                                                |
-|:-----------------|:---------------------|:---------------------------------------------------------|
-| 体检环境         | `just doctor`        | `uv run scripts/setup.py --check`                        |
-| 初始化环境       | `just setup`         | `uv run scripts/setup.py`                                |
-| 启动开发环境     | `just dev`           | `uv run scripts/dev.py`                                  |
-| 仅前端开发服务器 | `just dev-fe`        | `cd frontend && pnpm dev`                                |
-| 类型检查         | `just check`         | `cd frontend && pnpm check`、`cd backend && cargo check` |
-| 格式化           | `just fmt`           | `cd backend && cargo fmt`                                |
-| 测试             | `just test`          | `cd frontend && pnpm test`、`cd backend && cargo test`   |
-| 本地构建         | `just build 0.8.3`   | `uv run scripts/build.py -v 0.8.3 -m local`              |
-| 本地出包         | `just release 0.8.3` | `uv run scripts/release.py -v 0.8.3 -m local`            |
+| 目的             | 有 just                                   | 没有 just                                                             |
+|:-----------------|:------------------------------------------|:----------------------------------------------------------------------|
+| 体检环境         | `just doctor`                             | `uv run scripts/setup.py --check`                                     |
+| 初始化环境       | `just setup`                              | `uv run scripts/setup.py`                                             |
+| 启动开发环境     | `just dev x86_64-pc-windows-msvc`         | `uv run scripts/dev.py -t x86_64-pc-windows-msvc`                     |
+| 仅前端开发服务器 | `just dev-fe`                             | `cd frontend && pnpm dev`                                             |
+| 类型检查         | `just check`                              | `cd frontend && pnpm check`、`cd backend && cargo check`              |
+| 格式化           | `just fmt`                                | `cd backend && cargo fmt`                                             |
+| 测试             | `just test`                               | `cd frontend && pnpm test`、`cd backend && cargo test`                |
+| 本地构建         | `just build 0.8.3 x86_64-pc-windows-msvc` | `uv run scripts/build.py -v 0.8.3 -t x86_64-pc-windows-msvc -m local` |
+| 本地发布         | `just release 0.8.3`                      | `uv run scripts/release.py -v 0.8.3 -m local`                         |
 
-所有脚本入口都在 `scripts/` 下，用 `uv run` 调用即可，不需要手动激活虚拟环境。`just` 只是这些命令的快捷方式，`justfile` 里的每条 recipe 都能逐字翻译成上表右列的形式。
+> `-t/--target` 必须显式传入 `dev.py` / `build.py`。
+
+所有脚本入口均在 `scripts/` 目录下，使用 `uv run` 即可运行，无需手动激活虚拟环境。
 
 ### 构建产物
 
-- 本地构建与出包：`release/Local/`
+- 本地构建与发布：`release/Local/`
 - 正式发布：由 `master` 上的 tag 触发 CI 构建、签名并发布，见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §六
 
 ## 配置
@@ -178,11 +190,11 @@ rollcaller/
 
 ## 贡献
 
-欢迎提交 [Issue](https://github.com/bytecascade-Lee/rollcaller/issues) 与 Pull Request。
+欢迎提交 [Issue](https://github.com/bytecascade-Lee/rollcaller/issues) 与 [Pull Request](https://github.com/bytecascade-Lee/rollcaller/pulls)。
 
-- 默认分支是 `develop`，功能从它切出 `<type>/<简述>`，修复走 `hotfix/<版本>/<简述>`
-- 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/)：`feat:`、`fix:`、`refactor:`、`docs:` …
-- 提交 PR 前请先跑通 `just check` 与 `just test`
+- 默认分支为 `develop`
+- 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/)
+- 提交 PR 前请确保 `just check` 与 `just test` 均通过
 - 分支模型与发布流程见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md)
 
 ## 许可证
