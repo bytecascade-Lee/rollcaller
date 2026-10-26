@@ -44,16 +44,18 @@ pub fn build() -> impl tracing::Subscriber {
     #[cfg(not(debug_assertions))]
     let console_level = LevelFilter::INFO;
 
-    let console_layer = layer()
-        .with_ansi(true)
-        .with_line_number(true)
-        .with_file(true)
-        .with_target(true)
-        .with_thread_ids(true)
-        .with_thread_names(true)
-        .with_span_events(format::FmtSpan::ENTER | format::FmtSpan::CLOSE)
-        .with_writer(std::io::stdout)
-        .with_filter(console_level);
+    let console_layer = crate::console::has_output().then(|| {
+        layer()
+            .with_ansi(crate::console::ansi_enabled())
+            .with_line_number(true)
+            .with_file(true)
+            .with_target(true)
+            .with_thread_ids(true)
+            .with_thread_names(true)
+            .with_span_events(format::FmtSpan::ENTER | format::FmtSpan::CLOSE)
+            .with_writer(std::io::stdout)
+            .with_filter(console_level)
+    });
 
     let file_layer = layer()
         .with_ansi(false)
