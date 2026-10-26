@@ -27,7 +27,7 @@ pub struct BuildInfo {
 pub struct AppInfo {
     #[ts(type = "string")]
     pub version: Version,
-
+    pub target: String,
     pub os: enums::sys::OS,
     pub arch: enums::sys::Arch,
 
@@ -52,6 +52,7 @@ fn load() -> AppInfo {
 
     AppInfo {
         version: Version::parse(env!("CARGO_PKG_VERSION")).unwrap(),
+        target: constant::sys::TARGET.to_owned(),
         os: constant::sys::OS,
         arch: constant::sys::ARCH,
         build_info,
