@@ -1,0 +1,6 @@
+# backend/.cargo/config.toml 的模板，由 `just setup` 复制
+[env]
+# 开发模式下的数据库文件名，留空会在启动时断言失败
+DEVELOP_DATABASE_FILENAME = "dev.db"
+# ts-rs 的类型导出目录，指向仓库里的 frontend/src/lib/types
+TS_RS_EXPORT_DIR = { value = "../frontend/src/lib/types", relative = true }

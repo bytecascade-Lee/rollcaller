@@ -23,7 +23,7 @@ BIN_DIR = FRONTEND_NODE_DIR / ".bin"
 
 
 def _run(args: Sequence[str], env: dict[str, str] | None = None) -> None:
-    """在 BACKEND_DIR 下执行一条 tauri 命令；启动失败或退出码非 0 抛出 TauriError"""
+    """在仓库根目录下执行一条 tauri 命令；启动失败或退出码非 0 抛出 TauriError"""
     try:
         binary = process.resolve("tauri", search_dir=BIN_DIR)
     except process.ProcessError:

@@ -83,6 +83,11 @@ SITECUSTOMIZE_TEMPLATE_PATH = SCRIPTS_DIR / "tool" / "sitecustomize.py"
 # 依赖 / 构建 / 签名 / 生成物
 FRONTEND_NODE_DIR = FRONTEND_DIR / "node_modules"
 FRONTEND_DIST_DIR = FRONTEND_DIR / "dist"
+FRONTEND_TYPES_DIR = FRONTEND_DIR / "src" / "lib" / "types"
 BACKEND_TARGET_DIR = BACKEND_DIR / "target"
 BACKEND_BUILD_INFO_PATH = BACKEND_DIR / "gen" / "build" / "build_info.json"
+# cargo 的本地环境配置：模板纳入版本控制，真实文件由 setup 复制出来，不进仓库
+CARGO_CONFIG_DIR = BACKEND_DIR / ".cargo"
+CARGO_CONFIG_PATH = CARGO_CONFIG_DIR / "config.toml"
+CARGO_CONFIG_TEMPLATE_PATH = CARGO_CONFIG_DIR / "config.toml.example"
 LOCAL_RELEASE_DIR = RELEASE_DIR / "Local"

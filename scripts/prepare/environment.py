@@ -19,8 +19,12 @@ from pathlib import Path
 
 from cli import git, pnpm, process, rust, uv
 from common.constant.paths import (
+    CARGO_CONFIG_DIR,
+    CARGO_CONFIG_PATH,
+    CARGO_CONFIG_TEMPLATE_PATH,
     DEVELOP_DATA_DIR,
     FRONTEND_NODE_DIR,
+    FRONTEND_TYPES_DIR,
     LOCAL_RELEASE_DIR,
     PROJECT_BASE_DIR,
     PYPROJECT_PATH,
@@ -89,6 +93,10 @@ DIRECTORIES: tuple[Path, ...] = (
 # 工具 `--version` 输出里的第一段 x.y[.z]
 _VERSION_RE = re.compile(r"(\d+(?:\.\d+)+)")
 
+# cargo 本地配置里必须成立的两项：类型导出目录，与开发模式使用的数据库文件名
+CARGO_EXPORT_KEY = "TS_RS_EXPORT_DIR"
+CARGO_DATABASE_KEY = "DEVELOP_DATABASE_FILENAME"
+
 # 单次版本探测的超时（秒）；依赖安装的超时由各 cli 模块自己持有
 PROBE_TIMEOUT = 30
 
@@ -96,7 +104,7 @@ PROBE_TIMEOUT = 30
 def check() -> list[str]:
     """只读体检，返回未通过项的描述；空列表表示全部通过"""
     return [*_toolchain_problems(), *_remote_problems(), *_uv_index_problems(),
-            *_git_config_problems(), *_dependency_problems()]
+            *_git_config_problems(), *_cargo_config_problems(), *_dependency_problems()]
 
 
 def setup() -> None:
@@ -110,6 +118,7 @@ def setup() -> None:
 
     _ensure_remote()
     _apply_git_config()
+    _install_cargo_config()
     _ensure_uv_index()
     _warn_if_lock_stale()
     _install_frontend_dependencies()
@@ -187,6 +196,52 @@ def _git_config_problems() -> list[str]:
     return problems
 
 
+def _cargo_config_problems() -> list[str]:
+    """检查 backend/.cargo/config.toml 是否就位，且两项关键配置指向正确位置"""
+    label = relative_path(CARGO_CONFIG_PATH, PROJECT_BASE_DIR)
+    if not CARGO_CONFIG_PATH.is_file():
+        return [f"cargo 本地配置缺失: {label}；执行 `just setup` 从模板复制"]
+
+    try:
+        data = tomllib.loads(CARGO_CONFIG_PATH.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        return [f"读取 {label} 失败: {error}"]
+
+    variables = data.get("env")
+    if not isinstance(variables, dict):
+        return [f"{label} 缺少 [env] 段；删除该文件后执行 `just setup` 可重新生成"]
+
+    export_dir = _cargo_export_dir(variables.get(CARGO_EXPORT_KEY))
+    if export_dir is None:
+        return [f"{label} 的 {CARGO_EXPORT_KEY} 缺失或写法无法识别，可参照 "
+                f"{relative_path(CARGO_CONFIG_TEMPLATE_PATH, PROJECT_BASE_DIR)} 里的写法"]
+    expected = FRONTEND_TYPES_DIR.resolve()
+    if export_dir != expected:
+        return [f"{label} 的 {CARGO_EXPORT_KEY} 指向 {str(export_dir)!r}，"
+                f"应为 {relative_path(FRONTEND_TYPES_DIR, PROJECT_BASE_DIR)!r}；否则类型会被导出到别处"]
+
+    database = variables.get(CARGO_DATABASE_KEY)
+    if not isinstance(database, str) or not database.strip():
+        return [f"{label} 的 {CARGO_DATABASE_KEY} 为空，开发模式启动时会断言失败"]
+
+    info(f"cargo 本地配置就位: {label}")
+    return []
+
+
+def _cargo_export_dir(value: object) -> Path | None:
+    """解出 env 里的路径项：支持 {value, relative = true} 与绝对路径字符串，其余一律视为无效"""
+    if isinstance(value, dict):
+        raw = value.get("value")
+        if not isinstance(raw, str):
+            return None
+        # relative = true 的锚点是「含 .cargo 的那层目录」，即 BACKEND_DIR
+        return (CARGO_CONFIG_DIR.parent / raw).resolve() if value.get("relative") else Path(raw)
+    if isinstance(value, str):
+        path = Path(value)
+        return path if path.is_absolute() else None
+    return None
+
+
 def _dependency_problems() -> list[str]:
     """检查依赖与导入钩子是否就位（只看存在性，不联网）"""
     problems: list[str] = []
@@ -250,6 +305,19 @@ def _apply_git_config() -> None:
     for key, value in LOCAL_GIT_CONFIG:
         git.set_config(key, value)
         info(f"git 配置 {key}={value}")
+
+
+def _install_cargo_config() -> None:
+    """缺失时从模板原样复制；已存在时跳过，避免覆盖本机的私有配置"""
+    if CARGO_CONFIG_PATH.is_file():
+        info(f"cargo 本地配置已存在，跳过: {relative_path(CARGO_CONFIG_PATH, PROJECT_BASE_DIR)}")
+        return
+    try:
+        CARGO_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(CARGO_CONFIG_TEMPLATE_PATH, CARGO_CONFIG_PATH)
+    except OSError as error:
+        raise EnvError(f"复制 cargo 本地配置失败: {error}") from error
+    info(f"已从模板生成 cargo 本地配置: {relative_path(CARGO_CONFIG_PATH, PROJECT_BASE_DIR)}")
 
 
 def _ensure_directories() -> None:
