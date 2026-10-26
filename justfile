@@ -22,18 +22,14 @@ doctor:
 
 # 开发
 
-# 启动完整 Tauri 开发环境，用法: just dev-target x86_64-pc-windows-msvc
+# 启动完整 Tauri 开发环境，用法: just dev x86_64-pc-windows-msvc
 dev target:
-    {{ uv }} run python {{ scripts_dir }}/dev.py --target {{ target }}
+    {{ uv }} run python {{ scripts_dir }}/dev.py -t {{ target }}
 
 # 构建
 
-# 本地构建，用法: just build 0.8.3
-build ver:
-    {{ uv }} run python {{ scripts_dir }}/build.py -v {{ ver }} -m local
-
-# 本地构建并指定目标三元组（用法: just build-target 0.8.3 aarch64-pc-windows-msvc）
-build-target ver target:
+# 本地构建，用法: just build 0.8.3 x86_64-pc-windows-msvc
+build ver target:
     {{ uv }} run python {{ scripts_dir }}/build.py -v {{ ver }} -t {{ target }} -m local
 
 # 本地出包后驻留更新服务，需先 build 同一版本
