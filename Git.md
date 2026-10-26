@@ -507,20 +507,19 @@ PR 标题遵循 §七 的提交信息格式；描述写清动机、影响面和�
 
 以下路径不纳入版本控制， **不要用 `git add -f` 强行纳入**：
 
-| 路径                                       | 依据                | 原因                                     |
-|:-------------------------------------------|:--------------------|:-----------------------------------------|
-| `env/`                                     | `.gitignore`        | 含密钥与签名材料                         |
-| `data/`                                    | `.gitignore`        | 运行期数据（数据库、导入样例、日志）     |
-| `release/`                                 | `.gitignore`        | 本地发布产物与 CI 日志归档               |
-| `assets/`                                  | `.gitignore`        | CI 构建产物汇总目录                      |
-| `docs/changes/`、`docs/diff/`              | `.gitignore`        | 提交信息与 diff 导出的中间产物           |
-| `backend/target/`                          | `.gitignore`        | Rust 构建产物                            |
-| `backend/gen/`                             | `.gitignore`        | 代码生成物与 `gen/build/build_info.json` |
-| `.cargo/config.toml`                       | `.gitignore`        | 本机生成，含 ts-rs 导出目录              |
-| `resources/tauri/*`                        | `.gitignore`        | 本地解包的 tauri-cli                     |
-| `frontend/node_modules/`、`frontend/dist/` | `.gitignore`        | 依赖与前端产物                           |
-| `backend/tauri.conf.json5.local`           | `.gitignore`        | 本机专属覆盖                             |
-
+| 路径                                       | 依据         | 原因                                     |
+|:-------------------------------------------|:-------------|:-----------------------------------------|
+| `env/`                                     | `.gitignore` | 含密钥与签名材料                         |
+| `data/`                                    | `.gitignore` | 运行期数据（数据库、导入样例、日志）     |
+| `release/`                                 | `.gitignore` | 本地发布产物与 CI 日志归档               |
+| `assets/`                                  | `.gitignore` | CI 构建产物汇总目录                      |
+| `docs/changes/`、`docs/diff/`              | `.gitignore` | 提交信息与 diff 导出的中间产物           |
+| `backend/target/`                          | `.gitignore` | Rust 构建产物                            |
+| `backend/gen/`                             | `.gitignore` | 代码生成物与 `gen/build/build_info.json` |
+| `.cargo/config.toml`                       | `.gitignore` | 本机生成，含 ts-rs 导出目录              |
+| `resources/tauri/*`                        | `.gitignore` | 本地解包的 tauri-cli                     |
+| `frontend/node_modules/`、`frontend/dist/` | `.gitignore` | 依赖与前端产物                           |
+| `backend/tauri.conf.json5.local`           | `.gitignore` | 本机专属覆盖                             |
 
 行尾策略由 `.gitattributes` 的 `* text=auto` 定义： **索引统一存 LF**，工作区按平台自动转换。新增文件不要手工混入 CRLF。
 
@@ -544,7 +543,7 @@ PR 标题遵循 §七 的提交信息格式；描述写清动机、影响面和�
 | 修复摘回 develop（例外）                        | `git cherry-pick -x <sha>`（**永不 merge hotfix 进 develop**）         |
 | 预览下一个版本号                                | `just bump patch --dry-run`（档位可换 major / minor / prerelease）     |
 | 打 tag                                          | `just bump patch`（在 `master` 上，只创建不推送）                      |
-| 本地出包（自测）                                | `just build 0.8.2`                                                     |
+| 本地发布                                        | `just build 0.8.2 x86_64-pc-windows-msvc`                              |
 | 本地模拟发布（驻留更新服务，需先 build 同版本） | `just release 0.8.2`                                                   |
 | 推 tag 触发发布                                 | `git push github v0.8.2`                                               |
 | 删除远程分支                                    | `git push github --delete <branch>`                                    |

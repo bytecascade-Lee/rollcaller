@@ -43,9 +43,9 @@ class BuildError(Exception):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="构建入口：构建 -> 打包 -> 汇总 -> 签名 + sha256")
 
-    parser.add_argument("-v", "--version", metavar="VERSION", help="语义化版本号")
-    parser.add_argument("-t", "--target", metavar="TRIPLE", help="完整 Rust 目标三元组")
-    parser.add_argument("-m", "--mode", choices=Mode.values(), help="构建模式")
+    parser.add_argument("-v", "--version", required=True, metavar="VERSION", help="语义化版本号")
+    parser.add_argument("-t", "--target", required=True, metavar="TRIPLE", help="完整 Rust 目标三元组")
+    parser.add_argument("-m", "--mode", required=True, choices=Mode.values(), help="构建模式")
 
     return parser.parse_args()
 
@@ -81,11 +81,6 @@ def sign_and_hash(artifacts: list[Path]) -> None:
 
 def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
     args = parse_args()
-
-    required_args = (("-v/--version", args.version), ("-t/--target", args.target), ("-m/--mode", args.mode))
-    missing = [flag for flag, value in required_args if value is None]
-    if missing:
-        raise BuildError(f"未传递参数: {', '.join(missing)}")
 
     version = Version.parse(args.version, erase_build_metadata=True)
     target = Target(rust.resolve_triple(args.target))

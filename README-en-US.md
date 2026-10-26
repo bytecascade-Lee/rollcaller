@@ -29,6 +29,7 @@
   <a href="https://github.com/bytecascade-Lee/rollcaller/issues"><img src="https://img.shields.io/github/issues/bytecascade-Lee/rollcaller?style=flat-square" alt="Issues"></a>
   <a href="https://github.com/bytecascade-Lee/rollcaller/pulls"><img src="https://img.shields.io/github/issues-pr/bytecascade-Lee/rollcaller?style=flat-square" alt="Pull requests"></a>
 </p>
+
 <p align="center">
   <a href="https://github.com/bytecascade-Lee/rollcaller/releases"><img src="https://img.shields.io/github/downloads/bytecascade-Lee/rollcaller/total?style=flat-square" alt="Downloads"></a>
   <a href="https://cnb.cool/ordinary-glory/rollcaller"><img src="https://img.shields.io/badge/mirror-cnb.cool-1A7AF8?style=flat-square" alt="Mirror"></a>
@@ -65,7 +66,7 @@ Get the [latest release](https://github.com/bytecascade-Lee/rollcaller/releases/
 - Every artifact ships with a `.sha256` checksum and a `.sig` signature
 - For users in mainland China, the source code and releases are also mirrored to [CNB](https://cnb.cool/ordinary-glory/rollcaller); actual released products are subject to GitHub Releases
 
-## Tech Stack
+## Tech stack
 
 | Layer           | Technology                                                                                |
 |:----------------|:------------------------------------------------------------------------------------------|
@@ -82,13 +83,13 @@ Get the [latest release](https://github.com/bytecascade-Lee/rollcaller/releases/
 | Tool                             | Minimum | Purpose                        |
 |:---------------------------------|:--------|:-------------------------------|
 | [git](https://git-scm.com/)      | 2.30    | Version control                |
-| [uv](https://docs.astral.sh/uv/) | 0.5     | Python and script dependencies |
-| [just](https://just.systems/)    | 1.0     | Single task entry point        |
+| [Rust](https://rustup.rs/)       | 1.80    | Backend and Tauri              |
 | [Node.js](https://nodejs.org/)   | 22      | Frontend build                 |
 | [pnpm](https://pnpm.io/)         | 11      | Frontend dependencies          |
-| [Rust](https://rustup.rs/)       | 1.80    | Backend and Tauri              |
+| [uv](https://docs.astral.sh/uv/) | 0.5     | Python and script dependencies |
+| [just](https://just.systems/)    | 1.0     | Single task entry point        |
 
-The Python interpreter (3.14) is downloaded by `uv sync`, no separate installation needed. `just doctor` checks every row above, plus the repository-level git config and installed dependencies.
+The Python interpreter is downloaded by `uv sync`, no separate installation needed. `just doctor` checks every row above, plus the repository-level git config and installed dependencies.
 
 ### Set up with just
 
@@ -104,9 +105,19 @@ Without an SSH key configured, use `https://github.com/bytecascade-Lee/rollcalle
 
 The git config it writes (`--local`, never global) is documented in [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §1.1. In particular, `pull.ff=only` governs how pulls behave — do not change it back.
 
-###  Gradually Set up
+### Set up with the Python script
 
-Run the equivalent commands in the same order as `just setup`:
+```bash
+git clone git@github.com:bytecascade-Lee/rollcaller.git
+cd rollcaller
+uv run ./scripts/setup.py
+```
+
+It relies on the same setup mechanism as the `just` command — `just setup` only wraps this script's invocation into a recipe.
+
+### Set up step by step
+
+Run the equivalent commands one by one, in the same order as `just setup`:
 
 ```bash
 git clone git@github.com:bytecascade-Lee/rollcaller.git
@@ -128,30 +139,32 @@ cp scripts/tool/sitecustomize.py .venv/sitecustomize.py
 cd frontend && pnpm install --frozen-lockfile && cd ..
 ```
 
-`sitecustomize.py` is a CPython startup hook that injects `<repo>/scripts` into `sys.path`, so scripts under `scripts/` can `from cli import git` or `from common.logger import info` directly. `.venv/` is not version-controlled —
-**copy it again after rebuilding the virtual environment** (`just setup` does this for you).
+`sitecustomize.py` is a hook CPython loads at startup; it injects `<repo>/scripts` into `sys.path`, and **must be copied again after rebuilding the virtual
+environment** (`just setup` does it for you).
 
 > On Windows PowerShell, use `Copy-Item` instead of `cp`.
 
 ### Common commands
 
-| Purpose            | With just            | Without just                                             |
-|:-------------------|:---------------------|:---------------------------------------------------------|
-| Check environment  | `just doctor`        | `uv run scripts/setup.py --check`                        |
-| Set up environment | `just setup`         | `uv run scripts/setup.py`                                |
-| Start dev server   | `just dev`           | `uv run scripts/dev.py`                                  |
-| Frontend only      | `just dev-fe`        | `cd frontend && pnpm dev`                                |
-| Type check         | `just check`         | `cd frontend && pnpm check`, `cd backend && cargo check` |
-| Format             | `just fmt`           | `cd backend && cargo fmt`                                |
-| Test               | `just test`          | `cd frontend && pnpm test`, `cd backend && cargo test`   |
-| Local build        | `just build 0.8.3`   | `uv run scripts/build.py -v 0.8.3 -m local`              |
-| Local package      | `just release 0.8.3` | `uv run scripts/release.py -v 0.8.3 -m local`            |
+| Purpose            | With just                                 | Without just                                                          |
+|:-------------------|:------------------------------------------|:----------------------------------------------------------------------|
+| Check environment  | `just doctor`                             | `uv run scripts/setup.py --check`                                     |
+| Set up environment | `just setup`                              | `uv run scripts/setup.py`                                             |
+| Start dev server   | `just dev x86_64-pc-windows-msvc`         | `uv run scripts/dev.py -t x86_64-pc-windows-msvc`                     |
+| Frontend only      | `just dev-fe`                             | `cd frontend && pnpm dev`                                             |
+| Type check         | `just check`                              | `cd frontend && pnpm check`, `cd backend && cargo check`              |
+| Format             | `just fmt`                                | `cd backend && cargo fmt`                                             |
+| Test               | `just test`                               | `cd frontend && pnpm test`, `cd backend && cargo test`                |
+| Local build        | `just build 0.8.3 x86_64-pc-windows-msvc` | `uv run scripts/build.py -v 0.8.3 -t x86_64-pc-windows-msvc -m local` |
+| Local release      | `just release 0.8.3`                      | `uv run scripts/release.py -v 0.8.3 -m local`                         |
 
-Every entry point lives under `scripts/`; call it with `uv run`, no need to activate the virtual environment. `just` is only a shortcut — each recipe in `justfile` maps literally to the right column above.
+> `-t/--target` must be passed explicitly to `dev.py` / `build.py`.
+
+Every entry point lives under `scripts/`; run it with `uv run`, no need to activate the virtual environment.
 
 ### Build outputs
 
-- Local builds and packages: `release/Local/`
+- Local builds and releases: `release/Local/`
 - Official releases: a tag on `master` triggers CI to build, sign and publish — see [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §6
 
 ## Configuration
@@ -180,9 +193,9 @@ rollcaller/
 
 [Issues](https://github.com/bytecascade-Lee/rollcaller/issues) and pull requests are welcome.
 
-- The default branch is `develop`; branch off it as `<type>/<desc>`, or use `hotfix/<version>/<desc>` for fixes
-- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `refactor:`, `docs:` …
-- Run `just check` and `just test` before opening a PR
+- The default branch is `develop`
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
+- Make sure `just check` and `just test` both pass before opening a PR
 - Branch model and release flow: see [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md)
 
 ## License
