@@ -2,4 +2,4 @@
 import type { Arch } from "./Arch";
 import type { OS } from "./OS";
 
-export type AppInfo = { version: string, os: OS, arch: Arch, ref_name: string, commit_count: number, commit_hash: string, abbreviated_hash: string, commit_time: number, build_time: number, };
+export type AppInfo = { version: string, target: string, os: OS, arch: Arch, ref_name: string, commit_count: number, commit_hash: string, abbreviated_hash: string, commit_time: number, build_time: number, };

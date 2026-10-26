@@ -12,12 +12,19 @@ pub const ARCH: sys::Arch = sys::Arch::Arm64;
 #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
 compile_error!("Rollcaller now only supports x86_64 and aarch64 architectures!");
 
-#[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-pub const OS_ARCH_COMPATIBLE_WITH_HISTORY: &str = "windows-x86_64";
-#[cfg(all(target_os = "windows", target_arch = "aarch64"))]
-pub const OS_ARCH_COMPATIBLE_WITH_HISTORY: &str = "windows-aarch64";
-#[cfg(not(any(
-    all(target_os = "windows", target_arch = "x86_64"),
-    all(target_os = "windows", target_arch = "aarch64")
-)))]
-compile_error!("Rollcaller only supports windows-x86_64 and windows-aarch64 combinations!");
+pub const TARGET: &str = env!("ROLLCALLER_TARGET");
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn target_agrees_with_os_and_arch() {
+        let expected = match (OS, ARCH) {
+            (sys::OS::Windows, sys::Arch::X86_64) => "x86_64-pc-windows-msvc",
+            (sys::OS::Windows, sys::Arch::Arm64) => "aarch64-pc-windows-msvc",
+            _ => unreachable!("compile_error 已限制支持的 OS 与架构组合"),
+        };
+        assert_eq!(TARGET, expected);
+    }
+}

@@ -187,7 +187,7 @@
         #{DateTimeUtils.format(APP_INFO.build_time)}
       </div>
       <div>
-        {APP_INFO.os}-{APP_INFO.arch}
+        {APP_INFO.target}
       </div>
     </footer>
   {/if}
