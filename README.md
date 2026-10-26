@@ -101,7 +101,7 @@ just setup
 
 未配置 SSH key 时，请使用 `https://github.com/bytecascade-Lee/rollcaller.git` 克隆仓库。
 
-`just setup` 依次完成：体检工具链 -> 设置仓库级 git 配置 -> `pnpm install --frozen-lockfile` -> `uv sync` -> 刷新脚本导入钩子。该命令是幂等的，重建虚拟环境后可以再跑一次。
+`just setup` 依次完成：体检工具链 -> 设置仓库级 git 配置 -> 按模板补齐 `backend/.cargo/config.toml`（已存在则不动） -> `pnpm install --frozen-lockfile` -> `uv sync` -> 刷新脚本导入钩子。该命令是幂等的，重建虚拟环境后可以再跑一次。
 
 写入的 git 配置见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §1.1，其中 `pull.ff=only` 决定拉取行为，请勿轻易修改。
 
@@ -129,13 +129,16 @@ git config --local merge.ff false         # 合并必须产生合并提交
 git config --local core.quotepath false   # 中文路径不转义
 git config --local fetch.prune true       # 远程删除的分支顺带清理
 
-# 2. Python 依赖（创建 .venv 并按 uv.lock 安装）
+# 2. cargo 本地配置（ts-rs 导出目录与开发库文件名）
+cp backend/.cargo/config.toml.example backend/.cargo/config.toml
+
+# 3. Python 依赖（创建 .venv 并按 uv.lock 安装）
 uv sync
 
-# 3. 脚本导入钩子
+# 4. 脚本导入钩子
 cp scripts/tool/sitecustomize.py .venv/sitecustomize.py
 
-# 4. 前端依赖
+# 5. 前端依赖
 cd frontend && pnpm install --frozen-lockfile && cd ..
 ```
 
