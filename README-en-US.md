@@ -149,19 +149,21 @@ environment** (`just setup` does it for you).
 
 ### Common commands
 
-| Purpose            | With just                                 | Without just                                                          |
-|:-------------------|:------------------------------------------|:----------------------------------------------------------------------|
-| Check environment  | `just doctor`                             | `uv run scripts/setup.py --check`                                     |
-| Set up environment | `just setup`                              | `uv run scripts/setup.py`                                             |
-| Start dev server   | `just dev x86_64-pc-windows-msvc`         | `uv run scripts/dev.py -t x86_64-pc-windows-msvc`                     |
-| Frontend only      | `just dev-fe`                             | `cd frontend && pnpm dev`                                             |
-| Type check         | `just check`                              | `cd frontend && pnpm check`, `cd backend && cargo check`              |
-| Format             | `just fmt`                                | `cd backend && cargo fmt`                                             |
-| Test               | `just test`                               | `cd frontend && pnpm test`, `cd backend && cargo test`                |
-| Local build        | `just build 0.8.3 x86_64-pc-windows-msvc` | `uv run scripts/build.py -v 0.8.3 -t x86_64-pc-windows-msvc -m local` |
-| Local release      | `just release 0.8.3`                      | `uv run scripts/release.py -v 0.8.3 -m local`                         |
+| Purpose             | With just                                 | Without just                                                                             |
+|:--------------------|:------------------------------------------|:-----------------------------------------------------------------------------------------|
+| Check environment   | `just doctor`                             | `uv run scripts/setup.py --check`                                                        |
+| Set up environment  | `just setup`                              | `uv run scripts/setup.py`                                                                |
+| Start dev server    | `just dev x86_64-pc-windows-msvc`         | `uv run scripts/dev.py -t x86_64-pc-windows-msvc`                                        |
+| Frontend dev only   | `just dev-fe`                             | `cd frontend && pnpm dev`                                                                |
+| Type check          | `just check x86_64-pc-windows-msvc`       | `cd frontend && pnpm check`, `cd backend && cargo check --target x86_64-pc-windows-msvc` |
+| Format              | `just fmt`                                | `cd backend && cargo fmt`                                                                |
+| Test                | `just test x86_64-pc-windows-msvc`        | `uv run scripts/test.py -t x86_64-pc-windows-msvc`                                       |
+| Frontend tests only | `just test-fe`                            | `cd frontend && pnpm test`                                                               |
+| Export changes      | `just export`                             | `uv run scripts/tool/export_git_diff.py`                                                 |
+| Local build         | `just build 0.8.3 x86_64-pc-windows-msvc` | `uv run scripts/build.py -v 0.8.3 -t x86_64-pc-windows-msvc -m local`                    |
+| Local release       | `just release 0.8.3`                      | `uv run scripts/release.py -v 0.8.3 -m local`                                            |
 
-> `-t/--target` must be passed explicitly to `dev.py` / `build.py`.
+> `dev` / `build` / `test` / `check` all require an explicit target triple; the scripts never fall back to the host.
 
 Every entry point lives under `scripts/`; run it with `uv run`, no need to activate the virtual environment.
 
@@ -198,7 +200,7 @@ rollcaller/
 
 - The default branch is `develop`
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
-- Make sure `just check` and `just test` both pass before opening a PR
+- Make sure `just check <triple>` and `just test <triple>` both pass before opening a PR
 - Branch model and release flow: see [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md)
 
 ## License

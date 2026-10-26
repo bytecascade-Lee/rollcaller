@@ -148,19 +148,21 @@ cd frontend && pnpm install --frozen-lockfile && cd ..
 
 ### 常用命令
 
-| 目的             | 有 just                                   | 没有 just                                                             |
-|:-----------------|:------------------------------------------|:----------------------------------------------------------------------|
-| 体检环境         | `just doctor`                             | `uv run scripts/setup.py --check`                                     |
-| 初始化环境       | `just setup`                              | `uv run scripts/setup.py`                                             |
-| 启动开发环境     | `just dev x86_64-pc-windows-msvc`         | `uv run scripts/dev.py -t x86_64-pc-windows-msvc`                     |
-| 仅前端开发服务器 | `just dev-fe`                             | `cd frontend && pnpm dev`                                             |
-| 类型检查         | `just check`                              | `cd frontend && pnpm check`、`cd backend && cargo check`              |
-| 格式化           | `just fmt`                                | `cd backend && cargo fmt`                                             |
-| 测试             | `just test`                               | `cd frontend && pnpm test`、`cd backend && cargo test`                |
-| 本地构建         | `just build 0.8.3 x86_64-pc-windows-msvc` | `uv run scripts/build.py -v 0.8.3 -t x86_64-pc-windows-msvc -m local` |
-| 本地发布         | `just release 0.8.3`                      | `uv run scripts/release.py -v 0.8.3 -m local`                         |
+| 目的             | 有 just                                   | 没有 just                                                                                |
+|:-----------------|:------------------------------------------|:-----------------------------------------------------------------------------------------|
+| 体检环境         | `just doctor`                             | `uv run scripts/setup.py --check`                                                        |
+| 初始化环境       | `just setup`                              | `uv run scripts/setup.py`                                                                |
+| 启动开发环境     | `just dev x86_64-pc-windows-msvc`         | `uv run scripts/dev.py -t x86_64-pc-windows-msvc`                                        |
+| 仅前端开发服务器 | `just dev-fe`                             | `cd frontend && pnpm dev`                                                                |
+| 类型检查         | `just check x86_64-pc-windows-msvc`       | `cd frontend && pnpm check`、`cd backend && cargo check --target x86_64-pc-windows-msvc` |
+| 格式化           | `just fmt`                                | `cd backend && cargo fmt`                                                                |
+| 测试             | `just test x86_64-pc-windows-msvc`        | `uv run scripts/test.py -t x86_64-pc-windows-msvc`                                       |
+| 仅前端测试       | `just test-fe`                            | `cd frontend && pnpm test`                                                               |
+| 导出变更         | `just export`                             | `uv run scripts/tool/export_git_diff.py`                                                 |
+| 本地构建         | `just build 0.8.3 x86_64-pc-windows-msvc` | `uv run scripts/build.py -v 0.8.3 -t x86_64-pc-windows-msvc -m local`                    |
+| 本地发布         | `just release 0.8.3`                      | `uv run scripts/release.py -v 0.8.3 -m local`                                            |
 
-> `-t/--target` 必须显式传入 `dev.py` / `build.py`。
+> `dev` / `build` / `test` / `check` 都必须显式传目标三元组，脚本不会拿宿主三元组兜底。
 
 所有脚本入口均在 `scripts/` 目录下，使用 `uv run` 即可运行，无需手动激活虚拟环境。
 
@@ -197,7 +199,7 @@ rollcaller/
 
 - 默认分支为 `develop`
 - 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/)
-- 提交 PR 前请确保 `just check` 与 `just test` 均通过
+- 提交 PR 前请确保 `just check <三元组>` 与 `just test <三元组>` 均通过
 - 分支模型与发布流程见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md)
 
 ## 许可证
