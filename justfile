@@ -26,6 +26,10 @@ doctor:
 dev target:
     {{ uv }} run python {{ scripts_dir }}/dev.py -t {{ target }}
 
+# 仅启动前端开发服务器（不跑 Tauri）
+dev-fe:
+    cd {{ frontend_dir }} && pnpm dev
+
 # 构建
 
 # 本地构建，用法: just build 0.8.3 x86_64-pc-windows-msvc
@@ -44,18 +48,32 @@ build-fe:
 preview:
     cd {{ frontend_dir }} && pnpm preview
 
+# 测试
+
+# 运行前后端测试，用法: just test x86_64-pc-windows-msvc
+test target:
+    {{ uv }} run python {{ scripts_dir }}/test.py -t {{ target }}
+
+# 仅运行前端单元测试（后端测试请用 just test，它还会先刷新生成物）
+test-fe:
+    cd {{ frontend_dir }} && pnpm test
+
 # 检查 & 格式化
 
-# 运行所有检查，前端 + 后端
-check: check-fe check-be
+# 运行所有检查，前端 + 后端，用法: just check x86_64-pc-windows-msvc
+check target: check-fe (check-be target)
 
 # 前端类型检查
 check-fe:
     cd {{ frontend_dir }} && pnpm check
 
 # 后端编译检查
-check-be:
-    cd {{ backend_dir }} && cargo check
+check-be target:
+    cd {{ backend_dir }} && cargo check --target {{ target }}
+
+# 后端格式化
+fmt:
+    cd {{ backend_dir }} && cargo fmt
 
 # 脚本工具
 
@@ -66,6 +84,10 @@ bump *args:
 # 生成提交信息
 gen-msg *args:
     {{ uv }} run python {{ scripts_dir }}/tool/generate_commit_message.py {{ args }}
+
+# 导出 git 变更到 docs/diff（每个文件一个 md），用法: just export backend/src --from HEAD~1
+export *args:
+    {{ uv }} run python {{ scripts_dir }}/tool/export_git_diff.py {{ args }}
 
 # 清理
 
