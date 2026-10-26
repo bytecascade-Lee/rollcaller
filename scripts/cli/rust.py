@@ -8,7 +8,7 @@ from functools import cache
 from pathlib import Path
 
 from cli import process
-from common.constant.paths import BACKEND_DIR, PROJECT_BASE_DIR
+from common.constant.paths import BACKEND_DIR
 from common.entity.target import Target, UnsupportedTargetError
 
 
@@ -19,7 +19,7 @@ class RustError(Exception):
 
 def _run(args: list[str], cwd: Path | None = None, *, capture: bool = True) -> subprocess.CompletedProcess:
     """执行 rust 命令，失败抛 RustError"""
-    cwd = cwd or PROJECT_BASE_DIR
+    cwd = cwd or BACKEND_DIR
     try:
         return process.run(args, cwd=cwd, capture=capture)
     except process.ProcessError as error:
@@ -32,8 +32,9 @@ def rustc(args: list[str], cwd: Path | None = None) -> str:
     return str(_run(["rustc", *args], cwd).stdout).strip()
 
 
-def cargo(args: list[str], cwd: Path | None = None) -> str:
-    return str(_run(["cargo", *args], cwd).stdout).strip()
+def cargo(args: list[str], cwd: Path | None = None, capture: bool = False) -> str:
+    """cargo 命令一般情况下不捕获输出"""
+    return str(_run(["cargo", *args], cwd, capture=capture).stdout).strip()
 
 
 def get_host_target() -> Target:
@@ -61,5 +62,10 @@ def resolve_triple(triple: str) -> str:
 
 
 def fetch(cwd: Path | None = None) -> None:
-    """执行 `cargo fetch --locked`，`--locked` 不改写 Cargo.lock；锁文件与 Cargo.toml 不同步时直接失败"""
-    cargo(["fetch", "--locked"], cwd or BACKEND_DIR)
+    """执行 `cargo fetch --locked`"""
+    cargo(["fetch", "--locked"], cwd=cwd)
+
+
+def test(args: list[str], cwd: Path | None = None) -> None:
+    """执行 `cargo test`"""
+    cargo(["test", *args], cwd=cwd)
