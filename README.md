@@ -20,6 +20,7 @@
 <p align="center">
   <a href="https://github.com/bytecascade-Lee/rollcaller/actions/workflows/release.yaml"><img src="https://img.shields.io/github/actions/workflow/status/bytecascade-Lee/rollcaller/release.yaml?style=flat-square&label=release" alt="发布流水线"></a>
   <a href="https://github.com/bytecascade-Lee/rollcaller/actions/workflows/sync-mirrors.yaml"><img src="https://img.shields.io/github/actions/workflow/status/bytecascade-Lee/rollcaller/sync-mirrors.yaml?style=flat-square&label=sync-mirrors" alt="镜像同步"></a>
+  <a href="https://github.com/bytecascade-Lee/rollcaller/actions/workflows/quality-gate.yaml"><img src="https://img.shields.io/github/actions/workflow/status/bytecascade-Lee/rollcaller/quality-gate.yaml?style=flat-square&label=quality%20gate" alt="质量闸门"></a>
   <a href="https://github.com/bytecascade-Lee/rollcaller/commits/develop"><img src="https://img.shields.io/github/last-commit/bytecascade-Lee/rollcaller?style=flat-square" alt="最近提交"></a>
 </p>
 
@@ -199,7 +200,7 @@ rollcaller/
 
 - 默认分支为 `develop`
 - 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/)
-- 提交 PR 前请确保 `just check <三元组>` 与 `just test <三元组>` 均通过
+- 提交 PR 前请确保 `just check <三元组>` 与 `just test <三元组>` 均通过；合入 `develop` / `master` 后 CI 会再跑一遍（Quality Gate）
 - 分支模型与发布流程见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md)
 
 ## 许可证
