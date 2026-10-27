@@ -209,8 +209,7 @@ fn shutdown_from_console() {
     }
 
     tracing::info!("收到控制台中断信号，正在退出");
-    tauri::async_runtime::block_on(crate::shutdown_hooks::run_all());
-    std::process::exit(0);
+    tauri::async_runtime::block_on(crate::shutdown_hooks::finish_and_exit(0))
 }
 
 #[cfg(all(test, target_os = "windows"))]
