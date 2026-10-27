@@ -7,7 +7,7 @@
 //!    避免被 updater 连同 source 一起复制进 target；
 //! 3. 分离式 spawn `updater.exe`（`CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`），传入 config.json 路径；
 //! 4. spawn 成功后返回 `Ok(())`——由调用方执行退出前清理
-//!    （`shutdown_hooks::run_all()`，如关闭数据库）后 `exit(0)`，
+//!    （`shutdown_hooks::finish_and_exit(0)`，内含关闭数据库等）后退出，
 //!    由 updater 执行 wait → update → launch → (rollback)。
 //!
 //! # 约定
@@ -34,7 +34,7 @@ use std::path::Path;
 /// - `from` / `to`：当前版本与目标版本（用于命名 config 与日志，标识一次安装）。
 ///
 /// 成功路径 = 更新器已分离式启动（返回 `Ok(())`），**本进程应随即退出**：调用方需
-/// 先执行 `shutdown_hooks::run_all().await`（关闭数据库等）再 `std::process::exit(0)`；
+/// 先执行 `shutdown_hooks::finish_and_exit(0).await`（内含关闭数据库等，永不返回）；
 /// 任一准备步骤或 spawn 失败返回 `Err`，进程保持存活以便上层提示重试
 /// （失败路径不触发退出清理）。
 #[cfg(target_os = "windows")]

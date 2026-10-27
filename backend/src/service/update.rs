@@ -414,6 +414,5 @@ pub async fn install(state: &UpdaterState, current_version: &Version) -> Result<
         return Ok(state.view());
     }
 
-    // 安装器已接管：统一收尾（执行退出前清理并 exit(0)，永不返回）
-    install::finish_and_exit().await
+    crate::shutdown_hooks::finish_and_exit(0).await
 }
