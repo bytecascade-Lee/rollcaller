@@ -5,21 +5,21 @@
 开发环境入口：体检与初始化
 
 用法:
-    uv run ./scripts/setup.py            # 体检通过后写 git 配置、装依赖（just setup）
-    uv run ./scripts/setup.py --check    # 只体检，不修改任何东西（just doctor）
+    uv run ./scripts/setup.py            # 体检通过后配置 git、安装依赖（just setup）
+    uv run ./scripts/setup.py --check    # 进行体检，不修改任何文件或数据（just doctor）
 """
 
 import argparse
 import sys
 
 from common.logger import error, success
-from prepare.environment import EnvError, check, setup
+from setup import EnvError, check, setup
 from util.sigint import graceful_sigint
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="开发环境入口：体检与初始化")
-    parser.add_argument("--check", action="store_true", help="只体检，不修改任何东西")
+    parser.add_argument("--check", action="store_true", help="进行体检，不修改任何文件或数据")
     return parser.parse_args()
 
 
