@@ -13,7 +13,7 @@ import argparse
 import sys
 
 from common.logger import error, success
-from setup import EnvError, check, setup
+from setup import CLI_ERRORS, EnvError, check, setup
 from util.sigint import graceful_sigint
 
 
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     with graceful_sigint() as is_interrupted:
         try:
             sys.exit(main())
-        except EnvError as e:
+        except (EnvError, *CLI_ERRORS) as e:
             if not is_interrupted():
                 error(f"环境准备失败: {e}")
                 sys.exit(1)
