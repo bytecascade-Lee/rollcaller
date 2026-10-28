@@ -16,7 +16,7 @@ import argparse
 import sys
 from typing import Callable
 
-from cli import git, pnpm, rust
+from cli import cargo, git, pnpm, rustc
 from codegen import CodegenError, generate_all
 from common import gate
 from common.entity.target import Target, UnsupportedTargetError
@@ -35,10 +35,10 @@ def parse_args() -> argparse.Namespace:
 def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
     args = parse_args()
 
-    target = Target(rust.resolve_triple(args.target))
+    target = Target(rustc.resolve_triple(args.target))
     info(f"当前目标三元组为 {target.triple!r}")
 
-    gate.ensure(target, Action.TEST, host=rust.get_host_target())
+    gate.ensure(target, Action.TEST, host=rustc.host_target())
 
     generate_all()
 
@@ -48,7 +48,7 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
 
     # 后端先行：ts-rs 的类型导出挂在 lib 测试上，跑完才会把 .ts 写回前端
     info(f"运行后端测试: cargo test --locked --target {target.triple}")
-    rust.test(["--locked", "--target", target.triple])
+    cargo.test(["--locked", "--target", target.triple])
     if is_interrupted():
         return 0
 
@@ -68,7 +68,8 @@ if __name__ == "__main__":
                 gate.GateError,
                 git.GitError,
                 pnpm.PnpmError,
-                rust.RustError,
+                rustc.RustcError,
+                cargo.CargoError,
                 UnsupportedTargetError,
         ) as e:
             if not is_interrupted():
