@@ -1,4 +1,5 @@
-//! CLI 场景
+//! CLI 场景：`-h/--help`、`-v/--version`、`--build-info`、`--app-paths`、`--mode`、`--doctor`
+
 mod args;
 mod doctor;
 
@@ -29,29 +30,41 @@ rollcaller — 课堂自动点名
 选项：
       --json        输出 JSON
 
+环境变量：
+  ROLLCALLER_ATTACH_CONSOLE_ON_WIN32=1
+                    在终端里启动图形界面时，把日志打到该终端，
+                    仅限 Windows 平台，默认关闭，0 / false / off / 空 视为关闭
+
 退出码：0 成功 · 2 用法错误 · 1 运行失败\n";
 
 /// 处理 CLI 参数：命中命令打印后退出，未命中静默返回由调用方继续启动窗口
 pub fn handle_cli_args() {
-    let invocation = match args::parse(std::env::args().skip(1)) {
-        Ok(Some(invocation)) => invocation,
-        // 没有 CLI 意图——可能只是被转发回来的原启动参数
-        Ok(None) => return,
+    match args::parse(std::env::args().skip(1)) {
+        // 没有 CLI 意图
+        Ok(None) => {}
+        Ok(Some(invocation)) => {
+            crate::console::attach_for_cli();
+            dispatch(invocation);
+        }
         Err(e) => {
+            crate::console::attach_for_cli();
             eprintln!("rollcaller: {e}");
             eprintln!("{USAGE_HINT}");
             exit(2);
         }
-    };
+    }
+}
 
+/// 打印命令结果并退出
+fn dispatch(invocation: Invocation) -> ! {
     if let Err(e) = run(invocation) {
         eprintln!("rollcaller: {e}");
         exit(1);
     }
-    exit(0);
+    exit(0)
 }
 
-/// 执行一次 CLI 调用（`Err` 只表示运行失败；用法错误在解析阶段就退 2 了）
+/// 执行一次 CLI 调用
 fn run(invocation: Invocation) -> Result<(), String> {
     let json = invocation.format == Format::Json;
     match invocation.command {
@@ -166,5 +179,15 @@ mod tests {
 
         let paths = serde_json::to_value(app_paths::paths()).unwrap();
         assert_eq!(sorted_row_keys(&app_paths_rows()), sorted_keys(paths));
+    }
+
+    /// 帮助里必须出现环境变量全名
+    #[test]
+    fn help_documents_attach_env() {
+        assert!(
+            HELP.contains(crate::console::ATTACH_ENV),
+            "帮助文本缺少环境变量 {}",
+            crate::console::ATTACH_ENV
+        );
     }
 }
