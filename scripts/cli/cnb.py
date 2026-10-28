@@ -14,7 +14,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from cli import process
+from cli import _process
 from common.logger import info, warning
 
 DEFAULT_TIMEOUT = 120
@@ -56,8 +56,8 @@ def _run(args: list[str], *, timeout: float | int, text: bool = True) -> subproc
     :param text: True 返回 str，False 返回原始 bytes
     """
     try:
-        return process.run(["cnb", *args], timeout=timeout, text=text)
-    except process.ProcessError as error:
+        return _process.run(["cnb", *args], timeout=timeout, text=text)
+    except _process.ProcessError as error:
         if error.not_found:
             raise CnbError("未找到 cnb 命令，请先安装 @cnbcool/cnb-cli 并加入 PATH") from error
         if error.timed_out:

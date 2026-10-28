@@ -7,7 +7,8 @@ import subprocess
 from functools import cache
 from pathlib import Path
 
-from cli import process
+from cli import _process
+from cli._version import version_string
 from common.constant.paths import BACKEND_DIR
 from common.entity.target import Target, UnsupportedTargetError
 
@@ -21,8 +22,8 @@ def _run(args: list[str], cwd: Path | None = None, *, capture: bool = True) -> s
     """执行 rust 命令，失败抛 RustError"""
     cwd = cwd or BACKEND_DIR
     try:
-        return process.run(args, cwd=cwd, capture=capture)
-    except process.ProcessError as error:
+        return _process.run(args, cwd=cwd, capture=capture)
+    except _process.ProcessError as error:
         if error.not_found:
             raise RustError(f"未找到 {args[0]!r}，请确保已安装 Rust 工具链并加入 PATH") from error
         raise RustError(str(error)) from error
@@ -59,6 +60,16 @@ def resolve_triple(triple: str) -> str:
     if not is_supported(triple):
         raise UnsupportedTargetError(f"不是有效的 Rust 目标三元组: {triple!r}")
     return triple
+
+
+def rustc_version() -> str | None:
+    """`rustc --version` 里的版本号；输出认不出时返回 None"""
+    return version_string(rustc(["--version"]))
+
+
+def cargo_version() -> str | None:
+    """`cargo --version` 里的版本号；输出认不出时返回 None"""
+    return version_string(cargo(["--version"], capture=True))
 
 
 def fetch(cwd: Path | None = None) -> None:

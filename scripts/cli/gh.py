@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Iterable, Any
 from urllib.parse import urlencode
 
-from cli import process
+from cli import _process
 
 DEFAULT_TIMEOUT = 120
 UPLOAD_TIMEOUT = 1800
@@ -46,8 +46,8 @@ def _run(args: list[str], *, timeout: float | int, text: bool = True) -> subproc
     :raise GhAuthError: HTTP 401，或 auth 子命令本身失败
     """
     try:
-        return process.run(["gh", *args], timeout=timeout, text=text)
-    except process.ProcessError as error:
+        return _process.run(["gh", *args], timeout=timeout, text=text)
+    except _process.ProcessError as error:
         # 401 是凭据问题，任何调用点都应立刻可见；403 可能是限流，不并进来
         if args[:2] == ["auth", "status"] or http_status_from_text(error.detail) == 401:
             raise GhAuthError(f"gh 鉴权失败: {error.detail or error}") from error

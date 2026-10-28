@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Sequence
 
-from cli import process
+from cli import _process
 from common.constant.paths import FRONTEND_NODE_DIR, PROJECT_BASE_DIR
 from common.entity.target import Target
 from common.enums.profile import Profile
@@ -25,13 +25,13 @@ BIN_DIR = FRONTEND_NODE_DIR / ".bin"
 def _run(args: Sequence[str], env: dict[str, str] | None = None) -> None:
     """在仓库根目录下执行一条 tauri 命令；启动失败或退出码非 0 抛出 TauriError"""
     try:
-        binary = process.resolve("tauri", search_dir=BIN_DIR)
-    except process.ProcessError:
+        binary = _process.resolve("tauri", search_dir=BIN_DIR)
+    except _process.ProcessError:
         raise TauriError(f"未在 {str(BIN_DIR)!r} 下找到 tauri-cli；请先在 frontend/ 下执行 pnpm install") from None
 
     try:
-        process.run([binary, *args], cwd=PROJECT_BASE_DIR, env=env, capture=False, timeout=None)
-    except process.ProcessError as error:
+        _process.run([binary, *args], cwd=PROJECT_BASE_DIR, env=env, capture=False, timeout=None)
+    except _process.ProcessError as error:
         raise TauriError(str(error)) from error
 
 

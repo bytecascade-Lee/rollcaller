@@ -10,7 +10,8 @@ import subprocess
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from cli import process
+from cli import _process
+from cli._version import version_string
 from common.constant.paths import PROJECT_BASE_DIR
 from common.logger import debug
 
@@ -41,7 +42,7 @@ def _run(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int =
     :raise GitError: 未找到 git 命令，或命令超时，或命令执行失败
     """
     try:
-        return process.run(
+        return _process.run(
             ["git", "--no-pager", "-c", "core.quotepath=false", *args],
             cwd=cwd or PROJECT_BASE_DIR,
             env={**os.environ, "LC_ALL": "C", "GIT_TERMINAL_PROMPT": "0"},
@@ -49,7 +50,7 @@ def _run(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int =
             text=text,
             allow=allow,
         )
-    except process.ProcessError as error:
+    except _process.ProcessError as error:
         raise GitError(str(error)) from error
 
 
@@ -71,6 +72,11 @@ def stdout(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int
 def stdout_bytes(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int = DEFAULT_TIMEOUT) -> bytes:
     """执行 git 命令，返回未解码的 stdout（blob 可能是二进制）"""
     return _run(args, cwd=cwd, timeout=timeout, text=False).stdout
+
+
+def version() -> str | None:
+    """`git --version` 里的版本号；输出认不出时返回 None"""
+    return version_string(stdout(["--version"]))
 
 
 def is_repo(cwd: Path | None = None) -> bool:

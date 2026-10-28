@@ -19,7 +19,7 @@ from datetime import date, datetime, timezone
 from functools import cache
 from pathlib import Path
 
-from common.constant.paths import DEVELOP_DATA_DIR
+from common.constant.paths import DEVELOP_DATA_DIR, SCRIPTS_DIR
 from util.fs import relative_path
 from util.time import format_to_iso_8601
 
@@ -122,7 +122,7 @@ class LogFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         stamp = self.formatTime(record)
         tag = f"[{record.levelname}]".ljust(TAG_WIDTH)
-        location = f"[{relative_path(record.pathname)}:{record.lineno}]"
+        location = f"[{relative_path(Path(record.pathname), SCRIPTS_DIR)}:{record.lineno}]"
         message = record.getMessage()
 
         if record.exc_info and not record.exc_text:
