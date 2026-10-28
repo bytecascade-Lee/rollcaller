@@ -15,7 +15,7 @@ import argparse
 import sys
 from typing import Callable
 
-from cli import git, rust, tauri
+from cli import git, rustc, tauri
 from codegen import CodegenError, generate_all
 from common import gate
 from common.entity.target import Target, UnsupportedTargetError
@@ -33,10 +33,10 @@ def parse_args() -> argparse.Namespace:
 def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> None:
     args = parse_args()
 
-    target = Target(rust.resolve_triple(args.target))
+    target = Target(rustc.resolve_triple(args.target))
     info(f"当前目标三元组为 {target.triple!r}")
 
-    gate.ensure(target, Action.BUILD, host=rust.get_host_target())
+    gate.ensure(target, Action.BUILD, host=rustc.host_target())
 
     generate_all()
 
@@ -55,7 +55,7 @@ if __name__ == "__main__":
                 CodegenError,
                 gate.GateError,
                 git.GitError,
-                rust.RustError,
+                rustc.RustcError,
                 tauri.TauriError,
                 UnsupportedTargetError,
         ) as e:

@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Callable
 
 from build import builder, hasher, packager, signer, version_files, metadata
-from cli import git, rust, tauri
+from cli import git, rustc, tauri
 from codegen import CodegenError, generate_all
 from common import gate, support
 from common.constant.paths import LOCAL_RELEASE_DIR, ASSETS_DIR
@@ -83,11 +83,11 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
     args = parse_args()
 
     version = Version.parse(args.version, erase_build_metadata=True)
-    target = Target(rust.resolve_triple(args.target))
+    target = Target(rustc.resolve_triple(args.target))
     mode = Mode(args.mode)
 
     action = Action.RELEASE if mode == Mode.CI else Action.BUILD
-    gate.ensure(target, action, host=rust.get_host_target())
+    gate.ensure(target, action, host=rustc.host_target())
 
     signer.check_env()
 
@@ -140,6 +140,7 @@ if __name__ == "__main__":
                 VersionError,
                 gate.GateError,
                 git.GitError,
+                rustc.RustcError,
                 signer.SignError,
                 tauri.TauriError,
                 packager.PackageError,

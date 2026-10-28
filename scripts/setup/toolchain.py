@@ -8,7 +8,7 @@
 from dataclasses import dataclass
 from typing import Callable
 
-from cli import git, just, node, pnpm, rust, uv
+from cli import cargo, git, just, node, pnpm, rustc, uv
 from common.entity.version import Version, VersionError
 from common.logger import info
 from .errors import CLI_ERRORS
@@ -31,8 +31,8 @@ REQUIREMENTS: tuple[Requirement, ...] = (
     Requirement("just", Version.parse("1.0.0"), just.version, "https://just.systems/man/en/installation.html"),
     Requirement("node", Version.parse("22.0.0"), node.version, "https://nodejs.org/"),
     Requirement("pnpm", Version.parse("11.0.0"), pnpm.version, "https://pnpm.io/installation"),
-    Requirement("rustc", Version.parse("1.80.0"), rust.rustc_version, "https://rustup.rs/"),
-    Requirement("cargo", Version.parse("1.80.0"), rust.cargo_version, "https://rustup.rs/"),
+    Requirement("rustc", Version.parse("1.80.0"), rustc.version, "https://rustup.rs/"),
+    Requirement("cargo", Version.parse("1.80.0"), cargo.version, "https://rustup.rs/"),
 )
 
 

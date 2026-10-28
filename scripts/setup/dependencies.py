@@ -10,7 +10,7 @@
 
 import shutil
 
-from cli import pnpm, rust, uv
+from cli import cargo, pnpm, uv
 from common.constant.paths import (
     FRONTEND_NODE_DIR,
     SITECUSTOMIZE_TEMPLATE_PATH,
@@ -57,8 +57,8 @@ def _fetch_backend() -> None:
     """下载 Rust 依赖"""
     info("下载后端依赖: cargo fetch --locked")
     try:
-        rust.fetch()
-    except rust.RustError as error:
+        cargo.fetch()
+    except cargo.CargoError as error:
         raise EnvError(f"后端依赖下载失败: {error}") from error
 
 
