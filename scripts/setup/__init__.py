@@ -12,7 +12,7 @@ from common.constant.paths import DEVELOP_DATA_DIR, LOCAL_RELEASE_DIR, CI_CD_REL
 from common.logger import info, success
 from util.fs import relative_path
 from . import cargo_config, dependencies, repo_config, toolchain, uv_index
-from .errors import EnvError
+from .errors import CLI_ERRORS, EnvError
 
 # setup 需要预建的运行期目录
 DIRECTORIES: tuple[Path, ...] = (
@@ -32,7 +32,15 @@ STEPS: tuple[ModuleType, ...] = (
 
 def check() -> list[str]:
     """只读体检，返回未通过项的描述"""
-    return [*toolchain.problems(), *(problem for step in STEPS for problem in step.problems())]
+    return [*toolchain.problems(), *(problem for step in STEPS for problem in _problems_of(step))]
+
+
+def _problems_of(module: ModuleType) -> list[str]:
+    """单域体检失败降级成一条问题"""
+    try:
+        return module.problems()
+    except (EnvError, *CLI_ERRORS) as error:
+        return [f"{module.__name__.rpartition('.')[2]} 检查失败: {error}"]
 
 
 def setup() -> None:
