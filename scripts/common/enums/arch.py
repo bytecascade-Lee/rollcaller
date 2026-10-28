@@ -4,7 +4,7 @@
 """
 CPU 架构类型
 """
-
+import platform
 from enum import StrEnum
 
 
@@ -27,3 +27,12 @@ class Arch(StrEnum):
         if token in {"arm64", "aarch64"}:
             return cls.ARM64
         return None
+
+    @classmethod
+    def current(cls) -> Arch:
+        """本机 CPU 架构"""
+        machine = platform.machine()
+        arch = cls.parse(machine)
+        if arch is None:
+            raise ArchTypeError(f"无法识别的 CPU 架构: platform.machine()={machine!r}")
+        return arch
