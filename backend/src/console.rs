@@ -8,6 +8,10 @@
 //! 1. [`AttachConsole`](https://learn.microsoft.com/windows/console/attachconsole) 附着父进程控制台；
 //! 2. 附着成功后重新打开 `CONOUT$`，并用 `SetStdHandle` 重新绑定 `stdout` / `stderr`。
 //!
+//! # 默认不接管终端
+//!
+//! Windows 上常规启动 [`attach`] 只有在 [`ATTACH_ENV`] 为真值时附着控制台；双击、自启动、服务等保持默认。
+//!
 //! # 平台差异
 //!
 //! Unix 没有子系统概念，也没有控制台句柄，进程直接继承父进程的 0/1/2，终端启动天然可见输出，
@@ -16,7 +20,7 @@
 //!
 //! # 禁止
 //!
-//! - 不要 `AllocConsole`：双击启动时会凭空弹出黑窗；
+//! - 不要使用 `AllocConsole`：双击启动时会凭空弹出黑窗；
 //! - 不要把 `windows_subsystem` 改回 `console`：子系统决定 shell 是否等待，改回会在每次启动时
 //!   闪一帧控制台窗口，对 release profile 下的用户来说体验极差。
 
@@ -47,9 +51,24 @@ impl ConsoleState {
 
 static STATE: OnceLock<ConsoleState> = OnceLock::new();
 
-/// 判定输出通道，必要时附着父进程控制台；必须在任何输出之前调用；幂等
+/// 置为真值时，从终端启动的 GUI 进程会附着父进程控制台
+pub const ATTACH_ENV: &str = "ROLLCALLER_ATTACH_CONSOLE_ON_WIN32";
+
+/// 常规启动：判定输出通道，必要时附着父进程控制台
+///
+/// 只有 [`ATTACH_ENV`] 为真值才去附着（见模块文档「默认不接管终端」）。
+/// 必须在任何输出之前调用；幂等
 pub fn attach() -> ConsoleState {
-    *STATE.get_or_init(detect)
+    *STATE.get_or_init(|| detect(requested()))
+}
+
+/// CLI 命令 / 用法错误，无条件附着
+pub fn attach_for_cli() -> ConsoleState {
+    debug_assert!(
+        STATE.get().is_none(),
+        "attach_for_cli 必须早于 attach：控制台通道在进程内只判定一次"
+    );
+    *STATE.get_or_init(|| detect(true))
 }
 
 /// 已判定的状态；尚未调用 [`attach`] 时按「无输出通道」处理
@@ -75,6 +94,17 @@ fn color_allowed() -> bool {
     std::env::var("TERM").map(|t| t != "dumb").unwrap_or(true)
 }
 
+/// [`ATTACH_ENV`] 是否为真值
+fn requested() -> bool {
+    std::env::var_os(ATTACH_ENV).is_some_and(|value| is_truthy(&value.to_string_lossy()))
+}
+
+/// 真值判定
+///
+/// 未设置 / 空串 / `0` / `false` / `off` / `no` / `not` 为假，其余一律为真
+fn is_truthy(raw: &str) -> bool {
+    !matches!(raw.trim().to_ascii_lowercase().as_str(), "" | "0" | "false" | "off" | "no" | "not")
+}
 
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::Foundation::HANDLE;
@@ -83,7 +113,7 @@ use windows_sys::Win32::Foundation::HANDLE;
 static CONOUT: OnceLock<std::fs::File> = OnceLock::new();
 
 #[cfg(target_os = "windows")]
-fn detect() -> ConsoleState {
+fn detect(requested: bool) -> ConsoleState {
     use windows_sys::Win32::Storage::FileSystem::{GetFileType, FILE_TYPE_DISK, FILE_TYPE_PIPE};
     use windows_sys::Win32::System::Console::{
         AttachConsole, GetConsoleMode, GetStdHandle, ATTACH_PARENT_PROCESS, STD_OUTPUT_HANDLE,
@@ -99,8 +129,7 @@ fn detect() -> ConsoleState {
             // debug / develop 是 console 子系统，创建即附着，只需补开 VT 处理
             enable_vt(stdout, mode);
             true
-        } else if redirected {
-            // 绝不能 attach：那会把输出从用户指定的文件 / 管道抢回控制台
+        } else if redirected || !requested {
             false
         } else {
             AttachConsole(ATTACH_PARENT_PROCESS) != 0 && rebind_stdout()
@@ -162,7 +191,7 @@ fn enable_vt(handle: HANDLE, mode: u32) {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn detect() -> ConsoleState {
+fn detect(_requested: bool) -> ConsoleState {
     use std::io::IsTerminal;
     // 桌面启动时 stdout 指向 /dev/null，写成 Redirected 即可
     if std::io::stdout().is_terminal() {
@@ -240,5 +269,19 @@ mod tests {
         assert!(ConsoleState::Attached.has_output() && ConsoleState::Attached.is_console());
         assert!(ConsoleState::Redirected.has_output() && !ConsoleState::Redirected.is_console());
         assert!(!ConsoleState::Detached.has_output() && !ConsoleState::Detached.is_console());
+    }
+
+    #[test]
+    fn falsy_values_keep_console_detached() {
+        for raw in ["", "   ", "0", "false", "FALSE", " off ", "Off", "no", "NO", "not", "nOt"] {
+            assert!(!is_truthy(raw), "{raw:?} 应判定为关闭");
+        }
+    }
+
+    #[test]
+    fn any_other_value_turns_console_on() {
+        for raw in ["1", "true", "ON", "yes", "abc", " 1 ", "0x0"] {
+            assert!(is_truthy(raw), "{raw:?} 应判定为开启");
+        }
     }
 }
