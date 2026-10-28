@@ -8,8 +8,8 @@ node 命令封装
 import subprocess
 from pathlib import Path
 
-from cli import process
-from cli.version import version_string
+from cli import _process
+from cli._version import version_string
 from common.constant.paths import PROJECT_BASE_DIR
 
 # 单条 node 命令的最大超时时长（秒）
@@ -25,8 +25,8 @@ def _run(args: list[str], *, cwd: Path | None = None, timeout: float | int = RUN
     """执行 node 命令，失败统一包成 NodeError"""
     cwd = cwd or PROJECT_BASE_DIR
     try:
-        return process.run(["node", *args], cwd=cwd, timeout=timeout, capture=capture)
-    except process.ProcessError as error:
+        return _process.run(["node", *args], cwd=cwd, timeout=timeout, capture=capture)
+    except _process.ProcessError as error:
         if error.not_found:
             raise NodeError("未找到 'node'，请安装后加入 PATH") from error
         raise NodeError(str(error)) from error

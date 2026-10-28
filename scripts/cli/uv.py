@@ -8,8 +8,8 @@ uv 命令封装
 import subprocess
 from pathlib import Path
 
-from cli import process
-from cli.version import version_string
+from cli import _process
+from cli._version import version_string
 from common.constant.paths import PROJECT_BASE_DIR
 from common.logger import warning
 
@@ -29,8 +29,8 @@ def _run(args: list[str], *, cwd: Path | None = None, timeout: float | int | Non
     """执行 uv 命令，失败统一包成 UvError"""
     cwd = cwd or PROJECT_BASE_DIR
     try:
-        return process.run(["uv", *args], cwd=cwd, timeout=timeout, capture=capture, allow=allow)
-    except process.ProcessError as error:
+        return _process.run(["uv", *args], cwd=cwd, timeout=timeout, capture=capture, allow=allow)
+    except _process.ProcessError as error:
         if error.not_found:
             raise UvError("未找到 'uv'，请安装后加入 PATH") from error
         raise UvError(str(error)) from error

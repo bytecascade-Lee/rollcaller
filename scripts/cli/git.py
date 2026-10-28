@@ -10,8 +10,8 @@ import subprocess
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from cli import process
-from cli.version import version_string
+from cli import _process
+from cli._version import version_string
 from common.constant.paths import PROJECT_BASE_DIR
 from common.logger import debug
 
@@ -42,7 +42,7 @@ def _run(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int =
     :raise GitError: 未找到 git 命令，或命令超时，或命令执行失败
     """
     try:
-        return process.run(
+        return _process.run(
             ["git", "--no-pager", "-c", "core.quotepath=false", *args],
             cwd=cwd or PROJECT_BASE_DIR,
             env={**os.environ, "LC_ALL": "C", "GIT_TERMINAL_PROMPT": "0"},
@@ -50,7 +50,7 @@ def _run(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int =
             text=text,
             allow=allow,
         )
-    except process.ProcessError as error:
+    except _process.ProcessError as error:
         raise GitError(str(error)) from error
 
 
