@@ -44,7 +44,7 @@ def apply() -> None:
     conflicts = problems()
     if conflicts:
         raise EnvError("uv 源配置与本仓库冲突: " + join_repr(conflicts))
-    _warn_if_lock_stale()
+    _report_lock_state()
 
 
 def _project_index() -> str | None:
@@ -131,15 +131,9 @@ def _normalize(url: str) -> str:
     return url.strip().rstrip("/").lower()
 
 
-def _warn_if_lock_stale() -> None:
+def _report_lock_state() -> None:
     """uv.lock 与 pyproject.toml 是否一致"""
-    try:
-        fresh = uv.lock_check()
-    except uv.UvError as error:
-        warning(f"无法校验 uv.lock，跳过: {error}")
-        return
-
-    if fresh:
+    if uv.lock_check():
         info("uv.lock 与 pyproject.toml 一致")
         return
     warning("uv.lock 已过期，依赖集合可能与仓库声明不同；请运行 `uv lock` 并提交结果")
