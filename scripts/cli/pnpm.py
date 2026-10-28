@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 
 from cli import process
+from cli.version import version_string
 from common.constant.paths import FRONTEND_DIR
 
 # 单条 pnpm 命令的最大超时时长（秒）
@@ -29,6 +30,11 @@ def _run(args: list[str], *, cwd: Path | None = None, timeout: float | int = RUN
         if error.not_found:
             raise PnpmError("未找到 'pnpm'，请安装后加入 PATH") from error
         raise PnpmError(str(error)) from error
+
+
+def version() -> str | None:
+    """`pnpm --version` 里的版本号；输出认不出时返回 None"""
+    return version_string(str(_run(["--version"]).stdout))
 
 
 def install(*, cwd: Path | None = None) -> None:

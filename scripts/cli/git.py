@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 from cli import process
+from cli.version import version_string
 from common.constant.paths import PROJECT_BASE_DIR
 from common.logger import debug
 
@@ -71,6 +72,11 @@ def stdout(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int
 def stdout_bytes(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int = DEFAULT_TIMEOUT) -> bytes:
     """执行 git 命令，返回未解码的 stdout（blob 可能是二进制）"""
     return _run(args, cwd=cwd, timeout=timeout, text=False).stdout
+
+
+def version() -> str | None:
+    """`git --version` 里的版本号；输出认不出时返回 None"""
+    return version_string(stdout(["--version"]))
 
 
 def is_repo(cwd: Path | None = None) -> bool:

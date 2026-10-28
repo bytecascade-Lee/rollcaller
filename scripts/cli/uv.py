@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 
 from cli import process
+from cli.version import version_string
 from common.constant.paths import PROJECT_BASE_DIR
 from common.logger import warning
 
@@ -33,6 +34,11 @@ def _run(args: list[str], *, cwd: Path | None = None, timeout: float | int | Non
         if error.not_found:
             raise UvError("未找到 'uv'，请安装后加入 PATH") from error
         raise UvError(str(error)) from error
+
+
+def version() -> str | None:
+    """`uv --version` 里的版本号；输出认不出时返回 None"""
+    return version_string(str(_run(["--version"]).stdout))
 
 
 def lock(cwd: Path | None = None) -> None:

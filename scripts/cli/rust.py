@@ -8,6 +8,7 @@ from functools import cache
 from pathlib import Path
 
 from cli import process
+from cli.version import version_string
 from common.constant.paths import BACKEND_DIR
 from common.entity.target import Target, UnsupportedTargetError
 
@@ -59,6 +60,16 @@ def resolve_triple(triple: str) -> str:
     if not is_supported(triple):
         raise UnsupportedTargetError(f"不是有效的 Rust 目标三元组: {triple!r}")
     return triple
+
+
+def rustc_version() -> str | None:
+    """`rustc --version` 里的版本号；输出认不出时返回 None"""
+    return version_string(rustc(["--version"]))
+
+
+def cargo_version() -> str | None:
+    """`cargo --version` 里的版本号；输出认不出时返回 None"""
+    return version_string(cargo(["--version"], capture=True))
 
 
 def fetch(cwd: Path | None = None) -> None:
