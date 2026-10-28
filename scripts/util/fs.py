@@ -2,7 +2,7 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
-from common.constant.paths import SCRIPTS_DIR
+from common.constant.paths import PROJECT_BASE_DIR
 
 # Windows 文件名非法字符：< > : " / \ | ? * 以及 ASCII 控制字符 0x00-0x1F
 # 额外把空白字符也一并替换，保持生成的文件名整洁
@@ -53,9 +53,9 @@ def sanitize_filename(name: str, default: str = "unnamed") -> str:
 
 
 @lru_cache(maxsize=128)
-def relative_path(pathname: str, relative_to: Path = SCRIPTS_DIR) -> str:
-    """把调用方文件转成相对 `scripts/` 的 POSIX 路径，项目外的文件退化为文件名"""
+def relative_path(pathname: Path, relative_to: Path = PROJECT_BASE_DIR) -> str:
+    """把路径转成相对 `relative_to`（默认项目根）的 POSIX 路径；不在其下时原样返回"""
     try:
         return Path(pathname).resolve().relative_to(relative_to).as_posix()
     except (ValueError, OSError):
-        return Path(pathname).name
+        return str(pathname)
