@@ -1,7 +1,8 @@
-# Auto-detect text files and perform LF normalization
-# Ensure consistent line endings for all text files
-# This is handled by text=auto below
-* text=auto
+# 文本文件统一归一化为 LF：
+#   - index 内一律存 LF；
+#   - 检出到工作区也一律写 LF（eol=lf），不再随平台 / core.eol 漂移。
+# 必须与 .editorconfig 的 end_of_line = lf 保持一致，两处要同步修改。
+* text=auto eol=lf
 
 # Source code
 *.rs text diff=rust

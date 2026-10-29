@@ -4,9 +4,15 @@
     version: "0.1.0-dev",
     identifier: "com.serene.client.rollcaller",
     build: {
-        beforeDevCommand: "uv run ./scripts/generate_routing_entries.py && cd ./frontend && pnpm dev",
+        beforeDevCommand: {
+            script: "pnpm dev",
+            cwd: "../frontend"
+        },
         devUrl: "http://localhost:14650",
-        beforeBuildCommand: "cd ./frontend && pnpm build",
+        beforeBuildCommand: {
+            script: "pnpm build",
+            cwd: "../frontend"
+        },
         frontendDist: "../frontend/dist"
     },
     app: {
@@ -25,8 +31,6 @@
             "icons/icon.ico"
         ],
         resources: {
-            "../resources/config/": "config/",
-            "../resources/database/": "database/",
             "../resources/help/": "help/",
             "../README.md": "README.md",
             "../LICENSE": "LICENSE",

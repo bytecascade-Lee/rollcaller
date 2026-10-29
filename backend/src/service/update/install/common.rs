@@ -1,106 +1,79 @@
 use crate::common::constant::sys::{ARCH, OS};
-use crate::common::constant::update::PORTABLE_UPDATER_LATEST_MANIFEST_CNB;
+use crate::common::constant::update::{PLACEHOLDER, UPDATER_MANIFEST_CNB, UPDATER_VERSION};
 use crate::common::entity::update::Artifact;
 use crate::service::update::paths;
-use crate::service::update::verify::verify_sha256;
+use crate::service::update::verify::{verify_artifact, verify_sha256};
 use crate::state::http_client;
 use anyhow::{anyhow, Context};
-use regex::Regex;
-use semver::Version;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
-pub(in crate::service::update) fn find_updater() -> Option<PathBuf> {
-    // 1. 收集所有 .exe 文件
-    let mut exe_paths = Vec::new();
-    let dir = paths::portable_updater_bin("FILE_NAME").parent().unwrap().to_path_buf();
-    if let Ok(entries) = fs::read_dir(&dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().and_then(|ext| ext.to_str()) == Some("exe") {
-                exe_paths.push(path);
-            }
-        }
-    }
-
-
-    if exe_paths.is_empty() {
-        return None;
-    }
-
-    // 2. 对每个 exe 获取版本，并记录有效项
-    let mut versioned = Vec::new(); // (Version, PathBuf)
-    let mut to_delete = Vec::new(); // 存放需要删除的路径（包括无效和未被选中的）
-
-    // 预编译正则，用于从输出中提取 semver
-    let regex = Regex::new(r"\d+\.\d+\.\d+(?:-[.\w]+)?").unwrap();
-
-    for exe in &exe_paths {
-        match Command::new(exe).arg("-v").output() {
-            Ok(output) => {
-                // 尝试从 stdout 中提取版本
-                let stdout = String::from_utf8_lossy(&output.stdout);
-
-                if let Some(ver_str) = regex.find(&stdout).map(|m| m.as_str()) {
-                    if let Ok(ver) = Version::parse(ver_str) {
-                        versioned.push((ver, exe.clone()));
-                        continue; // 成功解析，不加入删除列表
-                    }
-                }
-                // 解析失败，标记删除
-                to_delete.push(exe.clone());
-            }
-            Err(_) => {
-                // 执行失败，标记删除
-                to_delete.push(exe.clone());
-            }
-        }
-    }
-
-    // 如果没有有效版本，删除所有并返回 None
-    if versioned.is_empty() {
-        for exe in exe_paths {
-            let _ = fs::remove_file(exe);
-        }
-        return None;
-    }
-
-    // 3. 选出最大版本
-    let (best_ver, best_path) = versioned.into_iter().max_by(|(v1, _), (v2, _)| v1.cmp(v2)).unwrap();
-
-    // 4. 删除所有其他 exe（包括无效的和未被选中的有效版本）
-    for exe in exe_paths {
-        if exe != best_path {
-            let _ = fs::remove_file(&exe);
-        }
-    }
-
-    // 5. 重命名保留文件，使其版本段与实际版本一致
-    if let Some(file_name) = best_path.file_name().and_then(|n| n.to_str()) {
-        // 期望格式：<name>-<version>-<platform>-<arch>.exe
-        // 我们提取 name, platform, arch，并替换版本段
-        let parts: Vec<&str> = file_name.split('-').collect();
-        return if parts.len() >= 4 {
-            let name = parts[0];
-            let platform = parts[parts.len() - 2]; // 倒数第二个
-            let arch = parts[parts.len() - 1].trim_end_matches(".exe");
-            let new_name = format!("{}-{}-{}-{}.exe", name, best_ver, platform, arch);
-            let new_path = best_path.with_file_name(&new_name);
-            if new_path != best_path {
-                let _ = fs::rename(&best_path, &new_path);
-                Some(new_path)
-            } else {
-                Some(best_path)
-            }
-        } else {
-            // 文件名格式不符合预期，保留原名
-            Some(best_path)
-        };
-    }
-
-    Some(best_path)
+/// 锁定版本的更新器清单地址
+fn updater_manifest_url() -> String {
+    UPDATER_MANIFEST_CNB.replace(PLACEHOLDER, UPDATER_VERSION)
 }
+
+/// 清单里属于当前平台的那一项（产物名 / sha256 / 字节数 / 签名都由清单给）
+fn platform_artifact(manifest: &serde_json::Value) -> anyhow::Result<Artifact> {
+    let os = OS.to_string().to_ascii_lowercase();
+    let arch = ARCH.to_string().to_ascii_lowercase();
+    let entry = &manifest[os.as_str()][arch.as_str()];
+    let url = entry["url"]
+        .as_str()
+        .ok_or_else(|| anyhow!("更新器清单缺少 {os}.{arch}.url：{manifest}"))?;
+    Ok(Artifact {
+        url: url.parse().context(anyhow!("更新器下载地址不是合法 URL：{url}"))?,
+        sha256: entry["sha256"]
+            .as_str()
+            .ok_or_else(|| anyhow!("更新器清单缺少 {os}.{arch}.sha256"))?
+            .to_string(),
+        // 更新器目前只发 sha256；清单哪天给出 signature，校验就自动改走“签名必验”
+        signature: entry["signature"].as_str().unwrap_or_default().to_string(),
+        size: entry["size"]
+            .as_u64()
+            .ok_or_else(|| anyhow!("更新器清单缺少 {os}.{arch}.size"))?,
+    })
+}
+
+/// 校验产物：有签名一并验，没有则只验 sha256
+fn verify_payload(bytes: &[u8], artifact: &Artifact) -> anyhow::Result<()> {
+    if artifact.signature.is_empty() {
+        verify_sha256(bytes, &artifact.sha256)
+    } else {
+        verify_artifact(bytes, artifact)
+    }
+}
+
+/// 文件名是否属于锁定版本（`updater-0.3.0-windows-x86_64.exe`）
+fn is_pinned_name(name: &str) -> bool {
+    name.contains(&format!("-{UPDATER_VERSION}-"))
+}
+
+/// 本地锁定版本的更新器（只看文件名里的版本段：不联网、不执行）
+pub(in crate::service::update) fn updater_exe() -> Option<PathBuf> {
+    fs::read_dir(paths::updater_bin_dir())
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| {
+            path.extension().and_then(|ext| ext.to_str()) == Some("exe")
+                && path.file_name().and_then(|name| name.to_str()).is_some_and(is_pinned_name)
+        })
+}
+
+/// 删掉缓存里除锁定产物以外的所有 exe
+fn discard_others(keep: &Path) {
+    let Some(entries) = keep.parent().and_then(|dir| fs::read_dir(dir).ok()) else {
+        return;
+    };
+    for path in entries.flatten().map(|entry| entry.path()) {
+        if path != keep && path.extension().and_then(|ext| ext.to_str()) == Some("exe") {
+            let _ = fs::remove_file(&path);
+        }
+    }
+}
+
 /// 解压 zip 到 `dest`；若 zip 内是单一顶层目录则返回该目录（解包一层），否则返回 `dest`
 ///
 /// 解压的路径穿越防护被移除，后续有这方面的话需要小心
@@ -125,18 +98,30 @@ pub(in crate::service::update) fn extract_zip(zip_path: &Path, dest: &Path) -> a
     }
 }
 
-/// 分离式 spawn updater.exe（`CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`）
-///
-/// 分离式：updater 不随本进程退出而终止，独立完成更新流程，失败返回 `Err`。
+/// 分离式 spawn updater.exe
 #[cfg(target_os = "windows")]
-pub(in crate::service::update) fn spawn_updater(exec_path: &Path, config_path: &Path) -> anyhow::Result<()> {
+pub(in crate::service::update) fn spawn_updater(
+    exec_path: &Path,
+    config_path: &Path,
+    log_file: &Path,
+) -> anyhow::Result<()> {
     use std::os::windows::process::CommandExt;
 
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
     const DETACHED_PROCESS: u32 = 0x0000_0008;
 
+    let output_path = log_file.with_extension("stderr.log");
+    let stdout =
+        fs::File::create(&output_path).map_err(|e| anyhow!("创建更新器输出日志失败（{}）：{e}", output_path.display()))?;
+    let stderr = stdout
+        .try_clone()
+        .map_err(|e| anyhow!("复制更新器输出日志句柄失败（{}）：{e}", output_path.display()))?;
+
     Command::new(exec_path)
         .arg(config_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(stdout))
+        .stderr(Stdio::from(stderr))
         .creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS)
         .spawn()
         .map(|_| ())
@@ -145,33 +130,19 @@ pub(in crate::service::update) fn spawn_updater(exec_path: &Path, config_path: &
 
 /// 便携版更新器就绪（安装前 ensure；幂等）
 ///
-/// 简单拉取 + 下载：**无进度、无取消、不涉状态机**。触发点 = Portable 安装前
-/// （编排层 `install` 异步段），由 [`super::ensure_updater`] 按形态转发到此。
-///
-/// # 流程
-///
-/// 1. [`find_updater`] 在 cache 已发现更新器 → 直接返回（幂等，不重复下载）；
-/// 2. 拉更新器仓库 latest manifest（与主源一致用 CNB，[`PORTABLE_UPDATER_LATEST_MANIFEST_CNB`]）；
-/// 3. 更新器清单是**扁平结构**（`{version, publishDate, windows:{x86_64|arm64:{url,sha256,size}}}`，
-///    无 signature / severity / platforms 包装），故不建新结构体，直接 `serde_json::Value`
-///    按 `data["windows"][arch]` 索引。url 文件名须为 `updater-{semver}-windows-{arch}.exe`
-///    （[`find_updater`] 按该命名解析版本号）。
-///    注：本函数刻意不转 `Artifact` 走标准 verify 管线——落点是持久 cache（非 temp
-///    packages）、且仅 sha256；**一旦更新器支持 minisign，本函数即废弃**，届时走
-///    标准 Artifact + verify 管线（需为更新器产物补 `signature` 字段：`verify_artifact_path`
-///    已改为**签名必填、fail closed**，不再有空签名跳过分支）。
-/// 4. 下载到 [`paths::portable_updater_bin`]（url 最后一段），内存收齐后整体校验再落盘
-///    ——磁盘上从不出现"未校验的正式产物"。
+/// 本地已有锁定版本 → 直接用，不联网；没有才拉该版本 tag 的清单，按清单下载 / 校验 / 落盘。
+/// 两条路径最后都把目录收敛到只剩锁定版本。触发点 = Portable / Develop 安装前的编排层异步段。
 #[cfg(target_os = "windows")]
 pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
-    // 1. 已存在任意版本 → 幂等返回
-    if let Some(existing) = find_updater() {
-        return Ok(existing);
+    // 1. 本地已有 → 直接复用（不拉清单）
+    if let Some(local) = updater_exe() {
+        discard_others(&local);
+        return Ok(local);
     }
 
-    // 2. 拉更新器最新清单（与主源一致的 CNB 源）
+    // 2. 拉锁定版本（tag）的清单
     let text = http_client::client()
-        .get(PORTABLE_UPDATER_LATEST_MANIFEST_CNB)
+        .get(updater_manifest_url())
         .header("Accept", "application/json")
         .send()
         .await
@@ -181,39 +152,22 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
         .text()
         .await
         .context(anyhow!("拉取更新器清单失败：读取响应失败"))?;
+    let manifest: serde_json::Value = serde_json::from_str(&text).context(anyhow!("更新器清单不是合法 JSON"))?;
 
-    // 3. 按当前架构索引扁平清单
-    let value: serde_json::Value = serde_json::from_str(&text).context(anyhow!("更新器清单不是合法 JSON"))?;
-    let entry = &value[OS.to_string().to_ascii_lowercase()][ARCH.to_string().to_ascii_lowercase()];
-    let url_str = entry["url"].as_str().context(anyhow!(format!(
-        "更新器清单缺少 windows.{}.url，实际内容为{}",
-        ARCH.to_string().to_ascii_lowercase(), value
-    )))?;
-
-    let artifact = Artifact {
-        url: url_str.parse().context(anyhow!("更新器下载地址不是合法 URL：{url_str}"))?,
-        sha256: entry["sha256"]
-            .as_str()
-            .context(anyhow!(format!(
-                "更新器清单缺少 windows.{}.sha256",
-                ARCH.to_string().to_ascii_lowercase()
-            )))?
-            .to_string(),
-        // 更新器仅发布 sha256、无 minisign 签名：此处刻意留空，并且**只经 verify_sha256** 校验。
-        // 注意：verify_artifact / verify_artifact_path 已改为签名必填（fail closed），
-        // 该产物不得走那两条组合入口（更新器接入 minisign 后再改走标准管线）。
-        signature: "".to_string(),
-        size: entry["size"].as_u64().context("更新器清单没有字节数")?,
-    };
-
+    // 清单自报版本必须就是锁定的那个（tag 被重发时能立刻发现）
+    let version = manifest["version"].as_str().unwrap_or_default();
+    if version != UPDATER_VERSION {
+        anyhow::bail!("更新器清单版本不符：期望 {UPDATER_VERSION}，实际 {version:?}");
+    }
+    let artifact = platform_artifact(&manifest)?;
     let file_name = artifact
         .file_name()
-        .ok_or_else(|| anyhow!("更新器下载地址缺少文件名：{url_str}"))?;
+        .ok_or_else(|| anyhow!("更新器下载地址缺少文件名：{}", artifact.url))?;
     let dest = paths::portable_updater_bin(&file_name);
 
-    // 4. 下载（体积小，内存收齐后整体校验再落盘）
+    // 3. 下载（体积小，内存收齐后整体校验再落盘）
     let bytes = http_client::download()
-        .get(artifact.url)
+        .get(artifact.url.clone())
         .send()
         .await
         .context(anyhow!("下载更新器失败：网络错误"))?
@@ -227,11 +181,14 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
         anyhow::bail!("更新器大小与清单不符：期望 {} 字节，实际 {} 字节", artifact.size, bytes.len());
     }
 
-    verify_sha256(&bytes, &artifact.sha256).context(anyhow!("更新器校验失败"))?;
+    verify_payload(&bytes, &artifact).context(anyhow!("更新器校验失败（锁定版本 {UPDATER_VERSION}）"))?;
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新器目录失败（{}）：{e}", parent.display()))?;
     }
     fs::write(&dest, bytes).map_err(|e| anyhow!("写入更新器失败（{}）：{e}", dest.display()))?;
+
+    // 4. 只留锁定版本
+    discard_others(&dest);
     Ok(dest)
 }
 
@@ -239,4 +196,70 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
 #[cfg(not(target_os = "windows"))]
 pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
     anyhow::bail!("便携版安装仅支持 Windows")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 清单地址由锁定版本拼出，不留占位符
+    #[test]
+    fn manifest_url_uses_pinned_version() {
+        let url = updater_manifest_url();
+        assert!(!url.contains(PLACEHOLDER), "占位符未替换：{url}");
+        assert!(url.contains(&format!("/v{UPDATER_VERSION}/")), "tag 不符：{url}");
+    }
+
+    /// 清单解析：取当前平台那一项，签名缺省为空（将来有则照抄）
+    #[test]
+    fn platform_artifact_follows_manifest() {
+        let os = OS.to_string().to_ascii_lowercase();
+        let arch = ARCH.to_string().to_ascii_lowercase();
+        let mut manifest = serde_json::json!({ "version": UPDATER_VERSION });
+        manifest[os.as_str()] = serde_json::json!({
+            arch.as_str(): {
+                "url": format!("https://example.com/updater-{UPDATER_VERSION}-{os}-{arch}.exe"),
+                "sha256": "a".repeat(64),
+                "size": 1234,
+            }
+        });
+
+        let artifact = platform_artifact(&manifest).expect("清单应有当前平台项");
+        assert_eq!(
+            artifact.file_name().unwrap(),
+            format!("updater-{UPDATER_VERSION}-{os}-{arch}.exe")
+        );
+        assert_eq!(artifact.size, 1234);
+        assert!(artifact.signature.is_empty(), "清单没给签名时留空");
+
+        // 缺当前平台项 → 报错而不是拿空值去下载
+        assert!(platform_artifact(&serde_json::json!({ "version": UPDATER_VERSION })).is_err());
+    }
+
+    /// 本地判定：文件名里带锁定版本才算（改名/换平台都认），其他版本不算
+    #[test]
+    fn pinned_name_matches_only_locked_version() {
+        assert!(is_pinned_name("updater-0.3.0-windows-x86_64.exe"));
+        assert!(is_pinned_name(&format!("updater-{UPDATER_VERSION}-macos-arm64")));
+        assert!(!is_pinned_name("updater-0.2.0-windows-x86_64.exe"));
+        assert!(!is_pinned_name("updater-windows-x86_64.exe"));
+    }
+
+    /// 只留锁定产物：其他 exe 删掉，非 exe 不动
+    #[test]
+    fn discard_others_keeps_only_pinned() {
+        let dir = std::env::temp_dir().join(format!("rollcaller-updaters-{}", &uuid::Uuid::new_v4().to_string()[..8]));
+        std::fs::create_dir_all(&dir).expect("创建临时目录");
+        let keep = dir.join("updater-0.3.0-windows-x86_64.exe");
+        std::fs::write(&keep, b"keep").unwrap();
+        std::fs::write(dir.join("updater-0.2.0-windows-x86_64.exe"), b"old").unwrap();
+        std::fs::write(dir.join("leftover.part"), b"part").unwrap();
+
+        discard_others(&keep);
+
+        assert!(keep.is_file(), "锁定产物必须保留");
+        assert!(!dir.join("updater-0.2.0-windows-x86_64.exe").exists(), "旧版本必须删除");
+        assert!(dir.join("leftover.part").exists(), "非 exe 不归本函数管");
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }

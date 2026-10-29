@@ -4,7 +4,7 @@
 //! 1. 构造安装器命令行；
 //! 2. `ShellExecuteW` 启动安装器；
 //! 3. 成功后返回 `Ok(())`——由调用方执行退出前清理
-//!    （`shutdown_hooks::run_all()`，如关闭数据库）后 `exit(0)`，安装器负责重启应用。
+//!    （`shutdown_hooks::finish_and_exit(0)`，内含关闭数据库等）后退出，安装器负责重启应用。
 //!
 //! 各函数注释中标注了源行号，便于日后对照升级。转义函数不得自创/简化。
 
@@ -79,7 +79,7 @@ impl Default for NsisOptions {
 ///
 /// 失败（如 `ShellExecuteW` 返回值 <= 32）返回 `Err`，进程保持存活交由上层提示；
 /// 成功后安装器接管（自行重启应用），**本进程应随即退出**：调用方需先执行
-/// `shutdown_hooks::run_all().await`（关闭数据库等）再 `std::process::exit(0)`。
+/// `shutdown_hooks::finish_and_exit(0).await`（内含关闭数据库等）直接退出，永不返回。
 #[cfg(target_os = "windows")]
 pub fn install(exec_path: PathBuf, opts: NsisOptions) -> anyhow::Result<()> {
     if !exec_path.is_file() {

@@ -23,7 +23,7 @@ vite.config.ts.timestamp-*
 
 ### Backend ###
 /backend/target/
-/backend/gen/schemas/
+/backend/gen/
 /backend/tauri.conf.json5.local
 **/*.rs.bk
 *.profdata
@@ -46,13 +46,16 @@ vite.config.ts.timestamp-*
 **/*.temp
 
 ### Cargo Local Environment Configuration File ###
-/.cargo/config.toml
+/backend/.cargo/config.toml
 
 ### Local Release File ###
 /release/
 
 ### Git Commit Message File ###
 /docs/changes/
+
+### Git Diff Export File ###
+/docs/diff/
 
 ### Tauri CLI ###
 /resources/tauri/*
@@ -61,3 +64,6 @@ vite.config.ts.timestamp-*
 **/__pycache__/
 *.pyc
 *.pyo
+
+### Build Output Dir ###
+/assets/

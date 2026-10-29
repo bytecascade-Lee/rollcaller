@@ -201,7 +201,8 @@ fn parse_manifest(text: &str) -> anyhow::Result<UpdateManifest> {
 ///
 /// 索引只做预筛选，清单才是该版本的最终发布数据：版本号必须与索引一致，且以**清单
 /// 自身**的 severity 复判一次；不一致视为发布端错误（宁可暴露也不静默降级）。
-/// 当前运行形态无对应产物时返回 `Ok(None)`（无更新，不打扰用户）。
+/// 当前运行形态无对应产物时返回 `Ok(None)`（无更新，不打扰用户），
+/// 并留一条 warn 日志——「发布端漏了矩阵里的某个 target」只能靠这条痕迹排查。
 fn validate_manifest(
     current: &Version,
     policy: &Policy,
@@ -225,6 +226,7 @@ fn validate_manifest(
         UpdateDecision::Update => {}
     }
     let Some(artifact) = manifest.get_artifact(OS, ARCH, mode) else {
+        tracing::warn!("更新清单 {} 未提供当前平台的产物（{OS} / {ARCH} / {mode}）", manifest.version);
         return Ok(None);
     };
 

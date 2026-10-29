@@ -1,14 +1,14 @@
-use crate::config::{app_config, app_paths, logger};
 use crate::state::nav::NavState;
 use crate::state::update::UpdaterState;
 use crate::windows::app_window;
-use tauri::{Manager, WebviewWindowBuilder};
+use tauri::Manager;
 
 mod bootstrap;
 pub mod cli;
 mod cmd;
 mod common;
 mod config;
+pub mod console;
 mod database;
 mod repo;
 mod service;
@@ -93,6 +93,8 @@ pub async fn run() {
 /// `tauri::async_runtime::spawn` 异步执行，避免阻塞主线程；
 /// 失败时弹出原生错误对话框提示，解决打包后启动失败无任何报错输出的问题。
 fn init(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    console::install_interrupt_handler();
+
     let handle = app.handle().clone();
     let handle2 = app.handle().clone();
     tauri::async_runtime::spawn(async move {

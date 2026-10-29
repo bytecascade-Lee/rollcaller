@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+# -*- coding: UTF-8 -*-
+
+"""
+支持目标注册表
+"""
+
+from common.entity.target import SupportedTarget, Target, UnsupportedTargetError
+from common.enums.action import Action
+from common.enums.kind import Kind
+from common.enums.os import OS
+from util.str_format import join_repr
+
+
+class SupportTableError(Exception):
+    """支持表自身的注册错误（重复、空集合、运行器与目标 OS 不匹配等）"""
+
+
+SUPPORTED_TARGETS: tuple[SupportedTarget, ...] = (
+    SupportedTarget(
+        target=Target("x86_64-pc-windows-msvc"),
+        actions=frozenset({Action.BUILD, Action.RELEASE, Action.TEST}),
+        kinds=frozenset({Kind.NSIS, Kind.PORTABLE, Kind.DEVELOP}),
+        runner="windows-latest",
+    ),
+    SupportedTarget(
+        target=Target("aarch64-pc-windows-msvc"),
+        actions=frozenset({Action.BUILD, Action.RELEASE}),
+        kinds=frozenset({Kind.NSIS, Kind.PORTABLE, Kind.DEVELOP}),
+        runner="windows-latest",
+    ),
+    # SupportedTarget(
+    #     target=Target("x86_64-apple-darwin"),
+    #     actions=frozenset({Action.BUILD, Action.RELEASE}),
+    #     kinds=frozenset({Kind.DMG}),
+    #     runner="macos-15-intel",
+    # ),
+    # SupportedTarget(
+    #     target=Target("aarch64-apple-darwin"),
+    #     actions=frozenset({Action.BUILD, Action.RELEASE}),
+    #     kinds=frozenset({Kind.DMG}),
+    #     runner="macos-15",
+    # ),
+    # SupportedTarget(
+    #     target=Target("x86_64-unknown-linux-gnu"),
+    #     actions=frozenset({Action.BUILD, Action.RELEASE}),
+    #     kinds=frozenset({Kind.DEB, Kind.APPIMAGE, Kind.DEVELOP}),
+    #     runner="ubuntu-22.04",
+    # ),
+    # SupportedTarget(
+    #     target=Target("aarch64-unknown-linux-gnu"),
+    #     actions=frozenset({Action.BUILD, Action.RELEASE}),
+    #     kinds=frozenset({Kind.DEB, Kind.APPIMAGE, Kind.DEVELOP}),
+    #     runner="ubuntu-22.04-arm",
+    # ),
+)
+
+_BY_TRIPLE: dict[str, SupportedTarget] = {
+    entry.target.triple: entry for entry in SUPPORTED_TARGETS
+}
+
+# 各模式期望产出的载荷；target 自身不支持某个 kind 时，取交集后自然忽略
+RELEASE_KINDS: frozenset[Kind] = frozenset(kind for kind in Kind if not kind.local_only)
+LOCAL_KINDS: frozenset[Kind] = RELEASE_KINDS | {Kind.DEVELOP}
+
+# CI 构建 + 发布管线要求目标同时开放 Build 与 Release 两个动作
+PIPELINE_ACTIONS: frozenset[Action] = frozenset({Action.BUILD, Action.RELEASE})
+
+# runner 前缀必须与目标 OS 一致
+_RUNNER_PREFIXES: dict[OS, str] = {
+    OS.WINDOWS: "windows-",
+    OS.MACOS: "macos-",
+    OS.LINUX: "ubuntu-",
+}
+
+
+def validate() -> None:
+    """导入期自检：任何一条不成立都说明注册表写错了"""
+    seen: set[str] = set()
+    for entry in SUPPORTED_TARGETS:
+        triple = entry.target.triple
+        if triple in seen:
+            raise SupportTableError(f"目标三元组重复注册: {triple!r}")
+        seen.add(triple)
+        if not entry.actions:
+            raise SupportTableError(f"{triple!r} 未声明任何 Action")
+        if not entry.kinds:
+            raise SupportTableError(f"{triple!r} 未声明任何 Kind")
+        if not entry.runner.strip():
+            raise SupportTableError(f"{triple!r} 未声明运行器")
+
+        allowed = {kind for kind in Kind if entry.target.os in kind.oses}
+        invalid = entry.kinds - allowed
+        if invalid:
+            names = join_repr(sorted(kind.key for kind in invalid))
+            raise SupportTableError(f"{triple!r} 声明了 {entry.target.os.value!r} 不支持的载荷: {names}")
+
+        prefix = _RUNNER_PREFIXES[entry.target.os]
+        if not entry.runner.startswith(prefix):
+            raise SupportTableError(f"{triple!r} 的 runner {entry.runner!r} 与目标系统 "
+                                    f"{entry.target.os.value!r} 不匹配，应以 {prefix!r} 开头")
+
+
+def get(target: Target) -> SupportedTarget | None:
+    """按 Target 查找，未注册返回 None"""
+    return _BY_TRIPLE.get(target.triple)
+
+
+def require(target: Target, action: Action) -> SupportedTarget:
+    """要求目标开放指定动作档位，未注册与未开放分别抛错"""
+    entry = get(target)
+    if entry is None:
+        raise UnsupportedTargetError(f"目标三元组 {target.triple!r} 未在支持表中注册")
+    entry.require(action)
+    return entry
+
+
+def entries(action: Action) -> tuple[SupportedTarget, ...]:
+    """开放指定动作档位的全部注册项，保持声明顺序，矩阵按此生成"""
+    return tuple(entry for entry in SUPPORTED_TARGETS if entry.supports(action))
+
+
+def pipeline_entries() -> tuple[SupportedTarget, ...]:
+    """CI 矩阵与 release 发现下，同时开放 BUILD 与 RELEASE 的注册项"""
+    return tuple(entry for entry in SUPPORTED_TARGETS if entry.actions >= PIPELINE_ACTIONS)
+
+
+def targets(action: Action) -> tuple[Target, ...]:
+    """开放指定动作档位的目标三元组，保持声明顺序"""
+    return tuple(entry.target for entry in entries(action))
+
+
+def kinds(target: Target) -> frozenset[Kind]:
+    """该目标可产出的全部载荷，未注册抛 UnsupportedTargetError"""
+    entry = get(target)
+    if entry is None:
+        raise UnsupportedTargetError(f"目标三元组 {target.triple!r} 未在支持表中注册")
+    return entry.kinds
+
+
+validate()

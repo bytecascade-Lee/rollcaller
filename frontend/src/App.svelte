@@ -38,17 +38,9 @@
   import {APP_ENTRY_PARENT, AppEntry, type AppEntryId, HelpEntry} from "$routing/entries.generated";
   import {parseRoute, type Payload} from "$routing/address";
   import {appNavigate} from "$routing/appNavigate";
+  import {DateTimeUtils} from "$utils";
 
-  let APP_INFO = $state<AppInfo>(<AppInfo><unknown>{
-    os: "",
-    arch: "",
-    branch: "",
-    commit_count: "",
-    short_hash: "",
-    commit_time: "",
-    version: "",
-    build_time: ""
-  })
+  let APP_INFO = $state<AppInfo | null>(null)
   const window = getCurrentWebviewWindow();
 
   const overlays = createEntryRegistry<AppEntryId>();
@@ -187,16 +179,18 @@
     <StudentManagementPage active={activeCard === AppEntry.studentManagement} overlays={overlays}/>
   </main>
 
-  <footer class="footbar">
-    <div>
-      {APP_INFO.version}+{APP_INFO.branch}.{APP_INFO.commit_count}.{APP_INFO.short_hash}
-      #{APP_INFO.commit_time}
-      #{APP_INFO.build_time}
-    </div>
-    <div>
-      {APP_INFO.os}-{APP_INFO.arch}
-    </div>
-  </footer>
+  {#if APP_INFO}
+    <footer class="footbar">
+      <div>
+        {APP_INFO.version}+{APP_INFO.ref_name}.{APP_INFO.commit_count}.{APP_INFO.abbreviated_hash}
+        #{DateTimeUtils.format(APP_INFO.commit_time)}
+        #{DateTimeUtils.format(APP_INFO.build_time)}
+      </div>
+      <div>
+        {APP_INFO.target}
+      </div>
+    </footer>
+  {/if}
 </div>
 
 <style>

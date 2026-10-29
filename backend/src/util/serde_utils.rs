@@ -57,6 +57,18 @@ where
     }
 }
 
+/// 用于将 ISO 8601 字符串反序列化为 `jiff::Timestamp`
+///
+/// 与 `deserialize_optional_timestamp_from_iso_8601` 的区别：字段必填，
+/// 因此非法日期直接报错而不是静默降级为 None（构建元数据文件由本仓库生成，错了就该暴露）。
+pub fn deserialize_timestamp_from_iso_8601<'de, D>(deserializer: D) -> Result<Timestamp, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let iso8601 = String::deserialize(deserializer)?;
+    Timestamp::from_str(&iso8601).map_err(|e| serde::de::Error::custom(e.to_string()))
+}
+
 pub fn deserialize_optional_timestamp_from_iso_8601<'de, D>(
     deserializer: D,
 ) -> Result<Option<Timestamp>, D::Error>

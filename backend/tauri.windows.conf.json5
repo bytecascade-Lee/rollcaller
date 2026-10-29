@@ -14,6 +14,7 @@
                     "English"
                 ],
                 installerIcon: "icons/icon.ico",
+                uninstallerIcon: "icons/uninstall.ico",
                 startMenuFolder: "Rollcaller",
                 displayLanguageSelector: true
             }

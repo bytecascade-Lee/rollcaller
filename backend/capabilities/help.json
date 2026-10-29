@@ -21,19 +21,52 @@
             "identifier": "opener:allow-open-url",
             "allow": [
                 {
-                    "url": "https://github.com/bytecascade-Lee/rollcaller"
+                    "url": "https://github.com/bytecascade-Lee/rollcaller*"
                 },
                 {
-                    "url": "https://github.com/bytecascade-Lee/rollcaller/releases"
+                    "url": "https://github.com/rbatis/rbatis*"
                 },
                 {
-                    "url": "https://github.com/bytecascade-Lee/rollcaller/releases/latest"
+                    "url": "https://cnb.cool/ordinary-glory/rollcaller*"
                 },
                 {
-                    "url": "https://github.com/bytecascade-Lee/rollcaller/issues"
+                    "url": "https://tauri.app/*"
                 },
                 {
-                    "url": "https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/#download-section"
+                    "url": "https://svelte.dev/*"
+                },
+                {
+                    "url": "https://vite.dev/*"
+                },
+                {
+                    "url": "https://open-props.style/*"
+                },
+                {
+                    "url": "https://phosphoricons.com/*"
+                },
+                {
+                    "url": "https://docs.astral.sh/*"
+                },
+                {
+                    "url": "https://just.systems/*"
+                },
+                {
+                    "url": "https://git-scm.com/*"
+                },
+                {
+                    "url": "https://nodejs.org/*"
+                },
+                {
+                    "url": "https://rustup.rs/*"
+                },
+                {
+                    "url": "https://pnpm.io/*"
+                },
+                {
+                    "url": "https://www.conventionalcommits.org/*"
+                },
+                {
+                    "url": "https://developer.microsoft.com/*"
                 }
             ]
         }

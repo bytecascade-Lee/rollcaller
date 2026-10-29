@@ -7,7 +7,7 @@
 //!    避免被 updater 连同 source 一起复制进 target；
 //! 3. 分离式 spawn `updater.exe`（`CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS`），传入 config.json 路径；
 //! 4. spawn 成功后返回 `Ok(())`——由调用方执行退出前清理
-//!    （`shutdown_hooks::run_all()`，如关闭数据库）后 `exit(0)`，
+//!    （`shutdown_hooks::finish_and_exit(0)`，内含关闭数据库等）后退出，
 //!    由 updater 执行 wait → update → launch → (rollback)。
 //!
 //! # 约定
@@ -20,7 +20,7 @@
 use super::common;
 use crate::config::app_paths;
 use crate::config::app_paths::AppMode;
-use crate::service::update::install::common::{extract_zip, find_updater};
+use crate::service::update::install::common::{extract_zip, updater_exe};
 use crate::service::update::paths;
 use crate::util::path_utils;
 use anyhow::anyhow;
@@ -34,15 +34,14 @@ use std::path::Path;
 /// - `from` / `to`：当前版本与目标版本（用于命名 config 与日志，标识一次安装）。
 ///
 /// 成功路径 = 更新器已分离式启动（返回 `Ok(())`），**本进程应随即退出**：调用方需
-/// 先执行 `shutdown_hooks::run_all().await`（关闭数据库等）再 `std::process::exit(0)`；
+/// 先执行 `shutdown_hooks::finish_and_exit(0).await`（内含关闭数据库等，永不返回）；
 /// 任一准备步骤或 spawn 失败返回 `Err`，进程保持存活以便上层提示重试
 /// （失败路径不触发退出清理）。
 #[cfg(target_os = "windows")]
 pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow::Result<()> {
     // 1. 更新器：本地 cache 中取最新（由编排层 install 异步段先 ensure_updater 下载/校验，
     //    此处只需原样发现；ensure 幂等，已存在则直接跳过下载）
-    let updater_exe = find_updater()
-        .ok_or_else(|| anyhow!("未找到更新器（预期位于 cache/update 或 cache/update/bin 下）"))?;
+    let updater = updater_exe().ok_or_else(|| anyhow!("锁定版本的更新器未就绪（预期位于 cache/update/bin）"))?;
 
     // 2. 当前进程路径，推导 exe 目录与用户数据目录
     let exe_path = path_utils::current_exe_clean()?;
@@ -89,7 +88,7 @@ pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow
         .map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", config_path.display()))?;
 
     // 6. 分离式 spawn updater（成功后由调用方执行退出清理并 exit(0)）
-    common::spawn_updater(&updater_exe, &config_path)
+    common::spawn_updater(&updater, &config_path, &log_file)
 }
 
 /// 非 Windows 平台：便携版安装不可用
