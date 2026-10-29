@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ## Table of Contents
 
+- [0.8.4](#0-8-4) — Republish of 0.8.3 content, release job dependency fix.
 - [0.8.3](#0-8-3) — Embedded migrations with pre-upgrade snapshots, CLI diagnostics, unified shutdown flow, 78% smaller frontend bundle.
 - [0.8.2](#0-8-2) — Address-driven in-app routing, multi-sheet import (.xls included), updater Checking transition frame.
 - [0.8.1](#0-8-1) — Automatic updates after refactoring, CLI diagnostics, idempotent dual-platform releases, log redaction, smaller binary.
@@ -24,7 +25,19 @@ All notable changes to this project will be documented in this file.
 - [0.1.0](#0-1-0) — First stable: CSS design system, components, rollcall engine.
 - [0.1.0-rc.1](#0-1-0-rc1) — Initial RC: core architecture, CRUD, import/export, SQLite, Svelte.
 
+## 0.8.4 {#0-8-4}
+
+> 发布内容与 0.8.3 相同；0.8.3 因发布流水线缺陷未能对外发布，见其章节标注。
+
+### Fixed
+
+- 修复 `release` job 只声明 `needs: build` 导致 `needs.prepare.outputs.version` 解析为空串、`release.py -v ""` 在入口即失败的问题：`needs` 改为 `[prepare, build]`
+
+---
+
 ## 0.8.3 {#0-8-3}
+
+> **未发布（CI 构建失败）**：`prepare` 与两个 `build` 均成功，`release` 在 `release.py` 入口因版本号为空而失败，未创建任何 Release、清单或版本索引。
 
 ### Added
 
