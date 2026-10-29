@@ -39,7 +39,23 @@ feat/…        临时分支，合并后立即删除
 
 `pull.ff=only` 是最容易被忽略的一条：`merge.ff=false` 会被 `git pull` 继承，导致「本地零提交、单纯落后远程」也会被造出一个 `Merge branch 'develop' of ...` 提交，而这个提交进了 `develop` 就再也清不掉。`pull.ff` 的优先级高于 `merge.ff`，因此只需补上这一条，拉取即恢复为纯快进。
 
-`just setup` 另外还会做两件事：把指向本仓库的远端重命名为 `github`（`git clone` 只会给出 `origin`），以及预建 `data/`、`release/Local/`、`release/CI-CD/` 这些被忽略的运行期目录——它们不在版本控制里，缺了要等到运行时才报错。`just doctor` 是同一套检查的只读版本，只报告不修改。
+`just setup` 另外还会归一**远端拓扑**，并预建 `data/`、`release/Local/`、`release/CI-CD/` 这些被忽略的运行期目录——它们不在版本控制里，缺了要等到运行时才报错。`just doctor` 是同一套检查的只读版本，只报告不修改。
+
+远端拓扑按「从哪儿克隆」自动判定，不需要声明自己是协作者还是外部贡献者：
+
+| 克隆来源                             | 归一动作                             | 拉取源   | 推送目标         |
+|:-------------------------------------|:-------------------------------------|:---------|:-----------------|
+| 规范仓库（`origin`）                 | `origin` 改名为 `github`             | `github` | `github`         |
+| 自己的 fork（`origin`）              | 保留 `origin`，新增 `github`         | `github` | `origin`（fork） |
+| CNB 镜像（`origin`）                 | `origin` 改名为 `cnb`，新增 `github` | `github` | `github`         |
+
+三条规则：
+
+- **拉取源恒为 `github`**。镜像要等 CI 同步（1~2 分钟），从镜像拉取会把工作建立在过时提交上，推送时才被拒，只能撤销重来。国内拉取慢时用 `git fetch cnb` 走镜像，但别把长期分支的上游改成它。
+- **镜像只读**。`cnb` 由 `sync-mirrors` 单向强制推送（`+refs/heads/*`），往镜像推的东西下一次同步就会被覆盖。
+- **推送目标按身份分配**。本地有 fork 远端就推 fork，否则推规范仓库。只有分叉工作流（拉取与推送不是同一个远端）才写 `remote.pushDefault`；单远端时不写，免得把临时分支 `git push -u` 记下的目标改写掉。
+
+刚新增 `github` 远端、还没 `git fetch github` 时，`git status` 会显示 `[gone]`（跟踪引用尚未建立），拉取一次即消失。
 
 图形客户端（RustRover）另有两点：
 
