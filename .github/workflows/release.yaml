@@ -27,6 +27,7 @@ env:
 jobs:
     prepare:
         name: Prepare
+        if: github.repository == 'bytecascade-Lee/rollcaller'
         runs-on: ubuntu-latest
         outputs:
             version: ${{ steps.prepare.outputs.version }}
