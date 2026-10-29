@@ -31,12 +31,10 @@ import re
 import sys
 
 from cli import git
+from common.constant.repo import REMOTE
 from common.entity.version import Version, VersionError
 from common.logger import error, info, success, warning
 from util.sigint import graceful_sigint
-
-# 远端名
-REMOTE = "github"
 
 # 预发布档位，顺序即推进方向
 STAGES = ("alpha", "beta", "rc")
