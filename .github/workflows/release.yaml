@@ -150,7 +150,7 @@ jobs:
 
     release:
         name: Publish
-        needs: build
+        needs: [ prepare, build ]
         runs-on: ubuntu-latest
         concurrency:
             group: release
