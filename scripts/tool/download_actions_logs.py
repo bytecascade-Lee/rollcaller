@@ -25,7 +25,6 @@
 
 import argparse
 import os
-import re
 import sys
 import time
 from dataclasses import dataclass
@@ -34,13 +33,12 @@ from typing import Sequence
 
 from cli import gh, git
 from common.constant.paths import RELEASE_DIR
+from common.constant.repo import GITHUB_REPO, REMOTE
 from common.logger import error, info, success, warning
+from common.remote import is_github, owner_repo
 from util import fs
 
 OUT_DIR = RELEASE_DIR / "CI-CD" / "logs"
-
-# 解析 git remote URL 中的 owner/repo（支持 https 与 git@github.com: 两种形式）
-_REPO_RE = re.compile(r"github\.com[:/]([^/:]+)/([^/.]+?)(?:\.git)?/?$")
 
 
 class LogsError(Exception):
@@ -103,8 +101,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def _repo_from_url(url: str) -> str | None:
     """从 git remote URL 提取 owner/repo；非 GitHub 地址返回 None"""
-    match = _REPO_RE.search(url)
-    return f"{match.group(1)}/{match.group(2)}" if match else None
+    return owner_repo(url) if is_github(url) else None
 
 
 def _resolve_repo() -> str:
@@ -113,13 +110,15 @@ def _resolve_repo() -> str:
     if env_repo:
         return env_repo
 
-    for remote in ("github", "origin"):
+    for remote in (REMOTE, "origin"):
         url = git.remote_url(remote)
         if not url:
             continue
         repo = _repo_from_url(url)
         if repo:
             info(f"从 git remote {remote} 解析到仓库: {repo}")
+            if repo.casefold() != GITHUB_REPO.casefold():
+                warning(f"{repo} 不是规范仓库 {GITHUB_REPO}，下载到的是这个仓库自己的运行记录")
             return repo
 
     raise LogsError(

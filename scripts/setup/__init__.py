@@ -11,7 +11,7 @@ from types import ModuleType
 from common.constant.paths import DEVELOP_DATA_DIR, LOCAL_RELEASE_DIR, CI_CD_RELEASE_DIR
 from common.logger import info, success
 from util.fs import relative_path
-from . import cargo_config, dependencies, repo_config, toolchain, uv_index
+from . import cargo_config, dependencies, remotes, repo_config, toolchain, uv_index
 from .errors import CLI_ERRORS, EnvError
 
 # setup 需要预建的运行期目录
@@ -23,6 +23,7 @@ DIRECTORIES: tuple[Path, ...] = (
 
 # 顺序即体检顺序与施工顺序
 STEPS: tuple[ModuleType, ...] = (
+    remotes,
     repo_config,
     cargo_config,
     uv_index,

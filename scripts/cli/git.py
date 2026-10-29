@@ -151,6 +151,11 @@ def set_config(key: str, value: str, *, cwd: Path | None = None) -> None:
     stdout(["config", "--local", key, value], cwd=cwd)
 
 
+def unset_config(key: str, *, cwd: Path | None = None) -> None:
+    """删除仓库级配置；该键本来就不存在时也算成功（`git config --unset` 以 5 退出）"""
+    _run(["config", "--local", "--unset", key], cwd=cwd, allow=(5,))
+
+
 def get_config(key: str, *, cwd: Path | None = None) -> str | None:
     """读取仓库级配置，未设置返回 None"""
     result = _run(["config", "--local", "--get", key], cwd=cwd, allow=(1,))
@@ -173,6 +178,11 @@ def create_tag(tag: str, message: str, *, cwd: Path | None = None) -> None:
 def rename_remote(old: str, new: str, *, cwd: Path | None = None) -> None:
     """重命名远端；git 会一并改写 `branch.<name>.remote` 与远程跟踪引用"""
     stdout(["remote", "rename", old, new], cwd=cwd)
+
+
+def add_remote(name: str, url: str, *, cwd: Path | None = None) -> None:
+    """新增远端；不 fetch，跟踪引用等第一次 `git fetch <name>` 才建立"""
+    stdout(["remote", "add", name, url], cwd=cwd)
 
 
 def remotes(*, cwd: Path | None = None) -> list[str]:
