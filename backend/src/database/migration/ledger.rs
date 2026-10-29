@@ -3,7 +3,7 @@
 //! 账本表无用"迁移"来修改自己。所以它由启动时的**幂等收敛**负责，通过列集决定"新建 / 已就绪 / 从旧表重建"
 
 use crate::database::migration::migrate;
-use crate::util::time_utils::current_timestamp_millis;
+use crate::util::time_utils::{current_iso_8601, current_timestamp_millis};
 use anyhow::{anyhow, Context, Result};
 use rbatis::{RBatis, RBatisTxExecutor};
 use tracing::{info, warn};
@@ -69,8 +69,7 @@ pub(crate) async fn rebuild(rb: &RBatis, before: i64) -> Result<()> {
     match rebuild_in_tx(&mut tx, before).await {
         Ok(()) => {
             tx.commit().await.context("提交账本收敛事务失败")?;
-            let stamp = current_timestamp_millis().to_string();
-            if let Err(e) = migrate::upsert_meta(rb, "ledger_rebuilt_at", &stamp).await {
+            if let Err(e) = migrate::upsert_meta(rb, "ledger_rebuilt_at", &current_iso_8601()).await {
                 warn!("写入 app_meta.ledger_rebuilt_at 失败: {e}");
             }
             info!("账本收敛完成：{before} 条记录已保留");
