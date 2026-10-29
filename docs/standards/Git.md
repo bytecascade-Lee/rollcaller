@@ -31,14 +31,21 @@ feat/…        临时分支，合并后立即删除
 
 `just setup` 会将下面这些写进 **仓库级**配置，新机器克隆后执行一次即可：
 
-| 键               | 值      | 作用                                        |
-|:-----------------|:--------|:--------------------------------------------|
-| `pull.ff`        | `only`  | 拉取只允许快进，需要合并时由人显式决定      |
-| `merge.ff`       | `false` | 合并必须产生合并提交                        |
-| `core.quotepath` | `false` | 中文路径不转义成八进制串                    |
-| `fetch.prune`    | `true`  | 远程已删除的分支在 fetch 时一并清理本地引用 |
+| 键                            | 值        | 作用                                        |
+|:------------------------------|:----------|:--------------------------------------------|
+| `pull.ff`                     | `only`    | 拉取只允许快进，需要合并时由人显式决定      |
+| `branch.develop.mergeOptions` | `--no-ff` | develop 上的合并必须产生合并提交            |
+| `branch.master.mergeOptions`  | `--no-ff` | master 上的合并必须产生合并提交             |
+| `core.quotepath`              | `false`   | 中文路径不转义成八进制串                    |
+| `fetch.prune`                 | `true`    | 远程已删除的分支在 fetch 时一并清理本地引用 |
 
-`pull.ff=only` 为必设项：`git pull` 会继承 `merge.ff=false`，使「本地无独有提交、仅落后远程」的情况也生成 `Merge branch 'develop' of ...` 合并提交；该提交一旦进入 `develop` 便无法移除（原则 1 禁止改写公共分支历史）。`pull.ff` 的优先级高于 `merge.ff`，设置此项后拉取恢复为纯快进。
+`pull.ff=only` 管的是命令行 `git pull`：只许快进，分叉时直接报错，由人显式决定怎么合。图形客户端不走 `git pull`（见下），这条对它无效，但保留了命令行的安全边界。
+
+**合并提交只约束 `develop` 与 `master`，不用全局 `merge.ff=false`。** 全局开关是「所有分支一刀切」，连 `feat/a` 合并到 `feat/b` 这种临时分支之间的合并也会被强制造出提交；真正需要留记录的只有那两个长期分支。`branch.<name>.mergeOptions` 把约束收窄到它们，效果等价、影响面最小；`just setup` 会顺手移除遗留的全局 `merge.ff`。
+
+代价要说清楚：`develop` 上的**任何** `git merge` 都会带 `--no-ff`，包括图形客户端的「更新项目」（它的实现是 `fetch` + 裸 `merge`，不是 `git pull`）。所以「本地没有独有提交、仅落后远程」时拉取会多出一个树相同的空合并提交。这是**有意接受**的代价：它换来「任何入口合并分支都留下合并提交」，包括分支弹窗里那条 `GitBrancher.merge`（它直接执行裸 `git merge`，对话框的 `--no-ff` 勾选对它无效）。空提交只存在于本地，推送前 `git reset --hard github/develop` 即可去掉；不想看到它的另一条路是用命令行 `git pull`（`pull.ff` 只允许快进，实测优先于 `mergeOptions`，纯落后时直接快进）。
+
+不要改用 `merge.ff=only`，也不要给这两个键写 `--ff-only`：那会让分支弹窗的合并也静默快进，丢掉「这是一次分支合并」的记录（原则 3）。
 
 `just setup` 另外会归一**远端拓扑**，并预建 `data/`、`release/Local/`、`release/CI-CD/` 等被忽略的运行期目录。这些目录不在版本控制内，缺失只会在运行时暴露。`just doctor` 是同一套检查的只读版本，仅报告，不修改。
 
@@ -61,7 +68,8 @@ feat/…        临时分支，合并后立即删除
 图形客户端（RustRover）另有两点：
 
 - `Settings → Version Control → Git → Update method` **必须是 `Merge` 或 `Branch Default`**。选 `Rebase` 会改写 `develop`，直接违反原则 1。
-- 若某次 Update 之后仍然多出 `Merge branch 'develop' of …` 提交，说明该版本 IDE 走的是「fetch + merge」两步，`pull.ff` 未参与；改用命令行 `git merge --ff-only github/develop` 复核。
+- 若 Update 之后多出 `Merge branch 'develop' of …` 提交，且 `git diff HEAD^2 HEAD` 为空（合并结果与被合并的远程分支完全一致），这是「本地纯落后」时的预期产物，推送前 `git reset --hard github/develop` 去掉即可；若 diff 不为空，说明本地有独有提交，这是一次正常的三方合并，**不要**撤销重做。
+- 分支弹窗的「合并到当前」执行的是裸 `git merge`，**不弹**合并对话框、也不读对话框里的 `--no-ff`；它在 `develop`/`master` 上靠 `branch.<name>.mergeOptions` 兜底，在其他分支上会快进。
 
 ---
 
