@@ -37,7 +37,7 @@
 </p>
 <!-- help:show -->
 
-课堂自动点名工具，面向需要随机提问和考勤记录的老师：从名单里随机抽人、自动记录结果、随时导出统计。数据全部保存在本机，断网也能正常使用。
+课堂自动点名工具，面向需要随机提问和考勤记录的老师：从名单里随机抽人、自动记录结果、随时导出统计。全部数据保存在本机，无需联网即可使用。
 
 ## 功能特性
 
@@ -47,9 +47,9 @@
 | 语音播报 | 点名后朗读学生姓名，支持本地语音与云端 AI 两种模式                     |
 | 学生管理 | 增删改查、软删除与恢复、搜索排序、批量操作                             |
 | 批量导入 | 从 Excel（`.xlsx` / `.xls`）导入名单，可选工作表，自动处理重复学号     |
-| 考勤记录 | 点名结果自动落库，按轮次分组查看，支持批量修改状态与备注               |
+| 考勤记录 | 点名结果自动保存，按轮次分组查看，支持批量修改状态与备注               |
 | 数据导出 | 学生名单与考勤记录导出为 Excel，可按全部、筛选结果或选中项导出         |
-| 便携模式 | 解压即用，数据跟随程序目录，适合 U 盘携带                              |
+| 便携模式 | 解压即用，数据存放于程序目录，便于随 U 盘携带                          |
 | 自动更新 | 应用内检查并安装新版本，无需手动下载覆盖                               |
 | 内置帮助 | 帮助窗口提供使用文档、全文搜索与锚点导航                               |
 
@@ -60,11 +60,11 @@
 | 版本   | 文件名                                          | 说明                             |
 |:-------|:------------------------------------------------|:---------------------------------|
 | 安装版 | `rollcaller-<版本>-windows-<架构>-setup.exe`    | 标准安装，数据存放在系统用户目录 |
-| 便携版 | `rollcaller-<版本>-windows-<架构>-portable.zip` | 解压即用，数据跟随程序目录       |
+| 便携版 | `rollcaller-<版本>-windows-<架构>-portable.zip` | 解压即用，数据存放于程序目录     |
 
-- 支持新版 Windows 10 与 Windows 11，提供 x64 与 ARM64 两种架构
+- 支持 Windows 10 与 Windows 11（64 位），提供 x64 与 ARM64 两种架构
 - 依赖 WebView2 运行时：安装版会在安装过程中引导安装，便携版需自行[下载安装](https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/#download-section)
-- 每个产物都附带 `.sha256` 校验与 `.sig` 签名文件
+- 每个产物在构建阶段生成 `.sha256` 校验值与 `.sig` 签名，供应用内更新校验完整性与来源
 - 国内用户可通过 [CNB 镜像](https://cnb.cool/ordinary-glory/rollcaller) 克隆源码或下载，实际发布产物以 GitHub Releases 为准
 
 ## 技术栈
@@ -86,7 +86,7 @@
 | [git](https://git-scm.com/)      | 2.30     | 版本控制               |
 | [Rust](https://rustup.rs/)       | 1.80     | 后端与 Tauri           |
 | [Node.js](https://nodejs.org/)   | 22       | 前端构建               |
-| [pnpm](https://pnpm.io/)         | 11       | 前端依赖               |
+| [pnpm](https://pnpm.io/)         | 12       | 前端依赖               |
 | [uv](https://docs.astral.sh/uv/) | 0.5      | 管理 Python 与脚本依赖 |
 | [just](https://just.systems/)    | 1.0      | 统一任务入口           |
 
@@ -102,9 +102,9 @@ just setup
 
 未配置 SSH key 时，请使用 `https://github.com/bytecascade-Lee/rollcaller.git` 克隆仓库。
 
-`just setup` 依次完成：体检工具链 -> 归一远端（拉取源 `github`，推送目标按是否 fork 判定） -> 设置仓库级 git 配置 -> 按模板补齐 `backend/.cargo/config.toml`（已存在则不动） -> `pnpm install --frozen-lockfile` -> `uv sync` -> 刷新脚本导入钩子。该命令是幂等的，重建虚拟环境后可以再跑一次。
+`just setup` 依次完成：体检工具链 -> 归一远端（拉取源 `github`，推送目标按是否 fork 判定） -> 设置仓库级 git 配置 -> 按模板补齐 `backend/.cargo/config.toml`（已存在则不动） -> `pnpm install --frozen-lockfile` -> `uv sync` -> 刷新脚本导入钩子。该命令幂等，重建虚拟环境后可再次执行。
 
-写入的 git 配置见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §1.1，其中 `pull.ff=only` 决定拉取行为，请勿轻易修改。
+写入的 git 配置见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/docs/standards/Git.md) §1.1，其中 `pull.ff=only` 决定拉取行为，不要随意修改。
 
 ### 使用 Python 脚本初始化
 
@@ -125,7 +125,7 @@ git clone git@github.com:bytecascade-Lee/rollcaller.git
 cd rollcaller
 
 # 1. 远端归一：规范仓库固定叫 github
-#    从 fork 或 CNB 镜像克隆时的完整规则见 Git.md §1.1
+#    从 fork 或 CNB 镜像克隆时的完整规则见 docs/standards/Git.md §1.1
 git remote rename origin github
 
 # 2. 仓库级 git 配置
@@ -174,7 +174,7 @@ cd frontend && pnpm install --frozen-lockfile && cd ..
 ### 构建产物
 
 - 本地构建与发布：`release/Local/`
-- 正式发布：由 `master` 上的 tag 触发 CI 构建、签名并发布，见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §六
+- 正式发布：由 `master` 上的 tag 触发 CI 构建、签名并发布，见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/docs/standards/Git.md) §六
 
 ## 配置
 
@@ -203,9 +203,9 @@ rollcaller/
 欢迎提交 [Issue](https://github.com/bytecascade-Lee/rollcaller/issues) 与 [Pull Request](https://github.com/bytecascade-Lee/rollcaller/pulls)。
 
 - 默认分支为 `develop`
-- 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/)
-- 提交 PR 前请确保 `just check <三元组>` 与 `just test <三元组>` 均通过；合入 `develop` / `master` 后 CI 会再跑一遍（Quality Gate）
-- 分支模型与发布流程见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md)
+- 提交信息遵循 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/)；`CHANGELOG.md` 与 `RELEASE_NOTES.md` 的写法见 [docs/standards](https://github.com/bytecascade-Lee/rollcaller/tree/develop/docs/standards)
+- 提交 PR 前请确保 `just check <三元组>` 与 `just test <三元组>` 均通过；合入 `develop` / `master` 后 CI 会重新执行一遍（Quality Gate）
+- 分支模型与发布流程见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/docs/standards/Git.md)
 
 ## 许可证
 
