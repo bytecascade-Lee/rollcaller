@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ## Table of Contents
 
+- [0.8.3](#0-8-3) — Embedded migrations with pre-upgrade snapshots, CLI diagnostics, unified shutdown flow, 78% smaller frontend bundle.
 - [0.8.2](#0-8-2) — Address-driven in-app routing, multi-sheet import (.xls included), updater Checking transition frame.
 - [0.8.1](#0-8-1) — Automatic updates after refactoring, CLI diagnostics, idempotent dual-platform releases, log redaction, smaller binary.
 - [0.8.0](#0-8-0) — Three-stage updater pipeline, manifest v2, update sessions, release toolchain split.
@@ -22,6 +23,53 @@ All notable changes to this project will be documented in this file.
 - [0.2.0](#0-2-0) — Click-outside/positioning utils, export modes/feedback, UI polish.
 - [0.1.0](#0-1-0) — First stable: CSS design system, components, rollcall engine.
 - [0.1.0-rc.1](#0-1-0-rc1) — Initial RC: core architecture, CRUD, import/export, SQLite, Svelte.
+
+## 0.8.3 {#0-8-3}
+
+### Added
+
+- 新增数据库迁移前快照 `backend/src/database/migration/snapshot.rs`：`VACUUM INTO` 生成 `<stem>-bak-<uuid8>.db`，同类快照只保留最近 3 份（`KEEP = 3`）
+- 新增 `--doctor` 自检命令与 `--json` 输出：自检项为 `data/`、`logs/` 可写探针、数据库文件、WebView2 目录；`--json` 与人类视图的键名由单测锁定（`backend/src/cli/doctor.rs`）
+- 新增 CLI 输出契约：stdout 只放数据、stderr 只放诊断，单值命令输出裸值、多字段命令输出对齐的 `key : value`，退出码 `0 / 2 / 1`
+- CLI 解析改为「先确认整条命令合法再执行」：命令互斥、未知 `-*` 退 2、`-h` 优先、非 `-` 开头的参数继续忽略（`backend/src/cli/args.rs`）
+- 新增控制台通道模块 `backend/src/console.rs`：`Attached` / `Redirected` / `Detached` 三态判定、`CONOUT$` 句柄重绑、`SetConsoleCtrlHandler` 接管 `CTRL_C_EVENT`
+- 新增 `ROLLCALLER_ATTACH_CONSOLE_ON_WIN32` 开关：常规启动默认不接管终端，CLI 场景经 `attach_for_cli()` 无条件附着
+- 新增 `shutdown_hooks::finish_and_exit(code)` 作为进程唯一退出出口：钩子独立 spawn、panic 隔离、2 秒看门狗、退出开始后注册只告警
+- `AppInfo` 新增 `target` 字段，由 `build.rs` 把 cargo 的 `TARGET` 转为 `cargo:rustc-env`
+- 帮助窗口外部链接白名单改为通配：仓库任意子页、CNB 镜像、依赖项目站点、WebView2 下载页
+- 帮助窗口加载 `README.md` 时剥离 `help:hide` ~ `help:show` 区块（`cmd/help.rs::strip_github_only`）
+- NSIS 安装包新增卸载器图标 `backend/icons/uninstall.ico`
+
+### Changed
+
+- 迁移脚本改由 `include_str!` 编进二进制，运行期不再读 `resources/database/`；账本收敛为 `database_migration_history(version, migrated_at)`，旧 9 列表在事务内重建（校验搬迁行数后删旧表）
+- 迁移执行改为整批单事务 + `PRAGMA defer_foreign_keys`，已发布脚本改由编译期金标哈希测试冻结
+- 运行形态改由 `tauri::utils::platform::bundle_type()` 判定（debug → `Develop`，`None` → `Portable`，其余 → `Install`），`portable.mode` 退役
+- 构建元数据改由 `backend/gen/build/build_info.json` 承载，`build_info.rs` 不再生成
+- 更新器引入 `MIN_UPDATER_VERSION = 0.3.0`：读不出版本或低于下限一律 fail closed，本地过旧的更新器会被删除重下
+- `spawn_updater` 将 stdout / stderr 重定向到 `<log_file>.stderr.log`，stdin 置 null
+- `tauri.conf.json5` 的 `bundle.resources` 收窄为 `help/`、`README.md`、`LICENSE`、`CHANGELOG.md`、`RELEASE_NOTES.md`
+- `MarkdownView` 改用 `highlight.js/lib/core` 且仅注册 bash：前端 dist 1228.2 KB → 273.3 KB（-77.75%），gzip 405.9 KB → 101.0 KB
+- 页脚平台信息改为展示 `APP_INFO.target` 完整三元组
+- `scripts/` 重构为「根层入口 + `cli` 门面 + 域包」：`process.py` 成为唯一 `subprocess.run` 站点，`build.py` / `release.py` 收敛为两入口，`setup/` 按域拆分；新增 `just setup` / `just doctor`
+
+### Fixed
+
+- 修复日志构建失败时 panic：文件层 / 遥测层建不出来时降级为仅控制台输出
+- 修复 Ctrl+C 由内核直接结算（`0xC000013A`）导致清理钩子不执行的问题
+- 修复 `$props<T>()` 在 svelte-check 4.7.7+ 静默失效
+- 修复便携版打包仍携带已不再分发的 `database/` 目录
+- 修复 `tauri dev` 追加透传参数时多插空格
+- 修复 `.editorconfig` 中 Windows 脚本段的 glob 语法
+
+### Removed
+
+- 移除 `resources/database/migrations/V10__update-v1-description.sql`
+- 移除运行期迁移 checksum 校验，改由编译期金标哈希锁定
+- 移除 `portable.mode` 标记文件与 `develop/config.key`
+- 移除 `AppConfig` 全部单元测试并标注即将废弃
+
+---
 
 ## 0.8.2 {#0-8-2}
 

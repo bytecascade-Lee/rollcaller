@@ -1,5 +1,9 @@
 [
     {
+        "version": "0.8.3",
+        "severity": "normal"
+    },
+    {
         "version": "0.8.2",
         "severity": "normal"
     },
