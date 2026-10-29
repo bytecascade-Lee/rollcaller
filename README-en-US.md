@@ -49,7 +49,7 @@ A classroom roll call tool for teachers who need random questioning and attendan
 | Batch import       | Import a roster from Excel (`.xlsx` / `.xls`), choose the sheet, duplicates handled automatically         |
 | Attendance records | Every pick is persisted, grouped by round, with batch edits for status and remarks                        |
 | Data export        | Export students and records to Excel — all rows, the filtered set, or the selection                       |
-| Portable mode      | Unzip and run; data lives next to the executable, ready for a USB stick                                   |
+| Portable mode      | Unzip and run; data is stored alongside the executable, convenient for USB drives                         |
 | Auto update        | Check and install new versions in-app, no manual download and overwrite                                   |
 | Built-in help      | A help window with user guides, full-text search and anchor navigation                                    |
 
@@ -60,11 +60,11 @@ Get the [latest release](https://github.com/bytecascade-Lee/rollcaller/releases/
 | Edition   | File name                                          | Notes                                                           |
 |:----------|:---------------------------------------------------|:----------------------------------------------------------------|
 | Installer | `rollcaller-<version>-windows-<arch>-setup.exe`    | Standard installation, data stored in the system user directory |
-| Portable  | `rollcaller-<version>-windows-<arch>-portable.zip` | Unzip and run, data stays in the program directory              |
+| Portable  | `rollcaller-<version>-windows-<arch>-portable.zip` | Unzip and run, data stored in the program directory             |
 
-- Supports recent Windows 10 and Windows 11, for both x64 and ARM64
+- Supports Windows 10 and Windows 11 (64-bit), for both x64 and ARM64
 - Requires the WebView2 runtime: the installer offers to set it up during installation, while the portable build needs a [manual install](https://developer.microsoft.com/zh-cn/microsoft-edge/webview2/#download-section)
-- Every artifact ships with a `.sha256` checksum and a `.sig` signature
+- Every artifact is built with a `.sha256` checksum and a `.sig` signature, used by the in-app updater to verify integrity and origin
 - For users in mainland China, the source code and releases are also mirrored to [CNB](https://cnb.cool/ordinary-glory/rollcaller); actual released products are subject to GitHub Releases
 
 ## Tech stack
@@ -86,7 +86,7 @@ Get the [latest release](https://github.com/bytecascade-Lee/rollcaller/releases/
 | [git](https://git-scm.com/)      | 2.30    | Version control                |
 | [Rust](https://rustup.rs/)       | 1.80    | Backend and Tauri              |
 | [Node.js](https://nodejs.org/)   | 22      | Frontend build                 |
-| [pnpm](https://pnpm.io/)         | 11      | Frontend dependencies          |
+| [pnpm](https://pnpm.io/)         | 12      | Frontend dependencies          |
 | [uv](https://docs.astral.sh/uv/) | 0.5     | Python and script dependencies |
 | [just](https://just.systems/)    | 1.0     | Single task entry point        |
 
@@ -104,7 +104,7 @@ Without an SSH key configured, use `https://github.com/bytecascade-Lee/rollcalle
 
 `just setup` runs: toolchain check → normalize remotes (pull source `github`, push target depends on whether you have a fork) → write repository-level git config → fill in `backend/.cargo/config.toml` from its template (left untouched if present) → `pnpm install --frozen-lockfile` → `uv sync` → refresh the script import hook. It is idempotent, so it is safe to run again after rebuilding the virtual environment.
 
-The git config it writes (`--local`, never global) is documented in [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §1.1. In particular, `pull.ff=only` governs how pulls behave — do not change it back.
+The git config it writes (`--local`, never global) is documented in [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/docs/standards/Git.md) §1.1. In particular, `pull.ff=only` governs how pulls behave — do not change it back.
 
 ### Set up with the Python script
 
@@ -125,7 +125,7 @@ git clone git@github.com:bytecascade-Lee/rollcaller.git
 cd rollcaller
 
 # 1. Normalize remotes: the canonical repo is always named github
-#    Full rules for fork / CNB-mirror clones are in Git.md §1.1
+#    Full rules for fork / CNB-mirror clones are in docs/standards/Git.md §1.1
 git remote rename origin github
 
 # 2. Repository-level git config
@@ -175,7 +175,7 @@ Every entry point lives under `scripts/`; run it with `uv run`, no need to activ
 ### Build outputs
 
 - Local builds and releases: `release/Local/`
-- Official releases: a tag on `master` triggers CI to build, sign and publish — see [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §6
+- Official releases: a tag on `master` triggers CI to build, sign and publish — see [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/docs/standards/Git.md) §6
 
 ## Configuration
 
@@ -204,9 +204,9 @@ rollcaller/
 [Issues](https://github.com/bytecascade-Lee/rollcaller/issues) and pull requests are welcome.
 
 - The default branch is `develop`
-- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/); the `CHANGELOG.md` / `RELEASE_NOTES.md` conventions live in [docs/standards](https://github.com/bytecascade-Lee/rollcaller/tree/develop/docs/standards)
 - Make sure `just check <triple>` and `just test <triple>` both pass before opening a PR; CI repeats them on every merge into `develop` / `master` (Quality Gate)
-- Branch model and release flow: see [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md)
+- Branch model and release flow: see [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/docs/standards/Git.md)
 
 ## License
 
