@@ -90,7 +90,7 @@ Get the [latest release](https://github.com/bytecascade-Lee/rollcaller/releases/
 | [uv](https://docs.astral.sh/uv/) | 0.5     | Python and script dependencies |
 | [just](https://just.systems/)    | 1.0     | Single task entry point        |
 
-The Python interpreter is downloaded by `uv sync`, no separate installation needed. `just doctor` checks every row above, plus the repository-level git config and installed dependencies.
+The Python interpreter is downloaded by `uv sync`, no separate installation needed. `just doctor` checks every row above, plus the remote topology, the repository-level git config and installed dependencies.
 
 ### Set up with just
 
@@ -102,7 +102,7 @@ just setup
 
 Without an SSH key configured, use `https://github.com/bytecascade-Lee/rollcaller.git` instead.
 
-`just setup` runs: toolchain check → write repository-level git config → fill in `backend/.cargo/config.toml` from its template (left untouched if present) → `pnpm install --frozen-lockfile` → `uv sync` → refresh the script import hook. It is idempotent, so it is safe to run again after rebuilding the virtual environment.
+`just setup` runs: toolchain check → normalize remotes (pull source `github`, push target depends on whether you have a fork) → write repository-level git config → fill in `backend/.cargo/config.toml` from its template (left untouched if present) → `pnpm install --frozen-lockfile` → `uv sync` → refresh the script import hook. It is idempotent, so it is safe to run again after rebuilding the virtual environment.
 
 The git config it writes (`--local`, never global) is documented in [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §1.1. In particular, `pull.ff=only` governs how pulls behave — do not change it back.
 
@@ -124,22 +124,26 @@ Run the equivalent commands one by one, in the same order as `just setup`:
 git clone git@github.com:bytecascade-Lee/rollcaller.git
 cd rollcaller
 
-# 1. Repository-level git config
+# 1. Normalize remotes: the canonical repo is always named github
+#    Full rules for fork / CNB-mirror clones are in Git.md §1.1
+git remote rename origin github
+
+# 2. Repository-level git config
 git config --local pull.ff only           # pulls may only fast-forward
 git config --local merge.ff false         # merges must create a merge commit
 git config --local core.quotepath false   # keep CJK paths unescaped
 git config --local fetch.prune true       # prune deleted remote branches
 
-# 2. Local cargo config (ts-rs export dir and development database file name)
+# 3. Local cargo config (ts-rs export dir and development database file name)
 cp backend/.cargo/config.toml.example backend/.cargo/config.toml
 
-# 3. Python dependencies (creates .venv from uv.lock)
+# 4. Python dependencies (creates .venv from uv.lock)
 uv sync
 
-# 4. Script import hook
+# 5. Script import hook
 cp scripts/tool/sitecustomize.py .venv/sitecustomize.py
 
-# 5. Frontend dependencies
+# 6. Frontend dependencies
 cd frontend && pnpm install --frozen-lockfile && cd ..
 ```
 

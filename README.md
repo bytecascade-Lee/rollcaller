@@ -90,7 +90,7 @@
 | [uv](https://docs.astral.sh/uv/) | 0.5      | 管理 Python 与脚本依赖 |
 | [just](https://just.systems/)    | 1.0      | 统一任务入口           |
 
-Python 解释器由 `uv sync` 自动下载，无需单独安装。`just doctor` 会逐条核对上表，并检查仓库级 git 配置与依赖是否就位。
+Python 解释器由 `uv sync` 自动下载，无需单独安装。`just doctor` 会逐条核对上表，并检查远端拓扑、仓库级 git 配置与依赖是否就位。
 
 ### 使用 just 初始化
 
@@ -102,7 +102,7 @@ just setup
 
 未配置 SSH key 时，请使用 `https://github.com/bytecascade-Lee/rollcaller.git` 克隆仓库。
 
-`just setup` 依次完成：体检工具链 -> 设置仓库级 git 配置 -> 按模板补齐 `backend/.cargo/config.toml`（已存在则不动） -> `pnpm install --frozen-lockfile` -> `uv sync` -> 刷新脚本导入钩子。该命令是幂等的，重建虚拟环境后可以再跑一次。
+`just setup` 依次完成：体检工具链 -> 归一远端（拉取源 `github`，推送目标按是否 fork 判定） -> 设置仓库级 git 配置 -> 按模板补齐 `backend/.cargo/config.toml`（已存在则不动） -> `pnpm install --frozen-lockfile` -> `uv sync` -> 刷新脚本导入钩子。该命令是幂等的，重建虚拟环境后可以再跑一次。
 
 写入的 git 配置见 [Git.md](https://github.com/bytecascade-Lee/rollcaller/blob/develop/Git.md) §1.1，其中 `pull.ff=only` 决定拉取行为，请勿轻易修改。
 
@@ -124,22 +124,26 @@ uv run ./scripts/setup.py
 git clone git@github.com:bytecascade-Lee/rollcaller.git
 cd rollcaller
 
-# 1. 仓库级 git 配置
+# 1. 远端归一：规范仓库固定叫 github
+#    从 fork 或 CNB 镜像克隆时的完整规则见 Git.md §1.1
+git remote rename origin github
+
+# 2. 仓库级 git 配置
 git config --local pull.ff only           # 拉取只允许快进，需要合并时由人显式决定
 git config --local merge.ff false         # 合并必须产生合并提交
 git config --local core.quotepath false   # 中文路径不转义
 git config --local fetch.prune true       # 远程删除的分支顺带清理
 
-# 2. cargo 本地配置（ts-rs 导出目录与开发库文件名）
+# 3. cargo 本地配置（ts-rs 导出目录与开发库文件名）
 cp backend/.cargo/config.toml.example backend/.cargo/config.toml
 
-# 3. Python 依赖（创建 .venv 并按 uv.lock 安装）
+# 4. Python 依赖（创建 .venv 并按 uv.lock 安装）
 uv sync
 
-# 4. 脚本导入钩子
+# 5. 脚本导入钩子
 cp scripts/tool/sitecustomize.py .venv/sitecustomize.py
 
-# 5. 前端依赖
+# 6. 前端依赖
 cd frontend && pnpm install --frozen-lockfile && cd ..
 ```
 
