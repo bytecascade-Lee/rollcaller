@@ -1,7 +1,8 @@
 # 项目 Git 工作流规范
 
-> 本文档规定本仓库的分支模型、命名、合并与发布规则。所有参与者（含自动化）均应遵守。
-> 文档中的命令以本仓库实际配置为准： **远程名为 `github`**。新克隆默认叫 `origin`，`just setup` 会把它改名为 `github`（见 §1.1）。
+> 本文档规定本仓库的分支模型、命名、合并与发布规则，所有参与者（含自动化）均应遵守。
+> 文件位置：`docs/standards/Git.md`。
+> 文中命令以本仓库实际配置为准：**远程名为 `github`**；新克隆默认的 `origin` 由 `just setup` 改名为 `github`（见 §1.1）。
 
 ---
 
@@ -28,7 +29,7 @@ feat/…        临时分支，合并后立即删除
 
 ### 1.1 本地配置
 
-`just setup` 会将下面这些写进 **仓库级**配置，新机器克隆后跑一次即可：
+`just setup` 会将下面这些写进 **仓库级**配置，新机器克隆后执行一次即可：
 
 | 键               | 值      | 作用                                        |
 |:-----------------|:--------|:--------------------------------------------|
@@ -37,9 +38,9 @@ feat/…        临时分支，合并后立即删除
 | `core.quotepath` | `false` | 中文路径不转义成八进制串                    |
 | `fetch.prune`    | `true`  | 远程已删除的分支在 fetch 时一并清理本地引用 |
 
-`pull.ff=only` 是最容易被忽略的一条：`merge.ff=false` 会被 `git pull` 继承，导致「本地零提交、单纯落后远程」也会被造出一个 `Merge branch 'develop' of ...` 提交，而这个提交进了 `develop` 就再也清不掉。`pull.ff` 的优先级高于 `merge.ff`，因此只需补上这一条，拉取即恢复为纯快进。
+`pull.ff=only` 为必设项：`git pull` 会继承 `merge.ff=false`，使「本地无独有提交、仅落后远程」的情况也生成 `Merge branch 'develop' of ...` 合并提交；该提交一旦进入 `develop` 便无法移除（原则 1 禁止改写公共分支历史）。`pull.ff` 的优先级高于 `merge.ff`，设置此项后拉取恢复为纯快进。
 
-`just setup` 另外还会归一**远端拓扑**，并预建 `data/`、`release/Local/`、`release/CI-CD/` 这些被忽略的运行期目录——它们不在版本控制里，缺了要等到运行时才报错。`just doctor` 是同一套检查的只读版本，只报告不修改。
+`just setup` 另外会归一**远端拓扑**，并预建 `data/`、`release/Local/`、`release/CI-CD/` 等被忽略的运行期目录。这些目录不在版本控制内，缺失只会在运行时暴露。`just doctor` 是同一套检查的只读版本，仅报告，不修改。
 
 远端拓扑按「从哪儿克隆」自动判定，不需要声明自己是协作者还是外部贡献者：
 
@@ -51,11 +52,11 @@ feat/…        临时分支，合并后立即删除
 
 三条规则：
 
-- **拉取源恒为 `github`**。镜像要等 CI 同步（1~2 分钟），从镜像拉取会把工作建立在过时提交上，推送时才被拒，只能撤销重来。国内拉取慢时用 `git fetch cnb` 走镜像，但别把长期分支的上游改成它。
-- **镜像只读**。`cnb` 由 `sync-mirrors` 单向强制推送（`+refs/heads/*`），往镜像推的东西下一次同步就会被覆盖。
-- **推送目标按身份分配**。本地有 fork 远端就推 fork，否则推规范仓库。只有分叉工作流（拉取与推送不是同一个远端）才写 `remote.pushDefault`；单远端时不写，免得把临时分支 `git push -u` 记下的目标改写掉。
+- **拉取源恒为 `github`**。镜像需等待 CI 同步（1~2 分钟），从镜像拉取会使工作基于过时提交，推送时被拒绝，只能撤销重做。国内拉取较慢时可用 `git fetch cnb` 经镜像获取，但禁止将长期分支的上游设为 `cnb`。
+- **镜像只读**。`cnb` 由 `sync-mirrors` 单向强制推送（`+refs/heads/*`），推送到镜像的内容会在下一次同步时被覆盖。
+- **推送目标按身份分配**。本地存在 fork 远端时推送 fork，否则推送规范仓库。仅分叉工作流（拉取与推送不是同一远端）写入 `remote.pushDefault`；单远端不写，否则会覆盖临时分支 `git push -u` 记录的目标。
 
-刚新增 `github` 远端、还没 `git fetch github` 时，`git status` 会显示 `[gone]`（跟踪引用尚未建立），拉取一次即消失。
+新增 `github` 远端但尚未执行 `git fetch github` 时，`git status` 会显示 `[gone]`（跟踪引用尚未建立），执行一次拉取即恢复。
 
 图形客户端（RustRover）另有两点：
 
@@ -100,7 +101,7 @@ feat/…        临时分支，合并后立即删除
 | `develop`             | 日常集成线、默认分支 | 固定名，不可删除                                                          |
 | `hotfix/<tag>/<简述>` | 紧急修复             | `<tag>` 是**本次将要打的 tag**，如 `hotfix/v0.8.3/cnb-mirror-prune-error` |
 
-`hotfix` 把 tag 写进分支名，是为了让"这个分支要发哪个版本"一眼可见，也避免同时存在多个 hotfix 时混淆。
+`hotfix` 将 tag 写入分支名，使本次发布的版本号在分支名中直接可见，并区分同时存在的多个 hotfix。
 
 ### 3.2 临时分支
 
@@ -138,7 +139,7 @@ git pull --ff-only github develop
 git checkout -b feat/multi-sheet-import
 ```
 
-`--ff-only` 是安全阀：如果本地意外有独有提交，它会直接报错，而不是悄悄造一个合并提交。
+`--ff-only` 是安全阀：本地若存在独有提交，命令直接报错，不会生成合并提交。
 
 ### 4.2 开发与提交
 
@@ -151,7 +152,7 @@ git commit -m "feat(import): 支持选择任意工作表"
 
 ### 4.3 同步最新的 develop
 
-**未推送的分支**——直接变基，历史最干净：
+**未推送的分支**：直接变基，保持线性历史。
 
 ```bash
 git fetch github develop
@@ -185,7 +186,7 @@ git commit            # 完成合并提交
 git merge --abort
 ```
 
-解决冲突时 **不要删除对方的改动来"让冲突消失"**；如果确实要丢弃，在提交信息里写明原因。
+解决冲突时**禁止为消除冲突而删除对方的改动**；确需丢弃时，在提交信息中说明原因。
 
 ### 4.5 合并回 develop
 
@@ -215,8 +216,7 @@ git push github --delete feat/multi-sheet-import   # 若曾推送
 | 缺陷在 `develop` 与 `master` 上都存在      | 按 §5.2 先在 `develop` 修，再摘到 hotfix |
 | 缺陷只影响已发布代码（`develop` 已重构掉） | 直接在 hotfix 上修，再按 §5.5 摘回       |
 
-**只要缺陷在 `develop`
-上也存在，修复就先落在 `develop`**（唯一的例外见 §5.5）。`develop` 是内容源头，先修它就永远不需要「把 hotfix 合回 develop」；而那一步在两条历史已经分叉的前提下，必然把发布合并提交带进 `develop`（违反原则 4）。
+**缺陷只要在 `develop` 上同样存在，修复就先落在 `develop`**（唯一例外见 §5.5）。`develop` 是内容源头，先在此修复即可避免「把 hotfix 合回 develop」；后者在两条历史已分叉时必然把发布合并提交带进 `develop`（违反原则 4）。
 
 ### 5.2 在 develop 上修
 
@@ -240,7 +240,7 @@ git merge --no-ff fix/cnb-mirror-prune-error -m "Merge branch 'fix/cnb-mirror-pr
 git push github develop
 ```
 
-两个提交分开，是为了让「代码修复」与「发布准备」能被单独回退、也能按需只摘其中一个。
+两个提交分开，便于单独回退，或按需只摘取其中一个。
 
 这两步都不动版本号：版本文件恒为占位值，真实版本号在构建期由 `build.py -v` 临时写入并还原（见 §6.1）；tag 由 `just bump` 在 `master` 上生成（见 §5.4）。
 
@@ -257,10 +257,9 @@ git checkout -b hotfix/v0.8.3/cnb-mirror-prune-error
 git cherry-pick -x <fix-sha> <release-sha>
 ```
 
-⚠️ **不要写 `master..fix/xxx`
-这种范围**：`fix/xxx` 从 `develop` 拉出，`master..fix/xxx` 的差集包含 `develop` 上全部未发布提交，会一次性把它们都摘进 hotfix。必须显式列 SHA，或用「合并前的 `develop` 基点..`fix/xxx`」。
+⚠️ **禁止使用 `master..fix/xxx` 这类范围写法**：`fix/xxx` 从 `develop` 拉出，该差集包含 `develop` 上全部未发布提交，会一次性摘进 hotfix。必须显式列 SHA，或使用「合并前的 `develop` 基点..`fix/xxx`」。
 
-`-x` 会在提交信息末尾留下 `(cherry picked from commit …)`，这是两条线之间唯一的可追溯线索，不要省。
+`-x` 会在提交信息末尾留下 `(cherry picked from commit …)`，这是两条线之间唯一的可追溯线索，不得省略。
 
 ### 5.4 合 master 并发布
 
@@ -288,9 +287,9 @@ git checkout develop
 git cherry-pick -x <hotfix-fix-sha>
 ```
 
-这种情况下发布说明章节与 `versions.json` 的条目直接写在 hotfix 分支上， **不要摘回 `develop`**：它们描述的是 `master` 线的那个版本，`develop` 下次发布时会有自己的章节与条目。
+此场景下发布说明章节与 `versions.json` 条目直接写在 hotfix 分支上，**不摘回 `develop`**：它们描述的是 `master` 线的那个版本，`develop` 下次发布时另有自己的章节与条目。
 
-**任何情况下都不要 `git merge hotfix/...` 进 `develop`**：hotfix 从 `master` 拉出，它的祖先链里包含全部发布合并提交，合并它等于把整段 `master` 历史搬进 `develop`。这是图论事实，没有「只合分支本身」这种选项。
+**任何情况下禁止 `git merge hotfix/...` 进 `develop`**：hotfix 从 `master` 拉出，其祖先链包含全部发布合并提交，合并它等价于把整段 `master` 历史带入 `develop`；不存在「只合分支本身」的做法。
 
 ### 5.6 清理
 
@@ -312,7 +311,7 @@ git branch -d fix/cnb-mirror-prune-error
 - **tag 形如 `v0.8.2`**（带 `v` 前缀）
 - 构建元数据（`+build`）不进入 tag；`prepare` 会把它静默擦除
 
-**版本号不写在仓库里的文件**。`pyproject.toml`、`backend/Cargo.toml`、`backend/tauri.conf.json5`、`frontend/package.json` 恒为占位值 `0.1.0-dev`；构建时 `build.py -v <version>` 把四处版本号与 `backend/Cargo.lock`、`uv.lock` 一并改写/同步，构建结束用 git 还原（因此本地构建要求这些文件相对 HEAD 干净）。所以「提升版本号」这个动作并不存在，存在的只有「打 tag」。
+**版本号不写在仓库里的文件**。`pyproject.toml`、`backend/Cargo.toml`、`backend/tauri.conf.json5`、`frontend/package.json` 恒为占位值 `0.1.0-dev`；构建时 `build.py -v <version>` 把四处版本号与 `backend/Cargo.lock`、`uv.lock` 一并改写/同步，构建结束用 git 还原（因此本地构建要求这些文件相对 HEAD 干净）。因此本仓库不存在「提升版本号」这一动作，只存在「打 tag」。
 
 tag 统一由 `just bump` 产出，基准是仓库里最大的 `v*` tag：
 
@@ -336,7 +335,7 @@ tag 统一由 `just bump` 产出，基准是仓库里最大的 `v*` tag：
 - [ ] `resources/update/versions.json` 已登记本版本的 `severity`
 - [ ] `master` 上尚无同名 tag（`just bump` 会自己拦住）
 
-CI 的 `prepare` 阶段只解析 `RELEASE_NOTES.md`：章节必须 **存在、唯一、非空**，缺失会直接失败（省掉一次完整构建）；`--draft` 时跳过。`CHANGELOG.md` 与两份文档的顶部目录不参与校验，但漏了就是文档缺陷。
+CI 的 `prepare` 阶段只解析 `RELEASE_NOTES.md`，要求章节**存在、唯一、非空**，任一不满足即失败（`--draft` 时跳过该校验）。`CHANGELOG.md` 与两份文档的顶部目录不参与校验，但缺失属文档缺陷。章节写法与内容要求见 `docs/standards/CHANGELOG_STANDARD.md` 与 `docs/standards/RELEASE_NOTES_STANDARD.md`。
 
 `resources/update/versions.json` 是仓库维护的版本索引，CI 从里面读 `severity`；查不到会告警并按 `normal` 兜底，然后写进构建出的索引。
 
@@ -366,7 +365,7 @@ just bump patch          # 先 --dry-run 确认推算结果是 v0.8.2
 git push github v0.8.2
 ```
 
-**顺序不能换**：先推 `master` 再 `bump`（它要求 `HEAD` 与 `github/master` 一致）；先有提交再打 tag（tag 指向的是提交，打在未推送的提交上，CI 构建的代码没有任何分支引用）。版本号由 tag 决定，不需要也不会去改版本文件。
+**顺序不可交换**：先推 `master` 再执行 `bump`（后者要求 `HEAD` 与 `github/master` 一致）；先有提交再打 tag（tag 指向提交，打在未推送的提交上会使 CI 构建的代码没有任何分支引用）。版本号由 tag 决定，无需改动版本文件。
 
 ### 6.4 CI 会做什么
 
@@ -378,10 +377,9 @@ tag 推送后，`release.yaml` 依次执行：
 | `build`   | 按矩阵逐目标构建（当前为 x86_64 / aarch64 Windows）→ 打包 → 签名 + sha256 → 上传 `assets/rollcaller-*`  |
 | `release` | 鉴权 → 发现产物 → 写版本索引与双平台清单 → 在 GitHub/CNB 创建或复用 tag → 双平台发布                    |
 
-产物发现会检查「缺件、多余文件、命名不符」，任一不满足就失败；上传顺序固定为 产物 → 清单 → 版本索引，`.sig` / `.sha256` 只经 artifact 传递。 **不要用本地 `cargo tauri build` 的结果手工上传**——那会绕过签名与发布说明校验。
+产物发现会检查「缺件、多余文件、命名不符」，任一不满足即失败；上传顺序固定为 产物 → 清单 → 版本索引，`.sig` / `.sha256` 只经 artifact 传递。**禁止用本地 `cargo tauri build` 的产物手工上传**：该做法绕过签名与发布说明校验。
 
-`release` 阶段调用的 `ensure_tag` 对 **已存在**的同名 tag 只记录并沿用，
-**不核对它指向哪个提交**。tag 推送的路径下这是合理的（tag 由人推、检出内容就是它指向的提交）；但反过来，不能用「手动触发」去重发一个已有 tag 的版本号，否则新构建的产物会挂到旧 tag 上，版本号和代码对不上。
+`release` 阶段调用的 `ensure_tag` 对**已存在**的同名 tag 只记录并沿用，**不核对它指向哪个提交**。tag 推送的路径下这是合理的（tag 由人推、检出内容就是它指向的提交）；但反过来，不能用「手动触发」去重发一个已有 tag 的版本号，否则新构建的产物会挂到旧 tag 上，版本号和代码对不上。
 
 ### 6.5 构建失败怎么办
 
@@ -389,7 +387,7 @@ tag 推送后，`release.yaml` 依次执行：
 
 | 失败阶段                          | 已对外留下什么                                         |
 |:----------------------------------|:-------------------------------------------------------|
-| `prepare` 校验失败 / `build` 失败 | 只有一个裸 tag；Release、清单、版本索引都还没写入      |
+| `prepare` 校验失败 / `build` 失败 | 只有一个裸 tag（无 Release 的 tag）；Release、清单、版本索引均未写入 |
 | `release` 上传失败                | Release 与部分附件（上传顺序：产物 → 清单 → 版本索引） |
 | GitHub 成功、CNB 失败             | 两端不一致的完整发布                                   |
 
@@ -397,7 +395,7 @@ tag 推送后，`release.yaml` 依次执行：
 
 不移动 tag 的理由：
 
-- `git tag -f` + 强制推送只改服务器，已经 fetch 过旧 tag 的机器不会同步，同一个 tag 名会指向不同提交——这是最难排查的一类历史事故
+- `git tag -f` 加强制推送只改服务器，已 fetch 过旧 tag 的机器不会同步，导致同名 tag 在不同机器上指向不同提交
 - GitHub Release 绑定在 tag 上，附件、签名、清单都要重传，中途失败会留下半套产物
 - 更新器按语义化版本比较，同版本不同二进制会导致客户端永远不再拉取
 
@@ -406,8 +404,8 @@ tag 推送后，`release.yaml` 依次执行：
 1. 按 §五 在 `develop` 上修，把新章节写进两份文档
 2. `RELEASE_NOTES.md`： **删掉未发布的 0.8.2 章节**，内容并入 0.8.3，开头注明「本版本包含原计划在 0.8.2 发布的内容」
 3. `CHANGELOG.md`： **保留** 0.8.2 章节并标注「未发布（构建失败）」——它是内部史，不是对外索引
-4. 合入 `master` 后用 `just bump patch` 打下一个版本（`bump` 的基准是最大 tag，裸 tag `v0.8.2` 会让它算出 `v0.8.3`）
-5. 裸 tag `v0.8.2` 留在仓库里不用管：没有 Release、没有清单更新，任何客户端都不会看到它
+4. 合入 `master` 后用 `just bump patch` 打下一个版本（`bump` 以最大 tag 为基准，裸 tag `v0.8.2` 会使其算出 `v0.8.3`）
+5. 该裸 tag `v0.8.2` 保留在仓库中即可，无需处理：它没有 Release、没有清单更新，客户端不会看到它
 
 ### 6.6 手动触发（备用）
 
@@ -416,8 +414,7 @@ tag 推送后，`release.yaml` 依次执行：
 - `version`：语义化版本号（如 `0.8.3`），允许预发布段，携带的 `+build` 会被擦除
 - `draft`：草稿发布，跳过 `RELEASE_NOTES.md` 校验
 
-没有 `branch` 输入：跑的就是 ref 下拉框选中的那个提交， **CI
-不会校验它是不是 `master`**，手动触发前必须自己确认。发布末尾会调用 `ensure_tag`：同名 tag 不存在时在检出提交上创建，已存在则原样沿用（见 §6.4 末段），所以不要拿它重发已有 tag 的版本号。
+没有 `branch` 输入：运行的是 ref 下拉框中选中的提交，**CI 不校验它是否为 `master`**，手动触发前须自行确认。发布末尾会调用 `ensure_tag`：同名 tag 不存在时在检出提交上创建，已存在则原样沿用（见 §6.4 末段），因此不得用它重发已有 tag 的版本号。
 
 ### 6.7 合入即校验
 
@@ -472,7 +469,7 @@ fix(import): 切换工作表后重置列映射与冲突决策
 
 ### 8.1 合并方式
 
-仓库已关闭 Squash / Rebase，只剩 **Merge commit** 一个按钮。这是技术强制，不是建议：
+仓库已关闭 Squash / Rebase，仅保留 **Merge commit** 一种合并方式。该限制由平台配置强制，不是建议：
 
 | 方式                  | 结论        | 原因                                         |
 |:----------------------|:------------|:---------------------------------------------|
@@ -487,8 +484,8 @@ PR 标题遵循 §七 的提交信息格式；描述写清动机、影响面和�
 自动化开的 PR 同样受本规范约束，另有几条专属约定：
 
 - **base 恒为默认分支 `develop`**，无法通过 `target-branch` 改变（安全更新固定打默认分支）
-- ⚠️ **禁止 `gh pr edit --base`**。把 base 改成别的分支，会让 PR 被标记为"被 Dependabot 以外的人编辑过"，此后 Dependabot 拒绝再更新该 PR，且不会为同一依赖另开 PR
-- 合并方式同样是 **Merge**，不要为了"看起来干净"去 squash
+- ⚠️ **禁止 `gh pr edit --base`**。修改 base 会使 PR 被标记为「被 Dependabot 以外的人编辑过」，此后 Dependabot 拒绝更新该 PR，也不会为同一依赖另开 PR
+- 合并方式同样为 **Merge**，不得为追求「历史干净」而 squash
 - 关闭 Dependabot PR 后 **不会自动重建**；需要重新生成时，走 `Settings → Advanced Security → Dependabot security updates` 关掉再打开
 - `glib` / `lru` 在当前依赖约束下达不到修复版本，会长期留在告警列表里，等上游升级
 - `open-pull-requests-limit: 0` 表示 **关闭版本更新、保留安全更新**；安全更新 PR 不受该限制约束
@@ -530,7 +527,7 @@ PR 标题遵循 §七 的提交信息格式；描述写清动机、影响面和�
 
 ## 十一、不应提交的内容
 
-以下路径不纳入版本控制， **不要用 `git add -f` 强行纳入**：
+以下路径不纳入版本控制，**禁止用 `git add -f` 强制纳入**：
 
 | 路径                                       | 依据         | 原因                                     |
 |:-------------------------------------------|:-------------|:-----------------------------------------|
@@ -546,7 +543,7 @@ PR 标题遵循 §七 的提交信息格式；描述写清动机、影响面和�
 | `frontend/node_modules/`、`frontend/dist/` | `.gitignore` | 依赖与前端产物                           |
 | `backend/tauri.conf.json5.local`           | `.gitignore` | 本机专属覆盖                             |
 
-行尾策略由 `.gitattributes` 的 `* text=auto` 定义： **索引统一存 LF**，工作区按平台自动转换。新增文件不要手工混入 CRLF。
+行尾策略由 `.gitattributes` 首行 `* text=auto eol=lf` 定义：**索引与工作区统一为 LF**，不随平台或 `core.eol` 变化；例外仅为 `*.bat` / `*.cmd` / `*.ps1`（显式 `eol=crlf`）。新增文件不得混入 CRLF。
 
 ---
 
@@ -568,8 +565,8 @@ PR 标题遵循 §七 的提交信息格式；描述写清动机、影响面和�
 | 修复摘回 develop（例外）                        | `git cherry-pick -x <sha>`（**永不 merge hotfix 进 develop**）         |
 | 预览下一个版本号                                | `just bump patch --dry-run`（档位可换 major / minor / prerelease）     |
 | 打 tag                                          | `just bump patch`（在 `master` 上，只创建不推送）                      |
-| 本地发布                                        | `just build 0.8.2 x86_64-pc-windows-msvc`                              |
-| 本地模拟发布（驻留更新服务，需先 build 同版本） | `just release 0.8.2`                                                   |
+| 本地构建                                        | `just build 0.8.2 x86_64-pc-windows-msvc`                              |
+| 本地发布（驻留更新服务，需先构建同版本）        | `just release 0.8.2`                                                   |
 | 推 tag 触发发布                                 | `git push github v0.8.2`                                               |
 | 删除远程分支                                    | `git push github --delete <branch>`                                    |
 | 查看提交计数                                    | `git rev-list --count HEAD`                                            |
