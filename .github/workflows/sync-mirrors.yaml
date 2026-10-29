@@ -15,6 +15,7 @@ permissions:
 jobs:
     sync:
         name: Sync to CNB
+        if: github.repository == 'bytecascade-Lee/rollcaller'
         runs-on: ubuntu-latest
         steps:
             -   name: Check out repository
