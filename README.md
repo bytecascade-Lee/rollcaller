@@ -128,11 +128,12 @@ cd rollcaller
 #    从 fork 或 CNB 镜像克隆时的完整规则见 docs/standards/Git.md §1.1
 git remote rename origin github
 
-# 2. 仓库级 git 配置
-git config --local pull.ff only           # 拉取只允许快进，需要合并时由人显式决定
-git config --local merge.ff false         # 合并必须产生合并提交
-git config --local core.quotepath false   # 中文路径不转义
-git config --local fetch.prune true       # 远程删除的分支顺带清理
+# 2. 仓库级 git 配置（长期分支上的合并必须留记录）
+git config --local pull.ff only                        # 拉取只允许快进，需要合并时由人显式决定
+git config --local branch.develop.mergeOptions --no-ff # develop 上的合并必须产生合并提交
+git config --local branch.master.mergeOptions --no-ff  # master 上的合并必须产生合并提交
+git config --local core.quotepath false                # 中文路径不转义
+git config --local fetch.prune true                    # 远程删除的分支顺带清理
 
 # 3. cargo 本地配置（ts-rs 导出目录与开发库文件名）
 cp backend/.cargo/config.toml.example backend/.cargo/config.toml
