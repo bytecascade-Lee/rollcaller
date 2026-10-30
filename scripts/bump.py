@@ -7,6 +7,8 @@
 按档位推算下一个版本号，在 master 上打附注 tag。不动任何版本文件——
 版本号由 `scripts/build.py` 在构建期临时写入，构建结束即还原。
 
+打 tag 前会重跑代码生成与 ts-rs 导出，确认生成物都已提交；这一步需要本地能编译后端。
+
 档位：
 
 | 档位         | 0.8.2 稳定版        | 0.9.0-rc.2 预发布态  |
@@ -29,14 +31,23 @@
 import argparse
 import re
 import sys
+from collections.abc import Sequence
+from pathlib import Path
 
-from cli import git
-from codegen import CodegenError, generate_all
+from cli import cargo, git
+from codegen import (
+    CODEGEN_PATHS,
+    TS_RS_PATHS,
+    CodegenError,
+    GeneratedNotCommittedError,
+    ensure_committed,
+    generate_all,
+    ts_rs,
+)
 from common.constant.repo import REMOTE
 from common.entity.version import Version, VersionError
 from common.logger import error, info, success, warning
 from util.sigint import graceful_sigint
-from util.str_format import join_repr
 
 # 预发布档位，顺序即推进方向
 STAGES = ("alpha", "beta", "rc")
@@ -105,27 +116,26 @@ def _ensure_worktree_clean() -> None:
 
 
 def _ensure_generated_artifacts_current() -> None:
-    """跑一遍代码生成，确认生成物与 HEAD 一致
-
-    必须排在 `_ensure_worktree_clean` 之后：工作区干净时，跑完仍出现改动就只可能是
-    生成器产出与仓库里的不一致，而 CI 的 `git diff --exit-code` 会因此失败。
-    """
+    """重跑生成器与 ts-rs 导出，确认生成物与 HEAD 一致"""
     try:
         generate_all()
-    except CodegenError as error:
-        raise BumpError(f"代码生成失败，无法确认生成物与仓库一致: {error}") from error
+    except CodegenError as e:
+        raise BumpError(f"代码生成失败，无法确认生成物与仓库一致: {e}") from e
+    _ensure_unchanged(CODEGEN_PATHS, "代码生成的入口表")
 
-    changes = git.tracked_changes()
-    if not changes.strip():
-        return
+    try:
+        ts_rs.export()
+    except cargo.CargoError as e:
+        raise BumpError(f"触发 ts-rs 导出失败（cargo test --lib）: {e}") from e
+    _ensure_unchanged(TS_RS_PATHS, "ts-rs 导出的类型")
 
-    # porcelain 行形如 `XY PATH`；但 `git.stdout` 对整体输出做了 strip，首行若以空格开头
-    # （即「未暂存的修改」）会被吃掉一个前导空格，固定偏移取路径必然错位，故从第 3 列起 strip
-    paths = [line[2:].strip() for line in changes.splitlines() if line.strip()]
-    raise BumpError(
-        f"代码生成后 {len(paths)} 个文件发生变化: {join_repr(paths)}；"
-        f"先在 develop 上提交生成物再打 tag，否则 CI 的生成物校验会失败"
-    )
+
+def _ensure_unchanged(paths: Sequence[Path], label: str) -> None:
+    """生成物与 HEAD 不一致就停下，并把补救办法写进消息"""
+    try:
+        ensure_committed(paths, label=label)
+    except GeneratedNotCommittedError as error:
+        raise BumpError(f"{error}；先在 develop 上提交生成物，再合并到 master 打 tag") from error
 
 
 def _ensure_master_in_sync() -> None:
