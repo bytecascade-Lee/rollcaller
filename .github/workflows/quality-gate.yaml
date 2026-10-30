@@ -25,7 +25,7 @@ permissions:
 env:
     PYTHONIOENCODING: utf-8
     PYTHONPATH: ${{ github.workspace }}/scripts
-    NO_COLOR: 1
+    FORCE_COLOR: 1
     # [TODO]：只有 x64 能在 runner 上原生执行，arm64 交叉编译出来的测试二进制无法运行；
     # 所以这里先不上矩阵、目标写死；将来有了 arm64 runner 再改成按 support.entries(Action.TEST) 生成。
     TRIPLE: x86_64-pc-windows-msvc
