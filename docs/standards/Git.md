@@ -324,7 +324,7 @@ tag 统一由 `just bump` 产出，基准是仓库里最大的 `v*` tag：
 
 `--dry-run` 只打印将要打的 tag，不创建。`bump` **只创建 tag，不推送**——推送才会触发发布。
 
-前置条件，任一不满足即拒绝执行：在 `master` 上（detached HEAD 也算失败）、已跟踪文件无未提交改动、`HEAD` 等于 `github/master`、同名 tag 尚不存在。
+前置条件，任一不满足即拒绝执行：在 `master` 上（detached HEAD 也算失败）、已跟踪文件无未提交改动、`HEAD` 等于 `github/master`、同名 tag 尚不存在、重跑 codegen 与 ts-rs 导出后生成物仍与 `HEAD` 一致（因此要求本地能编译后端，且 `backend/.cargo/config.toml` 已由 `just setup` 生成）。
 
 ### 6.2 发布前检查清单
 
@@ -418,7 +418,7 @@ tag 推送后，`release.yaml` 依次执行：
 
 ### 6.7 合入即校验
 
-`develop` / `master` 收到 push 会跑 `.github/workflows/quality-gate.yaml`：前端类型检查 -> `test.py`（codegen + 后端 `cargo test` + 前端单测）-> 生成物是否已提交。
+`develop` / `master` 收到 push 会跑 `.github/workflows/quality-gate.yaml`：前端类型检查 -> `test.py`（codegen + 入口表校验 -> 后端 `cargo test` + 类型校验 -> 前端单测）。生成物校验只在 `test.py` 里做，workflow 不再单列一条 `git diff`：两处判定迟早各自漂移。
 
 - 纯文档改动（`**.md`、`docs/**`、`LICENSE`）不触发；同一分支来了新 push 会取消仍在跑的旧 run
 - 只做校验、不产出任何可发布产物，与 §6.1 的发布链路互不影响
