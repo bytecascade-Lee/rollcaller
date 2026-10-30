@@ -91,7 +91,11 @@ cd ./backend && cargo tauri build
 
 **SQL**: Complex queries use `#[py_sql("...")]` macro with `#{param}` binding and `trim`, `for` directives. Simple queries use auto-generated `crud!()` methods: `insert()`, `insert_batch()`, `select_by_map()`, `update_by_map()`.
 
-- **Timestamps**: `jiff::Timestamp`, serialized as millisecond `i64` via custom serde helpers in `util/serde_utils.rs`.
+- **Timestamps**: `jiff::Timestamp` in Rust, serialized by `util/serde_utils.rs` as **canonical ISO 8601** —
+  `YYYY-MM-DDTHH:MM:SS.sssZ` (UTC, always 3 fractional digits). The DB stores the same string (TEXT columns,
+  `strftime('%Y-%m-%dT%H:%M:%fZ', …)` in defaults/triggers); Excel export is the only local-offset exception.
+  Fixed width matters: lexicographic order = chronological order for `ORDER BY`, and the frontend compares
+  ISO strings directly instead of `localeCompare`. See `TIMESTAMP.md`.
 - **Random selection**: `rand::random_range(0..n)` (rand 0.10 API).
 - **Imports**: `merge_imports = true` in rustfmt config.
 - **Service fns take `rb: &RBatis`** as first param — cmd layer gets the pool and passes it in.
