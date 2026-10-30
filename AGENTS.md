@@ -95,7 +95,7 @@ cd ./backend && cargo tauri build
   `YYYY-MM-DDTHH:MM:SS.sssZ` (UTC, always 3 fractional digits). The DB stores the same string (TEXT columns,
   `strftime('%Y-%m-%dT%H:%M:%fZ', …)` in defaults/triggers); Excel export is the only local-offset exception.
   Fixed width matters: lexicographic order = chronological order for `ORDER BY`, and the frontend compares
-  ISO strings directly instead of `localeCompare`. See `docs/architect/时间格式统一-ISO8601串与V40迁移.md`.
+  ISO strings directly instead of `localeCompare`. See `docs/architect/时间格式统一-ISO8601与V40迁移.md`.
 - **Random selection**: `rand::random_range(0..n)` (rand 0.10 API).
 - **Imports**: `merge_imports = true` in rustfmt config.
 - **Service fns take `rb: &RBatis`** as first param — cmd layer gets the pool and passes it in.
