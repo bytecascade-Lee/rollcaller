@@ -81,7 +81,7 @@ jobs:
                 uses: Swatinem/rust-cache@v2
                 with:
                     workspaces: backend
-                    shared-key: cargo-registry
+                    shared-key: cargo-test
                     key: ${{ env.TRIPLE }}
 
             -   name: Materialize cargo config
