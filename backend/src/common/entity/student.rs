@@ -36,14 +36,14 @@ pub struct StudentTable {
     pub student_no: String,
     pub name: String,
 
-    #[serde(deserialize_with = "crate::util::serde_utils::deserialize_timestamp_from_millisecond_i64")]
-    #[serde(serialize_with = "crate::util::serde_utils::serialize_timestamp_to_millisecond_i64")]
-    #[ts(type = "number")]
+    #[serde(deserialize_with = "crate::util::serde_utils::deserialize_timestamp_from_iso_8601")]
+    #[serde(serialize_with = "crate::util::serde_utils::serialize_timestamp_to_iso_8601")]
+    #[ts(type = "string")]
     pub created_at: Timestamp,
 
-    #[serde(deserialize_with = "crate::util::serde_utils::deserialize_timestamp_from_millisecond_i64")]
-    #[serde(serialize_with = "crate::util::serde_utils::serialize_timestamp_to_millisecond_i64")]
-    #[ts(type = "number")]
+    #[serde(deserialize_with = "crate::util::serde_utils::deserialize_timestamp_from_iso_8601")]
+    #[serde(serialize_with = "crate::util::serde_utils::serialize_timestamp_to_iso_8601")]
+    #[ts(type = "string")]
     pub updated_at: Timestamp,
 
     #[serde(deserialize_with = "crate::util::serde_utils::deserialize_bool_from_i64")]
@@ -51,9 +51,9 @@ pub struct StudentTable {
     #[ts(type = "number")]
     pub is_deleted: bool,
 
-    #[serde(deserialize_with = "crate::util::serde_utils::deserialize_optional_timestamp_from_millisecond_i64")]
-    #[serde(serialize_with = "crate::util::serde_utils::serialize_optional_timestamp_to_millisecond_i64")]
-    #[ts(type = "number | null")]
+    #[serde(deserialize_with = "crate::util::serde_utils::deserialize_optional_timestamp_from_iso_8601")]
+    #[serde(serialize_with = "crate::util::serde_utils::serialize_optional_timestamp_to_iso_8601")]
+    #[ts(type = "string | null")]
     pub deleted_at: Option<Timestamp>,
 }
 
