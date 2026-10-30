@@ -176,7 +176,7 @@ class RollcallEngine {
         student_id: studentId,
         attendance_status: 2, // 出勤
         remark: null,
-        rollcall_at: Date.now(),
+        rollcall_at: new Date().toISOString(),
         session_id: this.#sessionId,
       };
       this.#savedRecord = await RecordCommand.create(record);
