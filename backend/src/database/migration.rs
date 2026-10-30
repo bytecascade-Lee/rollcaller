@@ -67,14 +67,16 @@ fn latest_version() -> i64 {
 }
 
 async fn apply_batch(rb: &RBatis, pending: &[&sql::SqlMigration]) -> Result<()> {
-    let mut tx = rb.try_acquire_begin().await.context("开启迁移事务失败")?;
+    let conn = rb.try_acquire().await.context("获取迁移连接失败")?;
+    conn.exec("PRAGMA foreign_keys = OFF", vec![])
+        .await
+        .context("关闭外键约束失败")?;
+    let mut tx = conn
+        .begin()
+        .await
+        .context("开启迁移事务失败，该连接的外键约束已关闭，进程随后退出")?;
 
     let outcome = async {
-        // 重建表类迁移的中间态会短暂违反外键，延迟到提交时统一校验
-        tx.exec("PRAGMA defer_foreign_keys = ON", vec![])
-            .await
-            .context("设置延迟外键校验失败")?;
-
         for migration in pending {
             let statements = sql::normalize(migration.sql);
             tx.exec(&statements, vec![])
@@ -82,6 +84,7 @@ async fn apply_batch(rb: &RBatis, pending: &[&sql::SqlMigration]) -> Result<()> 
                 .map_err(|e| anyhow!("V{}（{}）执行失败: {e}", migration.version, migration.name))?;
         }
 
+        // 外键强制已关闭，中间态与最终态依赖这一步（`foreign_key_check` 独立于 enforcement）
         let violations = migrate::foreign_key_violations(&mut tx).await.context("外键检查失败")?;
         if violations > 0 {
             return Err(anyhow!("迁移后存在 {violations} 条外键违例，整批回滚"));
@@ -100,6 +103,7 @@ async fn apply_batch(rb: &RBatis, pending: &[&sql::SqlMigration]) -> Result<()> 
     match outcome {
         Ok(()) => {
             tx.commit().await.context("提交迁移事务失败")?;
+            restore_foreign_keys(&tx).await;
             for migration in pending {
                 info!("✅ 迁移完成: V{} {}", migration.version, migration.name);
             }
@@ -109,8 +113,16 @@ async fn apply_batch(rb: &RBatis, pending: &[&sql::SqlMigration]) -> Result<()> 
             if let Err(rollback) = tx.rollback().await {
                 error!("回滚迁移事务失败: {rollback}");
             }
+            restore_foreign_keys(&tx).await;
             Err(e)
         }
+    }
+}
+
+/// 恢复本条连接的外键强制
+async fn restore_foreign_keys(tx: &rbatis::RBatisTxExecutor) {
+    if let Err(e) = tx.exec("PRAGMA foreign_keys = ON", vec![]).await {
+        error!("为连接 {} 恢复外键约束失败，具体错误为：{e}。该连接将失去外键保护！", tx.tx_id);
     }
 }
 
@@ -182,7 +194,7 @@ mod tests {
                 .into_iter()
                 .map(|row| row.version)
                 .collect();
-            assert_eq!(versions, vec![0, 20, 30]);
+            assert_eq!(versions, vec![0, 20, 30, 40]);
 
             // 再跑一次，全部跳过，不应重复执行 V30 的 +1
             run(&rb, &path).await.unwrap();
@@ -190,7 +202,7 @@ mod tests {
                 .exec_decode("SELECT COUNT(*) FROM database_migration_history", vec![])
                 .await
                 .unwrap();
-            assert_eq!(total, 3);
+            assert_eq!(total, 4);
 
             // 全新库首次迁移不该留下备份文件
             let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
@@ -200,6 +212,95 @@ mod tests {
                 .filter(|entry| entry.file_name().to_string_lossy().starts_with(&format!("{stem}-bak-")))
                 .count();
             assert_eq!(backups, 0, "全新库迁移不应产生快照");
+
+            drop(rb);
+            let _ = std::fs::remove_file(&path);
+        });
+    }
+
+    /// V40：时间列必须变成定长的 ISO 8601 UTC 串，且与原毫秒值等价
+    #[test]
+    fn v40_converts_timestamps_to_iso8601() {
+        tauri::async_runtime::block_on(async {
+            let path = temp_db();
+            let rb = RBatis::new();
+            rb.link(SqliteDriver {}, &format!("sqlite:{}", path.display())).await.unwrap();
+
+            // 手工建到 V30：执行前三条迁移并记账，让 V40 成为唯一待执行项
+            rb.exec(migrate::CREATE_HISTORY_SQL, vec![]).await.unwrap();
+            for migration in &sql::MIGRATIONS[..3] {
+                rb.exec(&sql::normalize(migration.sql), vec![]).await.unwrap();
+                rb.exec(
+                    &format!(
+                        "INSERT INTO database_migration_history (version, migrated_at) VALUES ({}, 1)",
+                        migration.version
+                    ),
+                    vec![],
+                )
+                    .await
+                    .unwrap();
+            }
+
+            // V30 之后：状态码已 +1，records 带两个外键
+            rb.exec(
+                "INSERT INTO students (student_no, name, created_at, updated_at) VALUES
+                     ('001', '张三', 1786421798789, 1786421786659);
+                 INSERT INTO students (student_no, name, created_at, updated_at, is_deleted, deleted_at) VALUES
+                     ('002', '李四', 1700000000000, 1700000000001, 1, 1700000000002);
+                 INSERT INTO records (student_id, attendance_status, rollcall_at, session_id) VALUES
+                     (1, 2, 1786421798789, 'sess-1');",
+                vec![],
+            )
+                .await
+                .unwrap();
+
+            run(&rb, &path).await.unwrap();
+
+            let created: String = rb
+                .exec_decode("SELECT created_at FROM students WHERE student_no = '001'", vec![])
+                .await
+                .unwrap();
+            assert_eq!(created, "2026-08-11T04:16:38.789Z");
+
+            let rollcall: String = rb
+                .exec_decode("SELECT rollcall_at FROM records WHERE session_id = 'sess-1'", vec![])
+                .await
+                .unwrap();
+            assert_eq!(rollcall, "2026-08-11T04:16:38.789Z");
+
+            // NULL 必须原样保留，不能被转成 "0" 或空串
+            let deleted: Option<String> = rb
+                .exec_decode("SELECT deleted_at FROM records WHERE session_id = 'sess-1'", vec![])
+                .await
+                .unwrap();
+            assert_eq!(deleted, None);
+
+            // 软删除时间也转过来了
+            let soft_deleted: String = rb
+                .exec_decode("SELECT deleted_at FROM students WHERE student_no = '002'", vec![])
+                .await
+                .unwrap();
+            assert_eq!(soft_deleted, "2023-11-14T22:13:20.002Z");
+
+            // 重建后的触发器继续产出规范串
+            rb.exec("UPDATE students SET name = '张三三' WHERE student_no = '001'", vec![])
+                .await
+                .unwrap();
+            let updated: String = rb
+                .exec_decode("SELECT updated_at FROM students WHERE student_no = '001'", vec![])
+                .await
+                .unwrap();
+            assert_eq!(updated.len(), 24, "触发器应产出定长 ISO 串，实得 {updated}");
+            assert!(updated.ends_with('Z'));
+
+            // 外键强制已恢复，且当前库无违例
+            let enabled: i64 = rb.exec_decode("PRAGMA foreign_keys", vec![]).await.unwrap();
+            assert_eq!(enabled, 1, "迁移后必须恢复外键强制");
+            let violations: i64 = rb
+                .exec_decode("SELECT COUNT(*) FROM pragma_foreign_key_check", vec![])
+                .await
+                .unwrap();
+            assert_eq!(violations, 0);
 
             drop(rb);
             let _ = std::fs::remove_file(&path);
@@ -221,8 +322,10 @@ mod tests {
             )
                 .await
                 .unwrap();
+            // 账本声称全部迁移已应用（含最新的 V40），但本库没建任何业务表：
+            // 因此待执行集合为空，只应发生账本收敛
             rb.exec(
-                "INSERT INTO migration_history (version, executed_at) VALUES (0, 1), (20, 2), (30, 3);",
+                "INSERT INTO migration_history (version, executed_at) VALUES (0, 1), (20, 2), (30, 3), (40, 4);",
                 vec![],
             )
                 .await
@@ -247,7 +350,7 @@ mod tests {
                 .exec_decode("SELECT COUNT(*) FROM database_migration_history", vec![])
                 .await
                 .unwrap();
-            assert_eq!(total, 3);
+            assert_eq!(total, 4);
 
             for backup in backups {
                 let _ = std::fs::remove_file(backup);
