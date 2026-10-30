@@ -13,14 +13,19 @@ import re
 import sys
 from pathlib import Path
 
-from common.constant.paths import FRONTEND_DIR, RESOURCES_DIR, PROJECT_BASE_DIR
+from common.constant.paths import (
+    FRONTEND_DIR,
+    FRONTEND_ROUTING_ENTRIES_PATH,
+    PROJECT_BASE_DIR,
+    RESOURCES_DIR,
+)
 from common.logger import error, success
 from util.sigint import graceful_sigint
 
 APP_META_PATH = FRONTEND_DIR / "src" / "lib" / "resources" / "app" / "meta.json"
 HELP_META_PATH = FRONTEND_DIR / "src" / "lib" / "resources" / "help" / "meta.json"
 HELP_DOC_ROOT = RESOURCES_DIR / "help"
-OUT_PATH = FRONTEND_DIR / "src" / "lib" / "routing" / "entries.generated.ts"
+OUT_PATH = FRONTEND_ROUTING_ENTRIES_PATH
 
 #: 两个域的 host
 APP_HOST = "app"
