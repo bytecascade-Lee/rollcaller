@@ -7,7 +7,7 @@ mod migrate;
 mod snapshot;
 mod sql;
 
-use crate::util::time_utils::current_timestamp_millis;
+use crate::util::time_utils::current_iso_8601;
 use anyhow::{anyhow, Context, Result};
 use rbatis::RBatis;
 use std::collections::BTreeSet;
@@ -21,15 +21,15 @@ pub async fn run(rb: &RBatis, db_path: &Path) -> Result<()> {
         .context("创建 app_meta 表失败")?;
 
     let state = ledger::inspect(rb).await?;
-    let rebuilding = matches!(state, ledger::State::Legacy { .. });
+
+    // 收敛要 DROP 表，快照不能省；`Missing` / `Ready` 不动已有数据，不备份
+    if state.needs_rebuild() {
+        snapshot::database(rb, db_path).await;
+    }
     match state {
         ledger::State::Missing => ledger::create(rb).await?,
         ledger::State::Ready => {}
-        ledger::State::Legacy { rows } => {
-            // 收敛要 DROP 旧表：先留一份可回退的快照
-            snapshot::database(rb, db_path).await;
-            ledger::rebuild(rb, rows).await?;
-        }
+        ledger::State::Rebuild { kind, rows } => ledger::rebuild(rb, kind, rows).await?,
     }
 
     let applied: BTreeSet<i64> = migrate::select_applied(rb)
@@ -50,7 +50,7 @@ pub async fn run(rb: &RBatis, db_path: &Path) -> Result<()> {
     }
 
     // 只有"已经在用的库"才需要备份；全新安装备份一个空库没有意义
-    if !rebuilding && !applied.is_empty() {
+    if !state.needs_rebuild() && !applied.is_empty() {
         snapshot::database(rb, db_path).await;
     }
 
@@ -90,9 +90,10 @@ async fn apply_batch(rb: &RBatis, pending: &[&sql::SqlMigration]) -> Result<()> 
             return Err(anyhow!("迁移后存在 {violations} 条外键违例，整批回滚"));
         }
 
-        let migrated_at = current_timestamp_millis();
+        // 账本时间戳与业务表同格式：规范 ISO 8601 串，不存毫秒整数
+        let migrated_at = current_iso_8601();
         for migration in pending {
-            migrate::insert_applied(&mut tx, migration.version, migrated_at)
+            migrate::insert_applied(&mut tx, migration.version, &migrated_at)
                 .await
                 .with_context(|| format!("记录 V{} 到迁移账本失败", migration.version))?;
         }
@@ -129,6 +130,7 @@ async fn restore_foreign_keys(tx: &rbatis::RBatisTxExecutor) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::util::time_utils::current_timestamp_millis;
     use rbdc_sqlite::SqliteDriver;
     use std::path::PathBuf;
 
@@ -205,13 +207,7 @@ mod tests {
             assert_eq!(total, 4);
 
             // 全新库首次迁移不该留下备份文件
-            let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
-            let backups = std::fs::read_dir(std::env::temp_dir())
-                .unwrap()
-                .flatten()
-                .filter(|entry| entry.file_name().to_string_lossy().starts_with(&format!("{stem}-bak-")))
-                .count();
-            assert_eq!(backups, 0, "全新库迁移不应产生快照");
+            assert_eq!(backup_count(&path), 0, "全新库迁移不应产生快照");
 
             drop(rb);
             let _ = std::fs::remove_file(&path);
@@ -232,7 +228,8 @@ mod tests {
                 rb.exec(&sql::normalize(migration.sql), vec![]).await.unwrap();
                 rb.exec(
                     &format!(
-                        "INSERT INTO database_migration_history (version, migrated_at) VALUES ({}, 1)",
+                        "INSERT INTO database_migration_history (version, migrated_at) \
+                         VALUES ({}, '2026-01-01T00:00:00.000Z')",
                         migration.version
                     ),
                     vec![],
@@ -307,6 +304,27 @@ mod tests {
         });
     }
 
+    fn backup_count(path: &Path) -> usize {
+        let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
+        std::fs::read_dir(std::env::temp_dir())
+            .unwrap()
+            .flatten()
+            .filter(|entry| entry.file_name().to_string_lossy().starts_with(&format!("{stem}-bak-")))
+            .count()
+    }
+
+    fn cleanup(path: &Path) {
+        let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
+        if let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) {
+            for entry in entries.flatten() {
+                if entry.file_name().to_string_lossy().starts_with(&stem) {
+                    let _ = std::fs::remove_file(entry.path());
+                }
+            }
+        }
+        let _ = std::fs::remove_file(path);
+    }
+
     /// 旧账本收敛 + 无待执行迁移：只应留下一份快照，不重复备份
     #[test]
     fn legacy_rebuild_takes_exactly_one_snapshot() {
@@ -320,31 +338,20 @@ mod tests {
                  );",
                 vec![],
             )
-                .await
-                .unwrap();
+            .await
+            .unwrap();
             // 账本声称全部迁移已应用（含最新的 V40），但本库没建任何业务表：
             // 因此待执行集合为空，只应发生账本收敛
             rb.exec(
                 "INSERT INTO migration_history (version, executed_at) VALUES (0, 1), (20, 2), (30, 3), (40, 4);",
                 vec![],
             )
-                .await
-                .unwrap();
+            .await
+            .unwrap();
 
             run(&rb, &path).await.unwrap();
 
-            let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
-            let backups: Vec<PathBuf> = std::fs::read_dir(std::env::temp_dir())
-                .unwrap()
-                .flatten()
-                .map(|entry| entry.path())
-                .filter(|file| {
-                    file.file_name()
-                        .map(|name| name.to_string_lossy().starts_with(&format!("{stem}-bak-")))
-                        .unwrap_or(false)
-                })
-                .collect();
-            assert_eq!(backups.len(), 1, "旧账本收敛只该打一份快照: {backups:?}");
+            assert_eq!(backup_count(&path), 1, "旧账本收敛只该打一份快照");
 
             let total: i64 = rb
                 .exec_decode("SELECT COUNT(*) FROM database_migration_history", vec![])
@@ -352,11 +359,89 @@ mod tests {
                 .unwrap();
             assert_eq!(total, 4);
 
-            for backup in backups {
-                let _ = std::fs::remove_file(backup);
-            }
             drop(rb);
-            let _ = std::fs::remove_file(&path);
+            cleanup(&path);
+        });
+    }
+
+    /// 最真实的一条升级路径：V30 的库（账本还是 INTEGER 毫秒）+ 待执行 V40
+    ///
+    /// 同一次启动里先改写账本、再跑 V40，两者都成功且只打一份快照；
+    /// 第二次启动必须什么都不做。
+    #[test]
+    fn upgrade_from_v30_rewrites_ledger_then_applies_v40() {
+        tauri::async_runtime::block_on(async {
+            let path = temp_db();
+            let rb = RBatis::new();
+            rb.link(SqliteDriver {}, &format!("sqlite:{}", path.display())).await.unwrap();
+
+            // 旧形状账本：`migrated_at` 声明为 INTEGER，值是毫秒
+            rb.exec(
+                "CREATE TABLE database_migration_history (
+                     version INTEGER PRIMARY KEY, migrated_at INTEGER NOT NULL
+                 );",
+                vec![],
+            )
+                .await
+                .unwrap();
+            for migration in &sql::MIGRATIONS[..3] {
+                rb.exec(&sql::normalize(migration.sql), vec![]).await.unwrap();
+            }
+            rb.exec(
+                "INSERT INTO database_migration_history (version, migrated_at)
+                 VALUES (0, 1786421798789), (20, 1786421786659), (30, 1786421000000);
+                 INSERT INTO students (student_no, name, created_at, updated_at)
+                 VALUES ('001', '张三', 1786421798789, 1786421786659);
+                 INSERT INTO records (student_id, attendance_status, rollcall_at, session_id)
+                 VALUES (1, 2, 1786421798789, 'sess-1');",
+                vec![],
+            )
+                .await
+                .unwrap();
+
+            run(&rb, &path).await.unwrap();
+
+            // 账本：列类型 TEXT、值 ISO、旧版本一个不少，V40 也记上了
+            let column_type =
+                migrate::column_type(&rb, migrate::HISTORY_TABLE, "migrated_at").await.unwrap();
+            assert!(column_type.eq_ignore_ascii_case("TEXT"), "账本列应改为 TEXT: {column_type}");
+            let versions: Vec<i64> = migrate::select_applied(&rb)
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|row| row.version)
+                .collect();
+            assert_eq!(versions, vec![0, 20, 30, 40]);
+            let stamp: String = rb
+                .exec_decode(
+                    "SELECT migrated_at FROM database_migration_history WHERE version = 0",
+                    vec![],
+                )
+                .await
+                .unwrap();
+            assert_eq!(stamp, "2026-08-11T04:16:38.789Z", "旧毫秒值必须等值换算");
+
+            // 业务表：V40 已生效
+            let created: String = rb
+                .exec_decode("SELECT created_at FROM students WHERE student_no = '001'", vec![])
+                .await
+                .unwrap();
+            assert_eq!(created, "2026-08-11T04:16:38.789Z");
+            let rollcall: String = rb
+                .exec_decode("SELECT rollcall_at FROM records WHERE session_id = 'sess-1'", vec![])
+                .await
+                .unwrap();
+            assert_eq!(rollcall, "2026-08-11T04:16:38.789Z");
+
+            // 账本改写与 V40 在同一次启动里完成，只该打一份快照
+            assert_eq!(backup_count(&path), 1, "一次升级只该打一份快照");
+
+            // 再启动：无待执行迁移、账本已就绪，不应再备份
+            run(&rb, &path).await.unwrap();
+            assert_eq!(backup_count(&path), 1, "重复启动不应产生新快照");
+
+            drop(rb);
+            cleanup(&path);
         });
     }
 }
