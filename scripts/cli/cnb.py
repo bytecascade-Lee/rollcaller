@@ -19,8 +19,10 @@ from common.logger import info, warning
 
 DEFAULT_TIMEOUT = 120
 UPLOAD_TIMEOUT = 1800
-# get-tag 对不存在的 tag 返回 2004002
-NOT_FOUND_ERROR_CODES = frozenset({2004002})
+# 各接口表示「不存在」的 errcode 并不统一：
+#   git get-tag                 -> 2004002
+#   releases get-release-by-tag -> 404
+NOT_FOUND_ERROR_CODES = frozenset({2004002, 404})
 _URL_RE = re.compile(r"https?://\S+")
 _JSON_OBJECT_RE = re.compile(r"\{.*}", re.S)
 
@@ -112,9 +114,12 @@ def call(args: list[str]) -> Any:
 
     data = body.get("data") if isinstance(body, dict) else None
     if isinstance(data, dict) and "errcode" in data:
+        # errcode 必须进消息，这是 not-found 判定的唯一依据，只留 errmsg 会让排障无从下手
+        raw_errcode = data["errcode"]
+        errmsg = _redact(str(data.get("errmsg") or "")).strip()
         raise CnbApiError(
-            f"cnb {' '.join(args)} 失败: {_redact(str(data.get('errmsg', data['errcode'])))}",
-            errcode=data.get("errcode"),
+            f"cnb {' '.join(args)} 失败（errcode={raw_errcode}）" + (f": {errmsg}" if errmsg else ""),
+            errcode=raw_errcode if isinstance(raw_errcode, int) else None,
         )
     return data if data is not None else body
 
@@ -123,9 +128,9 @@ def tag_exists(repo: str, tag: str) -> bool:
     """
     探测仓库中是否已有该标签。
 
-    探测场景下把一切失败都视为「不存在」：如标签确实不存在（API errcode），
-    以及 cnb 不可用、网络异常等——后者交给创建标签的报错路径给出诊断，避免在轮询中
-    因一次抖动直接中断发布。
+    只有 errcode 命中 `NOT_FOUND_ERROR_CODES` 才判为「不存在」；鉴权失败、cnb 不可用
+    等仍照常抛出——把它们一并当成「不存在」会让轮询静默超时，最后报出的错误与真实
+    原因无关。
 
     Args:
         repo: "owner/repo"
