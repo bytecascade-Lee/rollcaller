@@ -211,6 +211,12 @@ def diff_names(paths: Iterable[str | Path], *, against: str = "HEAD", cwd: Path 
     return [line for line in _text(result).splitlines() if line.strip()]
 
 
+def untracked_names(paths: Iterable[str | Path], *, cwd: Path | None = None) -> list[str]:
+    """未纳入版本控制的文件清单，空列表表示没有"""
+    output = stdout(["ls-files", "--others", "--exclude-standard", "--", *_paths(paths)], cwd=cwd)
+    return [line for line in output.splitlines() if line.strip()]
+
+
 def checkout_paths(paths: Iterable[str | Path], *, cwd: Path | None = None) -> None:
     """丢弃工作区给定路径的改动"""
     stdout(["checkout", "--", *_paths(paths)], cwd=cwd)
