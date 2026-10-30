@@ -17,8 +17,8 @@ pub struct UpdateManifest {
 
     #[serde(default)]
     #[serde(deserialize_with = "crate::util::serde_utils::deserialize_optional_timestamp_from_iso_8601")]
-    #[serde(serialize_with = "crate::util::serde_utils::serialize_optional_timestamp_to_millisecond_i64")]
-    #[ts(type = "number")]
+    #[serde(serialize_with = "crate::util::serde_utils::serialize_optional_timestamp_to_iso_8601")]
+    #[ts(type = "string | null")]
     pub publish_date: Option<jiff::Timestamp>,
 
     #[serde(default)]

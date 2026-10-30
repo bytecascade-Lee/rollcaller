@@ -1,7 +1,6 @@
 use crate::common::entity::student::Student;
 use crate::repo::record_repo;
 use anyhow::{anyhow, Context};
-use jiff::__jcore::bounds::const_check::i8;
 use jiff::tz::TimeZone;
 use rbatis::RBatis;
 use rbs::value;
@@ -76,7 +75,7 @@ pub async fn export_records(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow::
         worksheet.write_with_format(row, 2, &record.name, &content_format)?;
         worksheet.write_with_format(row, 3, get_status_from_code(record.attendance_status), &content_format)?;
         worksheet.write_with_format(row, 4, record.remark.clone().unwrap_or_default(), &content_format)?;
-        worksheet.write_with_format(row, 5, &record.rollcall_at.to_zoned(TimeZone::system()).to_string(), &content_format)?;
+        worksheet.write_with_format(row, 5, &record.rollcall_at.to_zoned(TimeZone::system()).strftime("%Y-%m-%dT%H:%M:%S%.3f%:z").to_string(), &content_format)?;
     }
 
     worksheet.set_column_width(0, 4)?;

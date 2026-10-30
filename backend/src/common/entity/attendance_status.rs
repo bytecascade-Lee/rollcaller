@@ -20,9 +20,9 @@ pub struct AttendanceStatus {
     #[ts(type = "number")]
     pub is_deleted: bool,
 
-    #[serde(deserialize_with = "crate::util::serde_utils::deserialize_optional_timestamp_from_millisecond_i64")]
-    #[serde(serialize_with = "crate::util::serde_utils::serialize_optional_timestamp_to_millisecond_i64")]
-    #[ts(type = "number | null")]
+    #[serde(deserialize_with = "crate::util::serde_utils::deserialize_optional_timestamp_from_iso_8601")]
+    #[serde(serialize_with = "crate::util::serde_utils::serialize_optional_timestamp_to_iso_8601")]
+    #[ts(type = "string | null")]
     pub deleted_at: Option<jiff::Timestamp>,
 }
 

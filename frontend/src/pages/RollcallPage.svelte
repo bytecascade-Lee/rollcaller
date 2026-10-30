@@ -24,7 +24,10 @@
       const valA = a[key];
       const valB = b[key];
       let cmp: number;
-      if (typeof valA === "string" && typeof valB === "string") {
+      if (key === "rollcall_at") {
+        const x = String(valA), y = String(valB);
+        cmp = x < y ? -1 : x > y ? 1 : 0;
+      } else if (typeof valA === "string" && typeof valB === "string") {
         cmp = valA.localeCompare(valB, "zh-Hans-CN");
       } else if (typeof valA === "number" && typeof valB === "number") {
         cmp = valA - valB;

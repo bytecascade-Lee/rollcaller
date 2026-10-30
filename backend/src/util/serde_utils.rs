@@ -1,66 +1,31 @@
+use crate::util::time_utils::ISO8601;
 use jiff::Timestamp;
-use serde::{Deserialize, Deserializer, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::str::FromStr;
 
-/// 用于将 `i64` 类型的Unix毫秒时间戳反序列化为 `jiff::Timestamp`
-pub fn deserialize_timestamp_from_millisecond_i64<'de, D>(
-    deserializer: D
-) -> Result<Timestamp, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Timestamp::from_millisecond(i64::deserialize(deserializer)?)
-        .map_err(|e| serde::de::Error::custom(e.to_string()))
-}
+/// 序列化适配器：让 `collect_str` 直接走 [`ISO8601`]，不先落成 `String`
+struct ISOStr<'a>(&'a Timestamp);
 
-/// 用于将 `jiff::Timestamp` 序列化为 `i64` 类型的Unix毫秒时间戳
-pub fn serialize_timestamp_to_millisecond_i64<S>(
-    timestamp: &Timestamp,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_i64(timestamp.as_millisecond())
-}
-
-/// 用于将 `Opting<i64>` 类型的Unix毫秒时间戳反序列化为 `Option<jiff::Timestamp>`
-pub fn deserialize_optional_timestamp_from_millisecond_i64<'de, D>(
-    deserializer: D,
-) -> Result<Option<Timestamp>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    match Option::deserialize(deserializer)? {
-        Some(millis) => {
-            Timestamp::from_millisecond(millis)
-                .map(Some)
-                .map_err(|e| serde::de::Error::custom(e.to_string()))
-        }
-        None => Ok(None),
+impl Serialize for ISOStr<'_> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_str(&ISO8601(self.0))
     }
 }
 
-/// 用于将 `Option<jiff::Timestamp>` 序列化为 `Opting<i64>` 类型的Unix毫秒时间戳反
-pub fn serialize_optional_timestamp_to_millisecond_i64<S>(
-    opt_timestamp: &Option<Timestamp>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
+/// 用于将 `jiff::Timestamp` 序列化为规范 ISO 8601 时间字符串
+pub fn serialize_timestamp_to_iso_8601<S>(timestamp: &Timestamp, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    match opt_timestamp {
-        Some(timestamp) => {
-            serializer.serialize_some(&timestamp.as_millisecond())
-        }
-        None => serializer.serialize_none(),
-    }
+    serializer.collect_str(&ISO8601(timestamp))
 }
 
 /// 用于将 ISO 8601 字符串反序列化为 `jiff::Timestamp`
 ///
-/// 与 `deserialize_optional_timestamp_from_iso_8601` 的区别：字段必填，
-/// 因此非法日期直接报错而不是静默降级为 None（构建元数据文件由本仓库生成，错了就该暴露）。
+/// 接受任意 RFC 3339 / ISO 8601，统一归一化为 UTC
 pub fn deserialize_timestamp_from_iso_8601<'de, D>(deserializer: D) -> Result<Timestamp, D::Error>
 where
     D: Deserializer<'de>,
@@ -69,9 +34,22 @@ where
     Timestamp::from_str(&iso8601).map_err(|e| serde::de::Error::custom(e.to_string()))
 }
 
-pub fn deserialize_optional_timestamp_from_iso_8601<'de, D>(
-    deserializer: D,
-) -> Result<Option<Timestamp>, D::Error>
+/// 用于将 `Option<jiff::Timestamp>` 序列化为规范 ISO 8601 串或 `null`
+pub fn serialize_optional_timestamp_to_iso_8601<S>(
+    opt_timestamp: &Option<Timestamp>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match opt_timestamp {
+        Some(timestamp) => serializer.serialize_some(&ISOStr(timestamp)),
+        None => serializer.serialize_none(),
+    }
+}
+
+/// 用于将可选的 ISO 8601 字符串反序列化为 `Option<jiff::Timestamp>`
+pub fn deserialize_optional_timestamp_from_iso_8601<'de, D>(deserializer: D) -> Result<Option<Timestamp>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -81,19 +59,6 @@ where
     match opt {
         Some(iso8601) => Ok(Timestamp::from_str(&iso8601).ok()),
         None => Ok(None),
-    }
-}
-
-pub fn serialize_optional_timestamp_to_iso_8601<S>(
-    opt_timestamp: &Option<Timestamp>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: Serializer
-{
-    match opt_timestamp {
-        Some(timestamp) => serializer.serialize_some(&timestamp.to_string()),
-        None => serializer.serialize_none(),
     }
 }
 
@@ -125,18 +90,17 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use jiff::Timestamp;
     use serde::{Deserialize, Serialize};
 
     /// 测试用的结构体，应用序列化函数
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
     struct TestStruct {
-        #[serde(deserialize_with = "deserialize_timestamp_from_millisecond_i64")]
-        #[serde(serialize_with = "serialize_timestamp_to_millisecond_i64")]
+        #[serde(deserialize_with = "deserialize_timestamp_from_iso_8601")]
+        #[serde(serialize_with = "serialize_timestamp_to_iso_8601")]
         pub ts: Timestamp,
 
-        #[serde(deserialize_with = "deserialize_optional_timestamp_from_millisecond_i64")]
-        #[serde(serialize_with = "serialize_optional_timestamp_to_millisecond_i64")]
+        #[serde(deserialize_with = "deserialize_optional_timestamp_from_iso_8601")]
+        #[serde(serialize_with = "serialize_optional_timestamp_to_iso_8601")]
         pub opt_ts: Option<Timestamp>,
 
         #[serde(deserialize_with = "deserialize_bool_from_i64")]
@@ -156,8 +120,8 @@ mod tests {
         let json = serde_json::to_value(&original).unwrap();
 
         let expected = serde_json::json!({
-            "ts": 1_700_000_000_000_i64,
-            "opt_ts": 1_700_000_000_001_i64,
+            "ts": "2023-11-14T22:13:20.000Z",
+            "opt_ts": "2023-11-14T22:13:20.001Z",
             "flag": 1,
         });
         assert_eq!(json, expected);
@@ -177,7 +141,7 @@ mod tests {
 
         let json = serde_json::to_value(&original).unwrap();
         let expected = serde_json::json!({
-            "ts": 1_700_000_000_000_i64,
+            "ts": "2023-11-14T22:13:20.000Z",
             "opt_ts": null,
             "flag": 0,
         });
@@ -187,10 +151,26 @@ mod tests {
         assert_eq!(deserialized, original);
     }
 
+    /// 读取必须宽容：无小数、任意小数位、带偏移都要能进
+    #[test]
+    fn test_deserialize_is_lenient() {
+        let cases = [
+            ("2023-11-14T22:13:20Z", "2023-11-14T22:13:20.000Z"),
+            ("2023-11-14T22:13:20.1Z", "2023-11-14T22:13:20.100Z"),
+            ("2023-11-14T22:13:20.123456Z", "2023-11-14T22:13:20.123Z"),
+            ("2023-11-15T06:13:20+08:00", "2023-11-14T22:13:20.000Z"),
+        ];
+        for (input, expected) in cases {
+            let json = serde_json::json!({ "ts": input, "opt_ts": null, "flag": 1 });
+            let parsed: TestStruct = serde_json::from_value(json).unwrap();
+            assert_eq!(ISO8601(&parsed.ts).to_string(), expected, "输入 {input}");
+        }
+    }
+
     #[test]
     fn test_deserialize_invalid_bool() {
         let json = serde_json::json!({
-            "ts": 1_700_000_000_000_i64,
+            "ts": "2023-11-14T22:13:20.000Z",
             "opt_ts": null,
             "flag": 42,  // 非法值
         });
@@ -203,14 +183,32 @@ mod tests {
 
     #[test]
     fn test_deserialize_invalid_timestamp() {
-        // 测试反序列化非法时间戳（超出范围）
+        // 必填字段非法即报错（不静默降级）
         let json = serde_json::json!({
-            "ts": i64::MAX,  // 超出 jiff 支持范围
+            "ts": "not-a-date",
             "opt_ts": null,
             "flag": 1,
         });
+        assert!(serde_json::from_value::<TestStruct>(json).is_err());
 
-        let result: Result<TestStruct, _> = serde_json::from_value(json);
-        assert!(result.is_err());
+        // 可选字段非法按 None 处理（外部清单容错）
+        let json = serde_json::json!({
+            "ts": "2023-11-14T22:13:20.000Z",
+            "opt_ts": "not-a-date",
+            "flag": 1,
+        });
+        let parsed: TestStruct = serde_json::from_value(json).unwrap();
+        assert_eq!(parsed.opt_ts, None);
+    }
+
+    /// 旧格式（毫秒整数）不再被接受 —— 这是破坏性变更，故意让它在类型层暴露
+    #[test]
+    fn test_millisecond_integer_is_rejected() {
+        let json = serde_json::json!({
+            "ts": 1_700_000_000_000_i64,
+            "opt_ts": null,
+            "flag": 1,
+        });
+        assert!(serde_json::from_value::<TestStruct>(json).is_err());
     }
 }

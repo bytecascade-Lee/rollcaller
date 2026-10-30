@@ -120,10 +120,9 @@ fn print_json<T: Serialize>(value: &T) -> Result<(), String> {
 }
 
 /// 构建信息的人类可读视图
-///
-/// 键名与 `--json` 的键一一对应（`BuildInfo` 是 `#[serde(flatten)]`，JSON 也是平的）；
-/// 时间在这里给 ISO 8601，JSON 里仍是毫秒整数（IPC 形状不能动）。
 fn build_info_rows() -> Vec<(&'static str, String)> {
+    use crate::util::time_utils::ISO8601;
+
     let info = app_info::app_info();
     let build = &info.build_info;
     vec![
@@ -135,8 +134,8 @@ fn build_info_rows() -> Vec<(&'static str, String)> {
         ("commit_count", build.commit_count.to_string()),
         ("commit_hash", build.commit_hash.clone()),
         ("abbreviated_hash", build.abbreviated_hash.clone()),
-        ("commit_time", build.commit_time.to_string()),
-        ("build_time", build.build_time.to_string()),
+        ("commit_time", ISO8601(&build.commit_time).to_string()),
+        ("build_time", ISO8601(&build.build_time).to_string()),
     ]
 }
 

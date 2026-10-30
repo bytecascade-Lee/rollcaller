@@ -12,13 +12,13 @@ pub struct BuildInfo {
     pub abbreviated_hash: String,
 
     #[serde(deserialize_with = "crate::util::serde_utils::deserialize_timestamp_from_iso_8601")]
-    #[serde(serialize_with = "crate::util::serde_utils::serialize_timestamp_to_millisecond_i64")]
-    #[ts(type = "number")]
+    #[serde(serialize_with = "crate::util::serde_utils::serialize_timestamp_to_iso_8601")]
+    #[ts(type = "string")]
     pub commit_time: jiff::Timestamp,
 
     #[serde(deserialize_with = "crate::util::serde_utils::deserialize_timestamp_from_iso_8601")]
-    #[serde(serialize_with = "crate::util::serde_utils::serialize_timestamp_to_millisecond_i64")]
-    #[ts(type = "number")]
+    #[serde(serialize_with = "crate::util::serde_utils::serialize_timestamp_to_iso_8601")]
+    #[ts(type = "string")]
     pub build_time: jiff::Timestamp,
 }
 
