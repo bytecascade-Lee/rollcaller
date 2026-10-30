@@ -118,9 +118,7 @@ jobs:
                 uses: Swatinem/rust-cache@v2
                 with:
                     workspaces: backend
-                    # 所有架构共享 registry 缓存
-                    shared-key: cargo-registry
-                    # 架构特定的 target 目录缓存
+                    shared-key: cargo-release
                     key: ${{ matrix.target }}
 
             -   name: Configure MSVC environment for arm64
