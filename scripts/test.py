@@ -17,7 +17,14 @@ import sys
 from typing import Callable
 
 from cli import cargo, git, pnpm, rustc
-from codegen import CodegenError, generate_all
+from codegen import (
+    CODEGEN_PATHS,
+    TS_RS_PATHS,
+    CodegenError,
+    GeneratedNotCommittedError,
+    ensure_committed,
+    generate_all,
+)
 from common import gate
 from common.entity.target import Target, UnsupportedTargetError
 from common.enums.action import Action
@@ -46,11 +53,14 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
     if is_interrupted():
         return 0
 
-    # 后端先行：ts-rs 的类型导出挂在 lib 测试上，跑完才会把 .ts 写回前端
+    ensure_committed(CODEGEN_PATHS, label="代码生成的入口表")
+
     info(f"运行后端测试: cargo test --locked --target {target.triple}")
     cargo.test(["--locked", "--target", target.triple])
     if is_interrupted():
         return 0
+
+    ensure_committed(TS_RS_PATHS, label="ts-rs 导出的类型")
 
     info("运行前端测试: pnpm test")
     pnpm.test()
@@ -65,6 +75,7 @@ if __name__ == "__main__":
             sys.exit(main(is_interrupted=is_interrupted))
         except (
                 CodegenError,
+                GeneratedNotCommittedError,
                 gate.GateError,
                 git.GitError,
                 pnpm.PnpmError,
