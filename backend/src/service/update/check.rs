@@ -234,7 +234,7 @@ fn validate_manifest(
         info: UpdateInfo {
             version: manifest.version.clone(),
             notes: manifest.release_notes.clone(),
-            date: manifest.publish_date.map(|d| d.to_string()),
+            date: manifest.publish_date.map(|d| crate::util::time_utils::ISO8601(&d).to_string()),
         },
         severity: manifest.severity,
         artifact,
