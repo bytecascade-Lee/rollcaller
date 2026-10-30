@@ -22,7 +22,7 @@ permissions:
 env:
     PYTHONIOENCODING: utf-8
     PYTHONPATH: ${{ github.workspace }}/scripts
-    NO_COLOR: 1
+    FORCE_COLOR: 1
 
 jobs:
     prepare:
