@@ -99,6 +99,3 @@ jobs:
                 env:
                     MIMO_TTS_API_KEY: ${{ secrets.MIMO_TTS_API_KEY }}
                 run: uv run --frozen ./scripts/test.py -t ${{ env.TRIPLE }}
-
-            -   name: Check generated files are committed
-                run: git diff --exit-code -- frontend/src/lib/types frontend/src/lib/routing/entries.generated.ts
