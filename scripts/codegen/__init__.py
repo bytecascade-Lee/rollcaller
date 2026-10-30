@@ -10,10 +10,10 @@ from pathlib import Path
 from types import ModuleType
 
 from cli import git
-from common.constant.paths import FRONTEND_ROUTING_ENTRIES_PATH
+from common.constant.paths import FRONTEND_ROUTING_ENTRIES_PATH, FRONTEND_TYPES_DIR
 from common.logger import info
 from util.str_format import join_repr
-from . import build_info, routing_entries
+from . import build_info, routing_entries, ts_rs
 
 
 class CodegenError(Exception):
@@ -21,14 +21,14 @@ class CodegenError(Exception):
 
 
 class GeneratedNotCommittedError(Exception):
-    """生成物相对 HEAD 有改动：CI 的生成物校验会失败"""
+    """生成物与 HEAD 不一致：quality-gate 跑 test.py 时就会失败"""
 
 
 # 顺序即执行顺序
 GENERATORS: tuple[ModuleType, ...] = (build_info, routing_entries)
 
-# 受版本控制的生成物；build_info.json 不参与校验
-GENERATED_PATHS: tuple[Path, ...] = (FRONTEND_ROUTING_ENTRIES_PATH,)
+CODEGEN_PATHS: tuple[Path, ...] = (FRONTEND_ROUTING_ENTRIES_PATH,)
+TS_RS_PATHS: tuple[Path, ...] = (FRONTEND_TYPES_DIR,)
 
 
 def generate_all() -> None:
@@ -47,9 +47,9 @@ def generate_all() -> None:
     info(f"代码生成完成")
 
 
-def ensure_committed(paths: Sequence[Path] = GENERATED_PATHS, *, label: str = "生成物") -> None:
-    """生成物必须与 HEAD 一致"""
-    names = git.diff_names(paths)
+def ensure_committed(paths: Sequence[Path], *, label: str) -> None:
+    """生成物必须与 HEAD 一致，且不能是尚未纳入版本控制的新文件"""
+    names = [*git.diff_names(paths), *git.untracked_names(paths)]
     if not names:
         return
     raise GeneratedNotCommittedError(
