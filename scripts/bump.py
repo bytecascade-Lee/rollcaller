@@ -31,10 +31,12 @@ import re
 import sys
 
 from cli import git
+from codegen import CodegenError, generate_all
 from common.constant.repo import REMOTE
 from common.entity.version import Version, VersionError
 from common.logger import error, info, success, warning
 from util.sigint import graceful_sigint
+from util.str_format import join_repr
 
 # 预发布档位，顺序即推进方向
 STAGES = ("alpha", "beta", "rc")
@@ -67,6 +69,7 @@ def main() -> int:
     _ensure_on_master()
     _ensure_worktree_clean()
     _ensure_master_in_sync()
+    _ensure_generated_artifacts_current()
 
     current = _latest_version()
     target = _next_version(current, args)
@@ -99,6 +102,30 @@ def _ensure_worktree_clean() -> None:
     if changes.strip():
         count = len([line for line in changes.splitlines() if line.strip()])
         raise BumpError(f"有 {count} 个已跟踪文件改动未提交，先提交再打 tag")
+
+
+def _ensure_generated_artifacts_current() -> None:
+    """跑一遍代码生成，确认生成物与 HEAD 一致
+
+    必须排在 `_ensure_worktree_clean` 之后：工作区干净时，跑完仍出现改动就只可能是
+    生成器产出与仓库里的不一致，而 CI 的 `git diff --exit-code` 会因此失败。
+    """
+    try:
+        generate_all()
+    except CodegenError as error:
+        raise BumpError(f"代码生成失败，无法确认生成物与仓库一致: {error}") from error
+
+    changes = git.tracked_changes()
+    if not changes.strip():
+        return
+
+    # porcelain 行形如 `XY PATH`；但 `git.stdout` 对整体输出做了 strip，首行若以空格开头
+    # （即「未暂存的修改」）会被吃掉一个前导空格，固定偏移取路径必然错位，故从第 3 列起 strip
+    paths = [line[2:].strip() for line in changes.splitlines() if line.strip()]
+    raise BumpError(
+        f"代码生成后 {len(paths)} 个文件发生变化: {join_repr(paths)}；"
+        f"先在 develop 上提交生成物再打 tag，否则 CI 的生成物校验会失败"
+    )
 
 
 def _ensure_master_in_sync() -> None:
