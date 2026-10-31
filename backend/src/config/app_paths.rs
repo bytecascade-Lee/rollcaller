@@ -1,8 +1,9 @@
 use directories::ProjectDirs;
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use std::{env, fmt};
+use tauri::utils::config::BundleType;
 #[cfg(not(debug_assertions))]
 use tauri::utils::platform::bundle_type;
 use ts_rs::TS;
@@ -14,23 +15,100 @@ const APP_NAME: &str = "rollcaller";
 
 const ROOT_MARKER: &str = "pyproject.toml";
 
-/// 模式枚举
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, TS)]
+/// 安装形态
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TS)]
 #[ts(export)]
+pub enum Installer {
+    /// NSIS 安装包
+    Nsis,
+    /// Windows Installer
+    Msi,
+    /// macOS 分发形态
+    Dmg,
+    /// RPM 包
+    Rpm,
+    /// DEB 包
+    Deb,
+    /// AppImage
+    AppImage,
+}
+
+impl Installer {
+    /// 由 `bundle_type()` 的返回值收敛到分发形态
+    #[cfg_attr(debug_assertions, allow(dead_code))]
+    fn from_bundle(bundle: BundleType) -> Self {
+        match bundle {
+            BundleType::Nsis => Self::Nsis,
+            BundleType::Msi => Self::Msi,
+            BundleType::App | BundleType::Dmg => Self::Dmg,
+            BundleType::Rpm => Self::Rpm,
+            BundleType::Deb => Self::Deb,
+            BundleType::AppImage => Self::AppImage,
+        }
+    }
+
+    /// 文件名安全标识
+    const fn slug(self) -> &'static str {
+        match self {
+            Self::Nsis => "nsis",
+            Self::Msi => "msi",
+            Self::Dmg => "dmg",
+            Self::Rpm => "rpm",
+            Self::Deb => "deb",
+            Self::AppImage => "appimage",
+        }
+    }
+}
+
+impl fmt::Display for Installer {
+    /// 对外展示形态
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::Nsis => "NSIS",
+            Self::Msi => "MSI",
+            Self::Dmg => "DMG",
+            Self::Rpm => "RPM",
+            Self::Deb => "DEB",
+            Self::AppImage => "APPIMAGE",
+        };
+        f.write_str(s)
+    }
+}
+
+/// 运行形态
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TS)]
+#[ts(export, type = "`Develop` | `Portable` | `Install(${string})`")]
 pub enum AppMode {
     Develop,
     Portable,
-    Install,
+    Install(Installer),
+}
+
+impl AppMode {
+    /// 文件名安全标识：`develop` / `portable` / `nsis` / `msi` / `dmg` / `rpm` / `deb` / `appimage`
+    pub const fn slug(self) -> &'static str {
+        match self {
+            Self::Develop => "develop",
+            Self::Portable => "portable",
+            Self::Install(installer) => installer.slug(),
+        }
+    }
 }
 
 impl fmt::Display for AppMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            AppMode::Develop => "Develop",
-            AppMode::Portable => "Portable",
-            AppMode::Install => "Install",
-        };
-        write!(f, "{}", s)
+        match self {
+            Self::Develop => f.write_str("Develop"),
+            Self::Portable => f.write_str("Portable"),
+            Self::Install(installer) => write!(f, "Install({installer})"),
+        }
+    }
+}
+
+impl Serialize for AppMode {
+    /// 对外恒为 `Display`
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
     }
 }
 
@@ -64,7 +142,7 @@ static PATHS: LazyLock<AppPaths> = LazyLock::new(|| {
         webview_dir: user_data_dir.join("cache/webview2"),
         resources_dir: match mode {
             AppMode::Develop => root_dir.join("resources"),
-            AppMode::Portable | AppMode::Install => root_dir,
+            AppMode::Portable | AppMode::Install(_) => root_dir,
         },
     }
 });
@@ -78,7 +156,7 @@ fn detect_mode() -> AppMode {
     #[cfg(not(debug_assertions))]
     match bundle_type() {
         None => AppMode::Portable,
-        Some(_) => AppMode::Install,
+        Some(bundle) => AppMode::Install(Installer::from_bundle(bundle)),
     }
 }
 
@@ -97,7 +175,7 @@ fn detect_root_dir(mode: AppMode) -> PathBuf {
                 .map(Path::to_path_buf)
                 .expect("无法找到项目根目录")
         }
-        AppMode::Portable | AppMode::Install => exe_path,
+        AppMode::Portable | AppMode::Install(_) => exe_path,
     }
 }
 
@@ -109,7 +187,7 @@ fn detect_user_data_dir(mode: AppMode, root_dir: &Path) -> PathBuf {
         AppMode::Develop | AppMode::Portable => root_dir.join("data"),
 
         // 使用 directories 库获取各平台规范路径
-        AppMode::Install => {
+        AppMode::Install(_) => {
             let data_dir = ProjectDirs::from(APP_QUALIFIER, APP_ORG, APP_NAME)
                 .map(|proj_dirs| proj_dirs.data_local_dir().to_path_buf())
                 .expect("无法确定数据目录");
@@ -235,7 +313,43 @@ mod tests {
         // 验证 is_customized_dir 和 current_mode 的一致性
         match mode {
             AppMode::Develop | AppMode::Portable => assert!(is_customized),
-            AppMode::Install => assert!(!is_customized),
+            AppMode::Install(_) => assert!(!is_customized),
+        }
+    }
+
+    #[test]
+    fn test_installer_from_bundle_type() {
+        // 全平台总映射
+        assert_eq!(Installer::from_bundle(BundleType::Nsis), Installer::Nsis);
+        assert_eq!(Installer::from_bundle(BundleType::Msi), Installer::Msi);
+        assert_eq!(Installer::from_bundle(BundleType::App), Installer::Dmg);
+        assert_eq!(Installer::from_bundle(BundleType::Dmg), Installer::Dmg);
+        assert_eq!(Installer::from_bundle(BundleType::Rpm), Installer::Rpm);
+        assert_eq!(Installer::from_bundle(BundleType::Deb), Installer::Deb);
+        assert_eq!(Installer::from_bundle(BundleType::AppImage), Installer::AppImage);
+    }
+
+    #[test]
+    fn test_slug_and_display() {
+        // slug 参与中间产物命名，Display 是对外 wire 形式
+        assert_eq!(AppMode::Develop.slug(), "develop");
+        assert_eq!(AppMode::Portable.slug(), "portable");
+        assert_eq!(AppMode::Develop.to_string(), "Develop");
+        assert_eq!(AppMode::Portable.to_string(), "Portable");
+
+        let cases = [
+            (Installer::Nsis, "nsis", "NSIS"),
+            (Installer::Msi, "msi", "MSI"),
+            (Installer::Dmg, "dmg", "DMG"),
+            (Installer::Rpm, "rpm", "RPM"),
+            (Installer::Deb, "deb", "DEB"),
+            (Installer::AppImage, "appimage", "APPIMAGE"),
+        ];
+        for (installer, slug, display) in cases {
+            assert_eq!(installer.slug(), slug);
+            assert_eq!(installer.to_string(), display);
+            assert_eq!(AppMode::Install(installer).slug(), slug);
+            assert_eq!(AppMode::Install(installer).to_string(), format!("Install({display})"));
         }
     }
 

@@ -1,7 +1,7 @@
 use crate::common::constant::update::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
 use crate::common::enums;
 use crate::common::enums::update::{Severity, UpdateChannel, UpdateError, UpdateLevel, UpdateStatus, UpdateView};
-use crate::config::app_paths::AppMode;
+use crate::config::app_paths::{AppMode, Installer};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -40,8 +40,8 @@ impl UpdateManifest {
 
         match app_mode {
             AppMode::Develop => payloads.develop.clone(),
-            AppMode::Install => payloads.nsis.clone(),
             AppMode::Portable => payloads.portable.clone(),
+            AppMode::Install(installer) => payloads.get(installer),
         }
     }
 }
@@ -71,6 +71,20 @@ pub struct Payloads {
     pub portable: Option<Artifact>,
     /// 开发环境直更载荷（debug exe，产物文件名见 `DEVELOP_UPDATE_BIN_NAME`）
     pub develop: Option<Artifact>,
+}
+
+impl Payloads {
+    /// 按安装形态取载荷
+    ///
+    /// 清单里没有该形态的槽位时返回 `None` —— 即"该形态在本版本无产物"，
+    /// 按契约视为无更新（不回退到 nsis）。
+    fn get(&self, installer: Installer) -> Option<Artifact> {
+        match installer {
+            Installer::Nsis => self.nsis.clone(),
+            // 清单暂无这些形态的槽位：取不到即「该版本无该形态产物」⇒ 无更新
+            Installer::Msi | Installer::Dmg | Installer::Rpm | Installer::Deb | Installer::AppImage => None,
+        }
+    }
 }
 
 /// 单个下载产物
