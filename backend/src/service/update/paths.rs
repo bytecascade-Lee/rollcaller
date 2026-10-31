@@ -43,10 +43,7 @@ use std::path::PathBuf;
 /// `manifest(&UpdateSource::Github, v1.2.3)` → `.../cache/update/github/1.2.3.json`
 ///
 pub fn manifest(source: &UpdateSource, version: &Version) -> PathBuf {
-    cache_dir().join(format!(
-        "update/{}/{version}.json",
-        source.to_string().to_ascii_lowercase(),
-    ))
+    cache_dir().join(format!("update/{}/{version}.json", source.to_string().to_ascii_lowercase(),))
 }
 
 /// 生成下载中的临时碎片文件（`.part`）路径
@@ -63,7 +60,10 @@ pub fn manifest(source: &UpdateSource, version: &Version) -> PathBuf {
 /// `temp_dir/downloads/{随机uuid}.part`
 ///
 pub fn part() -> PathBuf {
-    temp_dir().join(format!("downloads/{}.part", uuid::Uuid::new_v4().to_string().replace("-", "")))
+    temp_dir().join(format!(
+        "downloads/{}.part",
+        uuid::Uuid::new_v4().to_string().replace("-", "")
+    ))
 }
 
 /// 下载完成的安装包 / 压缩包的存放路径（主包产物）
@@ -119,25 +119,25 @@ pub fn portable_updater_bin(file_name: &str) -> PathBuf {
     updater_bin_dir().join(file_name)
 }
 
-/// 便携版解压的暂存根目录
+/// zip 包解压的暂存根目录
 ///
-/// 对于便携版（Portable）更新，下载的 zip 产物被解压到该目录下，解压后的内容
-/// 与安装后的应用程序文件结构完全一致；Go updater 将从此目录复制文件到应用根
-/// 目录实现覆盖更新（updater 不解压 zip，source 必须是已解压目录）。
+/// 对于 `Portable` 和 `Develop` 更新，下载的 zip 产物被解压到该目录下，解压后的内容与安装后的应用程序文件结构完全一致；
+/// Go updater 将从此目录复制文件到应用根目录实现覆盖更新。
 ///
 /// # 参数
-/// - `version`：目标语义化版本号，用于区分不同版本的解压内容，
-///   防止旧版本残留影响新版本升级。
+/// - `version`：目标语义化版本号，用于区分不同版本的解压内容，防止旧版本残留影响新版本升级
 ///
 /// # 返回
-/// `temp_dir/update/staging/portable-source-{version}/`
+/// `temp_dir/update/staging/{portable|develop}-source-{version}/`
 ///
 /// # 注意
-/// - 该目录仅在更新过程中存在，更新完成后应由更新器负责清理；
-/// - 解压时建议采用"剥离顶层目录"策略，使内容直接位于该目录下。
-///
+/// - source 必须是已解压目录
+/// - 解压时建议采用"剥离顶层目录"策略，使内容直接位于该目录下
 pub fn zip_staging(mode: &AppMode, version: &Version) -> PathBuf {
-    temp_dir().join(format!("update/staging/{}-source-{version}", mode.to_string().to_ascii_lowercase()))
+    temp_dir()
+        .join("update")
+        .join("staging")
+        .join(format!("{}-source-{version}", mode.slug()))
 }
 
 /// 便携版更新时的备份落点
@@ -165,10 +165,10 @@ pub fn zip_staging(mode: &AppMode, version: &Version) -> PathBuf {
 /// `.../data/temp/update/backup/portable-backup-1.2.3-to-1.2.4-3f9a1c`
 ///
 pub fn backup(mode: &AppMode, from: &Version, to: &Version) -> PathBuf {
-    temp_dir().join(format!(
-        "update/backup/{}-backup-{from}-to-{to}-{}",
-        mode.to_string().to_ascii_lowercase(),
-        &uuid::Uuid::new_v4().to_string().replace("-", "")[..6],
+    temp_dir().join("update").join("backup").join(format!(
+        "{}-backup-{from}-to-{to}-{}",
+        mode.slug(),
+        &uuid::Uuid::new_v4().to_string().replace("-", "")[..6]
     ))
 }
 
@@ -179,5 +179,8 @@ pub fn backup(mode: &AppMode, from: &Version, to: &Version) -> PathBuf {
 /// 运行时字段每次重写）。与解压内容（[`zip_staging`]）分居，避免被
 /// updater 当作 source 一并复制进 target。
 pub fn updater_config(mode: &AppMode, from: &Version, to: &Version) -> PathBuf {
-    temp_dir().join(format!("update/config/{}-config-{from}-to-{to}.json", mode.to_string().to_ascii_lowercase()))
+    temp_dir()
+        .join("update")
+        .join("config")
+        .join(format!("{}-config-{from}-to-{to}.json", mode.slug()))
 }
