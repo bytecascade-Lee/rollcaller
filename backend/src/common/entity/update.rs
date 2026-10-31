@@ -16,8 +16,7 @@ pub struct UpdateManifest {
     pub release_notes: Option<String>,
 
     #[serde(default)]
-    #[serde(deserialize_with = "crate::util::serde_utils::deserialize_optional_timestamp_from_iso_8601")]
-    #[serde(serialize_with = "crate::util::serde_utils::serialize_optional_timestamp_to_iso_8601")]
+    #[serde(with = "crate::util::serde_utils::optional_timestamp_iso8601")]
     #[ts(type = "string | null")]
     pub publish_date: Option<jiff::Timestamp>,
 
@@ -216,7 +215,10 @@ impl UpdateSession {
             UpdateStatus::Checking => UpdateView::Checking,
             UpdateStatus::UpToDate => UpdateView::UpToDate,
             UpdateStatus::Available => match info(&self.info) {
-                Some(info) => UpdateView::Available { info, severity: self.severity },
+                Some(info) => UpdateView::Available {
+                    info,
+                    severity: self.severity,
+                },
                 None => UpdateView::UpToDate,
             },
             UpdateStatus::Downloading => match info(&self.info) {
@@ -224,12 +226,17 @@ impl UpdateSession {
                 None => UpdateView::Checking,
             },
             UpdateStatus::Downloaded => match info(&self.info) {
-                Some(info) => UpdateView::Downloaded { info, severity: self.severity },
+                Some(info) => UpdateView::Downloaded {
+                    info,
+                    severity: self.severity,
+                },
                 None => UpdateView::UpToDate,
             },
             // `status == Error` 不变量保证 `error` 为 `Some`；兜底仅供防御（不应触发）
             UpdateStatus::Error => UpdateView::Error(
-                self.error.clone().unwrap_or(UpdateError::Check("未知错误，请重新执行检查".to_string())),
+                self.error
+                    .clone()
+                    .unwrap_or(UpdateError::Check("未知错误，请重新执行检查".to_string())),
             ),
         }
     }
