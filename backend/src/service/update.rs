@@ -120,7 +120,7 @@ pub async fn check(
     let mode = current_mode();
     let source = match mode {
         AppMode::Develop => UpdateSource::Local,
-        AppMode::Install | AppMode::Portable => UpdateSource::CNB,
+        AppMode::Portable | AppMode::Install(_) => UpdateSource::CNB,
     };
     let outcome = check::check(http_client::client(), source, current_version, &policy, mode).await;
 
