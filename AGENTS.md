@@ -91,6 +91,10 @@ cd ./backend && cargo tauri build
 
 **SQL**: Complex queries use `#[py_sql("...")]` macro with `#{param}` binding and `trim`, `for` directives. Simple queries use auto-generated `crud!()` methods: `insert()`, `insert_batch()`, `select_by_map()`, `update_by_map()`.
 
+- **Serde adapters**: custom (de)serialization lives in `util/serde_utils.rs` as `#[serde(with = "...")]`
+  modules (`timestamp` / `optional_timestamp_iso8601` / `bool_i64`). Do **not** use `serialize_with` /
+  `deserialize_with`: ts-rs treats them as unknown keys and prints one warning per field on every build.
+  A `with` field must also carry `#[ts(type = "...")]` or ts-rs errors out.
 - **Timestamps**: `jiff::Timestamp` in Rust, serialized by `util/serde_utils.rs` as **canonical ISO 8601** —
   `YYYY-MM-DDTHH:MM:SS.sssZ` (UTC, always 3 fractional digits). The DB stores the same string (TEXT columns,
   `strftime('%Y-%m-%dT%H:%M:%fZ', …)` in defaults/triggers); Excel export is the only local-offset exception.
