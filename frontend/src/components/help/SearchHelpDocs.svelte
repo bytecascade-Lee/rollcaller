@@ -93,7 +93,6 @@
     overlays.register(HelpOverlay.search, {
       open,
       close,
-      isVisible: () => isVisible,
     });
     return () => overlays.unregister(HelpOverlay.search);
   });
