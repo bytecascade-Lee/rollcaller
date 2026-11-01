@@ -3,6 +3,7 @@ export * from "./AppInfo"
 export * from "./AppMode";
 export * from "./Installer";
 export * from "./NavItem";
+export * from "./FileType";
 export * from "./Record";
 export * from "./RecordGroupMetaData";
 export * from "./RecordTable";
