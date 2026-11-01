@@ -1,4 +1,4 @@
-import {APP_ENTRY_PARENT, type AppEntryId} from "$routing/entries.generated";
+import {APP_ENTRY_PARENT, type AppEntryId} from "$routing/app.entries.generated";
 
 /** 入口名全集（运行时；`APP_ENTRY_PARENT` 的键投影）。用 Set 而非 `in`：后者会把 `toString` 之类当命中 */
 const APP_ENTRY_NAMES = new Set<string>(Object.keys(APP_ENTRY_PARENT));
@@ -6,8 +6,8 @@ const APP_ENTRY_NAMES = new Set<string>(Object.keys(APP_ENTRY_PARENT));
 /**
  * 某个入口的**直接子入口**（由 `parentId` 推出）。
  *
- * 页面只应打开自己子树里的入口，于是页面写 `createEntryRegistry<ChildOf<"student-management">>()`，
- * 在该页 `show("edit-record")` 会在编译期被拦下。成员全部来自 `meta.json`，代码里没有第二份名字表。
+ * 页面只应打开自己子树里的入口，于是页面写 `EntryRegistry<ChildOf<"student-management">>`，
+ * 在该页 `open("edit-record")` 会在编译期被拦下。成员全部来自 `meta.json`，代码里没有第二份名字表。
  */
 export type ChildOf<P extends AppEntryId> = {
   [K in AppEntryId]: (typeof APP_ENTRY_PARENT)[K] extends P ? K : never
@@ -25,30 +25,27 @@ export function chainOf(entry: AppEntryId): AppEntryId[] {
 }
 
 /**
- * 由地址段解析入口 —— **app 域唯一的地址解释者**。
+ * 由地址段解析**整条链**（根 → 目标）—— **app 域唯一的地址解释者**。
  *
  * 严格（不给"猜"的余地）：最后一段必须是入口名，段数必须等于该入口的链长，
  * 且逐段与 `parentId` 链一致。任一不满足返回 `null`，调用方降级为"什么都不做"。
+ *
+ * 返回整条链而不是末尾一个：校验本来就是"按链比对"，顺手把链交给落地，
+ * 免得落地再 `chainOf` 一遍。
  */
-export function resolveAppEntry(segments: readonly string[]): AppEntryId | null {
+export function resolveAppChain(segments: readonly string[]): AppEntryId[] | null {
   const name = segments[segments.length - 1];
   if (!name || !APP_ENTRY_NAMES.has(name)) {
     return null;
   }
-  const entry = name as AppEntryId;
-  const chain = chainOf(entry);
+  const chain = chainOf(name as AppEntryId);
   if (chain.length !== segments.length) {
     return null;
   }
-  return chain.every((id, index) => id === segments[index]) ? entry : null;
+  return chain.every((id, index) => id === segments[index]) ? chain : null;
 }
 
-/** `edit-student` / `delete-student` 共用的载荷：要操作哪些学生 */
-export type StudentIdsPayload = { ids: number[] };
-
-/** 读载荷里的 ids：非法一律给空数组，调用方据此降级为"纯导航" */
-export function readStudentIds(payload: unknown): number[] {
-  const raw = (payload as StudentIdsPayload | undefined)?.ids;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((id): id is number => Number.isSafeInteger(id));
+/** 只要末尾那个入口时用（测试与"是不是同一处"的判断） */
+export function resolveAppEntry(segments: readonly string[]): AppEntryId | null {
+  return resolveAppChain(segments)?.at(-1) ?? null;
 }
