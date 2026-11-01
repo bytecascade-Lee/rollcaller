@@ -23,9 +23,8 @@
   import HelpTitlebar from "$components/help/HelpTitlebar.svelte";
   import {HelpAddress} from "$utils/helpAddress";
   import {CaretRightIcon, CircleIcon} from "phosphor-svelte";
-  import {createRouter} from "$routing/router";
-  import {WindowRouter} from "$routing/windowRouter";
-  import {HelpEntry} from "$routing/entries.generated";
+  import {nav} from "$routing/nav";
+  import {HelpEntry} from "$routing/help.entries.generated";
   import {createEntryRegistry} from "$routing/registry";
   import {helpNavigate} from "$routing/helpNavigate.svelte";
 
@@ -53,16 +52,15 @@
     return trail;
   });
 
-  const router = createRouter({
+  nav.install({
     host: HelpAddress.HOST,
-    handle: (action) => {
+    apply: (action) => {
       const address = HelpAddress.parse(action.route);
       if (address) void helpNavigate.apply(address);
     },
     /** 不归本窗口：交给后端投递给目标窗口（与主窗口同一条路） */
     forward: (action) => NavCommand.navOpen(action),
   });
-  WindowRouter.install(router);
 
   /** 滚动到锚点标题（缺失时回退到顶部）。滚动容器是 .content > .active，window 不参与滚动 */
   function scrollToSection(section: string | null) {
@@ -108,11 +106,11 @@
         ? {route: pending.route, payload: pending.payload ?? undefined}
         : undefined;
       // 首帧落点：有冷启动载荷就用它，否则当前 hash 若是本窗口的地址就用它，再否则回概览
-      dispose = router.start({route: HelpEntry.overview}, initial);
+      dispose = nav.start({route: HelpEntry.overview}, initial);
 
       unlisten = await listen(NavCommand.NAV_WAKE_EVENT, async () => {
         const next = await NavCommand.navTakePending();
-        if (next) WindowRouter.nav({route: next.route, payload: next.payload ?? undefined});
+        if (next) nav.go({route: next.route, payload: next.payload ?? undefined});
       });
     })();
 
