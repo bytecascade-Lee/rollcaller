@@ -20,8 +20,8 @@
   } from "phosphor-svelte";
   import type {EntryRegistry} from "$routing/registry";
   import type {StudentOverlayName} from "$types";
-  import {readStudentIds} from "$routing/entries";
-  import {AppEntry} from "$routing/entries.generated";
+  import type {AppEntryPayload} from "$routing/app.entries.generated";
+  import {AppEntry} from "$routing/app.entries.generated";
   import EditStudent from "$components/student-management/EditStudent.svelte";
   import ExportStudents from "$components/student-management/ExportStudents.svelte";
   import {appNavigate} from "$routing/appNavigate";
@@ -30,12 +30,11 @@
   let {active = $bindable(false), overlays}: {
     active?: boolean;
     /** 本页可见的落点表（类型收窄到本页子树：写别的页的名字编译报错） */
-    overlays: EntryRegistry<StudentOverlayName>;
+    overlays: EntryRegistry<StudentOverlayName, AppEntryPayload>;
   } = $props();
   let searchQuery = $state("")
   let sortKey = $state("")
   let isAsc = $state(true)
-  let anchor = $state<HTMLElement | null>(null);
   let display = $derived([...studentStore.students]
     .filter(student =>
       student.name.toLowerCase().includes(searchQuery) ||
@@ -109,23 +108,8 @@
     }
   }
 
-  /**
-   * 载荷解释器：本页是 `{ids}` 的**唯一解释者**。
-   *
-   * 路由层不认识 `{ids}`；弹窗也不必认识 —— 它只管可见性，由注册表在 `show` 之前调用这里，
-   * 把"编辑这些学生"翻译成本页状态（选中集）。载荷非法或为空 ⇒ 什么都不做（纯导航）。
-   *
-   * 前置条件（"要看到选中效果，学生数据得在"）由 `liveSelected` 的过滤自然覆盖：
-   * 先写入 id，数据到达后过滤结果自动生效，故这里不必等 `load()`。
-   */
-  $effect(() => {
-    overlays.interpret(AppEntry.editStudent, (payload) => {
-      const ids = readStudentIds(payload);
-      if (ids.length === 0) return;
-      selected = new Set(ids.map((id) => BigInt(id)));
-      if (studentStore.students.length === 0) void studentStore.load();
-    });
-  });
+  /** 勾选集 → 载荷。载荷只装 id，行由弹窗按 id 从 store 实时取 */
+  let selectedIds = $derived([...liveSelected].map(Number));
 
 </script>
 
@@ -145,8 +129,8 @@
       <button
         aria-label="修改学生"
         class="icon-button"
-        disabled={liveSelected.size != 1}
-        onclick={() => appNavigate.enter(AppEntry.editStudent, {ids: [...liveSelected].map(Number)})}
+        disabled={selectedIds.length != 1}
+        onclick={() => appNavigate.enter(AppEntry.editStudent, selectedIds[0])}
         title="修改学生"
       >
         <PencilIcon size="24"/>
@@ -154,8 +138,8 @@
       <button
         aria-label="删除学生"
         class="icon-button"
-        disabled={liveSelected.size == 0}
-        onclick={() => appNavigate.enter(AppEntry.deleteStudent, {ids: [...liveSelected].map(Number)})}
+        disabled={selectedIds.length == 0}
+        onclick={() => appNavigate.enter(AppEntry.deleteStudent, selectedIds)}
         title="删除学生"
       >
         <TrashIcon size="24"/>
@@ -172,11 +156,12 @@
       <button
         aria-label="导出学生"
         class="icon-button"
+        data-anchor={AppEntry.exportStudent}
         disabled={studentStore.isLoading}
-        onclick={e => {
-          anchor = e.currentTarget;
-          appNavigate.enter(AppEntry.exportStudent)
-        }}
+        onclick={() => appNavigate.enter(AppEntry.exportStudent, {
+          filtered: display.map((student) => Number(student.id)),
+          selected: selectedIds,
+        })}
         title="导出学生"
       >
         <FileArrowDownIcon size="24"/>
@@ -305,7 +290,7 @@
 </div>
 
 <SingleCreateStudent {overlays}/>
-<EditStudent {overlays} selected={liveSelected}/>
+<EditStudent {overlays}/>
 <DeleteStudents {overlays}/>
 <ImportStudents {overlays}/>
-<ExportStudents anchor={anchor} display={display} {overlays} selected={liveSelected}/>
+<ExportStudents {overlays}/>
