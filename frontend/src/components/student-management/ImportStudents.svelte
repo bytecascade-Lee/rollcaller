@@ -1,11 +1,13 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
-  import type {SheetPreview, StudentOverlayName, StudentTable} from "$types";
+  import type {FileType, SheetPreview, StudentOverlayName, StudentTable} from "$types";
   import {Result} from "$types"
   import {open} from "@tauri-apps/plugin-dialog";
   import type {EntryRegistry} from "$routing/registry";
-  import {AppEntry, HelpEntry} from "$routing/entries.generated";
-  import {WindowRouter} from "$routing/windowRouter";
+  import type {AppEntryPayload} from "$routing/app.entries.generated";
+  import {AppEntry} from "$routing/app.entries.generated";
+  import {HelpEntry} from "$routing/help.entries.generated";
+  import {nav} from "$routing/nav";
   import {ImportCommand} from "$commands";
   import {
     ArrowFatRightIcon,
@@ -23,7 +25,7 @@
   } from "phosphor-svelte";
   import {appNavigate} from "$routing/appNavigate";
 
-  let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();
+  let {overlays}: { overlays: EntryRegistry<StudentOverlayName, AppEntryPayload> } = $props();
 
   // 预览：一次拿回文件里的全部工作表（每张表自带前若干行与行列数）
   let sheets = $state<SheetPreview[]>([]);
@@ -102,9 +104,16 @@
     importSucceeded = false;
   }
 
-  function openDialog() {
+  /**
+   * 打开导入向导
+   */
+  async function openDialog(prefill?: { path: string; format: FileType }) {
     resetState();
     isVisible = true;
+    if (prefill == null || prefill.format !== "Excel") return;
+    filePath = prefill.path;
+    await preview();
+    if (previewData) step = 2;
   }
 
   function close() {
@@ -363,7 +372,6 @@
     overlays.register(AppEntry.importStudent, {
       open: openDialog,
       close,
-      isVisible: () => isVisible
     })
     return () => overlays.unregister(AppEntry.importStudent);
   })
@@ -668,7 +676,7 @@
           type="button"
           aria-label="查看帮助"
           title="查看帮助"
-          onclick={() => WindowRouter.nav({route: HelpEntry.batchImportImportSteps})}
+          onclick={() => nav.go({route: HelpEntry.batchImportImportSteps})}
         >
           <QuestionIcon size="18"/>
         </button>
