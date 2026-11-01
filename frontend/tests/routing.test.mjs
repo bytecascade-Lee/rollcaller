@@ -13,12 +13,14 @@ import {strict as assert} from "node:assert";
 import {readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 
-import {canonicalRoute, parseRoute, routeOf} from "$routing/address.ts";
-import {chainOf, readStudentIds, resolveAppEntry} from "$routing/entries.ts";
+import {canonicalRoute, parseAction, parseRoute, routeOf} from "$routing/address.ts";
+import {chainOf, resolveAppChain, resolveAppEntry} from "$routing/entries.ts";
 import {createEntryRegistry} from "$routing/registry.ts";
-import {WindowRouter} from "$routing/windowRouter.ts";
+import {nav} from "$routing/nav.ts";
+import {applyTransition, planTransition} from "$routing/transition.ts";
 import {appNavigate} from "$routing/appNavigate.ts";
-import {APP_ENTRY_PARENT, AppEntry, HelpEntry} from "$routing/entries.generated.ts";
+import {APP_ENTRY_PARENT, AppEntry} from "$routing/app.entries.generated.ts";
+import {HelpEntry} from "$routing/help.entries.generated.ts";
 
 /* ---------- 极简 runner：单个失败不中断，最后汇总并给非零退出码 ---------- */
 
@@ -40,7 +42,11 @@ globalThis.location = {hash: "#/app/rollcall"};
 globalThis.history = {replaceState() {}};
 
 const navLog = [];
-WindowRouter.install({go: (action) => navLog.push(action), start: () => () => {}});
+nav.install({
+  host: "app",
+  apply: (action) => navLog.push(action),
+  forward: (action) => navLog.push({forwarded: action}),
+});
 
 /* ---------- address：切分 / 组装 / 规范化 ---------- */
 
@@ -91,35 +97,84 @@ test("resolveAppEntry：父链严格，任何不符都降级为 null", () => {
   }
 });
 
-test("readStudentIds：非法给空数组，混入的无效项被丢掉", () => {
-  assert.deepEqual(readStudentIds({ids: [1, 2]}), [1, 2]);
-  assert.deepEqual(readStudentIds({ids: ["3", 1.5, 7]}), [7]);
-  for (const payload of [undefined, null, {}, {ids: "x"}, {ids: 3}]) {
-    assert.deepEqual(readStudentIds(payload), [], `应当拒绝 ${JSON.stringify(payload)}`);
+/* ---------- 整条链：校验与交付一次完成 ---------- */
+
+test("resolveAppChain：合法地址给出整条链，非法一律 null", () => {
+  assert.deepEqual(resolveAppChain(["student-management", "delete-student"]), [
+    "student-management",
+    "delete-student",
+  ]);
+  assert.deepEqual(resolveAppChain(["rollcall"]), ["rollcall"]);
+  for (const segments of [["rollcall", "delete-student"], ["nope"], []]) {
+    assert.equal(resolveAppChain(segments), null, `应当拒绝 ${JSON.stringify(segments)}`);
   }
 });
 
-/* ---------- registry：解释器先于 handler，且容错不抛 ---------- */
+test("parseAction：一次切分到位，规范化且带 host/segments", () => {
+  assert.deepEqual(parseAction({route: "#/APP/a//b/", payload: 3}), {
+    route: "#/app/a/b",
+    host: "app",
+    segments: ["a", "b"],
+    payload: 3,
+  });
+  assert.equal(parseAction({route: "https://example.com"}), null);
+});
 
-test("registry：interpret 先于 open；unregister 后归零", () => {
+/* ---------- 转换语义：共同前缀 diff ---------- */
+
+test("planTransition：四种情形", () => {
+  const card = ["student-management"];
+  const edit = ["student-management", "edit-student"];
+  const del = ["student-management", "delete-student"];
+
+  assert.deepEqual(planTransition([], edit), {close: [], open: edit, replay: null});
+  assert.deepEqual(planTransition(edit, del), {close: ["edit-student"], open: ["delete-student"], replay: null});
+  assert.deepEqual(planTransition(edit, ["record-history", "edit-record"]), {
+    close: ["edit-student", "student-management"],
+    open: ["record-history", "edit-record"],
+    replay: null,
+  });
+  // 重放同一地址：diff 无动作，靠 replay 补一次 open，否则"地址在目标、浮层已关"时点了没反应
+  assert.deepEqual(planTransition(edit, edit), {close: [], open: [], replay: "edit-student"});
+  assert.deepEqual(planTransition(card, card), {close: [], open: [], replay: "student-management"});
+});
+
+test("applyTransition：逆序关、顺序开，载荷只给最深的那个", () => {
+  const calls = [];
+  const registry = {
+    close: (id) => calls.push(`close:${id}`),
+    open: (id, payload) => calls.push(`open:${id}:${payload === undefined ? "-" : payload}`),
+  };
+  const next = applyTransition(registry, ["student-management", "edit-student"], ["record-history", "edit-record"], 7);
+  assert.deepEqual(next, ["record-history", "edit-record"]);
+  assert.deepEqual(calls, [
+    "close:edit-student",
+    "close:student-management",
+    "open:record-history:-",
+    "open:edit-record:7",
+  ]);
+});
+
+/* ---------- registry 的载荷透传见上；载荷形状由 meta.json 声明、tsc 校验 ---------- */
+/* ---------- registry：注册/打开/注销，未知 id 不抛 ---------- */
+
+test("registry：open 转给 handler，注销后归零", () => {
   const calls = [];
   const reg = createEntryRegistry();
-  reg.register("a", {open: () => calls.push("open")});
-  reg.interpret("a", () => calls.push("interpret"));
-  reg.open("a");
-  assert.deepEqual(calls, ["interpret", "open"]);
+  reg.register("a", {open: (payload) => calls.push(payload)});
+  reg.open("a", 7);
+  assert.deepEqual(calls, [7]);
 
   reg.unregister("a");
   assert.equal(reg.has("a"), false);
-  assert.equal(reg.isVisible("a"), false);
 });
 
-test("registry：未知 id 与缺省的 close/isVisible 都不抛", () => {
+test("registry：未知 id 与缺省的 close 都不抛", () => {
   const reg = createEntryRegistry();
   assert.doesNotThrow(() => reg.open("nope"));
   assert.doesNotThrow(() => reg.close("nope"));
   reg.register("a", {open: () => {}});
-  assert.equal(reg.isVisible("a"), false);
+  assert.doesNotThrow(() => reg.close("a"));
 });
 
 /* ---------- appNavigate：地址翻译与"关闭回退"护栏 ---------- */
@@ -149,12 +204,25 @@ test("appNavigate.leave：只有自己确实是当前地址目标时才回退", 
   assert.deepEqual(navLog, []); // 根入口无父级 ⇒ 不动
 });
 
-test("appNavigate.enter：载荷随 Action 一起投递", () => {
+test("appNavigate.enter：载荷随 Action 一起投递，且就是目标本身", () => {
   navLog.length = 0;
-  appNavigate.enter(AppEntry.deleteStudent, {ids: [1, 2]});
+  appNavigate.enter(AppEntry.deleteStudent, [1, 2]);
   assert.deepEqual(navLog, [
-    {route: "#/app/student-management/delete-student", payload: {ids: [1, 2]}},
+    {route: "#/app/student-management/delete-student", payload: [1, 2]},
   ]);
+
+  navLog.length = 0;
+  appNavigate.enter(AppEntry.editStudent, 7);
+  assert.deepEqual(navLog, [
+    {route: "#/app/student-management/edit-student", payload: 7},
+  ]);
+});
+
+test("nav.go：不归本窗口的地址交给 forward，不落地", () => {
+  navLog.length = 0;
+  nav.go({route: "#/help/tts"});
+  assert.equal(navLog.length, 1);
+  assert.equal(navLog[0].forwarded.route, "#/help/tts");
 });
 
 /* ---------- 生成物 ↔ 声明：防漂移 ---------- */
