@@ -4,10 +4,11 @@
   import {format} from "$utils/DateTimeUtils";
   import {StudentCommand} from "$commands"
   import type {EntryRegistry} from "$routing/registry";
-  import {AppEntry} from "$routing/entries.generated";
+  import type {AppEntryPayload} from "$routing/app.entries.generated";
+  import {AppEntry} from "$routing/app.entries.generated";
   import {appNavigate} from "$routing/appNavigate";
 
-  let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();
+  let {overlays}: { overlays: EntryRegistry<StudentOverlayName, AppEntryPayload> } = $props();
 
   let newStudent = $state<Student>({
     id: null,
@@ -18,10 +19,6 @@
   let isCreating = $state(false);
   let isVisible = $state(false);
 
-  /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
-  function requestClose() {
-    appNavigate.leave(AppEntry.createStudent);
-  }
 
   let canSubmit = $derived(
     newStudent.student_no.trim() !== "" && newStudent.name.trim() !== ""
@@ -42,7 +39,11 @@
     resetForm();
   }
 
-  async function create(override: boolean | null) {
+  function requestClose() {
+    appNavigate.leave(AppEntry.createStudent);
+  }
+
+  async function doCreate(override: boolean | null) {
     newStudent.student_no = newStudent.student_no.trim();
     newStudent.name = newStudent.name.trim();
     if (!canSubmit || isCreating) return;
@@ -79,7 +80,6 @@
     overlays.register(AppEntry.createStudent, {
       open,
       close,
-      isVisible: () => isVisible
     })
     return () => overlays.unregister(AppEntry.createStudent);
   })
@@ -91,7 +91,7 @@
   <!-- 点击遮罩不可关闭，确保不会误触 -->
   <div class="overlay">
     <div class="popup" onclick={(e) => e.stopPropagation()}>
-      <form onsubmit={(e) => { e.preventDefault(); create(null); }}>
+      <form onsubmit={(e) => { e.preventDefault(); doCreate(null); }}>
         <h3 class="text-title">添加学生</h3>
         <div class="field">
           <span class="field-label">学号</span>
@@ -182,7 +182,7 @@
             <button
               type="button"
               class="button yes"
-              onclick={() => create(false)}
+              onclick={() => doCreate(false)}
               disabled={isCreating}
             >
               保留原记录
@@ -190,7 +190,7 @@
             <button
               type="button"
               class="button warn"
-              onclick={() => create(true)}
+              onclick={() => doCreate(true)}
               disabled={isCreating}
             >
               {isCreating ? "处理中..." : "覆盖并恢复"}
