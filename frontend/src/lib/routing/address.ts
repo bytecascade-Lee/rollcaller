@@ -10,8 +10,15 @@ export type Host = string;
 /** 身份 = 路径 */
 export type Route = string;
 
-/** 数据只交给目标 owner 解释。必须可 JSON 序列化、不可执行 */
-export type Payload = Record<string, unknown>;
+/**
+ * 导航载荷：**一次性命令参数**，形状由目标入口在 `app/meta.json` 的 `payload` 键声明、
+ * 生成成 `AppEntryPayload`。
+ *
+ * 必须可 JSON 序列化 —— 跨窗口投递要过后端 `serde_json::Value`，`bigint` / `Set` / DOM
+ * 一律不行（`JSON.stringify` 会直接抛）。故这里无法给出比 `unknown` 更紧的类型：
+ * 类型只在**构造点**（`appNavigate.enter`）与**消费点**（`EntryHandler.open`）两端存在。
+ */
+export type Payload = unknown;
 
 /** 应用代码的完整表达：身份 + 载荷 */
 export type Action = { route: Route; payload?: Payload };
@@ -21,6 +28,9 @@ export const ROUTE_PREFIX = "#/";
 
 /** 已分段的切分结果 */
 export type ParsedRoute = { host: Host; segments: string[] };
+
+/** 规范化后的完整 Action：地址只剩一种写法，段已经切好，调用方不必再切一次 */
+export type ParsedAction = { route: Route; host: Host; segments: string[]; payload?: Payload };
 
 /**
  * 切分地址
@@ -65,11 +75,22 @@ export function canonicalRoute(raw: string): Route | null {
 }
 
 /**
- * 规范化一个 Action。route 非法时返回 null
+ * 规范化一个 Action 并**一次切分到位**。route 非法时返回 null。
+ *
+ * 导航链路上只该有这一处切分：`go` 拿它判归属，落地拿它的 `segments` 构链，
+ * 谁都不必回头再 `parseRoute` 一遍。
  */
-export function canonicalAction(action: Action): Action | null {
-  const route = canonicalRoute(action.route);
-  return route ? {route, payload: action.payload} : null;
+export function parseAction(action: Action): ParsedAction | null {
+  const parsed = parseRoute(action.route);
+  if (!parsed) {
+    return null;
+  }
+  return {
+    route: routeOf(parsed.host, parsed.segments),
+    host: parsed.host,
+    segments: parsed.segments,
+    payload: action.payload,
+  };
 }
 
 /** 是否应用内路由 */
