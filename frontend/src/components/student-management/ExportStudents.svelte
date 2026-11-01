@@ -3,38 +3,35 @@
   import {save} from "@tauri-apps/plugin-dialog";
   import {StudentCommand} from "$commands";
   import type {EntryRegistry} from "$routing/registry";
-  import type {StudentOverlayName, StudentTable} from "$types";
+  import type {StudentOverlayName} from "$types";
   import {Result} from "$types";
-  import {AppEntry} from "$routing/entries.generated";
-  import {clickOutside, updatePosition} from "$actions";
+  import type {AppEntryPayload} from "$routing/app.entries.generated";
+  import {AppEntry} from "$routing/app.entries.generated";
+  import {clickOutside, findAnchor, POPUP_CENTERED, updatePosition} from "$actions";
   import {appNavigate} from "$routing/appNavigate";
 
-  let {selected, display, anchor, overlays}: {
-    selected: Set<bigint>;
-    display: StudentTable[];
-    anchor: HTMLElement | null;
-    overlays: EntryRegistry<StudentOverlayName>;
-  } = $props();
+  let {overlays}: { overlays: EntryRegistry<StudentOverlayName, AppEntryPayload> } = $props();
+
   let isVisible = $state(false);
-
-  /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
-  function requestClose() {
-    appNavigate.leave(AppEntry.exportStudent);
-  }
-
   let isExporting = $state(false);
   let popoverStyle = $state("");
   let message = $state("");
   let result = $state<Result>(Result.None);
+  /** 触发元素，查不到就居中，同时兼作 clickOutside 的排除项 */
+  let anchor = $state<HTMLElement | null>(null);
 
-  function open() {
-    if (anchor) popoverStyle = updatePosition(anchor);
-    if (selected.size == 0 && studentStore.students.length == display.length) {
-      exportAll();
-      return;
-    }
+  let filtered = $state<number[]>([]);
+  let selected = $state<number[]>([]);
+
+  // [TODO]：此处获取 payload 类型时应传递 AppEntry.exportStudent，而不是原始字符串
+  function open(payload: AppEntryPayload["export-student"] | undefined) {
+    if (!payload || !Array.isArray(payload.filtered) || !Array.isArray(payload.selected)) return;
+    filtered = payload.filtered;
+    selected = payload.selected;
     message = "";
     result = Result.None;
+    anchor = findAnchor(AppEntry.exportStudent);
+    popoverStyle = anchor ? updatePosition(anchor) : POPUP_CENTERED;
     isVisible = true;
   }
 
@@ -42,7 +39,11 @@
     isVisible = false;
   }
 
-  async function doExport(ids: bigint[]) {
+  function requestClose() {
+    appNavigate.leave(AppEntry.exportStudent);
+  }
+
+  async function doExport(ids: readonly number[]) {
     if (isExporting || ids.length == 0) return;
     // 弹出保存对话框：默认文件名可修改，格式 xlsx
     const path = await save({
@@ -52,7 +53,7 @@
     if (!path) return;
     try {
       result = Result.Doing;
-      await StudentCommand.expose(path, ids);
+      await StudentCommand.expose(path, ids as unknown as bigint[]);
       result = Result.Success;
       setTimeout(requestClose, 2500);
     } catch (e) {
@@ -65,22 +66,21 @@
   }
 
   function exportAll() {
-    void doExport(studentStore.students.map((s) => s.id));
+    void doExport(studentStore.students.map((student) => Number(student.id)));
   }
 
-  function exportDisplay() {
-    void doExport(display.map((student: { id: bigint; }) => student.id))
+  function exportFiltered() {
+    void doExport(filtered);
   }
 
   function exportSelected() {
-    void doExport(Array.from(selected));
+    void doExport(selected);
   }
 
   $effect(() => {
     overlays.register(AppEntry.exportStudent, {
       open,
       close,
-      isVisible: () => isVisible,
     })
     return () => overlays.unregister(AppEntry.exportStudent);
   })
@@ -105,23 +105,23 @@
       <span class="text-content">共 {studentStore.students.length} 名学生</span>
     </div>
 
-    {#if studentStore.students.length != display.length}
-      <div
-        class="card"
-        onclick={exportDisplay}
-      >
-        <span class="text-subtitle">导出筛选后的</span>
-        <span class="text-content">共 {display.length} 名学生</span>
-      </div>
-    {/if}
-
-    {#if selected.size > 0}
+    {#if selected.length > 0 && studentStore.students.length != selected.length}
       <div
         class="card"
         onclick={exportSelected}
       >
-        <span class="text-subtitle">导出选中</span>
-        <span class="text-content">已选 {selected.size} 名学生</span>
+        <span class="text-subtitle">导出被选中的</span>
+        <span class="text-content">共 {selected.length} 名学生</span>
+      </div>
+    {/if}
+
+    {#if filtered.length > 0 && studentStore.students.length != filtered.length}
+      <div
+        class="card"
+        onclick={exportFiltered}
+      >
+        <span class="text-subtitle">导出筛选后的</span>
+        <span class="text-content">共 {filtered.length} 名学生</span>
       </div>
     {/if}
 
