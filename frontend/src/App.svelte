@@ -31,62 +31,44 @@
   import AppTitleBar from "$components/app/AppTitlebar.svelte";
   import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
   import {listen} from "@tauri-apps/api/event";
-  import {createRouter} from "$routing/router";
-  import {WindowRouter} from "$routing/windowRouter";
+  import {nav} from "$routing/nav";
   import {createEntryRegistry} from "$routing/registry";
-  import {chainOf, resolveAppEntry} from "$routing/entries";
-  import {APP_ENTRY_PARENT, AppEntry, type AppEntryId, HelpEntry} from "$routing/entries.generated";
-  import {parseRoute, type Payload} from "$routing/address";
+  import {resolveAppChain} from "$routing/entries";
+  import {applyTransition} from "$routing/transition";
+  import {APP_HOST, APP_ENTRY_PARENT, AppEntry, type AppEntryId, type AppEntryPayload} from "$routing/app.entries.generated";
+  import {HelpEntry} from "$routing/help.entries.generated";
+  import type {ParsedAction} from "$routing/address";
   import {appNavigate} from "$routing/appNavigate";
   import {DateTimeUtils} from "$utils";
 
   let APP_INFO = $state<AppInfo | null>(null)
   const window = getCurrentWebviewWindow();
 
-  const overlays = createEntryRegistry<AppEntryId>();
+  const overlays = createEntryRegistry<AppEntryId, AppEntryPayload>();
   let activeChain = $state<AppEntryId[]>([]);
   const activeCard = $derived(activeChain[0] ?? null);
 
-  function transition(entry: AppEntryId, payload?: Payload) {
-    const next = chainOf(entry);
-    const prev = activeChain;
-    let shared = 0;
-    while (shared < prev.length && shared < next.length && prev[shared] === next[shared]) {
-      shared += 1;
+  /** 落地：一次导航**唯一**的状态改动点（构链 → 前缀 diff → 交付 → 写 hash） */
+  function apply(parsed: ParsedAction) {
+    const chain = resolveAppChain(parsed.segments);
+    if (!chain) {
+      console.error(`[routing] 非法 app 地址：${parsed.route}`);
+      return;
     }
-    for (let i = prev.length - 1; i >= shared; i -= 1) {
-      overlays.close(prev[i]);
-    }
-    for (let i = shared; i < next.length; i += 1) {
-      overlays.open(next[i], i === next.length - 1 ? payload : undefined);
-    }
-
-    if (shared === next.length) {
-      overlays.open(entry, payload);
-    }
-    activeChain = next;
+    activeChain = applyTransition(overlays, activeChain, chain, parsed.payload);
+    nav.replaceHash(parsed.route);
   }
 
-  const router = createRouter({
-    host: "app",
-    handle: (action) => {
-      const segments = parseRoute(action.route)?.segments ?? [];
-      const entry = resolveAppEntry(segments);
-      if (!entry) {
-        console.error(`[routing] 非法 app 地址：${action.route}`);
-        return;
-      }
-      transition(entry, action.payload);
-      WindowRouter.replaceHash(action.route);
-    },
+  nav.install({
+    host: APP_HOST,
+    apply: (_action, parsed) => apply(parsed),
     forward: (action) => NavCommand.navOpen(action),
   });
-  WindowRouter.install(router);
 
   onMount(() => {
     void AppInfoCommand.app_info().then((info) => (APP_INFO = info));
 
-    let disposeRouter: (() => void) | null = null;
+    let disposeNav: (() => void) | null = null;
     let unlisten: (() => void) | null = null;
     let assertTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -95,11 +77,11 @@
       const initial = pending
         ? {route: pending.route, payload: pending.payload ?? undefined}
         : undefined;
-      disposeRouter = router.start({route: appNavigate.path(AppEntry.rollcall)}, initial);
+      disposeNav = nav.start({route: appNavigate.path(AppEntry.rollcall)}, initial);
 
       unlisten = await listen(NavCommand.NAV_WAKE_EVENT, async () => {
         const next = await NavCommand.navTakePending();
-        if (next) router.go({route: next.route, payload: next.payload ?? undefined});
+        if (next) nav.go({route: next.route, payload: next.payload ?? undefined});
       });
 
       // 注册完整性断言：推迟到子组件的 effect 注册之后；根入口（卡片）是平面出口，不需要 handler
@@ -114,7 +96,7 @@
     })();
 
     return () => {
-      disposeRouter?.();
+      disposeNav?.();
       unlisten?.();
       if (assertTimer !== null) clearTimeout(assertTimer);
     };
@@ -159,7 +141,7 @@
       <button
         aria-label="帮助文档"
         class="nav-icon"
-        onclick={() => WindowRouter.nav({route: HelpEntry.overview})}
+        onclick={() => nav.go({route: HelpEntry.overview})}
         title="帮助文档"
       >
         <QuestionIcon size="24"/>
