@@ -10,7 +10,7 @@ from pathlib import Path
 from types import ModuleType
 
 from cli import git
-from common.constant.paths import FRONTEND_ROUTING_ENTRIES_PATH, FRONTEND_TYPES_DIR
+from common.constant.paths import FRONTEND_ROUTING_ENTRIES_PATHS, FRONTEND_TYPES_DIR
 from common.logger import info
 from util.str_format import join_repr
 from . import build_info, routing_entries, ts_rs
@@ -27,7 +27,7 @@ class GeneratedNotCommittedError(Exception):
 # 顺序即执行顺序
 GENERATORS: tuple[ModuleType, ...] = (build_info, routing_entries)
 
-CODEGEN_PATHS: tuple[Path, ...] = (FRONTEND_ROUTING_ENTRIES_PATH,)
+CODEGEN_PATHS: tuple[Path, ...] = FRONTEND_ROUTING_ENTRIES_PATHS
 TS_RS_PATHS: tuple[Path, ...] = (FRONTEND_TYPES_DIR,)
 
 
