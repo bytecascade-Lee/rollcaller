@@ -1,5 +1,5 @@
 import {type Action} from "$routing/address";
-import {WindowRouter} from "$routing/windowRouter";
+import {nav} from "$routing/nav";
 import {helpStore} from "$stores/helpStore.svelte";
 import {HelpAddress} from "$utils/helpAddress";
 
@@ -82,7 +82,7 @@ class HelpNavigate {
   open(address: HelpAddress, options?: { fold?: boolean }): void {
     this.#intent = {record: true, fold: options?.fold ?? true};
     const action: Action = {route: address.toHash()};
-    WindowRouter.nav(action);
+    nav.go(action);
   }
 
   /**
@@ -94,7 +94,7 @@ class HelpNavigate {
     const {record, fold} = this.#intent;
     this.#intent = DELIVERED;
 
-    WindowRouter.replaceHash(address.toHash());
+    nav.replaceHash(address.toHash());
     if (address.toHash() === this.#shown?.toHash()) {
       this.#viewport?.scrollTo(address.anchor);
       return;
@@ -127,7 +127,7 @@ class HelpNavigate {
 
   /** 把栈顶那一格重新落到视图（hash 与树折叠都按"外部跳转"处理） */
   async #show(address: HelpAddress): Promise<void> {
-    WindowRouter.replaceHash(address.toHash());
+    nav.replaceHash(address.toHash());
     await this.#load(address, true);
   }
 
