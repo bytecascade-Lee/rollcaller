@@ -4,21 +4,31 @@
   import {recordStore} from "$stores/recordStore.svelte";
   import type {RecordOverlayName, RollcallRecord} from "$types";
   import type {EntryRegistry} from "$routing/registry";
-  import {AppEntry} from "$routing/entries.generated";
-  import {clickOutside, updatePosition} from "$actions";
+  import type {AppEntryPayload} from "$routing/app.entries.generated";
+  import {AppEntry} from "$routing/app.entries.generated";
+  import {clickOutside, findAnchor, POPUP_CENTERED, updatePosition} from "$actions";
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
   import {appNavigate} from "$routing/appNavigate";
 
-  let {selected, anchor, onselect, overlays}: {
-    /** 生效的选择集（页面已按"记录仍然存在"过滤） */
-    selected: Set<bigint>;
-    anchor: HTMLElement | null;
+  let {onselect, overlays}: {
     /** 改完回报新的选择集（清空即 `[]`）。选中集归页面所有，弹窗不直接改它 */
     onselect: (ids: readonly bigint[]) => void;
-    overlays: EntryRegistry<RecordOverlayName>;
+    overlays: EntryRegistry<RecordOverlayName, AppEntryPayload>;
   } = $props();
 
   let isVisible = $state(false);
+  /** 触发元素（查不到就居中）；同时兼作 clickOutside 的排除项 */
+  let anchorEl = $state<HTMLElement | null>(null);
+
+  /** 目标记录 id：打开那一刻从**载荷**快照下来；行按"记录仍然存在"从 store 派生 */
+  let targetIds = $state<number[]>([]);
+  /** 是否已用记录当前值预填过（只种一次，之后不读 store） */
+  let seeded = $state(false);
+  const targets = $derived(
+    targetIds
+      .map((id) => recordStore.get(id))
+      .filter((record): record is RollcallRecord => record != null),
+  );
 
   /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
   function requestClose() {
@@ -31,6 +41,41 @@
   let remark = $state("");
   let popoverStyle = $state("");
 
+  /** 载荷为空（深链只有地址）⇒ 不开，降级为纯导航。形状直接取声明，不在此重写一遍 */
+  function open(ids: AppEntryPayload["edit-record"] | undefined) {
+    if (!ids || ids.length === 0) return;
+    targetIds = ids;
+    updateStatus = true;
+    updateRemark = true;
+    attendanceStatus = null;
+    remark = "";
+    seeded = false;
+    anchorEl = findAnchor(AppEntry.editRecord);
+    popoverStyle = anchorEl ? updatePosition(anchorEl) : POPUP_CENTERED;
+    if (recordStore.records.length === 0) void recordStore.load();
+    isVisible = true;
+  }
+
+  /**
+   * 单条时用记录当前值预填；多选时不预填（各项取值可能不同）。
+   *
+   * `seeded` 一旦置位就不再读 store —— 否则列表刷新会把用户改到一半的值盖回去；
+   * 同时这让"跨窗口投递时记录还没加载"也能在数据到达后补种。
+   */
+  $effect(() => {
+    if (seeded || targetIds.length !== 1) return;
+    const only = recordStore.get(targetIds[0]);
+    if (only == null) return;
+    attendanceStatus = only.attendance_status;
+    remark = only.remark ?? "";
+    seeded = true;
+  });
+
+  function close() {
+    isVisible = false;
+    targetIds = [];
+  }
+
   async function update() {
     const wantStatus = updateStatus && attendanceStatus != null;
     const wantRemark = updateRemark && remark.trim();
@@ -38,7 +83,9 @@
       alert("请选择状态或填写备注");
       return;
     }
-    const ids: bigint[] = Array.from(selected);
+    const ids = targets.map((record) => record.id);
+    if (ids.length === 0) return;
+
     let records: RollcallRecord[];
     if (wantStatus && wantRemark) {
       records = await RecordCommand.update(ids, attendanceStatus as number, remark.trim());
@@ -47,8 +94,7 @@
     } else if (wantRemark) {
       records = await RecordCommand.update_remark(ids, remark.trim());
     } else {
-      alert("卧槽")
-      records = []
+      return;
     }
     records.forEach(record => recordStore.upsert(record));
     // 改完的这批记录仍然存在，故"按存在性派生"不会让它们自己掉出选中集 —— 这里显式回报清空
@@ -56,33 +102,10 @@
     requestClose();
   }
 
-  export function open() {
-    updateStatus = true;
-    updateRemark = true;
-    attendanceStatus = null;
-    remark = "";
-    if (anchor) popoverStyle = updatePosition(anchor);
-    isVisible = true;
-    if (selected.size == 1) {
-      // 必须拷贝，否则拿到的是引用，表格中的照样会变
-      let value: bigint = selected.values().next().value ?? -1n;
-      const original = recordStore.get(value ? value : -1n);
-      if (original != null) {
-        attendanceStatus = original.attendance_status;
-        remark = original.remark ? original.remark : "";
-      }
-    }
-  }
-
-  export function close() {
-    isVisible = false;
-  }
-
   $effect(() => {
     overlays.register(AppEntry.editRecord, {
       open,
       close,
-      isVisible: () => isVisible
     })
     return () => overlays.unregister(AppEntry.editRecord);
   })
@@ -94,12 +117,12 @@
   <div
     class="popup"
     style={popoverStyle}
-    use:clickOutside={{ callback: requestClose, exclude: anchor ?? undefined }}
+    use:clickOutside={{ callback: requestClose, exclude: anchorEl ?? undefined }}
   >
-    {#if selected.size == 1}
+    {#if targets.length == 1}
       <h3 class="text-title">修改记录</h3>
     {:else}
-      <h3 class="text-title">批量修改记录（共 {selected.size} 条）</h3>
+      <h3 class="text-title">批量修改记录（共 {targets.length} 条）</h3>
     {/if}
     <div class="field">
       <span class="field-label">
