@@ -6,60 +6,52 @@
  * 只有**叠加层**注册。平面的呈现是"当前地址链的链首"的投影（见 `App.svelte` 的转换语义），
  * 不需要 handler —— 这正是"合表不合槽"：统一的是**如何被寻址**，不是**如何被存储**。
  *
- * ## 契约
+ * ## 载荷
  *
- * 三个方法：`open`（打开这个浮层）、`close`（收起）、`isVisible`（报告可见性）。
- * `close` 不能省：**关闭不是导航** —— 不能要求用户点"取消"也走一次导航，所以它必须待在这里。
+ * 载荷的形状由入口在 `meta.json` 里声明（生成成 `AppEntryPayload`），注册表把它转成
+ * `open` 的实参类型：浮层写 `open(id: number)`，调用方写 `enter(editStudent, 7)`，
+ * **两端都受同一份声明约束**，中间没有手写解析。
  *
- * ## payload
- *
- * payload 是**一次性命令参数**（可 JSON 序列化、不可执行）。两种消费方式：
- *
- * - 弹窗在 `open(payload)` 里把它**快照**成自己的内部变量（`delete-student` 就是这样），
- *   之后只认那个变量 —— 弹窗不读页面状态，调用方也只负责给 payload；
- * - 需要改动页面状态的（`edit-student` 要把"编辑谁"写进页面的选中集），由**页面**用
- *   `interpret` 注册解释器，在 `open` 之前执行。
+ * 唯一必须自己防的是"地址没有载荷"（深链进来只有地址）—— 故实参类型是 `P | undefined`，
+ * 每个浮层开头判断一次，通常就是"不开"。
  */
-export type EntryHandler = {
-  open: (payload?: unknown) => void;
+export type EntryHandler<P = undefined> = {
+  open: (payload: P | undefined) => void;
   close?: () => void;
-  isVisible?: () => boolean;
 };
 
-export type EntryRegistry<Id extends string = string> = {
-  register(id: Id, handler: EntryHandler): void;
-  /** 注册载荷解释器：在 `open` 之前执行（由拥有页面状态的页面注册） */
-  interpret(id: Id, translate: (payload?: unknown) => void): void;
+/** 内部存储用的宽类型：注册时按 `P[E]` 收窄，取出时已无从得知具体入口 */
+type LooseHandler = {
+  open: (payload?: unknown) => void;
+  close?: () => void;
+};
+
+export type EntryRegistry<Id extends string, P = Record<Id, undefined>> = {
+  register<E extends Id & keyof P>(id: E, handler: EntryHandler<P[E]>): void;
   unregister(id: Id): void;
+  /**
+   * 由落地流程调用（`App.svelte`）。载荷在这里必须收成 `unknown`：它来自地址，
+   * 跨窗口时是 JSON，落地前无从得知具体入口 —— 声明只用于约束**注册**那一侧。
+   */
   open(id: Id, payload?: unknown): void;
   close(id: Id): void;
-  isVisible(id: Id): boolean;
   has(id: Id): boolean;
 };
 
-export function createEntryRegistry<Id extends string = string>(): EntryRegistry<Id> {
-  const handlers = new Map<Id, EntryHandler>();
-  const interpreters = new Map<Id, (payload?: unknown) => void>();
+export function createEntryRegistry<Id extends string, P = Record<Id, undefined>>(): EntryRegistry<Id, P> {
+  const handlers = new Map<Id, LooseHandler>();
   return {
     register(id, handler) {
-      handlers.set(id, handler);
-    },
-    interpret(id, translate) {
-      interpreters.set(id, translate);
+      handlers.set(id, handler as unknown as LooseHandler);
     },
     unregister(id) {
       handlers.delete(id);
-      interpreters.delete(id);
     },
     open(id, payload) {
-      interpreters.get(id)?.(payload);
       handlers.get(id)?.open(payload);
     },
     close(id) {
       handlers.get(id)?.close?.();
-    },
-    isVisible(id) {
-      return handlers.get(id)?.isVisible?.() ?? false;
     },
     has(id) {
       return handlers.has(id);
