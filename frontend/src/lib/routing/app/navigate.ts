@@ -4,8 +4,8 @@ import {
   APP_HOST,
   type AppEntryId,
   type AppEntryPayload,
-} from "$routing/app.entries.generated";
-import {chainOf} from "$routing/entries";
+} from "$routing/app/entries.generated";
+import {chainOf} from "$routing/app/entries";
 import {nav} from "$routing/nav";
 
 /**
