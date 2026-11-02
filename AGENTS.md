@@ -62,6 +62,10 @@ cd ./backend && cargo tauri dev
 # Check backend compilation only
 cd ./backend && cargo check
 
+# Backend formatting check / apply (rustfmt, max_width = 125)
+cd ./backend && cargo fmt --check
+cd ./backend && cargo fmt
+
 # Frontend dev server (for UI work without Tauri)
 cd ./frontend && pnpm dev
 
@@ -192,6 +196,9 @@ cd ./backend && cargo tauri build
   placeholders (`✂prettier:content✂="<base64>"`) can survive on disk and silently gut the component.
   Run `pnpm format` instead; grep for `prettier:content` if a component looks empty
 - `just test` runs the whole chain (codegen → cargo test → ts-rs commit check → `pnpm test`)
-- `just check` runs `scripts/check.py` (Prettier check → ESLint → svelte-check → `cargo check`); CI runs it too
+- `just check` runs `scripts/check.py` (cargo fmt check → Prettier check → ESLint → svelte-check →
+  `cargo check`); CI runs it too
+- Rust style: rustfmt owns formatting (`backend/rustfmt.toml`, `max_width = 125`), nothing else. Never
+  hand-format or let the IDE pick its own width — `cargo fmt` is the only writer
 - Tauri capabilities/permissions must be updated in `backend/capabilities/*.json` when adding new plugins
 - ts-rs types are regenerated at compile time — `cargo check` will regenerate `frontend/src/lib/types/*.ts`
