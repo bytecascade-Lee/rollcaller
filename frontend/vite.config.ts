@@ -6,7 +6,8 @@ import path from "node:path";
 const host: string | undefined = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
-export default defineConfig(async () => ({
+// 导出对象而非 async 工厂，`vitest.config.ts` 需要复用此对象
+export default defineConfig({
   plugins: [svelte()],
   build: {
     rollupOptions: {
@@ -61,4 +62,4 @@ export default defineConfig(async () => ({
       strict: true
     }
   },
-}));
+});

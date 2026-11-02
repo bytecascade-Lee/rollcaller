@@ -1,49 +1,40 @@
-/**
- * 导航核心的单元测试。
- *
- * 运行：pnpm test
- *   = node --experimental-strip-types --import ./tests/_register-alias.mjs tests/routing.test.mjs
- * （裸 node 直接跑 `.ts` 源码；`$x/...` 别名由 `tests/_alias-resolver.mjs` 补。）
- *
- * 覆盖范围只限**纯逻辑**：地址原语、入口解析、落点注册表、app 域的翻译与回退、
- * 生成物与声明的一致性。`.svelte.ts`（helpNavigate）与组件里的转换语义不在范围内 ——
- * 裸 node 编译不了 rune。
- */
 import {strict as assert} from "node:assert";
 import {readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
+import {test} from "vitest";
 
-import {canonicalRoute, parseAction, parseRoute, routeOf} from "$routing/address.ts";
-import {chainOf, resolveAppChain} from "$routing/app/entries.ts";
-import {createEntryRegistry} from "$routing/registry.ts";
-import {nav} from "$routing/nav.ts";
-import {applyTransition, planTransition} from "$routing/app/transition.ts";
-import {appNavigate} from "$routing/app/navigate.ts";
-import {pushAt, resetTo, stepIndex} from "$routing/help/history.ts";
-import {readSearch} from "$routing/help/payload.ts";
-import {APP_ENTRY_PARENT, AppEntry} from "$routing/app/entries.generated.ts";
-import {HelpRoute} from "$routing/help/entries.generated.ts";
+import {canonicalRoute, parseAction, parseRoute, routeOf} from "$routing/address";
+import {chainOf, resolveAppChain} from "$routing/app/entries";
+import {createEntryRegistry} from "$routing/registry";
+import {nav} from "$routing/nav";
+import {applyTransition, planTransition} from "$routing/app/transition";
+import {appNavigate} from "$routing/app/navigate";
+import {pushAt, resetTo, stepIndex} from "$routing/help/history";
+import {readSearch} from "$routing/help/payload";
+import {APP_ENTRY_PARENT, AppEntry} from "$routing/app/entries.generated";
+import {HelpRoute} from "$routing/help/entries.generated";
 
-/* ---------- 极简 runner：单个失败不中断，最后汇总并给非零退出码 ---------- */
+/* ---------- 打桩：node 环境没有 DOM ---------- */
 
-const failures = [];
-let passed = 0;
+/** 这些用例只用到 location/history/window 上极少几个成员，给最小桩即可 */
+const env = globalThis as unknown as {
+  location: { hash: string };
+  history: { replaceState(): void };
+  window: { addEventListener(): void; removeEventListener(): void };
+};
 
-function test(name, fn) {
-  try {
-    fn();
-    passed += 1;
-  } catch (error) {
-    failures.push({name, error});
-  }
-}
-
-/* ---------- 打桩：Node 里没有 DOM ---------- */
-
-globalThis.location = {hash: "#/app/rollcall"};
-globalThis.history = {replaceState() {}};
-/** `nav.start` 只用到这两个方法，给个桩即可，不必真 DOM */
-globalThis.window = {addEventListener() {}, removeEventListener() {}};
+Object.assign(env, {
+  location: {hash: "#/app/rollcall"},
+  history: {
+    replaceState() {
+    }
+  },
+  window: {
+    addEventListener() {
+    }, removeEventListener() {
+    }
+  },
+});
 
 const navLog = [];
 /** 假域：段原样当目的地，落地时把"地址 + 载荷"记下来（等价于旧 `apply` 的观察点） */
@@ -169,7 +160,6 @@ test("applyTransition：逆序关、顺序开，载荷只给最深的那个", ()
   ]);
 });
 
-/* ---------- registry 的载荷透传见上；载荷形状由 meta.json 声明、tsc 校验 ---------- */
 /* ---------- registry：注册/打开/注销，未知 id 不抛 ---------- */
 
 test("registry：open 转给 handler，注销后归零", () => {
@@ -187,7 +177,10 @@ test("registry：未知 id 与缺省的 close 都不抛", () => {
   const reg = createEntryRegistry();
   assert.doesNotThrow(() => reg.open("nope"));
   assert.doesNotThrow(() => reg.close("nope"));
-  reg.register("a", {open: () => {}});
+  reg.register("a", {
+    open: () => {
+    }
+  });
   assert.doesNotThrow(() => reg.close("a"));
 });
 
@@ -236,7 +229,7 @@ test("appNavigate.path：完整路径，由 parentId 链推出", () => {
 test("appNavigate.leave：只有自己确实是当前地址目标时才回退", () => {
   const leaveAt = (hash) => {
     navLog.length = 0;
-    globalThis.location.hash = hash;
+    env.location.hash = hash;
     appNavigate.leave(AppEntry.deleteStudent);
     return navLog.map((action) => action.route);
   };
@@ -248,7 +241,7 @@ test("appNavigate.leave：只有自己确实是当前地址目标时才回退", 
   assert.deepEqual(leaveAt("#/app/student-management"), []); // 已回退过 ⇒ 幂等
 
   navLog.length = 0;
-  globalThis.location.hash = "#/app/rollcall";
+  env.location.hash = "#/app/rollcall";
   appNavigate.leave(AppEntry.rollcall);
   assert.deepEqual(navLog, []); // 根入口无父级 ⇒ 不动
 });
@@ -276,8 +269,8 @@ test("nav.go：不归本窗口的地址交给 forward，不落地", () => {
 
 test("nav.go：域解释不了的地址不落地，也不写 hash", () => {
   let wrote = 0;
-  const originalReplace = globalThis.history.replaceState;
-  globalThis.history.replaceState = () => {
+  const originalReplace = env.history.replaceState;
+  env.history.replaceState = () => {
     wrote += 1;
   };
   const originalWarn = console.warn;
@@ -298,7 +291,7 @@ test("nav.go：域解释不了的地址不落地，也不写 hash", () => {
     nav.go({route: "#/app/nope"});
   } finally {
     stop();
-    globalThis.history.replaceState = originalReplace;
+    env.history.replaceState = originalReplace;
     console.warn = originalWarn;
     disposeHarness = installTestNav();
   }
@@ -310,7 +303,7 @@ test("nav.go：域解释不了的地址不落地，也不写 hash", () => {
 
 test("nav.start：initial 非法时继续往 hash / fallback 兜底", () => {
   navLog.length = 0;
-  globalThis.location.hash = "";
+  env.location.hash = "";
   // 非法 initial + 空 hash ⇒ 落到 fallback（旧实现会把整条首帧路径吞掉，窗口停在空链）
   const stop = nav.start({route: "#/app/student-management"}, {route: "看起来不像地址"});
   assert.deepEqual(navLog.map((action) => action.route), ["#/app/student-management"]);
@@ -318,7 +311,7 @@ test("nav.start：initial 非法时继续往 hash / fallback 兜底", () => {
 
   // 合法 initial 优先于 hash
   navLog.length = 0;
-  globalThis.location.hash = "#/app/rollcall";
+  env.location.hash = "#/app/rollcall";
   const stop2 = nav.start(
     {route: "#/app/rollcall"},
     {route: "#/app/student-management/edit-student", payload: 7},
@@ -353,11 +346,3 @@ test("生成物 help 段：地址格式合法且不重复", () => {
   }
   assert.equal(new Set(addresses).size, addresses.length, "存在两个句柄指向同一地址");
 });
-
-/* ---------- 汇总 ---------- */
-
-for (const {name, error} of failures) {
-  console.error(`FAIL ${name}\n  ${error.message}`);
-}
-console.log(`\n${passed} passed, ${failures.length} failed`);
-process.exitCode = failures.length > 0 ? 1 : 0;
