@@ -26,35 +26,23 @@
         "export-student": {
             "parentId": "student-management",
             "payload": {
-                "filtered": [
-                    "number"
-                ],
-                "selected": [
-                    "number"
-                ]
+                "filtered": ["number"],
+                "selected": ["number"]
             }
         },
         "delete-student": {
             "parentId": "student-management",
-            "payload": [
-                "number"
-            ]
+            "payload": ["number"]
         },
         "edit-record": {
             "parentId": "record-history",
-            "payload": [
-                "number"
-            ]
+            "payload": ["number"]
         },
         "export-record": {
             "parentId": "record-history",
             "payload": {
-                "filtered": [
-                    "number"
-                ],
-                "selected": [
-                    "number"
-                ]
+                "filtered": ["number"],
+                "selected": ["number"]
             }
         }
     }

@@ -43,7 +43,7 @@ class WebViewTtsService {
   /**
    * 播放文本，返回 Promise —— onend resolve，onerror reject
    */
-  play(text: string, options?: { lang?: string; rate?: number; pitch?: number }): Promise<void> {
+  play(text: string, options?: {lang?: string; rate?: number; pitch?: number}): Promise<void> {
     if (!text?.trim()) return Promise.resolve();
 
     return new Promise<void>((resolve, reject) => {

@@ -4,13 +4,7 @@ import {attendanceStatusStore, recordStore} from "$stores";
 import {RecordCommand} from "$commands";
 
 class RecordService {
-  #groupColors= [
-    "#e94f4f",
-    '#eea700',
-    '#45c06e',
-    '#00adcf',
-    '#c442de'
-  ]
+  #groupColors = ["#e94f4f", "#eea700", "#45c06e", "#00adcf", "#c442de"];
 
   get groupColors(): string[] {
     return this.#groupColors;
@@ -21,7 +15,7 @@ class RecordService {
     if (records.length == 0) return result;
 
     let lastSessionId = "";
-    let groupIndex = -1
+    let groupIndex = -1;
     for (let i = 0; i < records.length; i++) {
       let currentSessionId = records[i].session_id;
       if (currentSessionId != lastSessionId) {
@@ -29,19 +23,19 @@ class RecordService {
         let rowspan = 0;
         groupIndex++;
         while (i + rowspan < records.length && currentSessionId == records[i + rowspan].session_id) {
-          rowspan++
+          rowspan++;
         }
         result.push({
           groupIndex: groupIndex,
           isStart: true,
-          rowspan: rowspan
-        })
+          rowspan: rowspan,
+        });
       } else {
         result.push({
           groupIndex: groupIndex,
           isStart: false,
-          rowspan: 0
-        })
+          rowspan: 0,
+        });
       }
     }
     return result;
@@ -57,7 +51,7 @@ class RecordService {
       let result = await RecordCommand.update_attendance_status([id], status ? status.id : 1);
       recordStore.upsert(result[0]);
     } catch (e) {
-      alert(e)
+      alert(e);
     }
   }
 }

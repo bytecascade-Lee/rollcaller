@@ -24,10 +24,7 @@ function commonPrefix(prev: readonly AppEntryId[], next: readonly AppEntryId[]):
  * `replay` 不能删：关闭也回退地址，「地址在目标、浮层已关」是常态，不补 `open` 则再点无反应。
  * 它落在卡片上时 `registry.open` 是预期的空操作 —— 卡片没有 handler，不是漏判
  */
-export function planTransition(
-  prev: readonly AppEntryId[],
-  next: readonly AppEntryId[],
-): TransitionPlan {
+export function planTransition(prev: readonly AppEntryId[], next: readonly AppEntryId[]): TransitionPlan {
   const shared = commonPrefix(prev, next);
   return {
     close: prev.slice(shared).reverse(),

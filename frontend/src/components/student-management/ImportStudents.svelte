@@ -1,7 +1,7 @@
 <script lang="ts">
   import {studentStore} from "$stores/studentStore.svelte";
   import type {FileType, SheetPreview, StudentOverlayName, StudentTable} from "$types";
-  import {Result} from "$types"
+  import {Result} from "$types";
   import {open} from "@tauri-apps/plugin-dialog";
   import type {EntryRegistry} from "$routing/registry";
   import type {AppEntryPayload} from "$routing/app/entries.generated";
@@ -21,11 +21,11 @@
     UploadSimpleIcon,
     WarningCircleIcon,
     XCircleIcon,
-    XIcon
+    XIcon,
   } from "phosphor-svelte";
   import {appNavigate} from "$routing/app/navigate";
 
-  let {overlays}: { overlays: EntryRegistry<StudentOverlayName, AppEntryPayload> } = $props();
+  let {overlays}: {overlays: EntryRegistry<StudentOverlayName, AppEntryPayload>} = $props();
 
   // 预览：一次拿回文件里的全部工作表（每张表自带前若干行与行列数）
   let sheets = $state<SheetPreview[]>([]);
@@ -48,7 +48,7 @@
   let isPreviewing = $state(false);
   let isImporting = $state(false);
   let importSucceeded = $state(false);
-  let message = $state<{ type: Result; content: string } | null>(null);
+  let message = $state<{type: Result; content: string} | null>(null);
   // 已删除但姓名不同的冲突记录，需用户逐条决策
   let pendingDecisions = $state<StudentTable[]>([]);
   // 学号 -> 是否覆盖（true=覆盖并恢复，false=跳过）
@@ -64,20 +64,17 @@
 
   let configValid = $derived(
     previewData != null &&
-    filePath !== "" &&
-    studentNoColumnIndex >= 0 &&
-    nameColumnIndex >= 0 &&
-    studentNoColumnIndex !== nameColumnIndex &&
-    headerRows >= 0 &&
-    headerRows < (previewData?.total_rows ?? 0)
+      filePath !== "" &&
+      studentNoColumnIndex >= 0 &&
+      nameColumnIndex >= 0 &&
+      studentNoColumnIndex !== nameColumnIndex &&
+      headerRows >= 0 &&
+      headerRows < (previewData?.total_rows ?? 0),
   );
   let allDecided = $derived(
-    pendingDecisions.length > 0 &&
-    pendingDecisions.every((s) => pendingChoices.get(s.student_no) !== undefined)
+    pendingDecisions.length > 0 && pendingDecisions.every((s) => pendingChoices.get(s.student_no) !== undefined),
   );
-  let decidedCount = $derived(
-    pendingDecisions.filter((s) => pendingChoices.get(s.student_no) !== undefined).length
-  );
+  let decidedCount = $derived(pendingDecisions.filter((s) => pendingChoices.get(s.student_no) !== undefined).length);
   let fileName = $derived(filePath.split(/[\\/]/).pop() || filePath);
 
   function clearAutoClose() {
@@ -107,7 +104,7 @@
   /**
    * 打开导入向导
    */
-  async function openDialog(prefill?: { path: string; format: FileType }) {
+  async function openDialog(prefill?: {path: string; format: FileType}) {
     resetState();
     isVisible = true;
     if (prefill == null || prefill.format !== "Excel") return;
@@ -300,7 +297,7 @@
   function decideAll(override: boolean) {
     const next = new Map(pendingChoices);
     for (const s of pendingDecisions) {
-      next.set(s.student_no, override)
+      next.set(s.student_no, override);
     }
     pendingChoices = next;
   }
@@ -323,7 +320,7 @@
         headerRows,
         studentNoColumnIndex,
         nameColumnIndex,
-        decisions
+        decisions,
       );
       switch (result.type) {
         case "Insert":
@@ -332,9 +329,10 @@
           importSucceeded = true;
           message = {
             type: Result.Success,
-            content: result.type === "Upsert"
-              ? `成功导入 ${result.data.length} 名学生（含自动恢复/覆写）`
-              : `成功导入 ${result.data.length} 名学生`,
+            content:
+              result.type === "Upsert"
+                ? `成功导入 ${result.data.length} 名学生（含自动恢复/覆写）`
+                : `成功导入 ${result.data.length} 名学生`,
           };
           // 导入成功后延时 3s 自动关闭，让用户看到成功消息
           clearAutoClose();
@@ -351,7 +349,7 @@
           message = {
             type: Result.Warning,
             content: `以下学号已存在活跃记录，无法导入：${result.data
-              .map((s: { student_no: string; name: string; }) => `${s.student_no}（${s.name}）`)
+              .map((s: {student_no: string; name: string}) => `${s.student_no}（${s.name}）`)
               .join("、")}。`,
           };
           break;
@@ -372,39 +370,39 @@
     overlays.register(AppEntry.importStudent, {
       open: openDialog,
       close,
-    })
+    });
     return () => overlays.unregister(AppEntry.importStudent);
-  })
+  });
 </script>
 
 {#if isVisible}
   <div class="overlay">
     <!-- svelte-ignore a11y_interactive_supports_focus -->
     <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div
-      class="popup"
-      onclick={(e) => e.stopPropagation()}
-      role="dialog"
-      aria-modal="true"
-      aria-label="导入学生"
-    >
+    <div class="popup" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="导入学生">
       <h3 class="text-title">导入学生</h3>
       <span class="text-content">从 Excel 文件批量导入学生名单</span>
 
       <!-- 步骤引导 -->
       <ol class="stepper">
         <li class="step" class:done={step > 1} class:active={step === 1}>
-          <span class="step-badge">{#if step > 1}<CheckIcon size={13}/>{:else}1{/if}</span>
+          <span class="step-badge"
+            >{#if step > 1}<CheckIcon size={13} />{:else}1{/if}</span
+          >
           <span class="step-label">选择文件</span>
         </li>
         <li class="step-line" aria-hidden="true"></li>
         <li class="step" class:done={step > 2} class:active={step === 2}>
-          <span class="step-badge">{#if step > 2}<CheckIcon size={13}/>{:else}2{/if}</span>
+          <span class="step-badge"
+            >{#if step > 2}<CheckIcon size={13} />{:else}2{/if}</span
+          >
           <span class="step-label">配置表头行数及列映射</span>
         </li>
         <li class="step-line" aria-hidden="true"></li>
         <li class="step" class:done={importSucceeded} class:active={step === 3}>
-          <span class="step-badge">{#if importSucceeded}<CheckIcon size={13}/>{:else}3{/if}</span>
+          <span class="step-badge"
+            >{#if importSucceeded}<CheckIcon size={13} />{:else}3{/if}</span
+          >
           <span class="step-label">导入</span>
         </li>
       </ol>
@@ -419,11 +417,8 @@
             </div>
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div>
-              <div
-                class="card"
-                onclick={chooseFile}
-              >
-                <FileXlsIcon size="36" class="file-picker-icon"/>
+              <div class="card" onclick={chooseFile}>
+                <FileXlsIcon size="36" class="file-picker-icon" />
                 <span class="text-content" title={filePath}>{filePath ? fileName : "选择Excel文件"}</span>
               </div>
             </div>
@@ -449,7 +444,7 @@
                 </select>
               {/if}
               {#if hasData}
-                <span class="section-hint">在第一列拖动箭头忽略表头；<br>在表头下拉选择「学号 / 姓名」列</span>
+                <span class="section-hint">在第一列拖动箭头忽略表头；<br />在表头下拉选择「学号 / 姓名」列</span>
               {/if}
             </div>
 
@@ -461,7 +456,7 @@
             {:else if previewData && !hasData}
               <!-- 空工作表：不给表头箭头，也不给列映射，直接说没有任何数据 -->
               <div class="state">
-                <InfoIcon size={18}/>
+                <InfoIcon size={18} />
                 <span class="text-subtitle">此工作表无任何数据</span>
               </div>
             {:else if previewData}
@@ -472,55 +467,10 @@
                   <div class="preview-table-wrap" bind:this={wrapEl}>
                     <table class="preview-table">
                       <thead>
-                      <tr>
-                        <!-- svelte-ignore a11y_no_static_element_interactions -->
-                        <!-- svelte-ignore a11y_interactive_supports_focus -->
-                        <th
-                          class="col-arrow"
-                          role="slider"
-                          aria-label="拖动设置要忽略的表头行数"
-                          aria-valuemin={0}
-                          aria-valuemax={previewData.rows.length}
-                          aria-valuenow={headerRows}
-                          onpointerdown={onArrowDown}
-                          onpointermove={onArrowMove}
-                          onpointerup={onArrowUp}
-                          onpointercancel={onArrowUp}
-                        >
-                          {#if headerRows === 0}
-                            <ArrowFatRightIcon size={20} weight="fill" style="color: var(--color-primary)"/>
-                          {/if}
-                        </th>
-                        <th class="col-rowno">#</th>
-                        {#each Array(previewData.total_columns) as _, colIndex}
-                          <th
-                            class:is-no-col={studentNoColumnIndex == colIndex}
-                            class:is-name-col={nameColumnIndex == colIndex}
-                          >
-                            <div class="col-head">
-                              <select
-                                class="col-select"
-                                class:sel-no={studentNoColumnIndex == colIndex}
-                                class:sel-name={nameColumnIndex == colIndex}
-                                value={studentNoColumnIndex == colIndex ? "student_no" : nameColumnIndex == colIndex ? "name" : ""}
-                                onchange={(e) => onHeaderRoleChange(colIndex, e.currentTarget.value)}
-                                aria-label={`第 ${colIndex + 1} 列的映射`}
-                              >
-                                <option value="">忽略此列</option>
-                                <option value="student_no">学号</option>
-                                <option value="name">姓名</option>
-                              </select>
-                            </div>
-                          </th>
-                        {/each}
-                      </tr>
-                      </thead>
-                      <tbody>
-                      {#each previewData.rows as row, rowIndex}
-                        <tr class:is-header={rowIndex < headerRows}>
+                        <tr>
                           <!-- svelte-ignore a11y_no_static_element_interactions -->
                           <!-- svelte-ignore a11y_interactive_supports_focus -->
-                          <td
+                          <th
                             class="col-arrow"
                             role="slider"
                             aria-label="拖动设置要忽略的表头行数"
@@ -532,31 +482,83 @@
                             onpointerup={onArrowUp}
                             onpointercancel={onArrowUp}
                           >
-                            {#if rowIndex === headerRows - 1}
-                              <ArrowFatRightIcon size={20} weight="fill" style="color: var(--color-primary)"/>
+                            {#if headerRows === 0}
+                              <ArrowFatRightIcon size={20} weight="fill" style="color: var(--color-primary)" />
                             {/if}
-                          </td>
-                          <td class="col-rowno">{rowIndex + 1}</td>
-                          {#each row as cell, colIndex}
-                            <td
+                          </th>
+                          <th class="col-rowno">#</th>
+                          {#each Array(previewData.total_columns) as _, colIndex}
+                            <th
                               class:is-no-col={studentNoColumnIndex == colIndex}
                               class:is-name-col={nameColumnIndex == colIndex}
-                            >{cell || ""}</td>
+                            >
+                              <div class="col-head">
+                                <select
+                                  class="col-select"
+                                  class:sel-no={studentNoColumnIndex == colIndex}
+                                  class:sel-name={nameColumnIndex == colIndex}
+                                  value={studentNoColumnIndex == colIndex
+                                    ? "student_no"
+                                    : nameColumnIndex == colIndex
+                                      ? "name"
+                                      : ""}
+                                  onchange={(e) => onHeaderRoleChange(colIndex, e.currentTarget.value)}
+                                  aria-label={`第 ${colIndex + 1} 列的映射`}
+                                >
+                                  <option value="">忽略此列</option>
+                                  <option value="student_no">学号</option>
+                                  <option value="name">姓名</option>
+                                </select>
+                              </div>
+                            </th>
                           {/each}
                         </tr>
-                      {/each}
+                      </thead>
+                      <tbody>
+                        {#each previewData.rows as row, rowIndex}
+                          <tr class:is-header={rowIndex < headerRows}>
+                            <!-- svelte-ignore a11y_no_static_element_interactions -->
+                            <!-- svelte-ignore a11y_interactive_supports_focus -->
+                            <td
+                              class="col-arrow"
+                              role="slider"
+                              aria-label="拖动设置要忽略的表头行数"
+                              aria-valuemin={0}
+                              aria-valuemax={previewData.rows.length}
+                              aria-valuenow={headerRows}
+                              onpointerdown={onArrowDown}
+                              onpointermove={onArrowMove}
+                              onpointerup={onArrowUp}
+                              onpointercancel={onArrowUp}
+                            >
+                              {#if rowIndex === headerRows - 1}
+                                <ArrowFatRightIcon size={20} weight="fill" style="color: var(--color-primary)" />
+                              {/if}
+                            </td>
+                            <td class="col-rowno">{rowIndex + 1}</td>
+                            {#each row as cell, colIndex}
+                              <td
+                                class:is-no-col={studentNoColumnIndex == colIndex}
+                                class:is-name-col={nameColumnIndex == colIndex}>{cell || ""}</td
+                              >
+                            {/each}
+                          </tr>
+                        {/each}
                       </tbody>
                     </table>
                   </div>
                   <div class="preview-summary">
-                    <span>共 {previewData.total_rows} 行 × {previewData.total_columns} 列 · 预览前 {previewData.rows.length}
-                      行</span>
+                    <span
+                      >共 {previewData.total_rows} 行 × {previewData.total_columns} 列 · 预览前 {previewData.rows
+                        .length}
+                      行</span
+                    >
                   </div>
                 </div>
               </div>
             {:else}
               <div class="state">
-                <WarningCircleIcon size="18"/>
+                <WarningCircleIcon size="18" />
                 <span class="text-subtitle error">预览失败，请重新选择文件</span>
               </div>
             {/if}
@@ -578,7 +580,7 @@
               <div class="decide-panel">
                 <div class="decide-head">
                   <div class="decide-title">
-                    <WarningCircleIcon size="22"/>
+                    <WarningCircleIcon size="22" />
                     <div>
                       <strong>发现 {pendingDecisions.length} 条学号冲突</strong>
                       <p>以下学号存在已删除但姓名不同的记录，需逐条决策后才能导入</p>
@@ -591,48 +593,50 @@
                 </div>
                 <div class="decide-progress">
                   <div class="progress-track">
-                    <div class="progress-fill"
-                         style={`width: ${pendingDecisions.length ? (decidedCount / pendingDecisions.length) * 100 : 0}%`}></div>
+                    <div
+                      class="progress-fill"
+                      style={`width: ${pendingDecisions.length ? (decidedCount / pendingDecisions.length) * 100 : 0}%`}
+                    ></div>
                   </div>
                   <span class="progress-label">已决策 {decidedCount}/{pendingDecisions.length}</span>
                 </div>
                 <table class="decide-table">
                   <thead>
-                  <tr>
-                    <th>学号</th>
-                    <th>原记录（已删除）</th>
-                    <th>处理方式</th>
-                  </tr>
+                    <tr>
+                      <th>学号</th>
+                      <th>原记录（已删除）</th>
+                      <th>处理方式</th>
+                    </tr>
                   </thead>
                   <tbody>
-                  {#each pendingDecisions as s (s.id)}
-                    <tr>
-                      <td><span class="decide-no">{s.student_no}</span></td>
-                      <td>{s.name}</td>
-                      <td>
-                        <div class="decide-actions">
-                          <button
-                            type="button"
-                            class="button error"
-                            class:chosen={pendingChoices.get(s.student_no) === true}
-                            onclick={() => chooseDecision(s.student_no, true)}
-                          >
-                            <CheckIcon size="15"/>
-                            覆盖并恢复
-                          </button>
-                          <button
-                            type="button"
-                            class="button warn"
-                            class:chosen={pendingChoices.get(s.student_no) === false}
-                            onclick={() => chooseDecision(s.student_no, false)}
-                          >
-                            <XIcon size="15"/>
-                            跳过
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  {/each}
+                    {#each pendingDecisions as s (s.id)}
+                      <tr>
+                        <td><span class="decide-no">{s.student_no}</span></td>
+                        <td>{s.name}</td>
+                        <td>
+                          <div class="decide-actions">
+                            <button
+                              type="button"
+                              class="button error"
+                              class:chosen={pendingChoices.get(s.student_no) === true}
+                              onclick={() => chooseDecision(s.student_no, true)}
+                            >
+                              <CheckIcon size="15" />
+                              覆盖并恢复
+                            </button>
+                            <button
+                              type="button"
+                              class="button warn"
+                              class:chosen={pendingChoices.get(s.student_no) === false}
+                              onclick={() => chooseDecision(s.student_no, false)}
+                            >
+                              <XIcon size="15" />
+                              跳过
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    {/each}
                   </tbody>
                 </table>
               </div>
@@ -656,13 +660,13 @@
             role="status"
           >
             {#if message.type == Result.Success}
-              <CheckCircleIcon size="18"/>
+              <CheckCircleIcon size="18" />
             {:else if message.type == Result.Error}
-              <XCircleIcon size="18"/>
+              <XCircleIcon size="18" />
             {:else if message.type == Result.Warning}
-              <WarningCircleIcon size="18"/>
+              <WarningCircleIcon size="18" />
             {:else}
-              <InfoIcon size="18"/>
+              <InfoIcon size="18" />
             {/if}
             <span>{message.content}</span>
           </div>
@@ -678,47 +682,26 @@
           title="查看帮助"
           onclick={() => nav.go({route: HelpRoute.batchImportImportSteps})}
         >
-          <QuestionIcon size="18"/>
+          <QuestionIcon size="18" />
         </button>
-        <button
-          type="button"
-          class="button"
-          onclick={requestClose}
-          disabled={isImporting}
-        >关闭
-        </button>
+        <button type="button" class="button" onclick={requestClose} disabled={isImporting}>关闭 </button>
         {#if step > 1}
-          <button
-            type="button"
-            class="button"
-            onclick={() => (step = step === 3 ? 2 : 1)}
-            disabled={isImporting}
-          >
-            <ArrowLeftIcon size={16}/>
+          <button type="button" class="button" onclick={() => (step = step === 3 ? 2 : 1)} disabled={isImporting}>
+            <ArrowLeftIcon size={16} />
             上一步
           </button>
         {/if}
         {#if step === 1}
-          <button
-            type="button"
-            class="button yes"
-            onclick={goStep2}
-            disabled={!filePath || isPreviewing}
-          >
+          <button type="button" class="button yes" onclick={goStep2} disabled={!filePath || isPreviewing}>
             {#if isPreviewing}
               <span class="spinner spinner-sm" aria-hidden="true"></span>
             {/if}
             下一步
-            <ArrowRightIcon size={16}/>
+            <ArrowRightIcon size={16} />
           </button>
         {:else if step === 2}
-          <button
-            type="button"
-            class="button yes"
-            onclick={goImport}
-            disabled={!configValid || isImporting}
-          >
-            <UploadSimpleIcon size={18}/>
+          <button type="button" class="button yes" onclick={goImport} disabled={!configValid || isImporting}>
+            <UploadSimpleIcon size={18} />
             导入学生
           </button>
         {:else}
@@ -732,7 +715,7 @@
               <span class="spinner spinner-sm" aria-hidden="true"></span>
               正在导入…
             {:else}
-              <UploadSimpleIcon size={18}/>
+              <UploadSimpleIcon size={18} />
               {#if pendingDecisions.length > 0}
                 导入（{decidedCount}/{pendingDecisions.length} 已决策）
               {:else}
@@ -747,7 +730,6 @@
 {/if}
 
 <style>
-
   /* 帮助按钮：margin-right:auto 顶到按钮组最左侧，align-self 防止被 flex 拉伸（它是固定方形图标按钮） */
   .help-button {
     margin-right: auto;
@@ -784,7 +766,10 @@
     color: var(--text-color-secondary);
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-bold);
-    transition: background-color var(--transition-duration-fast) var(--transition-ease), color var(--transition-duration-fast) var(--transition-ease), border-color var(--transition-duration-fast) var(--transition-ease);
+    transition:
+      background-color var(--transition-duration-fast) var(--transition-ease),
+      color var(--transition-duration-fast) var(--transition-ease),
+      border-color var(--transition-duration-fast) var(--transition-ease);
   }
 
   .step-label {
@@ -1046,7 +1031,10 @@
     padding: var(--space-xxs) var(--space-xs);
     font-size: var(--font-size-xs);
     cursor: pointer;
-    transition: border-color var(--transition-duration-fast) var(--transition-ease), background-color var(--transition-duration-fast) var(--transition-ease), color var(--transition-duration-fast) var(--transition-ease);
+    transition:
+      border-color var(--transition-duration-fast) var(--transition-ease),
+      background-color var(--transition-duration-fast) var(--transition-ease),
+      color var(--transition-duration-fast) var(--transition-ease);
   }
 
   .col-select.sel-no {

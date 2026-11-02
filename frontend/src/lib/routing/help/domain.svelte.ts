@@ -20,7 +20,7 @@ export type HelpViewport = {
 };
 
 /** 一次落地的意图：由 `open()` 置位，落地时消费即复位 */
-type Intent = { push: boolean; fold: boolean };
+type Intent = {push: boolean; fold: boolean};
 
 /** 地址**不是**来自本窗口的点击时的意图：不记栈、折叠树 */
 const DELIVERED: Intent = {push: false, fold: true};
@@ -74,7 +74,7 @@ class HelpDomain implements Domain<HelpAddress> {
   }
 
   /** 用户点击打开一处（侧栏树、搜索结果、文档内链接）：本次落地入栈 */
-  open(address: HelpAddress, options?: { fold?: boolean }): void {
+  open(address: HelpAddress, options?: {fold?: boolean}): void {
     this.#intent = {push: true, fold: options?.fold ?? true};
     nav.go({route: address.toHash()});
   }

@@ -9,7 +9,7 @@
     onselect,
     activeId = $bindable(null),
     jumpToken = 0,
-    defaultExpanded = []
+    defaultExpanded = [],
   }: {
     nodes: Record<string, TreeNode>;
     order: Record<string, string[]>;
@@ -92,9 +92,9 @@
       {#if hasChildren}
         <span class="arrow">
           {#if isExpanded}
-            <CaretDownIcon size="12" weight="bold"/>
+            <CaretDownIcon size="12" weight="bold" />
           {:else}
-            <CaretRightIcon size="12" weight="bold"/>
+            <CaretRightIcon size="12" weight="bold" />
           {/if}
         </span>
       {:else}

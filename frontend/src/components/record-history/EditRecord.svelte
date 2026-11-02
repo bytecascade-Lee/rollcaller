@@ -10,7 +10,10 @@
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
   import {appNavigate} from "$routing/app/navigate";
 
-  let {onselect, overlays}: {
+  let {
+    onselect,
+    overlays,
+  }: {
     /** 改完回报新的选择集（清空即 `[]`）。选中集归页面所有，弹窗不直接改它 */
     onselect: (ids: readonly bigint[]) => void;
     overlays: EntryRegistry<RecordOverlayName, AppEntryPayload>;
@@ -25,9 +28,7 @@
   /** 是否已用记录当前值预填过（只种一次，之后不读 store） */
   let seeded = $state(false);
   const targets = $derived(
-    targetIds
-      .map((id) => recordStore.get(id))
-      .filter((record): record is RollcallRecord => record != null),
+    targetIds.map((id) => recordStore.get(id)).filter((record): record is RollcallRecord => record != null),
   );
 
   /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
@@ -96,7 +97,7 @@
     } else {
       return;
     }
-    records.forEach(record => recordStore.upsert(record));
+    records.forEach((record) => recordStore.upsert(record));
     // 改完的这批记录仍然存在，故"按存在性派生"不会让它们自己掉出选中集 —— 这里显式回报清空
     onselect([]);
     requestClose();
@@ -106,19 +107,15 @@
     overlays.register(AppEntry.editRecord, {
       open,
       close,
-    })
+    });
     return () => overlays.unregister(AppEntry.editRecord);
-  })
+  });
 </script>
 
 {#if isVisible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="popup"
-    style={popoverStyle}
-    use:clickOutside={{ callback: requestClose, exclude: anchorEl ?? undefined }}
-  >
+  <div class="popup" style={popoverStyle} use:clickOutside={{callback: requestClose, exclude: anchorEl ?? undefined}}>
     {#if targets.length == 1}
       <h3 class="text-title">修改记录</h3>
     {:else}
@@ -126,7 +123,7 @@
     {/if}
     <div class="field">
       <span class="field-label">
-        <input type="checkbox" bind:checked={updateStatus}/>
+        <input type="checkbox" bind:checked={updateStatus} />
         状态
       </span>
 
@@ -141,42 +138,33 @@
               disabled={!updateStatus}
               style:padding="0"
               onclick={(e) => {
-              e.stopPropagation();
-              attendanceStatus = attendanceStatus === id ? null : id
-            }}
+                e.stopPropagation();
+                attendanceStatus = attendanceStatus === id ? null : id;
+              }}
             >
-              <AttendanceStatusBadge id={id} selected={attendanceStatus == id}/>
+              <AttendanceStatusBadge {id} selected={attendanceStatus == id} />
             </button>
           {/each}
         {/if}
       </span>
     </div>
 
-
     <div class="field">
       <span class="field-label">
-        <input type="checkbox" bind:checked={updateRemark}/>
+        <input type="checkbox" bind:checked={updateRemark} />
         备注
       </span>
-      <input
-        type="text"
-        disabled={!updateRemark}
-        placeholder="批量添加备注"
-        bind:value={remark}
-      />
+      <input type="text" disabled={!updateRemark} placeholder="批量添加备注" bind:value={remark} />
     </div>
 
     <div class="button-group">
-      <button
-        type="button"
-        class="button"
-        onclick={requestClose}>
-        取消
-      </button>
+      <button type="button" class="button" onclick={requestClose}> 取消 </button>
       <button
         type="button"
         class="button yes"
-        disabled={(updateStatus && attendanceStatus == null) || (updateRemark && remark.trim() == "") || (!updateStatus && !updateRemark)}
+        disabled={(updateStatus && attendanceStatus == null) ||
+          (updateRemark && remark.trim() == "") ||
+          (!updateStatus && !updateRemark)}
         onclick={update}
       >
         确定

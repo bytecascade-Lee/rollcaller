@@ -80,7 +80,7 @@ export function abortCurrent() {
 }
 
 /** 内部使用：创建新的 AbortController 并返回，用于 Scheduler 的 effect 中 */
-export function beginPlay(item: TtsQueueItem): { signal: AbortSignal; done: Promise<void> } {
+export function beginPlay(item: TtsQueueItem): {signal: AbortSignal; done: Promise<void>} {
   abortCurrent(); // 确保旧的被清理
   const ac = new AbortController();
   activeAbort = ac;

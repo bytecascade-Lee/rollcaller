@@ -102,44 +102,12 @@
         }
     },
     "order": {
-        "root": [
-            "overview",
-            "quick-start",
-            "rollcall",
-            "students",
-            "records",
-            "ui",
-            "about"
-        ],
-        "rollcall": [
-            "single-rollcall",
-            "multi-rollcall",
-            "tts"
-        ],
-        "multi-rollcall": [
-            "auto-finish",
-            "manual-pause"
-        ],
-        "students": [
-            "add-student",
-            "batch-import",
-            "edit-student",
-            "delete-student",
-            "export-student"
-        ],
-        "records": [
-            "edit-record",
-            "export-record"
-        ],
-        "ui": [
-            "app-window",
-            "help-window"
-        ],
-        "about": [
-            "README.md",
-            "CHANGELOG.md",
-            "RELEASE_NOTES.md",
-            "LICENSE"
-        ]
+        "root": ["overview", "quick-start", "rollcall", "students", "records", "ui", "about"],
+        "rollcall": ["single-rollcall", "multi-rollcall", "tts"],
+        "multi-rollcall": ["auto-finish", "manual-pause"],
+        "students": ["add-student", "batch-import", "edit-student", "delete-student", "export-student"],
+        "records": ["edit-record", "export-record"],
+        "ui": ["app-window", "help-window"],
+        "about": ["README.md", "CHANGELOG.md", "RELEASE_NOTES.md", "LICENSE"]
     }
 }

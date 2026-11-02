@@ -109,10 +109,7 @@ export const nav = {
    * 泛型在安装点解析成闭包，运行时只剩「段 + 载荷 → 布尔」，故不必把 `Dest` 擦成 `any`。
    * 重复安装以最后一次为准并警告；热重载与测试须显式 dispose
    */
-  install<Dest>(config: {
-    domain: Domain<Dest>;
-    forward?: (action: Action) => void;
-  }): () => void {
+  install<Dest>(config: {domain: Domain<Dest>; forward?: (action: Action) => void}): () => void {
     const {domain, forward} = config;
     const next: NavHandlers = {
       host: domain.host,

@@ -10,7 +10,7 @@
     MagnifyingGlassIcon,
     MinusIcon,
     SquareIcon,
-    XIcon
+    XIcon,
   } from "phosphor-svelte";
   import {onMount} from "svelte";
   import "$styles/logo.css";
@@ -24,14 +24,21 @@
   import {type HelpOverlayName, type HelpOverlayPayload} from "$types";
   import {invoke} from "@tauri-apps/api/core";
 
-  let {window, overlays, onback, onforward, canGoBack, canGoForward}: {
-    window: WebviewWindow,
+  let {
+    window,
+    overlays,
+    onback,
+    onforward,
+    canGoBack,
+    canGoForward,
+  }: {
+    window: WebviewWindow;
     /** 本窗口的叠加层注册表（注册表归窗口所有，逐个传下去而不是全局单例） */
-    overlays: EntryRegistry<HelpOverlayName, HelpOverlayPayload>,
-    onback?: () => void,
-    onforward?: () => void,
-    canGoBack?: boolean,
-    canGoForward?: boolean
+    overlays: EntryRegistry<HelpOverlayName, HelpOverlayPayload>;
+    onback?: () => void;
+    onforward?: () => void;
+    canGoBack?: boolean;
+    canGoForward?: boolean;
   } = $props();
   let isMaximized = $state(false);
   let snapTimer: ReturnType<typeof setTimeout> | undefined;
@@ -59,49 +66,19 @@
   }
 </script>
 
-<div
-  class="titlebar"
-  data-tauri-decorum-tb
->
-  <div
-    aria-label="Rollcaller"
-    class="logo"
-    title="Rollcaller"
-  >
-    <img alt="logo" src={logo}>
+<div class="titlebar" data-tauri-decorum-tb>
+  <div aria-label="Rollcaller" class="logo" title="Rollcaller">
+    <img alt="logo" src={logo} />
   </div>
-  <div
-    class="titlebar-drag-region"
-    data-tauri-drag-region="deep"
-  >
-    <div
-      class="text-subtitle"
-      style:padding-top="6px"
-    >
-      自动点名 - 帮助文档
-    </div>
+  <div class="titlebar-drag-region" data-tauri-drag-region="deep">
+    <div class="text-subtitle" style:padding-top="6px">自动点名 - 帮助文档</div>
   </div>
-  <div
-    class="icon-button-group"
-    style:padding-right="12px"
-  >
-    <button
-      aria-label="返回"
-      class="icon-button"
-      disabled={!canGoBack}
-      onclick={onback}
-      title="返回"
-    >
-      <ArrowLeftIcon size="16" weight="bold"/>
+  <div class="icon-button-group" style:padding-right="12px">
+    <button aria-label="返回" class="icon-button" disabled={!canGoBack} onclick={onback} title="返回">
+      <ArrowLeftIcon size="16" weight="bold" />
     </button>
-    <button
-      aria-label="前进"
-      class="icon-button"
-      disabled={!canGoForward}
-      onclick={onforward}
-      title="前进"
-    >
-      <ArrowRightIcon size="16" weight="bold"/>
+    <button aria-label="前进" class="icon-button" disabled={!canGoForward} onclick={onforward} title="前进">
+      <ArrowRightIcon size="16" weight="bold" />
     </button>
     <button
       aria-label="搜索"
@@ -113,7 +90,7 @@
       }}
       title="搜索"
     >
-      <MagnifyingGlassIcon size="16" weight="bold"/>
+      <MagnifyingGlassIcon size="16" weight="bold" />
     </button>
     <button
       aria-label="主界面"
@@ -122,7 +99,7 @@
       onclick={() => appNavigate.enter("rollcall")}
       title="主界面"
     >
-      <DiceFourIcon size="16" weight="bold"/>
+      <DiceFourIcon size="16" weight="bold" />
     </button>
     <button
       aria-label="项目主页"
@@ -130,15 +107,10 @@
       onclick={() => openUrl("https://github.com/bytecascade-Lee/rollcaller")}
       title="项目主页"
     >
-      <GithubLogoIcon size="16" weight="fill"/>
+      <GithubLogoIcon size="16" weight="fill" />
     </button>
-    <button
-      aria-label="最小化"
-      class="icon-button"
-      onclick={() => window.minimize()}
-      title="最小化"
-    >
-      <MinusIcon size="16" weight="bold"/>
+    <button aria-label="最小化" class="icon-button" onclick={() => window.minimize()} title="最小化">
+      <MinusIcon size="16" weight="bold" />
     </button>
     <button
       aria-label={isMaximized ? "还原" : "最大化"}
@@ -149,20 +121,15 @@
       title={isMaximized ? "还原" : "最大化"}
     >
       {#if isMaximized}
-        <CopyIcon size="16" weight="bold"/>
+        <CopyIcon size="16" weight="bold" />
       {:else}
-        <SquareIcon size="16" weight="bold"/>
+        <SquareIcon size="16" weight="bold" />
       {/if}
     </button>
-    <button
-      aria-label="关闭"
-      class="icon-button danger"
-      onclick={() => window.close()}
-      title="关闭"
-    >
-      <XIcon size="16" weight="bold"/>
+    <button aria-label="关闭" class="icon-button danger" onclick={() => window.close()} title="关闭">
+      <XIcon size="16" weight="bold" />
     </button>
   </div>
 </div>
 
-<SearchHelpDocs bind:anchor={anchor} {overlays}/>
+<SearchHelpDocs bind:anchor {overlays} />

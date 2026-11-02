@@ -4,25 +4,21 @@
   import type {StudentOverlayName, StudentSingleUpdate, StudentTable} from "$types";
   import type {AppEntryPayload} from "$routing/app/entries.generated";
   import {AppEntry} from "$routing/app/entries.generated";
-  import {StudentCommand} from "$commands"
+  import {StudentCommand} from "$commands";
   import {DateTimeUtils} from "$utils";
   import {appNavigate} from "$routing/app/navigate";
 
-  let {overlays}: { overlays: EntryRegistry<StudentOverlayName, AppEntryPayload> } = $props();
+  let {overlays}: {overlays: EntryRegistry<StudentOverlayName, AppEntryPayload>} = $props();
 
   let targetId = $state<number | null>(null);
   let isVisible = $state(false);
-  let draft = $state<{ student_no: string; name: string } | null>(null);
+  let draft = $state<{student_no: string; name: string} | null>(null);
   let editResult = $state<StudentSingleUpdate | undefined>(undefined);
   let isSaving = $state(false);
 
   let target = $state<StudentTable | null>(null);
 
-  let canSave = $derived(
-    draft != null &&
-    draft.student_no.trim() !== "" &&
-    draft.name.trim() !== ""
-  );
+  let canSave = $derived(draft != null && draft.student_no.trim() !== "" && draft.name.trim() !== "");
 
   /** 把派生出来的行拷进草稿 */
   $effect(() => {
@@ -76,9 +72,9 @@
     overlays.register(AppEntry.editStudent, {
       open,
       close,
-    })
+    });
     return () => overlays.unregister(AppEntry.editStudent);
-  })
+  });
 </script>
 
 {#if isVisible}
@@ -96,22 +92,23 @@
           {/if}
         </span>
         <div class="button-group">
-          <button
-            type="button"
-            class="button"
-            onclick={requestClose}
-          >
-            关闭
-          </button>
+          <button type="button" class="button" onclick={requestClose}> 关闭 </button>
         </div>
       {:else}
-        <form onsubmit={(e) => { e.preventDefault(); doEdit(); }}>
+        <form
+          onsubmit={(e) => {
+            e.preventDefault();
+            doEdit();
+          }}
+        >
           <div class="field">
             <span class="field-label">学号</span>
             <input
               type="text"
               bind:value={draft.student_no}
-              oninput={() => { if (editResult) editResult = undefined; }}
+              oninput={() => {
+                if (editResult) editResult = undefined;
+              }}
             />
           </div>
           <div class="field">
@@ -119,30 +116,22 @@
             <input
               type="text"
               bind:value={draft.name}
-              oninput={() => { if (editResult) editResult = undefined; }}
+              oninput={() => {
+                if (editResult) editResult = undefined;
+              }}
             />
           </div>
           {#if editResult && editResult.type == "Conflict"}
-            <span class="text-subtitle error">学号已被占用<br/></span>
+            <span class="text-subtitle error">学号已被占用<br /></span>
             <span class="text-content">
-                学号「{editResult.data.student_no}」已被学生<b>{editResult.data.name}</b>使用<br/>
-                （创建于 {DateTimeUtils.format(editResult.data.created_at)}）<br/>
-                请修改学号后重试
-              </span>
+              学号「{editResult.data.student_no}」已被学生<b>{editResult.data.name}</b>使用<br />
+              （创建于 {DateTimeUtils.format(editResult.data.created_at)}）<br />
+              请修改学号后重试
+            </span>
           {/if}
           <div class="button-group">
-            <button
-              type="button"
-              class="button"
-              onclick={requestClose}
-              disabled={isSaving}
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              class="button yes"
-              disabled={isSaving || !canSave}>
+            <button type="button" class="button" onclick={requestClose} disabled={isSaving}> 取消 </button>
+            <button type="submit" class="button yes" disabled={isSaving || !canSave}>
               {isSaving ? "保存中..." : "保存"}
             </button>
           </div>

@@ -9,7 +9,7 @@ export function toTtsMode(id: number): TtsMode {
     case 1:
       return "AICloud";
   }
-  return "Off"
+  return "Off";
 }
 
 export function toId(ttsMode: TtsMode) {

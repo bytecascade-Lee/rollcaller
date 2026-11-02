@@ -1,5 +1,5 @@
 <script lang="ts">
-  import "open-props/style"
+  import "open-props/style";
   import "highlight.js/styles/github.css";
   import "$styles/tokens.css";
   import "$styles/sidebar.css";
@@ -7,10 +7,10 @@
   import "$styles/content.css";
   import "$styles/footbar.css";
   import "$styles/text.css";
-  import "$styles/global-form-reset.css"
-  import "$styles/popup.css"
-  import "$styles/search.css"
-  import "$styles/state.css"
+  import "$styles/global-form-reset.css";
+  import "$styles/popup.css";
+  import "$styles/search.css";
+  import "$styles/state.css";
   import {onMount} from "svelte";
   import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
   import {listen} from "@tauri-apps/api/event";
@@ -29,10 +29,9 @@
   import {helpDomain} from "$routing/help/domain.svelte";
   import {helpNavigate} from "$routing/help/navigate";
 
-  const nodes = metaData.nodes as
-    {
-      [K in keyof typeof metaData.nodes]: TreeNode & { id: K }
-    };
+  const nodes = metaData.nodes as {
+    [K in keyof typeof metaData.nodes]: TreeNode & { id: K };
+  };
   const window = getCurrentWebviewWindow();
   const overlays = createEntryRegistry<HelpOverlayName, HelpOverlayPayload>();
   /** 外部跳转触发信号：自增时 NavTree 折叠到单级 */
@@ -100,9 +99,7 @@
       // 冷启动：本窗口是懒建的，建窗那一刻前端还没开始监听，广播必丢 ⇒
       // 载荷留在后端等这里来取，所以"取走"这一步同时就是"我起来了"的信号
       const pending = await NavCommand.navTakePending();
-      const initial = pending
-        ? {route: pending.route, payload: pending.payload ?? undefined}
-        : undefined;
+      const initial = pending ? {route: pending.route, payload: pending.payload ?? undefined} : undefined;
       // 首帧落点：有冷启动载荷就用它，否则当前 hash 若是本窗口的地址就用它，再否则回概览
       dispose = nav.start({route: HelpRoute.overview}, initial);
 
@@ -124,17 +121,21 @@
 
 <div class="shell">
   <div class="titlebar-slot">
-    <HelpTitlebar canGoBack={helpDomain.canGoBack} canGoForward={helpDomain.canGoForward}
-                  onback={() => void helpNavigate.back()} onforward={() => void helpNavigate.forward()}
-                  {overlays} window={window}
+    <HelpTitlebar
+      canGoBack={helpDomain.canGoBack}
+      canGoForward={helpDomain.canGoForward}
+      onback={() => void helpNavigate.back()}
+      onforward={() => void helpNavigate.forward()}
+      {overlays}
+      {window}
     />
   </div>
   <aside class="sidebar">
     <nav class="nav">
       <NavTree
-        activeId={activeId}
-        jumpToken={jumpToken}
-        nodes={nodes}
+        {activeId}
+        {jumpToken}
+        {nodes}
         onselect={(id) => helpNavigate.open(HelpAddress.of(id), {fold: false})}
         order={metaData.order}
       />
@@ -144,8 +145,7 @@
   <main class="content">
     {#if helpStore.content}
       <div class="active" bind:this={scroller}>
-        <MarkdownView markdown={helpStore.content}
-                      onnavigate={(address) => helpNavigate.open(address)}/>
+        <MarkdownView markdown={helpStore.content} onnavigate={(address) => helpNavigate.open(address)}/>
       </div>
     {:else}
       <div class="empty active">

@@ -3,10 +3,12 @@ import type {AttendanceStatus} from "$types";
 
 class AttendanceStatusStore {
   #statuses = $state<Map<number, AttendanceStatus>>(new Map());
-  #validStatusIds = $derived(Array.from(this.#statuses.values())
-    .filter(status => status.id !== 0)
-    .map(status => status.id)
-    .sort((a, b) => a - b));
+  #validStatusIds = $derived(
+    Array.from(this.#statuses.values())
+      .filter((status) => status.id !== 0)
+      .map((status) => status.id)
+      .sort((a, b) => a - b),
+  );
   #isLoading = $state<boolean>(false);
   fallback: AttendanceStatus = {
     id: 0,
@@ -15,7 +17,7 @@ class AttendanceStatusStore {
     color: "#f0f0f0",
     remark: null,
     is_deleted: 0,
-    deleted_at: null
+    deleted_at: null,
   };
 
   get validStatusIds() {
@@ -34,7 +36,7 @@ class AttendanceStatusStore {
   async load() {
     this.#isLoading = true;
     try {
-      this.#statuses = await AttendanceStatusCommand.list()
+      this.#statuses = await AttendanceStatusCommand.list();
     } catch (e) {
       alert(e);
     } finally {
@@ -47,7 +49,7 @@ class AttendanceStatusStore {
       return this.attendanceStatus(1);
     }
     // 查找当前状态在数组中的位置
-    const currentIndex = this.validStatusIds.findIndex(n => n == id);
+    const currentIndex = this.validStatusIds.findIndex((n) => n == id);
     // 如果没找到当前状态，返回第一个有效状态
     if (currentIndex === -1) {
       return this.attendanceStatus(1);

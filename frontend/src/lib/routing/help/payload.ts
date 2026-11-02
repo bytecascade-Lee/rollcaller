@@ -1,6 +1,6 @@
 /** 帮助窗口的载荷：目前只有搜索框预填 */
 
-export type HelpPayload = { search?: string };
+export type HelpPayload = {search?: string};
 
 /**
  * 从地址带来的载荷里取搜索词。

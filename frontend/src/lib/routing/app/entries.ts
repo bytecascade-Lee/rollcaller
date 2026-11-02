@@ -5,7 +5,7 @@ const APP_ENTRY_NAMES = new Set<string>(Object.keys(APP_ENTRY_PARENT));
 
 /** 某入口的直接子入口（由 `parentId` 推出）。页面用 `EntryRegistry<ChildOf<P>>` 把别页的入口名挡在编译期 */
 export type ChildOf<P extends AppEntryId> = {
-  [K in AppEntryId]: (typeof APP_ENTRY_PARENT)[K] extends P ? K : never
+  [K in AppEntryId]: (typeof APP_ENTRY_PARENT)[K] extends P ? K : never;
 }[AppEntryId];
 
 /** 自根到该入口的链（含自身）。`parentId` 无环由生成器保证，故这里不必防环 */
