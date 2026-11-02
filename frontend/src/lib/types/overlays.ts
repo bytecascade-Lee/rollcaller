@@ -1,7 +1,7 @@
 /**
  * 各页面可见的叠加层名字
  */
-import type {ChildOf} from "$routing/entries";
+import type {ChildOf} from "$routing/app/entries";
 
 /** 学生管理页 */
 export type StudentOverlayName = ChildOf<"student-management">;
