@@ -68,6 +68,9 @@ cd ./frontend && pnpm dev
 # Frontend type-check
 cd ./frontend && pnpm check
 
+# Frontend unit tests (Vitest)
+cd ./frontend && pnpm test
+
 # Build for production (Tauri)
 cd ./backend && cargo tauri build
 ```
@@ -171,6 +174,9 @@ cd ./backend && cargo tauri build
 
 - Rust: `cargo test` in `backend/`
 - Frontend: `pnpm check` in `frontend/` (runs svelte-kit sync + svelte-check)
-- No unit test framework established yet — codebase currently relies on manual smoke testing
+- Frontend unit tests: Vitest (`pnpm test` = `vitest run`), files in `frontend/tests/*.test.ts`; config reuses
+  `vite.config.ts` via `mergeConfig` so the `$x` alias table stays single-source. `environment: "node"` ⇒
+  `.svelte.ts` compiles as **server**: `$state`/`$derived` read correctly, `$effect` never runs there
+- `just test` runs the whole chain (codegen → cargo test → ts-rs commit check → `pnpm test`)
 - Tauri capabilities/permissions must be updated in `backend/capabilities/*.json` when adding new plugins
 - ts-rs types are regenerated at compile time — `cargo check` will regenerate `frontend/src/lib/types/*.ts`
