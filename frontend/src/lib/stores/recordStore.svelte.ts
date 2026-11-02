@@ -38,7 +38,8 @@ class RecordStore {
     }
   }
 
-  get(id: bigint) {
+  /** `id` 允许 number：i64 的 TS 投影是 bigint，但经 JSON 到达的一直是 number（导航载荷也是） */
+  get(id: bigint | number) {
     let find = this.#records.find(value => value.id == id);
     return find ? find : null
   }

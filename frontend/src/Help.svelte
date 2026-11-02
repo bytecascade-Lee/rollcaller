@@ -18,28 +18,28 @@
   import NavTree from "$components/common/NavTree.svelte";
   import MarkdownView from "$components/common/MarkdownView.svelte";
   import {helpStore} from "$stores/helpStore.svelte";
-  import type {HelpOverlayName, TreeNode} from "$types";
+  import {HelpOverlay, type HelpOverlayName, type HelpOverlayPayload, type TreeNode} from "$types";
   import metaData from "$resources/help/meta.json";
   import HelpTitlebar from "$components/help/HelpTitlebar.svelte";
-  import {HelpAddress} from "$utils/helpAddress";
+  import {HelpAddress} from "$routing/help/address";
   import {CaretRightIcon, CircleIcon} from "phosphor-svelte";
-  import {createRouter} from "$routing/router";
-  import {WindowRouter} from "$routing/windowRouter";
-  import {HelpEntry} from "$routing/entries.generated";
+  import {nav} from "$routing/nav";
+  import {HelpRoute} from "$routing/help/entries.generated";
   import {createEntryRegistry} from "$routing/registry";
-  import {helpNavigate} from "$routing/helpNavigate.svelte";
+  import {helpDomain} from "$routing/help/domain.svelte";
+  import {helpNavigate} from "$routing/help/navigate";
 
   const nodes = metaData.nodes as
     {
       [K in keyof typeof metaData.nodes]: TreeNode & { id: K }
     };
   const window = getCurrentWebviewWindow();
-  const overlays = createEntryRegistry<HelpOverlayName>();
+  const overlays = createEntryRegistry<HelpOverlayName, HelpOverlayPayload>();
   /** 外部跳转触发信号：自增时 NavTree 折叠到单级 */
   let jumpToken = $state(0);
   let scroller: HTMLDivElement | undefined = $state();
   /** 当前文档 = 导航屏幕上那一篇；树高亮与面包屑都从它派生 */
-  const activeId = $derived(helpNavigate.current?.doc ?? HelpAddress.DEFAULT_DOC);
+  const activeId = $derived(helpDomain.current?.doc ?? HelpAddress.DEFAULT_DOC);
   /** 从 activeId 沿 parentId 回溯，生成面包屑路径（根→当前） */
   let breadcrumbCrumb = $derived.by(() => {
     const trail: string[] = [];
@@ -53,16 +53,11 @@
     return trail;
   });
 
-  const router = createRouter({
-    host: HelpAddress.HOST,
-    handle: (action) => {
-      const address = HelpAddress.parse(action.route);
-      if (address) void helpNavigate.apply(address);
-    },
+  const uninstallNav = nav.install({
+    domain: helpDomain,
     /** 不归本窗口：交给后端投递给目标窗口（与主窗口同一条路） */
     forward: (action) => NavCommand.navOpen(action),
   });
-  WindowRouter.install(router);
 
   /** 滚动到锚点标题（缺失时回退到顶部）。滚动容器是 .content > .active，window 不参与滚动 */
   function scrollToSection(section: string | null) {
@@ -83,15 +78,16 @@
   // 切换文档后滚动条回到顶部（锚点跳转在途时跳过，避免与平滑滚动打架）
   $effect(() => {
     helpStore.content;
-    if (helpNavigate.pendingAnchor) return;
+    if (helpDomain.pendingAnchor) return;
     scroller?.scrollTo({top: 0, behavior: "instant"});
   });
 
   onMount(() => {
-    // 交出滚动容器与折叠树：落点归导航，只有这两件视图事留在窗口
-    const uninstall = helpNavigate.install({
+    // 视口端口：滚动、折叠树、搜索框都归窗口，落点归导航
+    const uninstall = helpDomain.install({
       scrollTo: scrollToSection,
       foldTree: () => (jumpToken += 1),
+      openSearch: (query) => overlays.open(HelpOverlay.search, {query}),
     });
 
     // 注册跳转回调：搜索结果选中、文档内链接都经导航走同一个门
@@ -108,11 +104,11 @@
         ? {route: pending.route, payload: pending.payload ?? undefined}
         : undefined;
       // 首帧落点：有冷启动载荷就用它，否则当前 hash 若是本窗口的地址就用它，再否则回概览
-      dispose = router.start({route: HelpEntry.overview}, initial);
+      dispose = nav.start({route: HelpRoute.overview}, initial);
 
       unlisten = await listen(NavCommand.NAV_WAKE_EVENT, async () => {
         const next = await NavCommand.navTakePending();
-        if (next) WindowRouter.nav({route: next.route, payload: next.payload ?? undefined});
+        if (next) nav.go({route: next.route, payload: next.payload ?? undefined});
       });
     })();
 
@@ -120,6 +116,7 @@
       dispose?.();
       unlisten?.();
       uninstall();
+      uninstallNav();
       helpStore.navigate = null;
     };
   });
@@ -127,7 +124,7 @@
 
 <div class="shell">
   <div class="titlebar-slot">
-    <HelpTitlebar canGoBack={helpNavigate.canGoBack} canGoForward={helpNavigate.canGoForward}
+    <HelpTitlebar canGoBack={helpDomain.canGoBack} canGoForward={helpDomain.canGoForward}
                   onback={() => void helpNavigate.back()} onforward={() => void helpNavigate.forward()}
                   {overlays} window={window}
     />

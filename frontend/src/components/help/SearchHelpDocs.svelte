@@ -1,15 +1,15 @@
 <script lang="ts">
   import {clickOutside} from "$actions";
   import {type HelpSearchResult, helpStore} from "$stores/helpStore.svelte";
-  import {HelpAddress} from "$utils/helpAddress";
+  import {HelpAddress} from "$routing/help/address";
   import type {EntryRegistry} from "$routing/registry";
-  import {HelpOverlay, type HelpOverlayName} from "$types";
+  import {HelpOverlay, type HelpOverlayName, type HelpOverlayPayload} from "$types";
   import {MagnifyingGlassIcon} from "phosphor-svelte";
 
   let {anchor = $bindable(), overlays}: {
     anchor: HTMLElement | null;
     /** 本窗口的叠加层注册表：搜索是纯过程，不进地址空间，只在本窗口内部使用 */
-    overlays: EntryRegistry<HelpOverlayName>;
+    overlays: EntryRegistry<HelpOverlayName, HelpOverlayPayload>;
   } = $props();
 
   let isVisible = $state(false);
@@ -78,9 +78,10 @@
     }
   }
 
-  export function open() {
+  /** 打开弹层；`query` 由载荷带来（跨窗口投递的「打开帮助并搜某词」），无载荷时清空 */
+  export function open(payload?: { query?: string }) {
     isVisible = true;
-    query = "";
+    query = payload?.query ?? "";
     selectedIndex = 0;
     helpStore.ensureIndexed();
   }
@@ -93,7 +94,6 @@
     overlays.register(HelpOverlay.search, {
       open,
       close,
-      isVisible: () => isVisible,
     });
     return () => overlays.unregister(HelpOverlay.search);
   });

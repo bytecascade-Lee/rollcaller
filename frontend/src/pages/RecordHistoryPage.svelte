@@ -17,20 +17,20 @@
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import EditRecord from "$components/record-history/EditRecord.svelte";
   import type {EntryRegistry} from "$routing/registry";
-  import {AppEntry} from "$routing/entries.generated";
+  import type {AppEntryPayload} from "$routing/app/entries.generated";
+  import {AppEntry} from "$routing/app/entries.generated";
   import ExportRecords from "$components/record-history/ExportRecords.svelte";
-  import {appNavigate} from "$routing/appNavigate";
+  import {appNavigate} from "$routing/app/navigate";
 
   let selected = $state<Set<bigint>>(new Set());
   let {active = $bindable(false), overlays}: {
     active?: boolean;
     /** 本页可见的落点表（类型收窄到本页子树） */
-    overlays: EntryRegistry<RecordOverlayName>;
+    overlays: EntryRegistry<RecordOverlayName, AppEntryPayload>;
   } = $props();
   let sortKey = $state("")
   let isAsc = $state(true)
   let searchQuery = $state("");
-  let anchor = $state<HTMLElement | null>(null);
 
   let display = $derived<RollcallRecord[]>([...recordStore.records]
     .filter((record) => {
@@ -81,6 +81,9 @@
 
   let displaySelectedCount = $derived(display.filter(r => liveSelected.has(r.id)).length)
 
+  /** 勾选集 → 载荷。载荷只装 id，行由弹窗按 id 从 store 实时取 */
+  let selectedIds = $derived([...liveSelected].map(Number));
+
   export function select(id: bigint) {
     if (selected.has(id)) {
       let set = new Set(selected);
@@ -116,11 +119,9 @@
       <button
         aria-label="批量修改记录"
         class="icon-button"
-        disabled={liveSelected.size == 0}
-        onclick={e => {
-          anchor = e.currentTarget;
-          appNavigate.enter(AppEntry.editRecord)
-        }}
+        data-anchor={AppEntry.editRecord}
+        disabled={selectedIds.length == 0}
+        onclick={() => appNavigate.enter(AppEntry.editRecord, selectedIds)}
         title="批量修改记录"
       >
         <PencilIcon size="24"/>
@@ -128,11 +129,12 @@
       <button
         aria-label="导出记录"
         class="icon-button"
+        data-anchor={AppEntry.exportRecord}
         disabled={recordStore.isLoading}
-        onclick={e => {
-          anchor = e.currentTarget;
-          appNavigate.enter(AppEntry.exportRecord)
-        }}
+        onclick={() => appNavigate.enter(AppEntry.exportRecord, {
+          filtered: display.map((record) => Number(record.id)),
+          selected: selectedIds,
+        })}
         title="导出记录"
       >
         <FileArrowDownIcon size="24"/>
@@ -283,5 +285,5 @@
   {/if}
 </div>
 
-<EditRecord anchor={anchor} onselect={setSelection} {overlays} selected={liveSelected}/>
-<ExportRecords anchor={anchor} display={display} {overlays} selected={liveSelected}/>
+<EditRecord onselect={setSelection} {overlays}/>
+<ExportRecords {overlays}/>

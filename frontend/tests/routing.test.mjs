@@ -13,12 +13,16 @@ import {strict as assert} from "node:assert";
 import {readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 
-import {canonicalRoute, parseRoute, routeOf} from "$routing/address.ts";
-import {chainOf, readStudentIds, resolveAppEntry} from "$routing/entries.ts";
+import {canonicalRoute, parseAction, parseRoute, routeOf} from "$routing/address.ts";
+import {chainOf, resolveAppChain} from "$routing/app/entries.ts";
 import {createEntryRegistry} from "$routing/registry.ts";
-import {WindowRouter} from "$routing/windowRouter.ts";
-import {appNavigate} from "$routing/appNavigate.ts";
-import {APP_ENTRY_PARENT, AppEntry, HelpEntry} from "$routing/entries.generated.ts";
+import {nav} from "$routing/nav.ts";
+import {applyTransition, planTransition} from "$routing/app/transition.ts";
+import {appNavigate} from "$routing/app/navigate.ts";
+import {pushAt, resetTo, stepIndex} from "$routing/help/history.ts";
+import {readSearch} from "$routing/help/payload.ts";
+import {APP_ENTRY_PARENT, AppEntry} from "$routing/app/entries.generated.ts";
+import {HelpRoute} from "$routing/help/entries.generated.ts";
 
 /* ---------- 极简 runner：单个失败不中断，最后汇总并给非零退出码 ---------- */
 
@@ -38,9 +42,20 @@ function test(name, fn) {
 
 globalThis.location = {hash: "#/app/rollcall"};
 globalThis.history = {replaceState() {}};
+/** `nav.start` 只用到这两个方法，给个桩即可，不必真 DOM */
+globalThis.window = {addEventListener() {}, removeEventListener() {}};
 
 const navLog = [];
-WindowRouter.install({go: (action) => navLog.push(action), start: () => () => {}});
+/** 假域：段原样当目的地，落地时把"地址 + 载荷"记下来（等价于旧 `apply` 的观察点） */
+const testDomain = {
+  host: "app",
+  decode: (segments) => segments,
+  encode: (dest) => dest,
+  land: (segments, payload) => navLog.push({route: routeOf("app", segments), payload}),
+};
+const installTestNav = () =>
+  nav.install({domain: testDomain, forward: (action) => navLog.push({forwarded: action})});
+let disposeHarness = installTestNav();
 
 /* ---------- address：切分 / 组装 / 规范化 ---------- */
 
@@ -69,16 +84,21 @@ test("routeOf / canonicalRoute：组装、滤空段、幂等", () => {
   assert.equal(canonicalRoute("https://example.com"), null);
 });
 
-/* ---------- entries：链 / 地址解析 / 载荷读取 ---------- */
+/* ---------- entries：链 / 地址解析 ---------- */
 
 test("chainOf：自根到自身", () => {
   assert.deepEqual(chainOf("rollcall"), ["rollcall"]);
   assert.deepEqual(chainOf("delete-student"), ["student-management", "delete-student"]);
 });
 
-test("resolveAppEntry：父链严格，任何不符都降级为 null", () => {
-  assert.equal(resolveAppEntry(["student-management", "delete-student"]), "delete-student");
-  assert.equal(resolveAppEntry(["rollcall"]), "rollcall");
+/* ---------- 整条链：校验与交付一次完成 ---------- */
+
+test("resolveAppChain：合法地址给出整条链，非法一律 null", () => {
+  assert.deepEqual(resolveAppChain(["student-management", "delete-student"]), [
+    "student-management",
+    "delete-student",
+  ]);
+  assert.deepEqual(resolveAppChain(["rollcall"]), ["rollcall"]);
   for (const segments of [
     ["rollcall", "delete-student"], // 祖先段与 parentId 不符
     ["delete-student"], // 段数少于链长
@@ -87,39 +107,123 @@ test("resolveAppEntry：父链严格，任何不符都降级为 null", () => {
     ["toString"], // 原型属性名（名字表用 Set 的意义）
     [],
   ]) {
-    assert.equal(resolveAppEntry(segments), null, `应当拒绝 ${JSON.stringify(segments)}`);
+    assert.equal(resolveAppChain(segments), null, `应当拒绝 ${JSON.stringify(segments)}`);
   }
 });
 
-test("readStudentIds：非法给空数组，混入的无效项被丢掉", () => {
-  assert.deepEqual(readStudentIds({ids: [1, 2]}), [1, 2]);
-  assert.deepEqual(readStudentIds({ids: ["3", 1.5, 7]}), [7]);
-  for (const payload of [undefined, null, {}, {ids: "x"}, {ids: 3}]) {
-    assert.deepEqual(readStudentIds(payload), [], `应当拒绝 ${JSON.stringify(payload)}`);
+test("parseAction：一次切分到位，规范化且带 host/segments", () => {
+  assert.deepEqual(parseAction({route: "#/APP/a//b/", payload: 3}), {
+    route: "#/app/a/b",
+    host: "app",
+    segments: ["a", "b"],
+    payload: 3,
+  });
+  assert.equal(parseAction({route: "https://example.com"}), null);
+});
+
+test("地址 ↔ 链 互逆：encode 出来的地址必须能被 decode 还原", () => {
+  // encode = chainOf + routeOf，decode = parseRoute + resolveAppChain
+  for (const entry of Object.values(AppEntry)) {
+    const chain = chainOf(entry);
+    const route = routeOf("app", chain);
+    const parsed = parseRoute(route);
+    assert.ok(parsed, `${entry} 的地址应当可切分：${route}`);
+    assert.deepEqual(resolveAppChain(parsed.segments), chain, `${entry} 往返后链不一致`);
   }
 });
 
-/* ---------- registry：解释器先于 handler，且容错不抛 ---------- */
+/* ---------- 转换语义：共同前缀 diff ---------- */
 
-test("registry：interpret 先于 open；unregister 后归零", () => {
+test("planTransition：四种情形", () => {
+  const card = ["student-management"];
+  const edit = ["student-management", "edit-student"];
+  const del = ["student-management", "delete-student"];
+
+  assert.deepEqual(planTransition([], edit), {close: [], open: edit, replay: null});
+  assert.deepEqual(planTransition(edit, del), {close: ["edit-student"], open: ["delete-student"], replay: null});
+  assert.deepEqual(planTransition(edit, ["record-history", "edit-record"]), {
+    close: ["edit-student", "student-management"],
+    open: ["record-history", "edit-record"],
+    replay: null,
+  });
+  // 重放同一地址：diff 无动作，靠 replay 补一次 open，否则"地址在目标、浮层已关"时点了没反应
+  assert.deepEqual(planTransition(edit, edit), {close: [], open: [], replay: "edit-student"});
+  assert.deepEqual(planTransition(card, card), {close: [], open: [], replay: "student-management"});
+  // 退回卡片：关浮层，replay 落在平面上 —— 卡片没有 handler，open 是预期的空操作
+  assert.deepEqual(planTransition(edit, card), {close: ["edit-student"], open: [], replay: "student-management"});
+});
+
+test("applyTransition：逆序关、顺序开，载荷只给最深的那个", () => {
+  const calls = [];
+  const registry = {
+    close: (id) => calls.push(`close:${id}`),
+    open: (id, payload) => calls.push(`open:${id}:${payload === undefined ? "-" : payload}`),
+  };
+  const next = applyTransition(registry, ["student-management", "edit-student"], ["record-history", "edit-record"], 7);
+  assert.deepEqual(next, ["record-history", "edit-record"]);
+  assert.deepEqual(calls, [
+    "close:edit-student",
+    "close:student-management",
+    "open:record-history:-",
+    "open:edit-record:7",
+  ]);
+});
+
+/* ---------- registry 的载荷透传见上；载荷形状由 meta.json 声明、tsc 校验 ---------- */
+/* ---------- registry：注册/打开/注销，未知 id 不抛 ---------- */
+
+test("registry：open 转给 handler，注销后归零", () => {
   const calls = [];
   const reg = createEntryRegistry();
-  reg.register("a", {open: () => calls.push("open")});
-  reg.interpret("a", () => calls.push("interpret"));
-  reg.open("a");
-  assert.deepEqual(calls, ["interpret", "open"]);
+  reg.register("a", {open: (payload) => calls.push(payload)});
+  reg.open("a", 7);
+  assert.deepEqual(calls, [7]);
 
   reg.unregister("a");
   assert.equal(reg.has("a"), false);
-  assert.equal(reg.isVisible("a"), false);
 });
 
-test("registry：未知 id 与缺省的 close/isVisible 都不抛", () => {
+test("registry：未知 id 与缺省的 close 都不抛", () => {
   const reg = createEntryRegistry();
   assert.doesNotThrow(() => reg.open("nope"));
   assert.doesNotThrow(() => reg.close("nope"));
   reg.register("a", {open: () => {}});
-  assert.equal(reg.isVisible("a"), false);
+  assert.doesNotThrow(() => reg.close("a"));
+});
+
+/* ---------- help 的地址栈：纯函数，不碰 rune ---------- */
+
+test("history：追加裁掉前进段，索引跟随新尾", () => {
+  let history = {entries: [], index: 0};
+  history = pushAt(history, "a");
+  history = pushAt(history, "b");
+  history = pushAt(history, "c");
+  assert.deepEqual(history, {entries: ["a", "b", "c"], index: 2});
+
+  // 回到 b 再点击 d：c 之后的整段被裁掉
+  history = {...history, index: 1};
+  assert.deepEqual(pushAt(history, "d"), {entries: ["a", "b", "d"], index: 2});
+});
+
+test("history：resetTo 只留一条（送达语义）", () => {
+  assert.deepEqual(resetTo("x"), {entries: ["x"], index: 0});
+});
+
+test("history：stepIndex 在边界返回 null", () => {
+  const history = {entries: ["a", "b"], index: 1};
+  assert.equal(stepIndex(history, -1), 0);
+  assert.equal(stepIndex(history, 1), null); // 已在尾
+  assert.equal(stepIndex({entries: ["a", "b"], index: 0}, -1), null); // 已在头
+  assert.equal(stepIndex({entries: [], index: 0}, 1), null); // 空栈
+});
+
+/* ---------- help 载荷：宽进窄出，认不出就当没要求 ---------- */
+
+test("readSearch：只认 {search: string}，其余退化为纯导航", () => {
+  assert.equal(readSearch({search: "点名"}), "点名");
+  for (const payload of [undefined, null, "点名", 3, {}, {search: ""}, {search: "   "}, {search: 3}]) {
+    assert.equal(readSearch(payload), null, `应当忽略 ${JSON.stringify(payload)}`);
+  }
 });
 
 /* ---------- appNavigate：地址翻译与"关闭回退"护栏 ---------- */
@@ -149,12 +253,79 @@ test("appNavigate.leave：只有自己确实是当前地址目标时才回退", 
   assert.deepEqual(navLog, []); // 根入口无父级 ⇒ 不动
 });
 
-test("appNavigate.enter：载荷随 Action 一起投递", () => {
+test("appNavigate.enter：载荷随 Action 一起投递，且就是目标本身", () => {
   navLog.length = 0;
-  appNavigate.enter(AppEntry.deleteStudent, {ids: [1, 2]});
+  appNavigate.enter(AppEntry.deleteStudent, [1, 2]);
   assert.deepEqual(navLog, [
-    {route: "#/app/student-management/delete-student", payload: {ids: [1, 2]}},
+    {route: "#/app/student-management/delete-student", payload: [1, 2]},
   ]);
+
+  navLog.length = 0;
+  appNavigate.enter(AppEntry.editStudent, 7);
+  assert.deepEqual(navLog, [
+    {route: "#/app/student-management/edit-student", payload: 7},
+  ]);
+});
+
+test("nav.go：不归本窗口的地址交给 forward，不落地", () => {
+  navLog.length = 0;
+  nav.go({route: "#/help/tts"});
+  assert.equal(navLog.length, 1);
+  assert.equal(navLog[0].forwarded.route, "#/help/tts");
+});
+
+test("nav.go：域解释不了的地址不落地，也不写 hash", () => {
+  let wrote = 0;
+  const originalReplace = globalThis.history.replaceState;
+  globalThis.history.replaceState = () => {
+    wrote += 1;
+  };
+  const originalWarn = console.warn;
+  const warnings = [];
+  console.warn = (message) => warnings.push(message);
+  navLog.length = 0;
+  disposeHarness();
+
+  const stop = nav.install({
+    domain: {
+      host: "app",
+      decode: () => null,
+      encode: (dest) => dest,
+      land: () => navLog.push("land"),
+    },
+  });
+  try {
+    nav.go({route: "#/app/nope"});
+  } finally {
+    stop();
+    globalThis.history.replaceState = originalReplace;
+    console.warn = originalWarn;
+    disposeHarness = installTestNav();
+  }
+
+  assert.deepEqual(navLog, [], "解释不了就不该落地");
+  assert.equal(wrote, 0, "解释失败的地址不该进历史");
+  assert.equal(warnings.length, 1, "应当留一条 warn");
+});
+
+test("nav.start：initial 非法时继续往 hash / fallback 兜底", () => {
+  navLog.length = 0;
+  globalThis.location.hash = "";
+  // 非法 initial + 空 hash ⇒ 落到 fallback（旧实现会把整条首帧路径吞掉，窗口停在空链）
+  const stop = nav.start({route: "#/app/student-management"}, {route: "看起来不像地址"});
+  assert.deepEqual(navLog.map((action) => action.route), ["#/app/student-management"]);
+  stop();
+
+  // 合法 initial 优先于 hash
+  navLog.length = 0;
+  globalThis.location.hash = "#/app/rollcall";
+  const stop2 = nav.start(
+    {route: "#/app/rollcall"},
+    {route: "#/app/student-management/edit-student", payload: 7},
+  );
+  assert.deepEqual(navLog.map((action) => action.route), ["#/app/student-management/edit-student"]);
+  assert.equal(navLog[0].payload, 7);
+  stop2();
 });
 
 /* ---------- 生成物 ↔ 声明：防漂移 ---------- */
@@ -176,7 +347,7 @@ test("生成物 app 段与 app/meta.json 一致", () => {
 });
 
 test("生成物 help 段：地址格式合法且不重复", () => {
-  const addresses = Object.values(HelpEntry);
+  const addresses = Object.values(HelpRoute);
   for (const address of addresses) {
     assert.match(address, /^#\/help\/[^/]+(\/[^/]+)*$/, `非法帮助地址 ${address}`);
   }

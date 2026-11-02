@@ -1,6 +1,6 @@
 import {HelpCommand} from "$commands";
 import metaData from "$resources/help/meta.json";
-import type {HelpAddress} from "$utils/helpAddress";
+import type {HelpAddress} from "$routing/help/address";
 
 /** 特殊节点走独立命令，其余叶子走 help_load_markdown(id)。 */
 const SPECIAL_LOADERS: Record<string, () => Promise<string>> = {

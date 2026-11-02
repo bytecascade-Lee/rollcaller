@@ -6,7 +6,7 @@
   import "highlight.js/styles/github.css";
   import {error} from "@fltsci/tauri-plugin-tracing";
   import {openUrl} from "@tauri-apps/plugin-opener";
-  import {HelpAddress} from "$utils/helpAddress";
+  import {HelpAddress} from "$routing/help/address";
   import {headingIdPlugin} from "$utils/markdownHeadingId";
 
   hljs.registerLanguage("bash", bash);

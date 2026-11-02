@@ -2,39 +2,42 @@
   import {save} from "@tauri-apps/plugin-dialog";
   import {RecordCommand} from "$commands";
   import type {EntryRegistry} from "$routing/registry";
-  import type {RecordOverlayName, RollcallRecord} from "$types";
+  import type {RecordOverlayName} from "$types";
   import {Result} from "$types";
-  import {AppEntry} from "$routing/entries.generated";
-  import {clickOutside, updatePosition} from "$actions";
+  import type {AppEntryPayload} from "$routing/app/entries.generated";
+  import {AppEntry} from "$routing/app/entries.generated";
+  import {clickOutside, findAnchor, POPUP_CENTERED, updatePosition} from "$actions";
   import {recordStore} from "$stores/recordStore.svelte";
-  import {appNavigate} from "$routing/appNavigate";
+  import {appNavigate} from "$routing/app/navigate";
 
-  let {selected, display, anchor, overlays}: {
-    selected: Set<bigint>;
-    display: RollcallRecord[];
-    anchor: HTMLElement | null;
-    overlays: EntryRegistry<RecordOverlayName>;
-  } = $props();
+  let {overlays}: { overlays: EntryRegistry<RecordOverlayName, AppEntryPayload> } = $props();
+
   let isVisible = $state(false);
+  let isExporting = $state(false);
+  let popoverStyle = $state("");
+  let message = $state("");
+  let result = $state<Result>(Result.None);
+  /** 触发元素（查不到就居中）；同时兼作 clickOutside 的排除项 */
+  let anchorEl = $state<HTMLElement | null>(null);
+
+  /** 载荷快照：筛选集与选中集都由页面给 —— 筛选条件是页面视图，从 store 推不出来 */
+  let filtered = $state<number[]>([]);
+  let selected = $state<number[]>([]);
 
   /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
   function requestClose() {
     appNavigate.leave(AppEntry.exportRecord);
   }
 
-  let isExporting = $state(false);
-  let popoverStyle = $state("");
-  let message = $state("");
-  let result = $state<Result>(Result.None);
-
-  function open() {
-    if (anchor) popoverStyle = updatePosition(anchor);
-    if (selected.size == 0 && recordStore.records.length == display.length) {
-      exportAll();
-      return;
-    }
+  /** 载荷为空（深链只有地址）⇒ 不开，降级为纯导航。形状直接取声明，不在此重写一遍 */
+  function open(payload: AppEntryPayload["export-record"] | undefined) {
+    if (!payload || !Array.isArray(payload.filtered) || !Array.isArray(payload.selected)) return;
+    filtered = payload.filtered;
+    selected = payload.selected;
     message = "";
     result = Result.None;
+    anchorEl = findAnchor(AppEntry.exportRecord);
+    popoverStyle = anchorEl ? updatePosition(anchorEl) : POPUP_CENTERED;
     isVisible = true;
   }
 
@@ -42,7 +45,7 @@
     isVisible = false;
   }
 
-  async function doExport(ids: bigint[]) {
+  async function doExport(ids: readonly number[]) {
     if (isExporting || ids.length == 0) return;
     // 弹出保存对话框：默认文件名可修改，格式 xlsx
     const path = await save({
@@ -52,7 +55,9 @@
     if (!path) return;
     try {
       result = Result.Doing;
-      await RecordCommand.expose(path, ids);
+      // 命令签名是 ts-rs 对 i64 的投影，运行期就是同一批 number —— **不能**构造真 BigInt，
+      // 否则 IPC 的 JSON.stringify 会抛 "Do not know how to serialize a BigInt"
+      await RecordCommand.expose(path, ids as unknown as bigint[]);
       result = Result.Success;
       setTimeout(requestClose, 2500);
     } catch (e) {
@@ -65,22 +70,21 @@
   }
 
   function exportAll() {
-    void doExport(recordStore.records.map((s) => s.id));
+    void doExport(recordStore.records.map((record) => Number(record.id)));
   }
 
-  function exportDisplay() {
-    void doExport(display.map((record: { id: bigint; }) => record.id))
+  function exportFiltered() {
+    void doExport(filtered);
   }
 
   function exportSelected() {
-    void doExport(Array.from(selected));
+    void doExport(selected);
   }
 
   $effect(() => {
     overlays.register(AppEntry.exportRecord, {
       open,
       close,
-      isVisible: () => isVisible,
     })
     return () => overlays.unregister(AppEntry.exportRecord);
   })
@@ -92,9 +96,9 @@
   <div
     class="popup"
     style={popoverStyle}
-    use:clickOutside={{ callback: requestClose, exclude: anchor ?? undefined}}
+    use:clickOutside={{ callback: requestClose, exclude: anchorEl ?? undefined}}
   >
-    <h3 class="text-title">导出学生</h3>
+    <h3 class="text-title">导出记录</h3>
     <span class="text-content">选择导出范围</span>
 
     <div
@@ -105,23 +109,23 @@
       <span class="text-content">共 {recordStore.records.length} 条记录</span>
     </div>
 
-    {#if recordStore.records.length != display.length}
+    {#if recordStore.records.length != filtered.length}
       <div
         class="card"
-        onclick={exportDisplay}
+        onclick={exportFiltered}
       >
         <span class="text-subtitle">导出筛选后的</span>
-        <span class="text-content">共 {display.length} 条 记录</span>
+        <span class="text-content">共 {filtered.length} 条记录</span>
       </div>
     {/if}
 
-    {#if selected.size > 0}
+    {#if selected.length > 0}
       <div
         class="card"
         onclick={exportSelected}
       >
         <span class="text-subtitle">导出选中</span>
-        <span class="text-content">已选 {selected.size} 条记录</span>
+        <span class="text-content">已选 {selected.length} 条记录</span>
       </div>
     {/if}
 

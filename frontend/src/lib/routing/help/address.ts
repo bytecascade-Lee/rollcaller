@@ -5,6 +5,7 @@
  * - `anchor` = 标题上的 DOM id，源文写作 `## 标题 {#anchor}`
  */
 import {parseRoute, type Route, routeOf} from "$routing/address";
+import type {WindowKind} from "$types";
 
 /** kebab-case 锚点/目录名：小写字母数字，单连字符分隔 */
 const KEBAB_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -20,12 +21,13 @@ const NON_DOC_HREF_RE = /^(?:[a-z][a-z0-9+.-]*:|\/|#)/i;
 
 export class HelpAddress {
   /**
-   * 本域的处理者名，恰好是帮助窗口的窗口名。
+   * 本域的处理者名，恰好是帮助窗口的窗口名。类型来自 Rust 的 `WindowKind`：
+   * 与 `nav.install` 的 host、后端建窗用的 label 是同一个值，写错即编译错误。
    *
    * 用 `#/` 而不是大小写来区分"应用内路由"与"本文档原生锚点"（`#v0-8-1` 没有斜杠），
    * 所以域名统一小写并不损失一眼可辨性。
    */
-  static readonly HOST = "help";
+  static readonly HOST: WindowKind = "help";
 
   /** 路由省略 doc 段时的默认文档 */
   static readonly DEFAULT_DOC = "overview";
@@ -56,7 +58,17 @@ export class HelpAddress {
   static parse(hash: string): HelpAddress | null {
     const parsed = parseRoute(hash);
     if (!parsed || parsed.host !== HelpAddress.HOST) return null;
-    const [doc, anchor = ""] = parsed.segments;
+    return HelpAddress.fromSegments(parsed.segments);
+  }
+
+  /**
+   * 地址段 → 地址（`Domain.decode` 用）。
+   *
+   * 不校验 host —— 那是 `nav` 的职责（它按第一段判归属）。
+   * **绝不放行 null**：锚点非法就降级到文档顶部，段为空就落到默认文档。
+   */
+  static fromSegments(segments: readonly string[]): HelpAddress {
+    const [doc, anchor = ""] = segments;
     return new HelpAddress(doc || HelpAddress.DEFAULT_DOC, KEBAB_RE.test(anchor) ? anchor : null);
   }
 
@@ -74,9 +86,14 @@ export class HelpAddress {
     return null;
   }
 
+  /** 地址 → 地址段（`Domain.encode` 用）；与 `fromSegments` 互逆（末段可省） */
+  toSegments(): readonly string[] {
+    return this.anchor ? [this.doc, this.anchor] : [this.doc];
+  }
+
   /** 应用内路由字符串；同一地址的字符串必然相同，可直接用于幂等比较 */
   toHash(): Route {
-    return routeOf(HelpAddress.HOST, this.anchor ? [this.doc, this.anchor] : [this.doc]);
+    return routeOf(HelpAddress.HOST, this.toSegments());
   }
 
   toString(): string {
