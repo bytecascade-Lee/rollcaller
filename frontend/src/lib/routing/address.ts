@@ -1,8 +1,4 @@
-/**
- * 应用内路由：`#/<host>/<seg1>/<seg2>/...`
- *
- * 地址分为 **host** 和 **segments**
- */
+/** 应用内路由：`#/<host>/<seg1>/<seg2>/...`，分为 host 与 segments */
 
 /** 处理者名 = 窗口名 */
 export type Host = string;
@@ -26,31 +22,26 @@ export type ParsedRoute = { host: Host; segments: string[] };
 export type ParsedAction = { route: Route; host: Host; segments: string[]; payload?: Payload };
 
 /**
- * 切分地址
+ * 切分地址。不校验段语法，host 大小写不敏感，丢掉空段。
  *
- * ## 宽容处理
- * - 不校验段的语法
- * - host 大小写不敏感
- * - 丢掉空段
- *
- * 对于非应用内路由（外部链接、同文档锚点、绝对路径），返回 null
+ * 非应用内路由（外部链接、同文档锚点、绝对路径）返回 null
  */
 export function parseRoute(raw: string): ParsedRoute | null {
   if (!raw) {
-    return null
+    return null;
   }
   const hash = raw.startsWith("#") ? raw.slice(1) : raw;
   if (!hash.startsWith("/")) {
-    return null
+    return null;
   }
   const segments = hash.split("/").slice(1).filter((segment) => segment !== "");
   const [rawHost, ...rest] = segments;
   if (!rawHost) {
-    return null
+    return null;
   }
   return {
     host: rawHost.toLowerCase(),
-    segments: rest
+    segments: rest,
   };
 }
 
@@ -68,10 +59,9 @@ export function canonicalRoute(raw: string): Route | null {
 }
 
 /**
- * 规范化一个 Action 并**一次切分到位**。route 非法时返回 null。
+ * 规范化 Action 并一次切分到位；route 非法时返回 null。
  *
- * 导航链路上只该有这一处切分：`go` 拿它判归属，落地拿它的 `segments` 构链，
- * 谁都不必回头再 `parseRoute` 一遍。
+ * 导航链路上唯一的切分点：`go` 判归属、落地构链都用它的结果
  */
 export function parseAction(action: Action): ParsedAction | null {
   const parsed = parseRoute(action.route);
@@ -95,4 +85,3 @@ export function isRouteHref(href: string): boolean {
 export function hostOf(raw: string): Host | null {
   return parseRoute(raw)?.host ?? null;
 }
-

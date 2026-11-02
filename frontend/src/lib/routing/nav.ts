@@ -1,18 +1,11 @@
 /**
- * 当前窗口的导航单例
+ * 当前窗口的导航单例。
  *
- * 窗口的根组件（`App.svelte` / `Help.svelte`）用 `install()` 交出自己的**域**（见 `domain.ts`），
- * 之后窗口里**任何组件、store、service** 都能用 `nav.go(action)` 发起跳转，不必层层传 props。
+ * 窗口根组件用 `install()` 交出自己的域（见 `domain.ts`），之后窗口内任何组件、store、
+ * service 都能用 `nav.go(action)` 发起跳转。
  *
- * 一次跳转的去处只取决于地址的 host：
- *
- * ```
- * nav.go(action)
- *   ├- host 是本窗口 -> domain.decode -> domain.land   同窗口则直接落地
- *   └- 否则          -> forward(action)                交后端投递给目标窗口
- * ```
- *
- * 未安装时静默忽略，保留 warn
+ * 去处只取决于地址的 host：本窗口 `domain.land`，否则 `forward` 交后端投递。
+ * 未安装时忽略 + warn
  */
 import {
   type Action,
@@ -28,15 +21,13 @@ import type {Domain} from "$routing/domain";
 import type {WindowKind} from "$types";
 
 /**
- * 一次安装交给 nav 的东西。
- *
- * `apply` 已是"域闭合"的：段 + 载荷进、布尔出。`false` 表示本域解释不了这个地址，
- * 于是降级只发生在 `dispatch` 一处 —— 域自己不必各自决定"不支持时怎么办"。
+ * 一次安装交给 nav 的东西。`apply` 是「域闭合」的：段 + 载荷进、布尔出。
+ * `false` 表示本域解释不了，降级只在 `dispatch` 一处发生
  */
 export type NavHandlers = {
   /** 本窗口名（= 地址的 host）。闭集枚举：写错即编译错误 */
   host: WindowKind;
-  /** 段 + 载荷 → 视图；`parsed` 已切好，落地不必再切一次 */
+  /** 段 + 载荷 → 视图；段已切好，落地不必再切一次 */
   apply: (segments: readonly string[], payload?: Payload) => boolean;
   /** 不归本窗口的地址交给谁（跨窗口投递；缺省则静默忽略） */
   forward?: (action: Action) => void;
@@ -45,9 +36,9 @@ export type NavHandlers = {
 let handlers: NavHandlers | null = null;
 
 /**
- * 判归属 → 落地或转发 —— **唯一的分发点，也是唯一的降级点**。
+ * 判归属 → 落地或转发。唯一的分发点与降级点。
  *
- * 入参是**已切好**的地址：解析只发生在 `go` 与 `start` 两处，落地侧一律不再碰字符串。
+ * 入参是已切好的地址：落地侧不再碰字符串
  */
 function dispatch(parsed: ParsedAction): void {
   const target: Action = {route: parsed.route, payload: parsed.payload};
@@ -89,10 +80,8 @@ function hashAction(): Action | null {
 /**
  * 挂载：登记 `hashchange` 兜底，然后决定首帧落点。
  *
- * 首帧来源的优先级：**合法的 `initial`**（跨窗口投递 / 冷启动载荷）→ 本窗口的 hash → `fallback`。
- * `initial` 非法时必须继续往下兜 —— 否则整条首帧路径被吞掉，窗口会停在空链上（连卡片都不激活）。
- *
- * 返回卸载函数。
+ * 优先级：合法的 `initial` → 本窗口的 hash → `fallback`。`initial` 非法时必须继续往下兜，
+ * 否则窗口停在空链上（卡片都不激活）。返回卸载函数
  */
 function start(fallback: Action, initial?: Action): () => void {
   const onHashChange = () => {
@@ -115,13 +104,10 @@ function start(fallback: Action, initial?: Action): () => void {
 
 export const nav = {
   /**
-   * 由窗口根组件安装自己的**域**，返回卸载函数。
+   * 由窗口根组件安装自己的域，返回卸载函数。
    *
-   * 域本身是泛型的，而 `handlers` 里存的是一层闭包 —— 于是不必把 `Dest` 擦成 `any`：
-   * 泛型在安装点解析，运行时只剩"段 + 载荷 → 布尔"。
-   *
-   * 重复安装以最后一次为准，但会警告：热重载与测试都要显式 dispose，否则旧 handler 会
-   * 一直挂在上面（`handlers` 是模块级单例，没有别的回收途径）。
+   * 泛型在安装点解析成闭包，运行时只剩「段 + 载荷 → 布尔」，故不必把 `Dest` 擦成 `any`。
+   * 重复安装以最后一次为准并警告；热重载与测试须显式 dispose
    */
   install<Dest>(config: {
     domain: Domain<Dest>;
@@ -156,12 +142,7 @@ export const nav = {
 
   start,
 
-  /**
-   * 当前地址（读 `location.hash` 并规范化）；不是应用内地址时为 `null`。
-   *
-   * 它是**只读的现状**，供"要不要再推一次导航"这类判断使用：例如关闭某个浮层时，
-   * 得先确认自己仍是当前地址的目标——否则说明别处已经在导航，再推一次会把地址拽回去。
-   */
+  /** 当前地址（读 `location.hash` 并规范化）；非应用内地址为 `null`。供「要不要再推一次导航」判断使用 */
   currentRoute(): Route | null {
     return canonicalRoute(location.hash);
   },
@@ -170,14 +151,14 @@ export const nav = {
 };
 
 /**
- * 只同步 `location.hash`，**不触发导航**——落地的真相在各窗口自己的域上，hash 只是它的对外投影。
+ * 只同步 `location.hash`，不触发导航。hash 是域的对外投影，不是它的驱动源。
  *
- * 用 `replaceState` 而非赋值 `location.hash`：后者会产生浏览器历史条目，与各窗口自有的
- * 前进/后退栈冲突；且 `replaceState` **不触发 hashchange**，天然不会把"自己写的地址"再处理一遍。
+ * 用 `replaceState` 而非赋值 `location.hash`：后者产生浏览器历史条目，与各窗口自有的
+ * 前进/后退栈冲突；且 `replaceState` 不触发 `hashchange`，不会把刚写的地址再处理一遍
  */
 function replaceHash(route: Route): void {
   if (!isRouteHref(route)) {
-    return
+    return;
   }
   history.replaceState(null, "", route);
 }

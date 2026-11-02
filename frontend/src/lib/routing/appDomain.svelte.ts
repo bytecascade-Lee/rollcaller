@@ -7,10 +7,8 @@ import {applyTransition, type LandingSink} from "$routing/transition";
 /**
  * app 域：地址段 ↔ 入口链 ↔ 浮层。
  *
- * `#shown` 就是"上一次落地的链"，取代了从前挂在 `App.svelte` 里的 `activeChain`；
- * 卡片激活态与浮层开关都从 `chain` 派生，于是"落地"只有一处状态写入点。
- *
- * 必须是 `.svelte.ts`：`#shown` 是 `$state`，组件要能订阅它。
+ * 卡片激活态与浮层开关都从 `chain` 派生，落地只有一处状态写入点。
+ * 必须是 `.svelte.ts`：`#shown` 是 `$state`，组件要订阅它
  */
 class AppDomain implements Domain<AppEntryId[]> {
   readonly host = APP_HOST;
@@ -39,7 +37,7 @@ class AppDomain implements Domain<AppEntryId[]> {
     return resolveAppChain(segments);
   }
 
-  /** 链本身就是地址段，无需转换（保留此方法是为了与 `decode` 成对，互逆性可测） */
+  /** 链本身就是地址段，保留此方法是为了与 `decode` 成对 */
   encode(chain: AppEntryId[]): readonly string[] {
     return chain;
   }

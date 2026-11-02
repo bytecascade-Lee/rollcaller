@@ -1,9 +1,4 @@
-/**
- * 转换语义：新旧两条链 → 关哪些、开哪些。
- *
- * 纯函数，不碰注册表也不碰组件状态 —— 于是"点一下到底发生了什么"可以在单测里问出来，
- * 而不用跑起整个窗口。
- */
+/** 转换语义：新旧两条链 → 关哪些、开哪些。纯函数，可单测 */
 import type {AppEntryId} from "$routing/app.entries.generated";
 import type {EntryRegistry} from "$routing/registry";
 
@@ -24,20 +19,10 @@ function commonPrefix(prev: readonly AppEntryId[], next: readonly AppEntryId[]):
 }
 
 /**
- * 按共同前缀 diff。
+ * 按共同前缀 diff：前缀之后逆序关、顺序开；整条链相同时 `replay` 非空。
  *
- * | 场景                              | 结果                                  |
- * |-----------------------------------|---------------------------------------|
- * | `edit-student` → `delete-student` | 公共前缀含卡片 ⇒ 卡片纹丝不动         |
- * | 切到无关卡片                      | 前缀为空 ⇒ 全关再开                   |
- * | 重放同一地址                      | `replay` 非空 ⇒ 补一次 open           |
- * | 退回卡片（`edit` → `card`）        | `replay` 是**平面**，见下             |
- *
- * 第三格是最反直觉的一处：因为**关闭也回退地址**，"地址停在目标、浮层早已关闭"是常见状态，
- * 没有这条补充，用户第二次点同一个入口会毫无反应。
- *
- * 第四格里 `replay` 落在卡片上：卡片没有 handler（只有叠加层注册，见 `App.svelte` 的完整性
- * 断言），于是 `registry.open` 是**预期的空操作** —— 不是漏了判断。
+ * `replay` 不能删：关闭也回退地址，「地址在目标、浮层已关」是常态，不补 `open` 则再点无反应。
+ * 它落在卡片上时 `registry.open` 是预期的空操作 —— 卡片没有 handler，不是漏判
  */
 export function planTransition(
   prev: readonly AppEntryId[],
@@ -51,13 +36,13 @@ export function planTransition(
   };
 }
 
-/** 落地只需要这两件事。收窄后不必知道注册表的载荷泛型，依赖面也从"整张表"缩到"两个方法" */
+/** 落地只需要这两个方法，故不必携带注册表的载荷泛型 */
 export type LandingSink = Pick<EntryRegistry<AppEntryId, never>, "open" | "close">;
 
 /**
- * 执行转换：逆序关、顺序开（载荷只交给**最深**的那一个），返回新链。
+ * 执行转换：逆序关、顺序开（载荷只交给最深的一个），返回新链。
  *
- * 祖先段一律不带载荷：它们是"铺路"用的平面，不是这次跳转的目标。
+ * 祖先段不带载荷：它们是铺路用的平面，不是本次跳转的目标
  */
 export function applyTransition(
   sink: LandingSink,

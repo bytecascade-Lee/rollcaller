@@ -22,24 +22,13 @@ type Intent = { push: boolean; fold: boolean };
 const DELIVERED: Intent = {push: false, fold: true};
 
 /**
- * help 域：地址段 ↔ `HelpAddress` ↔ 视图，并兼任本域的门面（`open` / `back` / `forward`）。
+ * help 域：地址段 ↔ `HelpAddress` ↔ 视图，并兼任本域门面（`open` / `back` / `forward`）。
  *
- * ## 为什么落点全在这里
+ * 落点（折叠树、加载文档、滚锚点、入栈）全在这里：栈与「这次跳转要不要入栈」是同一事实的两面，
+ * 拆到组件里必漂移。窗口只留视口端口（`install`）。
  *
- * 地址栈与"这次跳转要不要入栈"是同一个事实的两面，分散在组件里就会各自漂移：
- * 组件负责加载与滚动、类负责栈，则后退一格该不该重新加载、重复投递该不该入栈，
- * 都没有唯一答案。所以这里一并拿走：折叠树、加载文档、滚动锚点、入栈/裁剪。
- * 窗口只剩两件视图事 —— 交出滚动容器（`install`），以及让开"切文档回顶部"的副作用。
- *
- * 与 app 域的差别只在 `land` 内部：那边是链 diff + 注册表，这边是加载 + 栈。
- * 对 `nav` 而言两者是同一个接口（见 `domain.ts`）。
- *
- * ## 栈只记用户点击
- *
- * 侧栏树、搜索结果、文档内链接是**点击**，入栈；跨窗口投递与冷启动载荷是**送达**，
- * 不入栈 —— 它们把栈重置成只剩这一条，于是"上一步"不会退到一个本窗口没主动去过的位置。
- *
- * 单例：窗口只有一份地址。
+ * 栈只记用户点击：侧栏、搜索、文档内链接入栈；跨窗口投递与冷启动载荷把栈重置为这一条，
+ * 于是「上一步」不会退到本窗口没主动去过的位置
  */
 class HelpNavigate implements Domain<HelpAddress> {
   readonly host = HelpAddress.HOST;
@@ -83,7 +72,7 @@ class HelpNavigate implements Domain<HelpAddress> {
     return this.#pending;
   }
 
-  /** **用户点击**打开一处（侧栏树、搜索结果、文档内链接）—— 这一次落地入栈 */
+  /** 用户点击打开一处（侧栏树、搜索结果、文档内链接）：本次落地入栈 */
   open(address: HelpAddress, options?: { fold?: boolean }): void {
     this.#intent = {push: true, fold: options?.fold ?? true};
     const action: Action = {route: address.toHash()};
@@ -101,14 +90,10 @@ class HelpNavigate implements Domain<HelpAddress> {
   }
 
   /**
-   * 落地 —— `nav` 的唯一出口（`Domain.land`）。
+   * 落地：`nav` 的唯一出口。地址同步由 `dispatch` 在落地成功后统一做，这里不碰 hash。
    *
-   * 地址的同步由 `nav.dispatch` 在落地成功后统一做，这里不再碰 hash。
-   * `payload` 是**一次性命令参数**（典型场景："打开帮助窗口并预填搜索词"）：
-   * 落地即消费，永不从地址重建 —— 所以刷新后搜索框是关的，这正是地址与载荷的分工。
-   * 目前还没有这样的需求，先把接缝留出来。
-   *
-   * 幂等：重复投递同一地址只重新定位，不重复加载（连点也不会把栈灌满）。
+   * `payload` 是一次性命令参数（如「打开并预填搜索词」），落地即消费，暂无消费者。
+   * 幂等：重复投递同一地址只重新定位，不重复加载
    */
   land(address: HelpAddress, payload?: Payload): void {
     void this.#apply(address, payload).catch((error) => {
