@@ -2,11 +2,12 @@ import {type Payload} from "$routing/address";
 import type {Domain} from "$routing/domain";
 import {HelpAddress} from "$routing/help/address";
 import {type History, pushAt, resetTo, stepIndex} from "$routing/help/history";
+import {readSearch} from "$routing/help/payload";
 import {nav} from "$routing/nav";
 import {helpStore} from "$stores/helpStore.svelte";
 
 /**
- * 窗口交付给导航的**视口端口**：滚动与折叠树是视图关注点，导航只负责说要做什么。
+ * 窗口交付给导航的**视口端口**：滚动、折叠树、打开搜索都是视图关注点，域只负责说要做什么。
  * 由窗口根组件在 `install()` 时装入，未安装时这些副作用静默跳过。
  */
 export type HelpViewport = {
@@ -14,6 +15,8 @@ export type HelpViewport = {
   scrollTo(anchor: string | null): void;
   /** 折叠导航树到当前路径（侧栏点击不折叠，其余跳转折叠） */
   foldTree(): void;
+  /** 打开搜索框并预填；搜索是瞬态过程，不进地址空间 */
+  openSearch(query: string): void;
 };
 
 /** 一次落地的意图：由 `open()` 置位，落地时消费即复位 */
@@ -89,13 +92,17 @@ class HelpDomain implements Domain<HelpAddress> {
   /**
    * 落地：`nav` 的唯一出口。地址同步由 `dispatch` 在落地成功后统一做，这里不碰 hash。
    *
-   * `payload` 是一次性命令参数（如「打开并预填搜索词」），落地即消费，暂无消费者。
    * 幂等：重复投递同一地址只重新定位，不重复加载
    */
   land(address: HelpAddress, payload?: Payload): void {
-    void this.#apply(address, payload).catch((error) => {
+    void this.#apply(address, readSearch(payload)).catch((error) => {
       console.error("[help] 落地失败", error);
     });
+  }
+
+  /** 打开搜索框（用户点击触发）。注册表归窗口，域只转发 */
+  openSearch(query = ""): void {
+    this.#viewport?.openSearch(query);
   }
 
   /** 后退一格：地址与锚点一并还原，不记录新历史 */
@@ -108,19 +115,23 @@ class HelpDomain implements Domain<HelpAddress> {
     await this.#step(1);
   }
 
-  async #apply(address: HelpAddress, _payload?: Payload): Promise<void> {
+  async #apply(address: HelpAddress, search: string | null): Promise<void> {
     const {push, fold} = this.#intent;
     this.#intent = DELIVERED;
 
     if (address.toHash() === this.#shown?.toHash()) {
       this.#viewport?.scrollTo(address.anchor);
-      return;
+    } else {
+      const loading = await this.#load(address, fold);
+      // 加载期间又被更晚的导航取代：这一条连栈都不进，否则会盖在后来的那次之上
+      if (loading !== this.#loading) return;
+      this.#history = push ? pushAt(this.#history, address) : resetTo(address);
     }
 
-    const loading = await this.#load(address, fold);
-    // 加载期间又被更晚的导航取代：这一条连栈都不进，否则会盖在后来的那次之上
-    if (loading !== this.#loading) return;
-    this.#history = push ? pushAt(this.#history, address) : resetTo(address);
+    // 载荷是一次性命令参数：只在这一次落地有效，绝不从地址重建
+    if (search !== null) {
+      this.#viewport?.openSearch(search);
+    }
   }
 
   /** 栈移动一格并落到视图（hash 与树折叠都按「外部跳转」处理） */
