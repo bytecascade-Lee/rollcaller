@@ -1,6 +1,7 @@
 use crate::state::nav::NavState;
 use crate::state::update::UpdaterState;
 use crate::windows::app_window;
+use crate::windows::common::WindowKind;
 use tauri::Manager;
 
 mod bootstrap;
@@ -28,7 +29,9 @@ pub async fn run() {
         .on_window_event(|window, event| {
             // 窗口销毁时清掉它的待取载荷：否则窗口重建后的首帧会应用一个早就过期的导航
             if let tauri::WindowEvent::Destroyed = event {
-                window.app_handle().state::<NavState>().clear(window.label());
+                if let Some(kind) = WindowKind::from_host(window.label()) {
+                    window.app_handle().state::<NavState>().clear(kind);
+                }
             }
         })
         .plugin(tauri_plugin_opener::init())
@@ -96,15 +99,16 @@ fn init(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     console::install_interrupt_handler();
 
     let handle = app.handle().clone();
-    let handle2 = app.handle().clone();
     tauri::async_runtime::spawn(async move {
         if let Err(e) = bootstrap::init().await {
             bootstrap::show_fatal_error(&handle, e);
         }
     });
 
-    if let Err(e) = app_window::open(handle2) {
-        bootstrap::show_fatal_error(app.handle(), e);
+    let handle = app.handle();
+    if let Err(e) = app_window::open(handle) {
+        bootstrap::show_fatal_error(handle, e);
     }
+
     Ok(())
 }
