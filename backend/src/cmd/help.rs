@@ -9,12 +9,12 @@ const GITHUB_ONLY_END: &str = "<!-- help:show -->";
 
 #[tauri::command]
 pub async fn help_load_markdown(id: String) -> Result<String, String> {
-    fs::read_to_string(&app_paths::resources_dir().join(format!("help/{0}/{0}-zh-CN.md", id))).map_err(|e| e.to_string())
+    fs::read_to_string(app_paths::resources_dir().join(format!("help/{0}/{0}-zh-CN.md", id))).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn help_load_readme() -> Result<String, String> {
-    let markdown = fs::read_to_string(&app_paths::root_dir().join("README.md")).map_err(|e| e.to_string())?;
+    let markdown = fs::read_to_string(app_paths::root_dir().join("README.md")).map_err(|e| e.to_string())?;
     Ok(strip_github_only(&markdown))
 }
 
@@ -25,12 +25,12 @@ pub async fn help_load_license() -> Result<String, String> {
 
 #[tauri::command]
 pub async fn help_load_changelog() -> Result<String, String> {
-    fs::read_to_string(&app_paths::root_dir().join("CHANGELOG.md")).map_err(|e| e.to_string())
+    fs::read_to_string(app_paths::root_dir().join("CHANGELOG.md")).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn help_load_release_notes() -> Result<String, String> {
-    fs::read_to_string(&app_paths::root_dir().join("RELEASE_NOTES.md")).map_err(|e| e.to_string())
+    fs::read_to_string(app_paths::root_dir().join("RELEASE_NOTES.md")).map_err(|e| e.to_string())
 }
 
 /// 丢弃 `<!-- help:hide -->` 与 `<!-- help:show -->` 之间的内容（含标记本身），并去掉首尾空行

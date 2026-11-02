@@ -19,7 +19,7 @@ pub async fn student_list() -> Result<Vec<StudentTable>, String> {
 #[tauri::command]
 pub async fn student_single_create(student: Student, overwrite: Option<bool>) -> Result<StudentSingleCreateResult, String> {
     let rb = database_pool::database().await.map_err(|e| e.to_string())?;
-    student_service::create(&*rb, student, overwrite)
+    student_service::create(&rb, student, overwrite)
         .await
         .map_err(|e| e.to_string())
 }
@@ -30,14 +30,14 @@ pub async fn student_single_create(student: Student, overwrite: Option<bool>) ->
 #[tauri::command]
 pub async fn student_single_update(student: Student) -> Result<StudentSingleUpdate, String> {
     let rb = database_pool::database().await.map_err(|e| e.to_string())?;
-    student_service::update(&*rb, student).await.map_err(|e| e.to_string())
+    student_service::update(&rb, student).await.map_err(|e| e.to_string())
 }
 
 /// 删除学生（软删除）
 #[tauri::command]
 pub async fn student_batch_delete(ids: Vec<i64>) -> Result<(), String> {
     let rb = database_pool::database().await.map_err(|e| e.to_string())?;
-    student_service::delete(&*rb, ids).await.map_err(|e| e.to_string())
+    student_service::delete(&rb, ids).await.map_err(|e| e.to_string())
 }
 
 /// 恢复学生
@@ -45,5 +45,5 @@ pub async fn student_batch_delete(ids: Vec<i64>) -> Result<(), String> {
 pub async fn student_batch_restore(ids: Vec<i64>) -> Result<(), String> {
     let rb = database_pool::database().await.map_err(|e| e.to_string())?;
     //~ 恢复后不必再次查询，直接修改 is_deleted 为 0、deleted_at 为 None 即可
-    student_service::restore(&*rb, ids).await.map_err(|e| e.to_string())
+    student_service::restore(&rb, ids).await.map_err(|e| e.to_string())
 }

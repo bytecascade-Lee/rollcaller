@@ -108,7 +108,7 @@ impl Artifact {
     pub fn file_name(&self) -> Option<String> {
         self.url
             .path_segments()
-            .and_then(|segments| segments.last())
+            .and_then(|mut segments| segments.next_back())
             .filter(|name| !name.is_empty())
             .map(|name| name.to_string())
     }

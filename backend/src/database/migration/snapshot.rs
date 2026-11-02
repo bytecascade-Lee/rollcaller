@@ -59,7 +59,7 @@ fn prune(source: &Path, keep: Option<usize>) {
     if backups.len() <= keep {
         return;
     }
-    backups.sort_by(|a, b| b.0.cmp(&a.0)); // 新的在前
+    backups.sort_by_key(|entry| std::cmp::Reverse(entry.0)); // 新的在前
     for (_, path) in backups.into_iter().skip(keep) {
         match std::fs::remove_file(&path) {
             Ok(()) => info!("已清理过旧备份: {}", path.display()),

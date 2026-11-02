@@ -17,7 +17,7 @@ pub async fn create(rb: &RBatis, record: Record) -> anyhow::Result<RollcallRecor
     let mut tx = rb.acquire_begin().await?;
     let records = record_repo::select_by_ids(&mut tx, vec![id]).await?;
     tx.commit().await?;
-    Ok(records.into_iter().next().ok_or_else(|| anyhow!("通过id[{id}]查询失败"))?)
+    records.into_iter().next().ok_or_else(|| anyhow!("通过id[{id}]查询失败"))
 }
 
 pub async fn update(
@@ -27,7 +27,7 @@ pub async fn update(
     remark: String,
 ) -> anyhow::Result<Vec<RollcallRecord>> {
     let mut tx = rb.acquire_begin().await?;
-    let result = record_repo::update(&mut tx, &ids, attendance_status, &*remark).await?;
+    let result = record_repo::update(&mut tx, &ids, attendance_status, &remark).await?;
     let len = ids.len() as u64;
     if result.rows_affected != len {
         tx.rollback().await?;

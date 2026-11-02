@@ -12,9 +12,9 @@ pub async fn update(rb: &RBatis, attendance_status: AttendanceStatus) -> anyhow:
     attendance_status_repo::update(
         &mut tx,
         attendance_status.id,
-        &*attendance_status.name,
-        &*attendance_status.background,
-        &*attendance_status.color,
+        &attendance_status.name,
+        &attendance_status.background,
+        &attendance_status.color,
         attendance_status.remark.as_deref(),
     )
     .await?;

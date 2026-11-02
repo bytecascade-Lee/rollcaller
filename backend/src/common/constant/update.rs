@@ -95,7 +95,7 @@ mod tests {
         ];
 
         for url_str in urls {
-            Url::parse(url_str).expect(&format!("无效的 URL 常量: {}", url_str));
+            Url::parse(url_str).unwrap_or_else(|error| panic!("无效的 URL 常量: {url_str}: {error}"));
         }
     }
 }

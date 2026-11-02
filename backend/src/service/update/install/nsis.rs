@@ -10,7 +10,6 @@
 
 use anyhow::anyhow;
 use std::ffi::{OsStr, OsString};
-use std::io::Cursor;
 use std::path::PathBuf;
 
 /// NSIS 安装界面模式（对应插件 `WindowsUpdateInstallMode` 的 NSIS 分支，config.rs:14-23）
@@ -30,11 +29,11 @@ impl NsisInstallMode {
     /// 界面模式对应的 NSIS 参数（与插件 config.rs:41-50 一致）
     pub fn nsis_args(&self) -> &'static [&'static str] {
         match self {
-            /// `Passive` → `/P`
+            // `Passive` → `/P`
             Self::Passive => &["/P"],
-            /// `Silent`  → `/S`
+            // `Silent`  → `/S`
             Self::Silent => &["/S"],
-            /// `BasicUi` → 无
+            // `BasicUi` → 无
             Self::BasicUi => &[],
         }
     }
@@ -261,7 +260,7 @@ mod tests {
         assert_eq!(cases.len(), cases_escaped.len());
 
         for (orig, escaped) in cases.iter().zip(cases_escaped) {
-            assert_eq!(escape_nsis_current_exe_arg(&OsStr::new(orig)), escaped);
+            assert_eq!(escape_nsis_current_exe_arg(OsStr::new(orig)), escaped);
         }
     }
 

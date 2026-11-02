@@ -183,6 +183,7 @@ pub async fn check(
 /// - `on_view`：状态迁移帧——确认进入下载时广播一次 `Downloading`（view 通道）；
 /// - `on_progress`：进度窄帧——每 chunk 只写 state 原子槽（不碰 session 锁），
 ///   节流达 [`PROGRESS_BROADCAST_INTERVAL`] 后从槽读快照回调（download 通道）。
+///
 /// 进度是瞬时数据、只经窄帧广播，不落 session；终态视图由命令层在返回后统一广播。
 ///
 /// `current_version` 为复核基线（与 check 同源，由命令层从 `package_info` 传入），
