@@ -11,7 +11,7 @@
     --color-background: var(--gray-2);
 
     --color-hover: var(--gray-3);
-    --color-disabled: color-mix(in srgb, var(--gray-2), #fff 40%);;
+    --color-disabled: color-mix(in srgb, var(--gray-2), #fff 40%);
     --color-active: var(--gray-4);
 
     --text-color-primary: var(--gray-9);
@@ -118,7 +118,7 @@
     --layer-toast: 300;
     --layer-max: 9999;
 
-    --opacity-disabled: .7;
-    --opacity-loading: .8;
-    --opacity-hover: .9;
+    --opacity-disabled: 0.7;
+    --opacity-loading: 0.8;
+    --opacity-hover: 0.9;
 }

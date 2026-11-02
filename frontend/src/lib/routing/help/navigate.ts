@@ -9,7 +9,7 @@ import {helpDomain} from "$routing/help/domain.svelte";
  */
 export const helpNavigate = Object.freeze({
   /** 用户点击打开一处（侧栏树、搜索结果、文档内链接）：本次落地入栈 */
-  open(address: HelpAddress, options?: { fold?: boolean }): void {
+  open(address: HelpAddress, options?: {fold?: boolean}): void {
     helpDomain.open(address, options);
   },
 

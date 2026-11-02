@@ -1,7 +1,7 @@
 /** 没有可见触发元素时的兜底位置：视口居中（`updatePosition` 只负责"锚在某个元素下方"） */
 export const POPUP_CENTERED = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%)";
 
-export function updatePosition(anchor: HTMLElement)  {
+export function updatePosition(anchor: HTMLElement) {
   const rect = anchor.getBoundingClientRect();
   const popupWidth = Math.max(rect.width, 280);
   const viewportWidth = window.innerWidth;

@@ -7,18 +7,16 @@
   import {StudentCommand} from "$commands";
   import {appNavigate} from "$routing/app/navigate";
 
-  let {overlays}: { overlays: EntryRegistry<StudentOverlayName, AppEntryPayload> } = $props();
+  let {overlays}: {overlays: EntryRegistry<StudentOverlayName, AppEntryPayload>} = $props();
 
   let isVisible = $state(false);
-  let targets = $state<StudentTable[]>([])
+  let targets = $state<StudentTable[]>([]);
   let showDetails = $state(false);
-
 
   function open(ids: number[] | undefined) {
     if (studentStore.students.length === 0) void studentStore.load();
     if (!ids || ids.length === 0) return;
-    targets = ids.map(id => studentStore.get(id))
-      .filter((student): student is StudentTable => student != null);
+    targets = ids.map((id) => studentStore.get(id)).filter((student): student is StudentTable => student != null);
     showDetails = false;
     isVisible = true;
   }
@@ -48,9 +46,9 @@
     overlays.register(AppEntry.deleteStudent, {
       open,
       close,
-    })
+    });
     return () => overlays.unregister(AppEntry.deleteStudent);
-  })
+  });
 </script>
 
 {#if isVisible}
@@ -60,11 +58,7 @@
     <div class="popup" onclick={(e) => e.stopPropagation()}>
       <h3 class="text-title error">确认删除</h3>
       <p class="text-content">确定删除这 {targets.length} 名学生吗？</p>
-      <button
-        type="button"
-        class="detail-toggle"
-        onclick={() => showDetails = !showDetails}
-      >
+      <button type="button" class="detail-toggle" onclick={() => (showDetails = !showDetails)}>
         {showDetails ? "收起详细信息" : "查看详细信息"}
       </button>
       {#if showDetails}
@@ -76,18 +70,8 @@
       {/if}
       <p class="text-content">当前版本暂无恢复入口，删除后不可直接恢复！</p>
       <div class="button-group">
-        <button
-          type="button"
-          class="button"
-          onclick={requestClose}
-        >取消
-        </button>
-        <button
-          type="button"
-          class="button error"
-          onclick={doDelete}
-        >删除
-        </button>
+        <button type="button" class="button" onclick={requestClose}>取消 </button>
+        <button type="button" class="button error" onclick={doDelete}>删除 </button>
       </div>
     </div>
   </div>

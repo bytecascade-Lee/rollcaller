@@ -18,21 +18,19 @@ import {HelpRoute} from "$routing/help/entries.generated";
 
 /** 这些用例只用到 location/history/window 上极少几个成员，给最小桩即可 */
 const env = globalThis as unknown as {
-  location: { hash: string };
-  history: { replaceState(): void };
-  window: { addEventListener(): void; removeEventListener(): void };
+  location: {hash: string};
+  history: {replaceState(): void};
+  window: {addEventListener(): void; removeEventListener(): void};
 };
 
 Object.assign(env, {
   location: {hash: "#/app/rollcall"},
   history: {
-    replaceState() {
-    }
+    replaceState() {},
   },
   window: {
-    addEventListener() {
-    }, removeEventListener() {
-    }
+    addEventListener() {},
+    removeEventListener() {},
   },
 });
 
@@ -44,8 +42,7 @@ const testDomain = {
   encode: (dest) => dest,
   land: (segments, payload) => navLog.push({route: routeOf("app", segments), payload}),
 };
-const installTestNav = () =>
-  nav.install({domain: testDomain, forward: (action) => navLog.push({forwarded: action})});
+const installTestNav = () => nav.install({domain: testDomain, forward: (action) => navLog.push({forwarded: action})});
 let disposeHarness = installTestNav();
 
 /* ---------- address：切分 / 组装 / 规范化 ---------- */
@@ -85,10 +82,7 @@ test("chainOf：自根到自身", () => {
 /* ---------- 整条链：校验与交付一次完成 ---------- */
 
 test("resolveAppChain：合法地址给出整条链，非法一律 null", () => {
-  assert.deepEqual(resolveAppChain(["student-management", "delete-student"]), [
-    "student-management",
-    "delete-student",
-  ]);
+  assert.deepEqual(resolveAppChain(["student-management", "delete-student"]), ["student-management", "delete-student"]);
   assert.deepEqual(resolveAppChain(["rollcall"]), ["rollcall"]);
   for (const segments of [
     ["rollcall", "delete-student"], // 祖先段与 parentId 不符
@@ -178,8 +172,7 @@ test("registry：未知 id 与缺省的 close 都不抛", () => {
   assert.doesNotThrow(() => reg.open("nope"));
   assert.doesNotThrow(() => reg.close("nope"));
   reg.register("a", {
-    open: () => {
-    }
+    open: () => {},
   });
   assert.doesNotThrow(() => reg.close("a"));
 });
@@ -234,9 +227,7 @@ test("appNavigate.leave：只有自己确实是当前地址目标时才回退", 
     return navLog.map((action) => action.route);
   };
 
-  assert.deepEqual(leaveAt("#/app/student-management/delete-student"), [
-    "#/app/student-management",
-  ]); // 是链尾 ⇒ 回退父级
+  assert.deepEqual(leaveAt("#/app/student-management/delete-student"), ["#/app/student-management"]); // 是链尾 ⇒ 回退父级
   assert.deepEqual(leaveAt("#/app/rollcall"), []); // 别处已导航 ⇒ 不动（护栏）
   assert.deepEqual(leaveAt("#/app/student-management"), []); // 已回退过 ⇒ 幂等
 
@@ -249,15 +240,11 @@ test("appNavigate.leave：只有自己确实是当前地址目标时才回退", 
 test("appNavigate.enter：载荷随 Action 一起投递，且就是目标本身", () => {
   navLog.length = 0;
   appNavigate.enter(AppEntry.deleteStudent, [1, 2]);
-  assert.deepEqual(navLog, [
-    {route: "#/app/student-management/delete-student", payload: [1, 2]},
-  ]);
+  assert.deepEqual(navLog, [{route: "#/app/student-management/delete-student", payload: [1, 2]}]);
 
   navLog.length = 0;
   appNavigate.enter(AppEntry.editStudent, 7);
-  assert.deepEqual(navLog, [
-    {route: "#/app/student-management/edit-student", payload: 7},
-  ]);
+  assert.deepEqual(navLog, [{route: "#/app/student-management/edit-student", payload: 7}]);
 });
 
 test("nav.go：不归本窗口的地址交给 forward，不落地", () => {
@@ -306,17 +293,20 @@ test("nav.start：initial 非法时继续往 hash / fallback 兜底", () => {
   env.location.hash = "";
   // 非法 initial + 空 hash ⇒ 落到 fallback（旧实现会把整条首帧路径吞掉，窗口停在空链）
   const stop = nav.start({route: "#/app/student-management"}, {route: "看起来不像地址"});
-  assert.deepEqual(navLog.map((action) => action.route), ["#/app/student-management"]);
+  assert.deepEqual(
+    navLog.map((action) => action.route),
+    ["#/app/student-management"],
+  );
   stop();
 
   // 合法 initial 优先于 hash
   navLog.length = 0;
   env.location.hash = "#/app/rollcall";
-  const stop2 = nav.start(
-    {route: "#/app/rollcall"},
-    {route: "#/app/student-management/edit-student", payload: 7},
+  const stop2 = nav.start({route: "#/app/rollcall"}, {route: "#/app/student-management/edit-student", payload: 7});
+  assert.deepEqual(
+    navLog.map((action) => action.route),
+    ["#/app/student-management/edit-student"],
   );
-  assert.deepEqual(navLog.map((action) => action.route), ["#/app/student-management/edit-student"]);
   assert.equal(navLog[0].payload, 7);
   stop2();
 });

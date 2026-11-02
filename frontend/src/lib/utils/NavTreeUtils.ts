@@ -4,10 +4,7 @@ import type {NavItem, TreeNode} from "$types";
  * 由 meta 的 nodes/order 构建有序导航树。
  * 纯函数：无组件状态、无副作用，可独立单测。
  */
-export function buildNavTree(
-  nodes: Record<string, TreeNode>,
-  order: Record<string, string[]>
-): NavItem[] {
+export function buildNavTree(nodes: Record<string, TreeNode>, order: Record<string, string[]>): NavItem[] {
   const childrenOf = new Map<string | null, string[]>();
 
   for (const [id, node] of Object.entries(nodes)) {
@@ -31,18 +28,12 @@ export function buildNavTree(
 }
 
 /** 先按 order 排列，未列入 order 的子节点按字母序排在末尾。 */
-function sortChildren(
-  childIds: string[],
-  parentId: string | null,
-  order: Record<string, string[]>
-): string[] {
+function sortChildren(childIds: string[], parentId: string | null, order: Record<string, string[]>): string[] {
   const ordered = order[parentId ?? "root"] ?? [];
   const orderedSet = new Set(ordered);
 
   const inOrder = ordered.filter((id) => childIds.includes(id));
-  const notInOrder = childIds
-    .filter((id) => !orderedSet.has(id))
-    .sort((a, b) => a.localeCompare(b));
+  const notInOrder = childIds.filter((id) => !orderedSet.has(id)).sort((a, b) => a.localeCompare(b));
 
   return [...inOrder, ...notInOrder];
 }

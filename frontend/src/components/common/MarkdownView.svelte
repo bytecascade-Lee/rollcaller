@@ -11,7 +11,10 @@
 
   hljs.registerLanguage("bash", bash);
 
-  let {markdown = "", onnavigate}: {
+  let {
+    markdown = "",
+    onnavigate,
+  }: {
     markdown?: string;
     /** 文档内链接跳转回调：由宿主决定"加载 + 定位"如何落地 */
     onnavigate?: (address: HelpAddress) => void;
@@ -39,8 +42,8 @@
     },
   }).use(headingIdPlugin);
 
-  const defaultLinkOpen = md.renderer.rules.link_open ??
-    ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+  const defaultLinkOpen =
+    md.renderer.rules.link_open ?? ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
 
   // 渲染期只做一件事：把作者写的文档相对链接改写成应用内路由。
   // 外部链接与同文档锚点原样保留，分别交给点击期与浏览器原生处理。
@@ -51,10 +54,12 @@
     return defaultLinkOpen(tokens, idx, options, env, self);
   };
 
-  const safeHtml = $derived(DOMPurify.sanitize(md.render(markdown), {
-    USE_PROFILES: {html: true},
-    ADD_ATTR: ["target"],
-  }));
+  const safeHtml = $derived(
+    DOMPurify.sanitize(md.render(markdown), {
+      USE_PROFILES: {html: true},
+      ADD_ATTR: ["target"],
+    }),
+  );
 
   /**
    * 点击期是唯一的解释器，不依赖渲染期写入的任何标记：

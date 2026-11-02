@@ -98,10 +98,7 @@ class RollcallEngine {
         if (event === RollcallEvent.SaveSuccess) {
           if (this.#savedRecord) recordStore.upsert(this.#savedRecord);
           this.completedTimes++;
-          this.#showTimeout = setTimeout(
-            () => this.#dispatch(RollcallEvent.ShowDone),
-            SHOW_DURATION
-          );
+          this.#showTimeout = setTimeout(() => this.#dispatch(RollcallEvent.ShowDone), SHOW_DURATION);
         } else if (event === RollcallEvent.SaveFailed) {
           this.#undoShow();
         } else if (event === RollcallEvent.UserStop) {
@@ -130,10 +127,7 @@ class RollcallEngine {
       }
     }, ROLL_INTERVAL);
     if (autoAdvance) {
-      this.#animTimeout = setTimeout(
-        () => this.#dispatch(RollcallEvent.AnimateDone),
-        ANIMATE_DURATION
-      );
+      this.#animTimeout = setTimeout(() => this.#dispatch(RollcallEvent.AnimateDone), ANIMATE_DURATION);
     }
   }
 

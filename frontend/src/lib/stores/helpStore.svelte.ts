@@ -5,7 +5,7 @@ import type {HelpAddress} from "$routing/help/address";
 /** 特殊节点走独立命令，其余叶子走 help_load_markdown(id)。 */
 const SPECIAL_LOADERS: Record<string, () => Promise<string>> = {
   "README.md": HelpCommand.readme,
-  "LICENSE": HelpCommand.license,
+  LICENSE: HelpCommand.license,
   "CHANGELOG.md": HelpCommand.changelog,
   "RELEASE_NOTES.md": HelpCommand.releaseNotes,
 };
@@ -60,7 +60,7 @@ class HelpStore {
   }
 
   async #buildIndex() {
-    const nodes = metaData.nodes as Record<string, { title: string }>;
+    const nodes = metaData.nodes as Record<string, {title: string}>;
     await Promise.all(
       this.#leafIds().map(async (id) => {
         this.#titles.set(id, nodes[id]?.title ?? id);
@@ -72,7 +72,7 @@ class HelpStore {
         } catch {
           // 文档无内容：仅参与标题命中，不中断索引
         }
-      })
+      }),
     );
   }
 
@@ -120,40 +120,38 @@ class HelpStore {
   #buildSnippet(text: string, idx: number, queryLen: number): string {
     const start = Math.max(0, idx - 12);
     const end = Math.min(text.length, idx + queryLen + 24);
-    return (
-      (start > 0 ? "…" : "") +
-      text.slice(start, end).trim() +
-      (end < text.length ? "…" : "")
-    );
+    return (start > 0 ? "…" : "") + text.slice(start, end).trim() + (end < text.length ? "…" : "");
   }
 
   /** 去除 markdown 符号得到纯文本：先清理再命中，链接只保留文字、URL 不参与搜索。 */
   #cleanText(md: string): string {
-    return md
-      // 标题锚点声明 `{#id}`：不参与命中（标题文字本身仍参与）
-      .replace(/\{#[a-z0-9-]+\}/g, " ")
-      // 代码块围栏整段移除
-      .replace(/```[\s\S]*?```/g, " ")
-      // 行内代码
-      .replace(/`([^`]*)`/g, "$1")
-      // 图片 → 替代文本
-      .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-      // 链接 → 链接文字（URL 不参与命中）
-      .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-      // 行首标题符号、引用、列表符号、有序列表、分割线
-      .replace(/^\s{0,3}#{1,6}\s+/gm, "")
-      .replace(/^\s{0,3}>\s?/gm, "")
-      .replace(/^\s*[-*+]\s+/gm, "")
-      .replace(/^\s*\d+[.、)]\s+/gm, "")
-      .replace(/^\s*(?:-{3,}|\*{3,})\s*$/gm, "")
-      // 行内强调/删除线
-      .replace(/\*\*([^*]*)\*\*/g, "$1")
-      .replace(/\*([^*]*)\*/g, "$1")
-      .replace(/~~([^~]*)~~/g, "$1")
-      // HTML 标签（如 <kbd>）
-      .replace(/<[^>]+>/g, "")
-      // 折叠空白为单空格
-      .replace(/\s+/g, " ");
+    return (
+      md
+        // 标题锚点声明 `{#id}`：不参与命中（标题文字本身仍参与）
+        .replace(/\{#[a-z0-9-]+\}/g, " ")
+        // 代码块围栏整段移除
+        .replace(/```[\s\S]*?```/g, " ")
+        // 行内代码
+        .replace(/`([^`]*)`/g, "$1")
+        // 图片 → 替代文本
+        .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+        // 链接 → 链接文字（URL 不参与命中）
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+        // 行首标题符号、引用、列表符号、有序列表、分割线
+        .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+        .replace(/^\s{0,3}>\s?/gm, "")
+        .replace(/^\s*[-*+]\s+/gm, "")
+        .replace(/^\s*\d+[.、)]\s+/gm, "")
+        .replace(/^\s*(?:-{3,}|\*{3,})\s*$/gm, "")
+        // 行内强调/删除线
+        .replace(/\*\*([^*]*)\*\*/g, "$1")
+        .replace(/\*([^*]*)\*/g, "$1")
+        .replace(/~~([^~]*)~~/g, "$1")
+        // HTML 标签（如 <kbd>）
+        .replace(/<[^>]+>/g, "")
+        // 折叠空白为单空格
+        .replace(/\s+/g, " ")
+    );
   }
 
   #leafIds(): string[] {

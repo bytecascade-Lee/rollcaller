@@ -1,8 +1,11 @@
-export function clickOutside(element: HTMLElement, options: {
-  callback: () => void;
-  exclude?: HTMLElement | HTMLElement[]
-}) {
-  const { callback, exclude } = options;
+export function clickOutside(
+  element: HTMLElement,
+  options: {
+    callback: () => void;
+    exclude?: HTMLElement | HTMLElement[];
+  },
+) {
+  const {callback, exclude} = options;
 
   function onClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
@@ -17,7 +20,7 @@ export function clickOutside(element: HTMLElement, options: {
       const excludes = Array.isArray(exclude) ? exclude : [exclude];
       for (const el of excludes) {
         if (el && el.contains(target)) {
-          return;  // 点击了排除元素，不触发关闭
+          return; // 点击了排除元素，不触发关闭
         }
       }
     }
@@ -26,11 +29,11 @@ export function clickOutside(element: HTMLElement, options: {
     callback();
   }
 
-  document.body.addEventListener('click', onClick);
+  document.body.addEventListener("click", onClick);
 
   return {
     destroy() {
-      document.body.removeEventListener('click', onClick);
-    }
+      document.body.removeEventListener("click", onClick);
+    },
   };
 }

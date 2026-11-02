@@ -10,16 +10,16 @@ export type Route = `#/${string}`;
 export type Payload = unknown;
 
 /** 应用代码的完整表达：身份 + 载荷 */
-export type Action = { route: Route; payload?: Payload };
+export type Action = {route: Route; payload?: Payload};
 
 /** 应用内路由前缀 */
 export const ROUTE_PREFIX = "#/";
 
 /** 已分段的切分结果 */
-export type ParsedRoute = { host: Host; segments: string[] };
+export type ParsedRoute = {host: Host; segments: string[]};
 
 /** 规范化后的完整 Action：地址只剩一种写法，段已经切好，调用方不必再切一次 */
-export type ParsedAction = { route: Route; host: Host; segments: string[]; payload?: Payload };
+export type ParsedAction = {route: Route; host: Host; segments: string[]; payload?: Payload};
 
 /**
  * 切分地址。不校验段语法，host 大小写不敏感，丢掉空段。
@@ -34,7 +34,10 @@ export function parseRoute(raw: string): ParsedRoute | null {
   if (!hash.startsWith("/")) {
     return null;
   }
-  const segments = hash.split("/").slice(1).filter((segment) => segment !== "");
+  const segments = hash
+    .split("/")
+    .slice(1)
+    .filter((segment) => segment !== "");
   const [rawHost, ...rest] = segments;
   if (!rawHost) {
     return null;

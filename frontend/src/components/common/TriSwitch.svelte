@@ -1,21 +1,15 @@
 <script lang="ts">
   import {STATE_CONFIG, TriSwitchState} from "$types/TriSwitchState";
 
-  let {value}: { value: TriSwitchState } = $props();
+  let {value}: {value: TriSwitchState} = $props();
 
   // 获取当前状态的配置
-  let config = $derived(STATE_CONFIG[value])
+  let config = $derived(STATE_CONFIG[value]);
 </script>
 
-<div
-  class="track"
-  style:background={config.trackBg}
->
+<div class="track" style:background={config.trackBg}>
   <!-- svelte-ignore element_invalid_self_closing_tag -->
-  <div
-    class="thumb"
-    style:left="{config.thumbLeft}px"
-  />
+  <div class="thumb" style:left="{config.thumbLeft}px" />
 </div>
 
 <style>
@@ -29,5 +23,4 @@
     transition: left var(--transition-duration-md) cubic-bezier(0.34, 1.56, 0.64, 1);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   }
-
 </style>

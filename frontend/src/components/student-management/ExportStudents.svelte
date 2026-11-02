@@ -10,7 +10,7 @@
   import {clickOutside, findAnchor, POPUP_CENTERED, updatePosition} from "$actions";
   import {appNavigate} from "$routing/app/navigate";
 
-  let {overlays}: { overlays: EntryRegistry<StudentOverlayName, AppEntryPayload> } = $props();
+  let {overlays}: {overlays: EntryRegistry<StudentOverlayName, AppEntryPayload>} = $props();
 
   let isVisible = $state(false);
   let isExporting = $state(false);
@@ -81,45 +81,32 @@
     overlays.register(AppEntry.exportStudent, {
       open,
       close,
-    })
+    });
     return () => overlays.unregister(AppEntry.exportStudent);
-  })
+  });
 </script>
 
 {#if isVisible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="popup"
-    style={popoverStyle}
-    use:clickOutside={{ callback: requestClose, exclude: anchor ?? undefined}}
-  >
+  <div class="popup" style={popoverStyle} use:clickOutside={{callback: requestClose, exclude: anchor ?? undefined}}>
     <h3 class="text-title">导出学生</h3>
     <span class="text-content">选择导出范围</span>
 
-    <div
-      class="card"
-      onclick={exportAll}
-    >
+    <div class="card" onclick={exportAll}>
       <span class="text-subtitle">导出全部</span>
       <span class="text-content">共 {studentStore.students.length} 名学生</span>
     </div>
 
     {#if selected.length > 0 && studentStore.students.length != selected.length}
-      <div
-        class="card"
-        onclick={exportSelected}
-      >
+      <div class="card" onclick={exportSelected}>
         <span class="text-subtitle">导出被选中的</span>
         <span class="text-content">共 {selected.length} 名学生</span>
       </div>
     {/if}
 
     {#if filtered.length > 0 && studentStore.students.length != filtered.length}
-      <div
-        class="card"
-        onclick={exportFiltered}
-      >
+      <div class="card" onclick={exportFiltered}>
         <span class="text-subtitle">导出筛选后的</span>
         <span class="text-content">共 {filtered.length} 名学生</span>
       </div>
@@ -135,14 +122,7 @@
     {/if}
 
     <div class="button-group">
-      <button
-        type="button"
-        class="button"
-        onclick={requestClose}
-        disabled={isExporting}
-      >
-        取消
-      </button>
+      <button type="button" class="button" onclick={requestClose} disabled={isExporting}> 取消 </button>
     </div>
   </div>
 {/if}

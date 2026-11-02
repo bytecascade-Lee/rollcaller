@@ -6,7 +6,10 @@
   import {HelpOverlay, type HelpOverlayName, type HelpOverlayPayload} from "$types";
   import {MagnifyingGlassIcon} from "phosphor-svelte";
 
-  let {anchor = $bindable(), overlays}: {
+  let {
+    anchor = $bindable(),
+    overlays,
+  }: {
     anchor: HTMLElement | null;
     /** 本窗口的叠加层注册表：搜索是纯过程，不进地址空间，只在本窗口内部使用 */
     overlays: EntryRegistry<HelpOverlayName, HelpOverlayPayload>;
@@ -79,7 +82,7 @@
   }
 
   /** 打开弹层；`query` 由载荷带来（跨窗口投递的「打开帮助并搜某词」），无载荷时清空 */
-  export function open(payload?: { query?: string }) {
+  export function open(payload?: {query?: string}) {
     isVisible = true;
     query = payload?.query ?? "";
     selectedIndex = 0;
@@ -103,21 +106,13 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="popup help"
-    use:clickOutside={{ callback: close, exclude: anchor ?? undefined }}
+    use:clickOutside={{callback: close, exclude: anchor ?? undefined}}
     onkeydown={handleKeydown}
     onmousedown={() => searchInput?.focus()}
   >
-    <div
-      class="search help"
-    >
-      <MagnifyingGlassIcon size="18"/>
-      <input
-        class="help"
-        type="search"
-        placeholder="搜索帮助文档..."
-        bind:value={query}
-        bind:this={searchInput}
-      />
+    <div class="search help">
+      <MagnifyingGlassIcon size="18" />
+      <input class="help" type="search" placeholder="搜索帮助文档..." bind:value={query} bind:this={searchInput} />
     </div>
     <div class="search-results">
       {#if helpStore.indexing}
