@@ -1,4 +1,4 @@
-import {APP_ENTRY_PARENT, type AppEntryId} from "$routing/app.entries.generated";
+import {APP_ENTRY_PARENT, type AppEntryId} from "$routing/app/entries.generated";
 
 /** 入口名全集（运行时；`APP_ENTRY_PARENT` 的键投影）。用 Set 而非 `in`：后者会把 `toString` 之类当命中 */
 const APP_ENTRY_NAMES = new Set<string>(Object.keys(APP_ENTRY_PARENT));
@@ -30,9 +30,4 @@ export function resolveAppChain(segments: readonly string[]): AppEntryId[] | nul
     return null;
   }
   return chain.every((id, index) => id === segments[index]) ? chain : null;
-}
-
-/** 只要末尾那个入口 */
-export function resolveAppEntry(segments: readonly string[]): AppEntryId | null {
-  return resolveAppChain(segments)?.at(-1) ?? null;
 }
