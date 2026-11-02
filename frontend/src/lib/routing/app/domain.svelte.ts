@@ -1,8 +1,8 @@
 import type {Payload} from "$routing/address";
-import {APP_HOST, type AppEntryId} from "$routing/app.entries.generated";
+import {APP_HOST, type AppEntryId} from "$routing/app/entries.generated";
+import {resolveAppChain} from "$routing/app/entries";
+import {applyTransition, type LandingSink} from "$routing/app/transition";
 import type {Domain} from "$routing/domain";
-import {resolveAppChain} from "$routing/entries";
-import {applyTransition, type LandingSink} from "$routing/transition";
 
 /**
  * app 域：地址段 ↔ 入口链 ↔ 浮层。
