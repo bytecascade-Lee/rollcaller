@@ -53,11 +53,7 @@
   });
 
   const uninstallNav = nav.install({
-    host: HelpAddress.HOST,
-    apply: (action) => {
-      const address = HelpAddress.parse(action.route);
-      if (address) void helpNavigate.apply(address);
-    },
+    domain: helpNavigate,
     /** 不归本窗口：交给后端投递给目标窗口（与主窗口同一条路） */
     forward: (action) => NavCommand.navOpen(action),
   });

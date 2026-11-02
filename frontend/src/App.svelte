@@ -33,11 +33,9 @@
   import {listen} from "@tauri-apps/api/event";
   import {nav} from "$routing/nav";
   import {createEntryRegistry} from "$routing/registry";
-  import {resolveAppChain} from "$routing/entries";
-  import {applyTransition} from "$routing/transition";
-  import {APP_HOST, APP_ENTRY_PARENT, AppEntry, type AppEntryId, type AppEntryPayload} from "$routing/app.entries.generated";
+  import {appDomain} from "$routing/appDomain.svelte";
+  import {APP_ENTRY_PARENT, AppEntry, type AppEntryId, type AppEntryPayload} from "$routing/app.entries.generated";
   import {HelpRoute} from "$routing/help.entries.generated";
-  import type {ParsedAction} from "$routing/address";
   import {appNavigate} from "$routing/appNavigate";
   import {DateTimeUtils} from "$utils";
 
@@ -45,23 +43,13 @@
   const window = getCurrentWebviewWindow();
 
   const overlays = createEntryRegistry<AppEntryId, AppEntryPayload>();
-  let activeChain = $state<AppEntryId[]>([]);
-  const activeCard = $derived(activeChain[0] ?? null);
-
-  /** 落地：一次导航**唯一**的状态改动点（构链 → 前缀 diff → 交付 → 写 hash） */
-  function apply(parsed: ParsedAction) {
-    const chain = resolveAppChain(parsed.segments);
-    if (!chain) {
-      console.error(`[routing] 非法 app 地址：${parsed.route}`);
-      return;
-    }
-    activeChain = applyTransition(overlays, activeChain, chain, parsed.payload);
-    nav.replaceHash(parsed.route);
-  }
+  // 注册表只能由组件创建（它持有组件树），装进域之后"落地"就全在 `appDomain` 里了
+  const uninstallLanding = appDomain.install(overlays);
+  /** 当前卡片 = 已落地链的链首 */
+  const activeCard = $derived(appDomain.chain[0] ?? null);
 
   const uninstallNav = nav.install({
-    host: APP_HOST,
-    apply: (_action, parsed) => apply(parsed),
+    domain: appDomain,
     forward: (action) => NavCommand.navOpen(action),
   });
 
@@ -99,6 +87,7 @@
       disposeNav?.();
       unlisten?.();
       uninstallNav();
+      uninstallLanding();
       if (assertTimer !== null) clearTimeout(assertTimer);
     };
   });
