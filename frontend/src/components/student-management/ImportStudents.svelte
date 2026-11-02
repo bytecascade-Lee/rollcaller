@@ -6,7 +6,7 @@
   import type {EntryRegistry} from "$routing/registry";
   import type {AppEntryPayload} from "$routing/app.entries.generated";
   import {AppEntry} from "$routing/app.entries.generated";
-  import {HelpEntry} from "$routing/help.entries.generated";
+  import {HelpRoute} from "$routing/help.entries.generated";
   import {nav} from "$routing/nav";
   import {ImportCommand} from "$commands";
   import {
@@ -676,7 +676,7 @@
           type="button"
           aria-label="查看帮助"
           title="查看帮助"
-          onclick={() => nav.go({route: HelpEntry.batchImportImportSteps})}
+          onclick={() => nav.go({route: HelpRoute.batchImportImportSteps})}
         >
           <QuestionIcon size="18"/>
         </button>
