@@ -33,10 +33,10 @@
   import {listen} from "@tauri-apps/api/event";
   import {nav} from "$routing/nav";
   import {createEntryRegistry} from "$routing/registry";
-  import {appDomain} from "$routing/appDomain.svelte";
-  import {APP_ENTRY_PARENT, AppEntry, type AppEntryId, type AppEntryPayload} from "$routing/app.entries.generated";
-  import {HelpRoute} from "$routing/help.entries.generated";
-  import {appNavigate} from "$routing/appNavigate";
+  import {appDomain} from "$routing/app/domain.svelte";
+  import {APP_ENTRY_PARENT, AppEntry, type AppEntryId, type AppEntryPayload} from "$routing/app/entries.generated";
+  import {HelpRoute} from "$routing/help/entries.generated";
+  import {appNavigate} from "$routing/app/navigate";
   import {DateTimeUtils} from "$utils";
 
   let APP_INFO = $state<AppInfo | null>(null)

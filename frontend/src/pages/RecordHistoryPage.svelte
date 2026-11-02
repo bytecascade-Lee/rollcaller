@@ -17,10 +17,10 @@
   import AttendanceStatusBadge from "$components/record-history/AttendanceStatusBadge.svelte";
   import EditRecord from "$components/record-history/EditRecord.svelte";
   import type {EntryRegistry} from "$routing/registry";
-  import type {AppEntryPayload} from "$routing/app.entries.generated";
-  import {AppEntry} from "$routing/app.entries.generated";
+  import type {AppEntryPayload} from "$routing/app/entries.generated";
+  import {AppEntry} from "$routing/app/entries.generated";
   import ExportRecords from "$components/record-history/ExportRecords.svelte";
-  import {appNavigate} from "$routing/appNavigate";
+  import {appNavigate} from "$routing/app/navigate";
 
   let selected = $state<Set<bigint>>(new Set());
   let {active = $bindable(false), overlays}: {

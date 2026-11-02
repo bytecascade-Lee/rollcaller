@@ -21,12 +21,13 @@
   import type {HelpOverlayName, TreeNode} from "$types";
   import metaData from "$resources/help/meta.json";
   import HelpTitlebar from "$components/help/HelpTitlebar.svelte";
-  import {HelpAddress} from "$utils/helpAddress";
+  import {HelpAddress} from "$routing/help/address";
   import {CaretRightIcon, CircleIcon} from "phosphor-svelte";
   import {nav} from "$routing/nav";
-  import {HelpRoute} from "$routing/help.entries.generated";
+  import {HelpRoute} from "$routing/help/entries.generated";
   import {createEntryRegistry} from "$routing/registry";
-  import {helpNavigate} from "$routing/helpNavigate.svelte";
+  import {helpDomain} from "$routing/help/domain.svelte";
+  import {helpNavigate} from "$routing/help/navigate";
 
   const nodes = metaData.nodes as
     {
@@ -38,7 +39,7 @@
   let jumpToken = $state(0);
   let scroller: HTMLDivElement | undefined = $state();
   /** 当前文档 = 导航屏幕上那一篇；树高亮与面包屑都从它派生 */
-  const activeId = $derived(helpNavigate.current?.doc ?? HelpAddress.DEFAULT_DOC);
+  const activeId = $derived(helpDomain.current?.doc ?? HelpAddress.DEFAULT_DOC);
   /** 从 activeId 沿 parentId 回溯，生成面包屑路径（根→当前） */
   let breadcrumbCrumb = $derived.by(() => {
     const trail: string[] = [];
@@ -53,7 +54,7 @@
   });
 
   const uninstallNav = nav.install({
-    domain: helpNavigate,
+    domain: helpDomain,
     /** 不归本窗口：交给后端投递给目标窗口（与主窗口同一条路） */
     forward: (action) => NavCommand.navOpen(action),
   });
@@ -77,13 +78,13 @@
   // 切换文档后滚动条回到顶部（锚点跳转在途时跳过，避免与平滑滚动打架）
   $effect(() => {
     helpStore.content;
-    if (helpNavigate.pendingAnchor) return;
+    if (helpDomain.pendingAnchor) return;
     scroller?.scrollTo({top: 0, behavior: "instant"});
   });
 
   onMount(() => {
     // 交出滚动容器与折叠树：落点归导航，只有这两件视图事留在窗口
-    const uninstall = helpNavigate.install({
+    const uninstall = helpDomain.install({
       scrollTo: scrollToSection,
       foldTree: () => (jumpToken += 1),
     });
@@ -122,7 +123,7 @@
 
 <div class="shell">
   <div class="titlebar-slot">
-    <HelpTitlebar canGoBack={helpNavigate.canGoBack} canGoForward={helpNavigate.canGoForward}
+    <HelpTitlebar canGoBack={helpDomain.canGoBack} canGoForward={helpDomain.canGoForward}
                   onback={() => void helpNavigate.back()} onforward={() => void helpNavigate.forward()}
                   {overlays} window={window}
     />
