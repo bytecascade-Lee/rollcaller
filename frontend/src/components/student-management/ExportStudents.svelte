@@ -5,10 +5,10 @@
   import type {EntryRegistry} from "$routing/registry";
   import type {StudentOverlayName} from "$types";
   import {Result} from "$types";
-  import type {AppEntryPayload} from "$routing/app.entries.generated";
-  import {AppEntry} from "$routing/app.entries.generated";
+  import type {AppEntryPayload} from "$routing/app/entries.generated";
+  import {AppEntry} from "$routing/app/entries.generated";
   import {clickOutside, findAnchor, POPUP_CENTERED, updatePosition} from "$actions";
-  import {appNavigate} from "$routing/appNavigate";
+  import {appNavigate} from "$routing/app/navigate";
 
   let {overlays}: { overlays: EntryRegistry<StudentOverlayName, AppEntryPayload> } = $props();
 

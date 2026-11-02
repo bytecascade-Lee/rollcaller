@@ -2,11 +2,11 @@
   import {studentStore} from "$stores/studentStore.svelte";
   import type {EntryRegistry} from "$routing/registry";
   import type {StudentOverlayName, StudentSingleUpdate, StudentTable} from "$types";
-  import type {AppEntryPayload} from "$routing/app.entries.generated";
-  import {AppEntry} from "$routing/app.entries.generated";
+  import type {AppEntryPayload} from "$routing/app/entries.generated";
+  import {AppEntry} from "$routing/app/entries.generated";
   import {StudentCommand} from "$commands"
   import {DateTimeUtils} from "$utils";
-  import {appNavigate} from "$routing/appNavigate";
+  import {appNavigate} from "$routing/app/navigate";
 
   let {overlays}: { overlays: EntryRegistry<StudentOverlayName, AppEntryPayload> } = $props();
 

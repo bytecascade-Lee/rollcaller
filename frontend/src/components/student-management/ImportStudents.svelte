@@ -4,9 +4,9 @@
   import {Result} from "$types"
   import {open} from "@tauri-apps/plugin-dialog";
   import type {EntryRegistry} from "$routing/registry";
-  import type {AppEntryPayload} from "$routing/app.entries.generated";
-  import {AppEntry} from "$routing/app.entries.generated";
-  import {HelpRoute} from "$routing/help.entries.generated";
+  import type {AppEntryPayload} from "$routing/app/entries.generated";
+  import {AppEntry} from "$routing/app/entries.generated";
+  import {HelpRoute} from "$routing/help/entries.generated";
   import {nav} from "$routing/nav";
   import {ImportCommand} from "$commands";
   import {
@@ -23,7 +23,7 @@
     XCircleIcon,
     XIcon
   } from "phosphor-svelte";
-  import {appNavigate} from "$routing/appNavigate";
+  import {appNavigate} from "$routing/app/navigate";
 
   let {overlays}: { overlays: EntryRegistry<StudentOverlayName, AppEntryPayload> } = $props();
 
