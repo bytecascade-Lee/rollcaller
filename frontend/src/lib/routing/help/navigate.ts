@@ -22,4 +22,9 @@ export const helpNavigate = Object.freeze({
   forward(): Promise<void> {
     return helpDomain.forward();
   },
+
+  /** 打开搜索框并预填：搜索是瞬态过程，没有地址，故不进 `Action` */
+  openSearch(query = ""): void {
+    helpDomain.openSearch(query);
+  },
 });
