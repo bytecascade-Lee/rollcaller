@@ -8,16 +8,9 @@
 export type Host = string;
 
 /** 身份 = 路径 */
-export type Route = string;
+export type Route = `#/${string}`;
 
-/**
- * 导航载荷：**一次性命令参数**，形状由目标入口在 `app/meta.json` 的 `payload` 键声明、
- * 生成成 `AppEntryPayload`。
- *
- * 必须可 JSON 序列化 —— 跨窗口投递要过后端 `serde_json::Value`，`bigint` / `Set` / DOM
- * 一律不行（`JSON.stringify` 会直接抛）。故这里无法给出比 `unknown` 更紧的类型：
- * 类型只在**构造点**（`appNavigate.enter`）与**消费点**（`EntryHandler.open`）两端存在。
- */
+/** 导航载荷，要求可进行 JSON 序列化与反序列化 */
 export type Payload = unknown;
 
 /** 应用代码的完整表达：身份 + 载荷 */
@@ -65,7 +58,7 @@ export function parseRoute(raw: string): ParsedRoute | null {
 export function routeOf(host: Host, segments: readonly string[] = []): Route {
   const tail = segments.filter((segment) => segment !== "").join("/");
   const normalizedHost = host.toLowerCase();
-  return tail ? `${ROUTE_PREFIX}${normalizedHost}/${tail}` : `${ROUTE_PREFIX}${normalizedHost}`;
+  return `${ROUTE_PREFIX}${normalizedHost}${tail ? `/${tail}` : ""}` as Route;
 }
 
 /** 规范化任意形式的地址（切分后重组）；非法返回 null */
