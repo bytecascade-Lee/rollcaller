@@ -14,13 +14,14 @@ import {readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 
 import {canonicalRoute, parseAction, parseRoute, routeOf} from "$routing/address.ts";
-import {chainOf, resolveAppChain, resolveAppEntry} from "$routing/entries.ts";
+import {chainOf, resolveAppChain} from "$routing/app/entries.ts";
 import {createEntryRegistry} from "$routing/registry.ts";
 import {nav} from "$routing/nav.ts";
-import {applyTransition, planTransition} from "$routing/transition.ts";
-import {appNavigate} from "$routing/appNavigate.ts";
-import {APP_ENTRY_PARENT, AppEntry} from "$routing/app.entries.generated.ts";
-import {HelpRoute} from "$routing/help.entries.generated.ts";
+import {applyTransition, planTransition} from "$routing/app/transition.ts";
+import {appNavigate} from "$routing/app/navigate.ts";
+import {pushAt, resetTo, stepIndex} from "$routing/help/history.ts";
+import {APP_ENTRY_PARENT, AppEntry} from "$routing/app/entries.generated.ts";
+import {HelpRoute} from "$routing/help/entries.generated.ts";
 
 /* ---------- 极简 runner：单个失败不中断，最后汇总并给非零退出码 ---------- */
 
@@ -82,26 +83,11 @@ test("routeOf / canonicalRoute：组装、滤空段、幂等", () => {
   assert.equal(canonicalRoute("https://example.com"), null);
 });
 
-/* ---------- entries：链 / 地址解析 / 载荷读取 ---------- */
+/* ---------- entries：链 / 地址解析 ---------- */
 
 test("chainOf：自根到自身", () => {
   assert.deepEqual(chainOf("rollcall"), ["rollcall"]);
   assert.deepEqual(chainOf("delete-student"), ["student-management", "delete-student"]);
-});
-
-test("resolveAppEntry：父链严格，任何不符都降级为 null", () => {
-  assert.equal(resolveAppEntry(["student-management", "delete-student"]), "delete-student");
-  assert.equal(resolveAppEntry(["rollcall"]), "rollcall");
-  for (const segments of [
-    ["rollcall", "delete-student"], // 祖先段与 parentId 不符
-    ["delete-student"], // 段数少于链长
-    ["student-management", "delete-student", "x"], // 多一段
-    ["nope"], // 未知名
-    ["toString"], // 原型属性名（名字表用 Set 的意义）
-    [],
-  ]) {
-    assert.equal(resolveAppEntry(segments), null, `应当拒绝 ${JSON.stringify(segments)}`);
-  }
 });
 
 /* ---------- 整条链：校验与交付一次完成 ---------- */
@@ -112,7 +98,14 @@ test("resolveAppChain：合法地址给出整条链，非法一律 null", () => 
     "delete-student",
   ]);
   assert.deepEqual(resolveAppChain(["rollcall"]), ["rollcall"]);
-  for (const segments of [["rollcall", "delete-student"], ["nope"], []]) {
+  for (const segments of [
+    ["rollcall", "delete-student"], // 祖先段与 parentId 不符
+    ["delete-student"], // 段数少于链长
+    ["student-management", "delete-student", "x"], // 多一段
+    ["nope"], // 未知名
+    ["toString"], // 原型属性名（名字表用 Set 的意义）
+    [],
+  ]) {
     assert.equal(resolveAppChain(segments), null, `应当拒绝 ${JSON.stringify(segments)}`);
   }
 });
@@ -195,6 +188,32 @@ test("registry：未知 id 与缺省的 close 都不抛", () => {
   assert.doesNotThrow(() => reg.close("nope"));
   reg.register("a", {open: () => {}});
   assert.doesNotThrow(() => reg.close("a"));
+});
+
+/* ---------- help 的地址栈：纯函数，不碰 rune ---------- */
+
+test("history：追加裁掉前进段，索引跟随新尾", () => {
+  let history = {entries: [], index: 0};
+  history = pushAt(history, "a");
+  history = pushAt(history, "b");
+  history = pushAt(history, "c");
+  assert.deepEqual(history, {entries: ["a", "b", "c"], index: 2});
+
+  // 回到 b 再点击 d：c 之后的整段被裁掉
+  history = {...history, index: 1};
+  assert.deepEqual(pushAt(history, "d"), {entries: ["a", "b", "d"], index: 2});
+});
+
+test("history：resetTo 只留一条（送达语义）", () => {
+  assert.deepEqual(resetTo("x"), {entries: ["x"], index: 0});
+});
+
+test("history：stepIndex 在边界返回 null", () => {
+  const history = {entries: ["a", "b"], index: 1};
+  assert.equal(stepIndex(history, -1), 0);
+  assert.equal(stepIndex(history, 1), null); // 已在尾
+  assert.equal(stepIndex({entries: ["a", "b"], index: 0}, -1), null); // 已在头
+  assert.equal(stepIndex({entries: [], index: 0}, 1), null); // 空栈
 });
 
 /* ---------- appNavigate：地址翻译与"关闭回退"护栏 ---------- */
