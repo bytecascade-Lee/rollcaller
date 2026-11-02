@@ -5,8 +5,8 @@
 从两个域的声明生成 TypeScript 导航入口
 
 产物两份（都用不上对方的段，拆开免得互相拖累）：
-    app.entries.generated.ts   入口表 + 每个入口的载荷类型 + 地址链父表
-    help.entries.generated.ts  帮助文档的深链句柄
+    routing/app/entries.generated.ts   入口表 + 每个入口的载荷类型 + 地址链父表
+    routing/help/entries.generated.ts  帮助文档的深链句柄
 
 用法：
     uv run ./scripts/codegen/routing_entries.py
@@ -21,6 +21,7 @@ from common.constant.paths import (
     FRONTEND_APP_ENTRIES_PATH,
     FRONTEND_DIR,
     FRONTEND_HELP_ENTRIES_PATH,
+    FRONTEND_ROUTING_DIR,
     PROJECT_BASE_DIR,
     RESOURCES_DIR,
 )
@@ -351,9 +352,11 @@ def generate() -> None:
     app_roots = sum(1 for parent, _ in app_nodes.values() if parent is None)
     payload_count = sum(1 for _, payload in app_nodes.values() if payload is not None)
     anchor_count = sum(len(anchors) for anchors in help_anchors.values())
+    app_label = FRONTEND_APP_ENTRIES_PATH.relative_to(FRONTEND_ROUTING_DIR)
+    help_label = FRONTEND_HELP_ENTRIES_PATH.relative_to(FRONTEND_ROUTING_DIR)
     success(
-        f"已生成 {FRONTEND_APP_ENTRIES_PATH.name}（{len(app_nodes)} 个入口 / {app_roots} 个根 / "
-        f"{payload_count} 个带载荷）与 {FRONTEND_HELP_ENTRIES_PATH.name}"
+        f"已生成 routing/{app_label}（{len(app_nodes)} 个入口 / {app_roots} 个根 / "
+        f"{payload_count} 个带载荷）与 routing/{help_label}"
         f"（{len(help_anchors)} 篇文档 / {anchor_count} 个锚点）"
     )
 
