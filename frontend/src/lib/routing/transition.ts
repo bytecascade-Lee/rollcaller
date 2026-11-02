@@ -31,9 +31,13 @@ function commonPrefix(prev: readonly AppEntryId[], next: readonly AppEntryId[]):
  * | `edit-student` → `delete-student` | 公共前缀含卡片 ⇒ 卡片纹丝不动         |
  * | 切到无关卡片                      | 前缀为空 ⇒ 全关再开                   |
  * | 重放同一地址                      | `replay` 非空 ⇒ 补一次 open           |
+ * | 退回卡片（`edit` → `card`）        | `replay` 是**平面**，见下             |
  *
- * 最后一格是最反直觉的一处：因为**关闭也回退地址**，"地址停在目标、浮层早已关闭"是常见状态，
+ * 第三格是最反直觉的一处：因为**关闭也回退地址**，"地址停在目标、浮层早已关闭"是常见状态，
  * 没有这条补充，用户第二次点同一个入口会毫无反应。
+ *
+ * 第四格里 `replay` 落在卡片上：卡片没有 handler（只有叠加层注册，见 `App.svelte` 的完整性
+ * 断言），于是 `registry.open` 是**预期的空操作** —— 不是漏了判断。
  */
 export function planTransition(
   prev: readonly AppEntryId[],
@@ -47,13 +51,16 @@ export function planTransition(
   };
 }
 
+/** 落地只需要这两件事。收窄后不必知道注册表的载荷泛型，依赖面也从"整张表"缩到"两个方法" */
+export type LandingSink = Pick<EntryRegistry<AppEntryId, never>, "open" | "close">;
+
 /**
  * 执行转换：逆序关、顺序开（载荷只交给**最深**的那一个），返回新链。
  *
  * 祖先段一律不带载荷：它们是"铺路"用的平面，不是这次跳转的目标。
  */
-export function applyTransition<P>(
-  registry: EntryRegistry<AppEntryId, P>,
+export function applyTransition(
+  sink: LandingSink,
   prev: readonly AppEntryId[],
   next: readonly AppEntryId[],
   payload?: unknown,
@@ -61,13 +68,13 @@ export function applyTransition<P>(
   const plan = planTransition(prev, next);
 
   for (const id of plan.close) {
-    registry.close(id);
+    sink.close(id);
   }
   for (const id of plan.open) {
-    registry.open(id, id === plan.open[plan.open.length - 1] ? payload : undefined);
+    sink.open(id, id === plan.open[plan.open.length - 1] ? payload : undefined);
   }
   if (plan.replay !== null) {
-    registry.open(plan.replay, payload);
+    sink.open(plan.replay, payload);
   }
   return [...next];
 }
