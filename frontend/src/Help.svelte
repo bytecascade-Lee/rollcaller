@@ -18,7 +18,7 @@
   import NavTree from "$components/common/NavTree.svelte";
   import MarkdownView from "$components/common/MarkdownView.svelte";
   import {helpStore} from "$stores/helpStore.svelte";
-  import type {HelpOverlayName, TreeNode} from "$types";
+  import {HelpOverlay, type HelpOverlayName, type HelpOverlayPayload, type TreeNode} from "$types";
   import metaData from "$resources/help/meta.json";
   import HelpTitlebar from "$components/help/HelpTitlebar.svelte";
   import {HelpAddress} from "$routing/help/address";
@@ -34,7 +34,7 @@
       [K in keyof typeof metaData.nodes]: TreeNode & { id: K }
     };
   const window = getCurrentWebviewWindow();
-  const overlays = createEntryRegistry<HelpOverlayName>();
+  const overlays = createEntryRegistry<HelpOverlayName, HelpOverlayPayload>();
   /** 外部跳转触发信号：自增时 NavTree 折叠到单级 */
   let jumpToken = $state(0);
   let scroller: HTMLDivElement | undefined = $state();
@@ -83,10 +83,11 @@
   });
 
   onMount(() => {
-    // 交出滚动容器与折叠树：落点归导航，只有这两件视图事留在窗口
+    // 视口端口：滚动、折叠树、搜索框都归窗口，落点归导航
     const uninstall = helpDomain.install({
       scrollTo: scrollToSection,
       foldTree: () => (jumpToken += 1),
+      openSearch: (query) => overlays.open(HelpOverlay.search, {query}),
     });
 
     // 注册跳转回调：搜索结果选中、文档内链接都经导航走同一个门
