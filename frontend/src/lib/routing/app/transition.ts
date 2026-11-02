@@ -1,5 +1,5 @@
 /** 转换语义：新旧两条链 → 关哪些、开哪些。纯函数，可单测 */
-import type {AppEntryId} from "$routing/app.entries.generated";
+import type {AppEntryId} from "$routing/app/entries.generated";
 import type {EntryRegistry} from "$routing/registry";
 
 /** 一次转换要做的事；`replay` 非空表示整条链没变，只补一次目标的 open */
