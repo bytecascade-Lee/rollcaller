@@ -91,9 +91,10 @@ jobs:
                 working-directory: backend
                 run: cargo fetch --locked
 
-            -   name: Type check frontend
-                working-directory: frontend
-                run: pnpm check
+            -   name: Run checks
+                env:
+                    MIMO_TTS_API_KEY: ${{ secrets.MIMO_TTS_API_KEY }}
+                run: uv run --frozen ./scripts/check.py -t ${{ env.TRIPLE }}
 
             -   name: Run tests
                 env:
