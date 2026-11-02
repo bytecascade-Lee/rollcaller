@@ -24,7 +24,7 @@
   import {HelpAddress} from "$utils/helpAddress";
   import {CaretRightIcon, CircleIcon} from "phosphor-svelte";
   import {nav} from "$routing/nav";
-  import {HelpEntry} from "$routing/help.entries.generated";
+  import {HelpRoute} from "$routing/help.entries.generated";
   import {createEntryRegistry} from "$routing/registry";
   import {helpNavigate} from "$routing/helpNavigate.svelte";
 
@@ -52,7 +52,7 @@
     return trail;
   });
 
-  nav.install({
+  const uninstallNav = nav.install({
     host: HelpAddress.HOST,
     apply: (action) => {
       const address = HelpAddress.parse(action.route);
@@ -106,7 +106,7 @@
         ? {route: pending.route, payload: pending.payload ?? undefined}
         : undefined;
       // 首帧落点：有冷启动载荷就用它，否则当前 hash 若是本窗口的地址就用它，再否则回概览
-      dispose = nav.start({route: HelpEntry.overview}, initial);
+      dispose = nav.start({route: HelpRoute.overview}, initial);
 
       unlisten = await listen(NavCommand.NAV_WAKE_EVENT, async () => {
         const next = await NavCommand.navTakePending();
@@ -118,6 +118,7 @@
       dispose?.();
       unlisten?.();
       uninstall();
+      uninstallNav();
       helpStore.navigate = null;
     };
   });

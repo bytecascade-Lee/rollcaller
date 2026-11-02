@@ -36,7 +36,7 @@
   import {resolveAppChain} from "$routing/entries";
   import {applyTransition} from "$routing/transition";
   import {APP_HOST, APP_ENTRY_PARENT, AppEntry, type AppEntryId, type AppEntryPayload} from "$routing/app.entries.generated";
-  import {HelpEntry} from "$routing/help.entries.generated";
+  import {HelpRoute} from "$routing/help.entries.generated";
   import type {ParsedAction} from "$routing/address";
   import {appNavigate} from "$routing/appNavigate";
   import {DateTimeUtils} from "$utils";
@@ -59,7 +59,7 @@
     nav.replaceHash(parsed.route);
   }
 
-  nav.install({
+  const uninstallNav = nav.install({
     host: APP_HOST,
     apply: (_action, parsed) => apply(parsed),
     forward: (action) => NavCommand.navOpen(action),
@@ -98,6 +98,7 @@
     return () => {
       disposeNav?.();
       unlisten?.();
+      uninstallNav();
       if (assertTimer !== null) clearTimeout(assertTimer);
     };
   });
@@ -141,7 +142,7 @@
       <button
         aria-label="帮助文档"
         class="nav-icon"
-        onclick={() => nav.go({route: HelpEntry.overview})}
+        onclick={() => nav.go({route: HelpRoute.overview})}
         title="帮助文档"
       >
         <QuestionIcon size="24"/>
