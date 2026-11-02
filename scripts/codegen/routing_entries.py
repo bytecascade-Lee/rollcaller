@@ -194,17 +194,17 @@ def render_app(nodes: dict[str, tuple[str | None, object]]) -> str:
         f'  "{name}": {json.dumps(parent)}' for name, (parent, _) in nodes.items()
     )
 
-    imports = ""
-    if refs:
-        imports = f'import type {{{", ".join(sorted(refs))}}} from "$types";\n\n'
+    # `WindowKind` 始终要进来：`APP_HOST` 标成这个枚举，与 Rust 侧的窗口名同源
+    type_names = ", ".join(sorted(refs | {"WindowKind"}))
+    imports = f'import type {{{type_names}}} from "$types";\n\n'
 
     return (
         _HEADER
         + "// source: frontend/src/lib/resources/app/meta.json\n"
         + "\n"
         + imports
-        + "/** host */\n"
-        + f'export const APP_HOST = "{APP_HOST}";\n'
+        + "/** host —— 与 Rust 的 `WindowKind` 同源；写错即编译错误 */\n"
+        + f'export const APP_HOST: WindowKind = "{APP_HOST}";\n'
         + "\n"
         + "/**\n"
         + " * 每个入口吃的载荷：`undefined` 表示该入口不吃载荷。\n"
@@ -250,7 +250,7 @@ def render_help(
             lines.append(f'  {handle}: "{ROUTE_PREFIX}{HELP_HOST}/{doc}/{anchor}"')
 
     if not lines:
-        raise MetaError("没有一篇文档能找到 md 源，HelpEntry 会生成空表")
+        raise MetaError("没有一篇文档能找到 md 源，HelpRoute 会生成空表")
 
     note = ""
     if skipped:
@@ -265,14 +265,17 @@ def render_help(
         + "// source: frontend/src/lib/resources/help/meta.json + *.md\n"
         + "\n"
         + "/**\n"
-        + " * 帮助窗口的深链句柄：句柄 → 地址（`#/help/<文档>[/<锚点>]`）\n"
+        + " * 帮助窗口的深链地址：句柄 → 完整地址（`#/help/<文档>[/<锚点>]`）\n"
+        + " *\n"
+        + " * 值不是「入口名」而是**地址本身**（与本文件同级的 `AppEntry` 语义不同），\n"
+        + " * 故不叫 `HelpEntry`，免得被当成可以塞进 `appNavigate.enter` 的东西。\n"
         + " *\n"
         + " * 由 `help/meta.json` 的文档树与各文档 md 里的 `{#锚点}` 派生，\n"
         + " * 文档级句柄为文档名、锚点级句柄为文档名 + 锚点名。\n"
         + " * md 源 = `resources/help/<id>/` 目录，或仓库根同名文件（README.md / LICENSE / …）。\n"
         + " */\n"
         + f"{note}"
-        + "export const HelpEntry = {\n"
+        + "export const HelpRoute = {\n"
         + ",\n".join(lines)
         + "\n} as const satisfies Record<string, `#/help/${string}`>;\n"
     )
