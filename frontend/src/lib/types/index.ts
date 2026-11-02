@@ -30,3 +30,4 @@ export * from "./overlays"
 export * from "./Arch";
 export * from "./DownloadProgress";
 export * from "./UpdateError";
+export * from "./WindowKind";
