@@ -1,4 +1,5 @@
-import {type Action} from "$routing/address";
+import {type Action, type Payload} from "$routing/address";
+import type {Domain} from "$routing/domain";
 import {nav} from "$routing/nav";
 import {helpStore} from "$stores/helpStore.svelte";
 import {HelpAddress} from "$utils/helpAddress";
@@ -14,30 +15,34 @@ export type HelpViewport = {
   foldTree(): void;
 };
 
-/** 一次落地的意图：由 `open()` 置位，`apply()` 消费即复位 */
+/** 一次落地的意图：由 `open()` 置位，落地时消费即复位 */
 type Intent = { push: boolean; fold: boolean };
 
 /** 地址**不是**来自本窗口的点击时的意图：不记栈、折叠树 */
 const DELIVERED: Intent = {push: false, fold: true};
 
 /**
- * help 域的导航
+ * help 域：地址段 ↔ `HelpAddress` ↔ 视图，并兼任本域的门面（`open` / `back` / `forward`）。
  *
- * ## 为什么接管落点
+ * ## 为什么落点全在这里
  *
  * 地址栈与"这次跳转要不要入栈"是同一个事实的两面，分散在组件里就会各自漂移：
  * 组件负责加载与滚动、类负责栈，则后退一格该不该重新加载、重复投递该不该入栈，
- * 都没有唯一答案。所以这里一并拿走：写 hash、折叠树、加载文档、滚动锚点、入栈/裁剪。
+ * 都没有唯一答案。所以这里一并拿走：折叠树、加载文档、滚动锚点、入栈/裁剪。
  * 窗口只剩两件视图事 —— 交出滚动容器（`install`），以及让开"切文档回顶部"的副作用。
+ *
+ * 与 app 域的差别只在 `land` 内部：那边是链 diff + 注册表，这边是加载 + 栈。
+ * 对 `nav` 而言两者是同一个接口（见 `domain.ts`）。
  *
  * ## 栈只记用户点击
  *
  * 侧栏树、搜索结果、文档内链接是**点击**，入栈；跨窗口投递与冷启动载荷是**送达**，
  * 不入栈 —— 它们把栈重置成只剩这一条，于是"上一步"不会退到一个本窗口没主动去过的位置。
  *
- * 单例：窗口只有一份地址，与 `WindowRouter` 一样是模块级单例。
+ * 单例：窗口只有一份地址。
  */
-class HelpNavigate {
+class HelpNavigate implements Domain<HelpAddress> {
+  readonly host = HelpAddress.HOST;
   #stack = $state<HelpAddress[]>([]);
   /** 栈顶下标；新点击裁掉它之后的部分 */
   #index = $state(0);
@@ -85,16 +90,36 @@ class HelpNavigate {
     nav.go(action);
   }
 
+  /** 地址段 → 地址；任何时候都能给出地址（非法锚点降级为文档顶部），故不会返回 null */
+  decode(segments: readonly string[]): HelpAddress {
+    return HelpAddress.fromSegments(segments);
+  }
+
+  /** 地址 → 地址段；与 `decode` 互逆（锚点为空时末段省略） */
+  encode(address: HelpAddress): readonly string[] {
+    return address.toSegments();
+  }
+
   /**
-   * 地址落地 —— router 的唯一出口。
+   * 落地 —— `nav` 的唯一出口（`Domain.land`）。
+   *
+   * 地址的同步由 `nav.dispatch` 在落地成功后统一做，这里不再碰 hash。
+   * `payload` 是**一次性命令参数**（典型场景："打开帮助窗口并预填搜索词"）：
+   * 落地即消费，永不从地址重建 —— 所以刷新后搜索框是关的，这正是地址与载荷的分工。
+   * 目前还没有这样的需求，先把接缝留出来。
    *
    * 幂等：重复投递同一地址只重新定位，不重复加载（连点也不会把栈灌满）。
    */
-  async apply(address: HelpAddress): Promise<void> {
+  land(address: HelpAddress, payload?: Payload): void {
+    void this.#apply(address, payload).catch((error) => {
+      console.error("[help] 落地失败", error);
+    });
+  }
+
+  async #apply(address: HelpAddress, _payload?: Payload): Promise<void> {
     const {push, fold} = this.#intent;
     this.#intent = DELIVERED;
 
-    nav.replaceHash(address.toHash());
     if (address.toHash() === this.#shown?.toHash()) {
       this.#viewport?.scrollTo(address.anchor);
       return;
