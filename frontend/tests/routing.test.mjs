@@ -20,6 +20,7 @@ import {nav} from "$routing/nav.ts";
 import {applyTransition, planTransition} from "$routing/app/transition.ts";
 import {appNavigate} from "$routing/app/navigate.ts";
 import {pushAt, resetTo, stepIndex} from "$routing/help/history.ts";
+import {readSearch} from "$routing/help/payload.ts";
 import {APP_ENTRY_PARENT, AppEntry} from "$routing/app/entries.generated.ts";
 import {HelpRoute} from "$routing/help/entries.generated.ts";
 
@@ -214,6 +215,15 @@ test("history：stepIndex 在边界返回 null", () => {
   assert.equal(stepIndex(history, 1), null); // 已在尾
   assert.equal(stepIndex({entries: ["a", "b"], index: 0}, -1), null); // 已在头
   assert.equal(stepIndex({entries: [], index: 0}, 1), null); // 空栈
+});
+
+/* ---------- help 载荷：宽进窄出，认不出就当没要求 ---------- */
+
+test("readSearch：只认 {search: string}，其余退化为纯导航", () => {
+  assert.equal(readSearch({search: "点名"}), "点名");
+  for (const payload of [undefined, null, "点名", 3, {}, {search: ""}, {search: "   "}, {search: 3}]) {
+    assert.equal(readSearch(payload), null, `应当忽略 ${JSON.stringify(payload)}`);
+  }
 });
 
 /* ---------- appNavigate：地址翻译与"关闭回退"护栏 ---------- */
