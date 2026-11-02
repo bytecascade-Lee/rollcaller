@@ -2,14 +2,17 @@
 // source: frontend/src/lib/resources/help/meta.json + *.md
 
 /**
- * 帮助窗口的深链句柄：句柄 → 地址（`#/help/<文档>[/<锚点>]`）
+ * 帮助窗口的深链地址：句柄 → 完整地址（`#/help/<文档>[/<锚点>]`）
+ *
+ * 值不是「入口名」而是**地址本身**（与本文件同级的 `AppEntry` 语义不同），
+ * 故不叫 `HelpEntry`，免得被当成可以塞进 `appNavigate.enter` 的东西。
  *
  * 由 `help/meta.json` 的文档树与各文档 md 里的 `{#锚点}` 派生，
  * 文档级句柄为文档名、锚点级句柄为文档名 + 锚点名。
  * md 源 = `resources/help/<id>/` 目录，或仓库根同名文件（README.md / LICENSE / …）。
  */
 // 未生成句柄的节点（既无 resources/help/<id>/ 目录、也无仓库根同名文件）：rollcall, multi-rollcall, students, records, ui, about
-export const HelpEntry = {
+export const HelpRoute = {
   overview: "#/help/overview",
   quickStart: "#/help/quick-start",
   quickStartInstallApp: "#/help/quick-start/install-app",
