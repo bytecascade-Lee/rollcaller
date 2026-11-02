@@ -49,6 +49,11 @@ def check(args: list[str], cwd: Path | None = None) -> None:
     cargo(["check", *args], cwd=cwd)
 
 
+def fmt_check(args: list[str] | None = None, cwd: Path | None = None) -> None:
+    """执行 `cargo fmt --check`"""
+    cargo(["fmt", "--check", *(args or [])], cwd=cwd)
+
+
 def version() -> str | None:
     """返回 `cargo --version` 里的版本号；否则返回 None"""
     return version_string(cargo(["--version"], capture=True))

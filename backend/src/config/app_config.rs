@@ -1,5 +1,4 @@
 /// # 即将被废弃
-
 use crate::config::app_paths;
 use crate::util::yaml_flatten_utils;
 use anyhow::Context;
@@ -250,5 +249,3 @@ impl AppConfig {
             .count()
     }
 }
-
-

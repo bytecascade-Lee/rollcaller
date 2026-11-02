@@ -75,7 +75,16 @@ pub async fn export_records(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow::
         worksheet.write_with_format(row, 2, &record.name, &content_format)?;
         worksheet.write_with_format(row, 3, get_status_from_code(record.attendance_status), &content_format)?;
         worksheet.write_with_format(row, 4, record.remark.clone().unwrap_or_default(), &content_format)?;
-        worksheet.write_with_format(row, 5, &record.rollcall_at.to_zoned(TimeZone::system()).strftime("%Y-%m-%dT%H:%M:%S%.3f%:z").to_string(), &content_format)?;
+        worksheet.write_with_format(
+            row,
+            5,
+            &record
+                .rollcall_at
+                .to_zoned(TimeZone::system())
+                .strftime("%Y-%m-%dT%H:%M:%S%.3f%:z")
+                .to_string(),
+            &content_format,
+        )?;
     }
 
     worksheet.set_column_width(0, 4)?;
@@ -97,6 +106,6 @@ fn get_status_from_code(code: i8) -> String {
         3 => String::from("迟到"),
         4 => String::from("早退"),
         5 => String::from("请假"),
-        _ => String::from("未知")
+        _ => String::from("未知"),
     }
 }

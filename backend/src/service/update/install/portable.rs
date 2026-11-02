@@ -60,7 +60,10 @@ pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow
     let log_file = {
         let dir = app_paths::logs_dir().join("u");
         std::fs::create_dir_all(&dir).map_err(|e| anyhow!("创建更新日志目录失败（{}）：{e}", dir.display()))?;
-        dir.join(format!("portable-update-{from}-to-{to}-{}.log", jiff::Timestamp::now().as_microsecond()))
+        dir.join(format!(
+            "portable-update-{from}-to-{to}-{}.log",
+            jiff::Timestamp::now().as_microsecond()
+        ))
     };
     let config_path = paths::updater_config(&AppMode::Portable, from, to);
 
@@ -177,4 +180,3 @@ fn compose_config(
         },
     })
 }
-

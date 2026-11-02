@@ -3,7 +3,6 @@ use rbatis::rbdc::ExecResult;
 use rbatis::{py_sql, RBatisTxExecutor};
 use rbs::Error;
 
-
 #[py_sql("UPDATE students SET student_no = #{student_no}, name = #{name} WHERE id = #{id}")]
 pub async fn update(tx: &mut RBatisTxExecutor, id: i64, student_no: &str, name: &str) -> Result<ExecResult, Error> {
     impled!()

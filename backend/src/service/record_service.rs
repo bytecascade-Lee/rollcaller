@@ -13,10 +13,7 @@ pub async fn list_all(rb: &RBatis) -> anyhow::Result<Vec<RollcallRecord>> {
 
 pub async fn create(rb: &RBatis, record: Record) -> anyhow::Result<RollcallRecord> {
     let result = Record::insert(rb, &record).await?;
-    let id = result
-        .last_insert_id
-        .as_i64()
-        .ok_or_else(|| anyhow!("插入失败"))?;
+    let id = result.last_insert_id.as_i64().ok_or_else(|| anyhow!("插入失败"))?;
     let mut tx = rb.acquire_begin().await?;
     let records = record_repo::select_by_ids(&mut tx, vec![id]).await?;
     tx.commit().await?;

@@ -21,17 +21,23 @@ pub const RELEASE_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/
 pub const RELEASE_CNB: &str = "https://cnb.cool/ordinary-glory/rollcaller/-/releases/tag/v__VERSION__/";
 pub const RELEASE_DEVELOP: &str = "http://localhost:14652/rollcaller/releases/tag/v__VERSION__/";
 
-pub const LATEST_MANIFEST_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/releases/latest/download/latest-github.json";
-pub const LATEST_MANIFEST_CNB: &str = "https://cnb.cool/ordinary-glory/rollcaller/-/releases/latest/download/latest-cnb.json";
+pub const LATEST_MANIFEST_GITHUB: &str =
+    "https://github.com/bytecascade-Lee/rollcaller/releases/latest/download/latest-github.json";
+pub const LATEST_MANIFEST_CNB: &str =
+    "https://cnb.cool/ordinary-glory/rollcaller/-/releases/latest/download/latest-cnb.json";
 pub const LATEST_MANIFEST_DEVELOP: &str = "http://localhost:14652/rollcaller/releases/latest/download/latest-develop.json";
 
-pub const VERSIONS_INDEX_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/releases/latest/download/versions.json";
+pub const VERSIONS_INDEX_GITHUB: &str =
+    "https://github.com/bytecascade-Lee/rollcaller/releases/latest/download/versions.json";
 pub const VERSIONS_INDEX_CNB: &str = "https://cnb.cool/ordinary-glory/rollcaller/-/releases/latest/download/versions.json";
 pub const VERSIONS_INDEX_DEVELOP: &str = "http://localhost:14652/rollcaller/releases/latest/download/versions.json";
 
-pub const SPECIFIED_LATEST_MANIFEST_GITHUB: &str = "https://github.com/bytecascade-Lee/rollcaller/releases/download/v__VERSION__/latest-github.json";
-pub const SPECIFIED_LATEST_MANIFEST_CNB: &str = "https://cnb.cool/ordinary-glory/rollcaller/-/releases/download/v__VERSION__/latest-cnb.json";
-pub const SPECIFIED_LATEST_MANIFEST_DEVELOP: &str = "http://localhost:14652/rollcaller/releases/download/v__VERSION__/latest-develop.json";
+pub const SPECIFIED_LATEST_MANIFEST_GITHUB: &str =
+    "https://github.com/bytecascade-Lee/rollcaller/releases/download/v__VERSION__/latest-github.json";
+pub const SPECIFIED_LATEST_MANIFEST_CNB: &str =
+    "https://cnb.cool/ordinary-glory/rollcaller/-/releases/download/v__VERSION__/latest-cnb.json";
+pub const SPECIFIED_LATEST_MANIFEST_DEVELOP: &str =
+    "http://localhost:14652/rollcaller/releases/download/v__VERSION__/latest-develop.json";
 
 pub const PORTABLE_UPDATER_GITHUB: &str = "https://github.com/bytecascade-Lee/updater";
 pub const PORTABLE_UPDATER_CNB: &str = "https://cnb.cool/ordinary-glory/updater";

@@ -67,8 +67,7 @@ pub async fn generate_by_cloud_model(name: String) -> anyhow::Result<String> {
 /// 获取缓存的音频字节数据
 pub fn get_audio_bytes(name: &str) -> anyhow::Result<Vec<u8>> {
     let cache_path = get_cache_path(name);
-    std::fs::read(&cache_path)
-        .with_context(|| format!("读取音频缓存失败: {:?}", cache_path))
+    std::fs::read(&cache_path).with_context(|| format!("读取音频缓存失败: {:?}", cache_path))
 }
 
 /// 检查缓存是否存在且有效

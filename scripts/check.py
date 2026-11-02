@@ -5,7 +5,7 @@
 检查入口
 
 顺序执行：
-    前端格式 -> 前端 lint -> 前端类型 -> 后端编译
+    后端格式 -> 前端格式 -> 前端 lint -> 前端类型 -> 后端编译
 
 用法:
     uv run ./scripts/check.py -t x86_64-pc-windows-msvc
@@ -38,6 +38,11 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
     info(f"当前目标三元组为 {target.triple!r}")
 
     gate.ensure(target, Action.CHECK, host=rustc.host_target())
+
+    info("检查后端格式: cargo fmt --check")
+    cargo.fmt_check()
+    if is_interrupted():
+        return 0
 
     info("检查前端格式: pnpm format:check")
     pnpm.format_check()

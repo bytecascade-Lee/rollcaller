@@ -142,7 +142,7 @@ fn versions_index_url(source: UpdateSource) -> String {
         UpdateSource::CNB => VERSIONS_INDEX_CNB,
         UpdateSource::Local => VERSIONS_INDEX_DEVELOP,
     }
-        .to_string()
+    .to_string()
 }
 
 /// 指定版本 Release 的清单地址
@@ -154,7 +154,7 @@ fn latest_manifest_url(source: UpdateSource, version: &Version) -> String {
         UpdateSource::CNB => SPECIFIED_LATEST_MANIFEST_CNB,
         UpdateSource::Local => SPECIFIED_LATEST_MANIFEST_DEVELOP,
     }
-        .replace(PLACEHOLDER, &version.to_string())
+    .replace(PLACEHOLDER, &version.to_string())
 }
 
 /// 拉取远程文本
@@ -234,7 +234,9 @@ fn validate_manifest(
         info: UpdateInfo {
             version: manifest.version.clone(),
             notes: manifest.release_notes.clone(),
-            date: manifest.publish_date.map(|d| crate::util::time_utils::ISO8601(&d).to_string()),
+            date: manifest
+                .publish_date
+                .map(|d| crate::util::time_utils::ISO8601(&d).to_string()),
         },
         severity: manifest.severity,
         artifact,

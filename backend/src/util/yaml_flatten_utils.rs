@@ -25,25 +25,16 @@ impl Default for FlattenConfig {
 }
 
 /// 从文件读取并扁平化 YAML
-pub fn flatten_from_file(
-    path: &Path,
-    config: &FlattenConfig
-) -> anyhow::Result<HashMap<String, Value>> {
-    let reader =
-        BufReader::new(File::open(path).map_err(|e| anyhow!("无法打开文件 {:?}: {}", path, e))?);
+pub fn flatten_from_file(path: &Path, config: &FlattenConfig) -> anyhow::Result<HashMap<String, Value>> {
+    let reader = BufReader::new(File::open(path).map_err(|e| anyhow!("无法打开文件 {:?}: {}", path, e))?);
 
-    let value: Value =
-        serde_yaml::from_reader(reader).map_err(|e| anyhow!("解析 YAML 文件失败: {}", e))?;
+    let value: Value = serde_yaml::from_reader(reader).map_err(|e| anyhow!("解析 YAML 文件失败: {}", e))?;
 
     flatten_from_value(&value, config)
 }
 
 /// 扁平化 YAML 值
-pub fn flatten_from_value(
-    value: &Value,
-    config: &FlattenConfig,
-) -> anyhow::Result<HashMap<String, Value>> {
-
+pub fn flatten_from_value(value: &Value, config: &FlattenConfig) -> anyhow::Result<HashMap<String, Value>> {
     match value {
         Value::Null => {
             warn!("配置文件为空");
@@ -52,18 +43,13 @@ pub fn flatten_from_value(
         Value::Mapping(map) => {
             let mut result = HashMap::new();
             for (key, val) in map {
-                let key_str = key
-                    .as_str()
-                    .ok_or_else(|| anyhow!("Map 键必须是字符串类型"))?;
+                let key_str = key.as_str().ok_or_else(|| anyhow!("Map 键必须是字符串类型"))?;
                 flatten_node(key_str, val, config, &mut result)?;
             }
             Ok(result)
         }
-        _ => {
-            Err(anyhow!("YAML 根必须是 Map 类型，当前类型: {:?}", value))
-        }
+        _ => Err(anyhow!("YAML 根必须是 Map 类型，当前类型: {:?}", value)),
     }
-
 }
 
 /// 递归扁平化节点
@@ -76,9 +62,7 @@ fn flatten_node(
     match value {
         Value::Mapping(map) => {
             for (key, val) in map {
-                let key_str = key
-                    .as_str()
-                    .ok_or_else(|| anyhow!("Map 键必须是字符串类型"))?;
+                let key_str = key.as_str().ok_or_else(|| anyhow!("Map 键必须是字符串类型"))?;
                 let full_key = format!("{}{}{}", prefix, config.separator, key_str);
                 flatten_node(&full_key, val, config, output)?;
             }
@@ -113,10 +97,7 @@ fn flatten_node(
 }
 
 /// 将扁平化的键值对恢复为嵌套的 YAML 结构
-pub fn unflatten_from_value(
-    flat_map: &HashMap<String, Value>,
-    config: &FlattenConfig,
-) -> anyhow::Result<Value> {
+pub fn unflatten_from_value(flat_map: &HashMap<String, Value>, config: &FlattenConfig) -> anyhow::Result<Value> {
     let mut root = Value::Mapping(serde_yaml::Mapping::new());
 
     // Sort by key length (shortest first) so parent paths are created before children,
@@ -127,10 +108,7 @@ pub fn unflatten_from_value(
     for (key, value) in entries {
         if config.preserve_empty_arrays && key.ends_with("__empty") {
             let real_key = key.trim_end_matches("__empty");
-            let parts: Vec<String> = real_key
-                .split(config.separator)
-                .map(|s| s.to_string())
-                .collect();
+            let parts: Vec<String> = real_key.split(config.separator).map(|s| s.to_string()).collect();
             if parts.is_empty() {
                 return Err(anyhow!("键不能为空"));
             }
@@ -148,9 +126,7 @@ pub fn unflatten_from_value(
         for part in &parts {
             if let Some(idx_str) = part.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
                 // 这是数组索引
-                let idx: usize = idx_str
-                    .parse()
-                    .map_err(|_| anyhow!("无效的数组索引: {}", part))?;
+                let idx: usize = idx_str.parse().map_err(|_| anyhow!("无效的数组索引: {}", part))?;
                 processed_parts.push(format!("[{}]", idx));
             } else {
                 processed_parts.push(part.clone());
@@ -179,12 +155,7 @@ fn next_container(next_part: &str) -> Value {
 }
 
 /// 递归插入值到嵌套结构
-fn insert_value(
-    current: &mut Value,
-    parts: &[String],
-    value: Value,
-    config: &FlattenConfig,
-) -> anyhow::Result<()> {
+fn insert_value(current: &mut Value, parts: &[String], value: Value, config: &FlattenConfig) -> anyhow::Result<()> {
     if parts.is_empty() {
         return Err(anyhow!("路径不能为空"));
     }
@@ -259,13 +230,9 @@ fn insert_value(
 }
 
 /// 从扁平化的键值对生成 YAML 字符串
-pub fn unflatten_to_string(
-    flat_map: &HashMap<String, Value>,
-    config: &FlattenConfig,
-) -> anyhow::Result<String> {
+pub fn unflatten_to_string(flat_map: &HashMap<String, Value>, config: &FlattenConfig) -> anyhow::Result<String> {
     let value = unflatten_from_value(flat_map, config)?;
-    let yaml_string =
-        serde_yaml::to_string(&value).map_err(|e| anyhow!("序列化为 YAML 失败: {}", e))?;
+    let yaml_string = serde_yaml::to_string(&value).map_err(|e| anyhow!("序列化为 YAML 失败: {}", e))?;
     Ok(yaml_string)
 }
 
@@ -312,21 +279,10 @@ mod tests {
         let value: Value = serde_yaml::from_str(yaml).unwrap();
         let flat = flatten_value_default(&value).unwrap();
         // Check count matches
-        assert_eq!(
-            flat.len(),
-            expected.len(),
-            "key count mismatch for:\n{}",
-            yaml
-        );
+        assert_eq!(flat.len(), expected.len(), "key count mismatch for:\n{}", yaml);
         for (key, yaml_val) in expected {
             let expected_val: Value = serde_yaml::from_str(yaml_val).unwrap();
-            assert_eq!(
-                flat.get(*key).unwrap(),
-                &expected_val,
-                "key '{}' mismatch in:\n{}",
-                key,
-                yaml
-            );
+            assert_eq!(flat.get(*key).unwrap(), &expected_val, "key '{}' mismatch in:\n{}", key, yaml);
         }
     }
 
@@ -420,10 +376,7 @@ api:
         let value: Value = serde_yaml::from_str(yaml).unwrap();
         let flat = flatten_value_default(&value).unwrap();
         assert_eq!(flat.get("a.b").unwrap(), &Value::from("value"));
-        assert_eq!(
-            flat.get("x_y").unwrap(),
-            &Value::Number(serde_yaml::Number::from(1))
-        );
+        assert_eq!(flat.get("x_y").unwrap(), &Value::Number(serde_yaml::Number::from(1)));
     }
 
     #[test]
@@ -438,18 +391,12 @@ api:
 
     #[test]
     fn test_flatten_array_indices() {
-        assert_flatten(
-            "items:\n  - x\n  - y\n",
-            &[("items.[0]", "x"), ("items.[1]", "y")],
-        );
+        assert_flatten("items:\n  - x\n  - y\n", &[("items.[0]", "x"), ("items.[1]", "y")]);
     }
 
     #[test]
     fn test_flatten_deep_array_in_mapping() {
-        assert_flatten(
-            "a:\n  b:\n    - 1\n    - 2\n",
-            &[("a.b.[0]", "1"), ("a.b.[1]", "2")],
-        );
+        assert_flatten("a:\n  b:\n    - 1\n    - 2\n", &[("a.b.[0]", "1"), ("a.b.[1]", "2")]);
     }
 
     #[test]
@@ -471,11 +418,7 @@ b:
         let yaml = "tags: []\n";
         let value: Value = serde_yaml::from_str(yaml).unwrap();
         let flat = flatten_value_default(&value).unwrap();
-        assert_eq!(
-            flat.len(),
-            0,
-            "empty array should produce no entries with default config"
-        );
+        assert_eq!(flat.len(), 0, "empty array should produce no entries with default config");
     }
 
     #[test]
@@ -501,10 +444,7 @@ b:
         };
         let flat = flatten_from_value(&value, &config).unwrap();
         assert!(flat.contains_key("a.b__empty"));
-        assert_eq!(
-            flat.get("a.c").unwrap(),
-            &Value::Number(serde_yaml::Number::from(1))
-        );
+        assert_eq!(flat.get("a.c").unwrap(), &Value::Number(serde_yaml::Number::from(1)));
     }
 
     #[test]
@@ -536,10 +476,7 @@ b:
         flat.insert("a.b".to_string(), Value::from("leaf"));
         flat.insert("a.b.c".to_string(), Value::from("nested"));
         let result = unflatten_value_default(&flat);
-        assert!(
-            result.is_err(),
-            "should error when 'a.b' is leaf but also has child 'a.b.c'"
-        );
+        assert!(result.is_err(), "should error when 'a.b' is leaf but also has child 'a.b.c'");
     }
 
     #[test]

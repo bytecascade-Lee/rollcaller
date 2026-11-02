@@ -92,10 +92,12 @@ pub fn ensure_read_write(path: &Path) -> io::Result<()> {
     // 尝试打开文件读取
     match fs::File::open(path) {
         Ok(_) => (),
-        Err(e) => return Err(io::Error::new(
-            io::ErrorKind::PermissionDenied,
-            format!("文件不可读: {:?}, 错误: {}", path, e),
-        )),
+        Err(e) => {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!("文件不可读: {:?}, 错误: {}", path, e),
+            ))
+        }
     }
 
     // 3. 检查是否可写
