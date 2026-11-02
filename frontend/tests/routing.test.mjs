@@ -44,11 +44,16 @@ globalThis.history = {replaceState() {}};
 globalThis.window = {addEventListener() {}, removeEventListener() {}};
 
 const navLog = [];
-nav.install({
+/** 假域：段原样当目的地，落地时把"地址 + 载荷"记下来（等价于旧 `apply` 的观察点） */
+const testDomain = {
   host: "app",
-  apply: (action) => navLog.push(action),
-  forward: (action) => navLog.push({forwarded: action}),
-});
+  decode: (segments) => segments,
+  encode: (dest) => dest,
+  land: (segments, payload) => navLog.push({route: routeOf("app", segments), payload}),
+};
+const installTestNav = () =>
+  nav.install({domain: testDomain, forward: (action) => navLog.push({forwarded: action})});
+let disposeHarness = installTestNav();
 
 /* ---------- address：切分 / 组装 / 规范化 ---------- */
 
@@ -238,6 +243,40 @@ test("nav.go：不归本窗口的地址交给 forward，不落地", () => {
   nav.go({route: "#/help/tts"});
   assert.equal(navLog.length, 1);
   assert.equal(navLog[0].forwarded.route, "#/help/tts");
+});
+
+test("nav.go：域解释不了的地址不落地，也不写 hash", () => {
+  let wrote = 0;
+  const originalReplace = globalThis.history.replaceState;
+  globalThis.history.replaceState = () => {
+    wrote += 1;
+  };
+  const originalWarn = console.warn;
+  const warnings = [];
+  console.warn = (message) => warnings.push(message);
+  navLog.length = 0;
+  disposeHarness();
+
+  const stop = nav.install({
+    domain: {
+      host: "app",
+      decode: () => null,
+      encode: (dest) => dest,
+      land: () => navLog.push("land"),
+    },
+  });
+  try {
+    nav.go({route: "#/app/nope"});
+  } finally {
+    stop();
+    globalThis.history.replaceState = originalReplace;
+    console.warn = originalWarn;
+    disposeHarness = installTestNav();
+  }
+
+  assert.deepEqual(navLog, [], "解释不了就不该落地");
+  assert.equal(wrote, 0, "解释失败的地址不该进历史");
+  assert.equal(warnings.length, 1, "应当留一条 warn");
 });
 
 test("nav.start：initial 非法时继续往 hash / fallback 兜底", () => {
