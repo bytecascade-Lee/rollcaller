@@ -58,7 +58,17 @@ export class HelpAddress {
   static parse(hash: string): HelpAddress | null {
     const parsed = parseRoute(hash);
     if (!parsed || parsed.host !== HelpAddress.HOST) return null;
-    const [doc, anchor = ""] = parsed.segments;
+    return HelpAddress.fromSegments(parsed.segments);
+  }
+
+  /**
+   * 地址段 → 地址（`Domain.decode` 用）。
+   *
+   * 不校验 host —— 那是 `nav` 的职责（它按第一段判归属）。
+   * **绝不放行 null**：锚点非法就降级到文档顶部，段为空就落到默认文档。
+   */
+  static fromSegments(segments: readonly string[]): HelpAddress {
+    const [doc, anchor = ""] = segments;
     return new HelpAddress(doc || HelpAddress.DEFAULT_DOC, KEBAB_RE.test(anchor) ? anchor : null);
   }
 
@@ -76,9 +86,14 @@ export class HelpAddress {
     return null;
   }
 
+  /** 地址 → 地址段（`Domain.encode` 用）；与 `fromSegments` 互逆（末段可省） */
+  toSegments(): readonly string[] {
+    return this.anchor ? [this.doc, this.anchor] : [this.doc];
+  }
+
   /** 应用内路由字符串；同一地址的字符串必然相同，可直接用于幂等比较 */
   toHash(): Route {
-    return routeOf(HelpAddress.HOST, this.anchor ? [this.doc, this.anchor] : [this.doc]);
+    return routeOf(HelpAddress.HOST, this.toSegments());
   }
 
   toString(): string {
