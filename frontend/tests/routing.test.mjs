@@ -20,7 +20,7 @@ import {nav} from "$routing/nav.ts";
 import {applyTransition, planTransition} from "$routing/transition.ts";
 import {appNavigate} from "$routing/appNavigate.ts";
 import {APP_ENTRY_PARENT, AppEntry} from "$routing/app.entries.generated.ts";
-import {HelpEntry} from "$routing/help.entries.generated.ts";
+import {HelpRoute} from "$routing/help.entries.generated.ts";
 
 /* ---------- 极简 runner：单个失败不中断，最后汇总并给非零退出码 ---------- */
 
@@ -40,6 +40,8 @@ function test(name, fn) {
 
 globalThis.location = {hash: "#/app/rollcall"};
 globalThis.history = {replaceState() {}};
+/** `nav.start` 只用到这两个方法，给个桩即可，不必真 DOM */
+globalThis.window = {addEventListener() {}, removeEventListener() {}};
 
 const navLog = [];
 nav.install({
@@ -120,6 +122,17 @@ test("parseAction：一次切分到位，规范化且带 host/segments", () => {
   assert.equal(parseAction({route: "https://example.com"}), null);
 });
 
+test("地址 ↔ 链 互逆：encode 出来的地址必须能被 decode 还原", () => {
+  // encode = chainOf + routeOf，decode = parseRoute + resolveAppChain
+  for (const entry of Object.values(AppEntry)) {
+    const chain = chainOf(entry);
+    const route = routeOf("app", chain);
+    const parsed = parseRoute(route);
+    assert.ok(parsed, `${entry} 的地址应当可切分：${route}`);
+    assert.deepEqual(resolveAppChain(parsed.segments), chain, `${entry} 往返后链不一致`);
+  }
+});
+
 /* ---------- 转换语义：共同前缀 diff ---------- */
 
 test("planTransition：四种情形", () => {
@@ -137,6 +150,8 @@ test("planTransition：四种情形", () => {
   // 重放同一地址：diff 无动作，靠 replay 补一次 open，否则"地址在目标、浮层已关"时点了没反应
   assert.deepEqual(planTransition(edit, edit), {close: [], open: [], replay: "edit-student"});
   assert.deepEqual(planTransition(card, card), {close: [], open: [], replay: "student-management"});
+  // 退回卡片：关浮层，replay 落在平面上 —— 卡片没有 handler，open 是预期的空操作
+  assert.deepEqual(planTransition(edit, card), {close: ["edit-student"], open: [], replay: "student-management"});
 });
 
 test("applyTransition：逆序关、顺序开，载荷只给最深的那个", () => {
@@ -225,6 +240,26 @@ test("nav.go：不归本窗口的地址交给 forward，不落地", () => {
   assert.equal(navLog[0].forwarded.route, "#/help/tts");
 });
 
+test("nav.start：initial 非法时继续往 hash / fallback 兜底", () => {
+  navLog.length = 0;
+  globalThis.location.hash = "";
+  // 非法 initial + 空 hash ⇒ 落到 fallback（旧实现会把整条首帧路径吞掉，窗口停在空链）
+  const stop = nav.start({route: "#/app/student-management"}, {route: "看起来不像地址"});
+  assert.deepEqual(navLog.map((action) => action.route), ["#/app/student-management"]);
+  stop();
+
+  // 合法 initial 优先于 hash
+  navLog.length = 0;
+  globalThis.location.hash = "#/app/rollcall";
+  const stop2 = nav.start(
+    {route: "#/app/rollcall"},
+    {route: "#/app/student-management/edit-student", payload: 7},
+  );
+  assert.deepEqual(navLog.map((action) => action.route), ["#/app/student-management/edit-student"]);
+  assert.equal(navLog[0].payload, 7);
+  stop2();
+});
+
 /* ---------- 生成物 ↔ 声明：防漂移 ---------- */
 
 const APP_META = JSON.parse(
@@ -244,7 +279,7 @@ test("生成物 app 段与 app/meta.json 一致", () => {
 });
 
 test("生成物 help 段：地址格式合法且不重复", () => {
-  const addresses = Object.values(HelpEntry);
+  const addresses = Object.values(HelpRoute);
   for (const address of addresses) {
     assert.match(address, /^#\/help\/[^/]+(\/[^/]+)*$/, `非法帮助地址 ${address}`);
   }
