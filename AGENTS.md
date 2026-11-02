@@ -68,8 +68,18 @@ cd ./frontend && pnpm dev
 # Frontend type-check
 cd ./frontend && pnpm check
 
+# Frontend lint (ESLint: semantics only, formatting is Prettier's job)
+cd ./frontend && pnpm lint
+
+# Frontend formatting check / apply
+cd ./frontend && pnpm format:check
+cd ./frontend && pnpm format
+
 # Frontend unit tests (Vitest)
 cd ./frontend && pnpm test
+
+# Everything at once (format / lint / type-check / cargo check)
+just check x86_64-pc-windows-msvc
 
 # Build for production (Tauri)
 cd ./backend && cargo tauri build
@@ -177,6 +187,11 @@ cd ./backend && cargo tauri build
 - Frontend unit tests: Vitest (`pnpm test` = `vitest run`), files in `frontend/tests/*.test.ts`; config reuses
   `vite.config.ts` via `mergeConfig` so the `$x` alias table stays single-source. `environment: "node"` ⇒
   `.svelte.ts` compiles as **server**: `$state`/`$derived` read correctly, `$effect` never runs there
+- Frontend style: Prettier owns formatting (`prettier.config.js`), ESLint owns semantics (`eslint.config.js`,
+  `pnpm lint`). Never format `.svelte` with the IDE's Prettier integration — JetBrains' embedded-language
+  placeholders (`✂prettier:content✂="<base64>"`) can survive on disk and silently gut the component.
+  Run `pnpm format` instead; grep for `prettier:content` if a component looks empty
 - `just test` runs the whole chain (codegen → cargo test → ts-rs commit check → `pnpm test`)
+- `just check` runs `scripts/check.py` (Prettier check → ESLint → svelte-check → `cargo check`); CI runs it too
 - Tauri capabilities/permissions must be updated in `backend/capabilities/*.json` when adding new plugins
 - ts-rs types are regenerated at compile time — `cargo check` will regenerate `frontend/src/lib/types/*.ts`

@@ -11,3 +11,4 @@ class Action(StrEnum):
     BUILD = "build"
     RELEASE = "release"
     TEST = "test"
+    CHECK = "check"

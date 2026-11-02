@@ -44,6 +44,11 @@ def test(args: list[str], cwd: Path | None = None) -> None:
     cargo(["test", *args], cwd=cwd)
 
 
+def check(args: list[str], cwd: Path | None = None) -> None:
+    """执行 `cargo check`（只编译不链接，比 build 快得多）"""
+    cargo(["check", *args], cwd=cwd)
+
+
 def version() -> str | None:
     """返回 `cargo --version` 里的版本号；否则返回 None"""
     return version_string(cargo(["--version"], capture=True))

@@ -45,3 +45,18 @@ def install(*, cwd: Path | None = None) -> None:
 def test(*, cwd: Path | None = None) -> None:
     """运行前端单元测试（`package.json` 的 test 脚本），输出直接进控制台"""
     _run(["test"], cwd=cwd, capture=False)
+
+
+def lint(*, cwd: Path | None = None) -> None:
+    """运行 ESLint（`package.json` 的 lint 脚本），输出直接进控制台"""
+    _run(["lint"], cwd=cwd, capture=False)
+
+
+def check(*, cwd: Path | None = None) -> None:
+    """运行 svelte-check 类型检查（`package.json` 的 check 脚本），输出直接进控制台"""
+    _run(["check"], cwd=cwd, capture=False)
+
+
+def format_check(*, cwd: Path | None = None) -> None:
+    """检查格式是否符合 Prettier（`format:check` 脚本），不写文件"""
+    _run(["format:check"], cwd=cwd, capture=False)
