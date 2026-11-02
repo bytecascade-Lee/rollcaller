@@ -42,6 +42,8 @@ export function createEntryRegistry<Id extends string, P = Record<Id, undefined>
   const handlers = new Map<Id, LooseHandler>();
   return {
     register(id, handler) {
+      // **本模块唯一的类型逃逸点**：运行时 `Map` 擦掉了 `P`，取出来时已无从得知是哪个入口，
+      // 只能在 `open` 处当作 `unknown` 交回去。不是待修的 bug，别试图"修好它"。
       handlers.set(id, handler as unknown as LooseHandler);
     },
     unregister(id) {
