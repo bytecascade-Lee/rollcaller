@@ -25,13 +25,9 @@ export function chainOf(entry: AppEntryId): AppEntryId[] {
 }
 
 /**
- * 由地址段解析**整条链**（根 → 目标）—— **app 域唯一的地址解释者**。
+ * 由地址段解析整条链
  *
- * 严格（不给"猜"的余地）：最后一段必须是入口名，段数必须等于该入口的链长，
- * 且逐段与 `parentId` 链一致。任一不满足返回 `null`，调用方降级为"什么都不做"。
- *
- * 返回整条链而不是末尾一个：校验本来就是"按链比对"，顺手把链交给落地，
- * 免得落地再 `chainOf` 一遍。
+ * 此处严格解析，因为上游 `parseRoute` 刻意宽容
  */
 export function resolveAppChain(segments: readonly string[]): AppEntryId[] | null {
   const name = segments[segments.length - 1];
