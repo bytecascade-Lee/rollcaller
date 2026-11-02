@@ -21,6 +21,11 @@ LOCAL_GIT_CONFIG: tuple[tuple[str, str], ...] = (
     ("core.quotepath", "false"),
     # 远程已删除的分支在 fetch 时一并清理本地跟踪引用
     ("fetch.prune", "true"),
+    # 纯格式化提交的 hash 记在仓库根的 `.git-blame-ignore-revs`，blame 跳过它们
+    ("blame.ignoreRevsFile", ".git-blame-ignore-revs"),
+    # 让被忽略的行显式标注出来，而不是伪装成"没有作者的本地改动"
+    ("blame.markIgnoredLines", "true"),
+    ("blame.markUnblamableLines", "true"),
 )
 
 # 旧策略遗留、必须从仓库级移除的键

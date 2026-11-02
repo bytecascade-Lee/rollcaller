@@ -1,6 +1,5 @@
 import {defineConfig} from "vite";
 import {svelte} from "@sveltejs/vite-plugin-svelte";
-// @ts-ignore
 import path from "node:path";
 
 const host: string | undefined = process.env.TAURI_DEV_HOST;

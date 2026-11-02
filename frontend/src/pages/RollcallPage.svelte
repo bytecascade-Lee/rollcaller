@@ -59,7 +59,8 @@
   // 表格按点名时间升序排列，新点名记录追加在最后一行。
   // 记录条数变化（新增/首次加载）时，将滚动容器自动滚到底部以显示最新记录。
   $effect(() => {
-    const count = display.length;
+    // 读一次长度即可建立依赖；`void` 是为了让"有意只读不消费"这件事对 linter 显式
+    void display.length;
     if (tableEl && sortKey == "rollcall_at" && isAsc) {
       tableEl.scrollTop = tableEl.scrollHeight;
     }

@@ -270,20 +270,6 @@
     onConfigChange();
   }
 
-  /** 某列前几个非空单元格值（跳过表头行），用于映射预览 */
-  function columnPreview(colIndex: number): string[] {
-    if (!previewData) return [];
-    const values: string[] = [];
-    for (let i = headerRows; i < previewData.rows.length; i++) {
-      const cell = (previewData.rows[i][colIndex] ?? "").trim();
-      if (cell !== "") {
-        values.push(cell);
-        if (values.length >= 3) break;
-      }
-    }
-    return values;
-  }
-
   function chooseDecision(studentNo: string, override: boolean) {
     const next = new Map(pendingChoices);
     if (next.get(studentNo) === override) {
@@ -297,7 +283,7 @@
   function decideAll(override: boolean) {
     const next = new Map(pendingChoices);
     for (const s of pendingDecisions) {
-      next.set(s.student_no, override)
+      next.set(s.student_no, override);
     }
     pendingChoices = next;
   }
@@ -487,7 +473,7 @@
                             {/if}
                           </th>
                           <th class="col-rowno">#</th>
-                          {#each Array(previewData.total_columns) as _, colIndex}
+                          {#each Array(previewData.total_columns) as _, colIndex (colIndex)}
                             <th
                               class:is-no-col={studentNoColumnIndex == colIndex}
                               class:is-name-col={nameColumnIndex == colIndex}
@@ -515,7 +501,7 @@
                         </tr>
                       </thead>
                       <tbody>
-                        {#each previewData.rows as row, rowIndex}
+                        {#each previewData.rows as row, rowIndex (rowIndex)}
                           <tr class:is-header={rowIndex < headerRows}>
                             <!-- svelte-ignore a11y_no_static_element_interactions -->
                             <!-- svelte-ignore a11y_interactive_supports_focus -->
@@ -536,7 +522,7 @@
                               {/if}
                             </td>
                             <td class="col-rowno">{rowIndex + 1}</td>
-                            {#each row as cell, colIndex}
+                            {#each row as cell, colIndex (colIndex)}
                               <td
                                 class:is-no-col={studentNoColumnIndex == colIndex}
                                 class:is-name-col={nameColumnIndex == colIndex}>{cell || ""}</td

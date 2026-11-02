@@ -30,7 +30,7 @@
   import {helpNavigate} from "$routing/help/navigate";
 
   const nodes = metaData.nodes as {
-    [K in keyof typeof metaData.nodes]: TreeNode & { id: K };
+    [K in keyof typeof metaData.nodes]: TreeNode & {id: K};
   };
   const window = getCurrentWebviewWindow();
   const overlays = createEntryRegistry<HelpOverlayName, HelpOverlayPayload>();
@@ -76,7 +76,8 @@
 
   // 切换文档后滚动条回到顶部（锚点跳转在途时跳过，避免与平滑滚动打架）
   $effect(() => {
-    helpStore.content;
+    // 读一次即可建立依赖；`void` 是为了让"有意只读不消费"这件事对 linter 显式
+    void helpStore.content;
     if (helpDomain.pendingAnchor) return;
     scroller?.scrollTo({top: 0, behavior: "instant"});
   });
@@ -145,7 +146,7 @@
   <main class="content">
     {#if helpStore.content}
       <div class="active" bind:this={scroller}>
-        <MarkdownView markdown={helpStore.content} onnavigate={(address) => helpNavigate.open(address)}/>
+        <MarkdownView markdown={helpStore.content} onnavigate={(address) => helpNavigate.open(address)} />
       </div>
     {:else}
       <div class="empty active">
@@ -156,10 +157,10 @@
 
   <footer class="footbar">
     <div>
-      <CircleIcon size="7" weight="fill"/>
-      {#each breadcrumbCrumb as crumb, i}
+      <CircleIcon size="7" weight="fill" />
+      {#each breadcrumbCrumb as crumb, i (i)}
         {#if i > 0}
-          <CaretRightIcon size="7" weight="bold"/>
+          <CaretRightIcon size="7" weight="bold" />
         {/if}
         <span>
           {crumb}
