@@ -43,9 +43,7 @@ fn broadcast<T: Serialize>(event: &str, app: &AppHandle, payload: &T) {
 pub async fn check(app: AppHandle) -> Result<UpdateView, String> {
     let state = app.state::<UpdaterState>();
     let current_version = app.package_info().version.clone();
-    let view = update_service::check(state.inner(), &current_version,
-                                     |v| broadcast(UPDATE_VIEW_EVENT, &app, v),
-    )
+    let view = update_service::check(state.inner(), &current_version, |v| broadcast(UPDATE_VIEW_EVENT, &app, v))
         .await
         .map_err(|e| e.to_string())?;
     broadcast(UPDATE_VIEW_EVENT, &app, &view);
@@ -66,7 +64,7 @@ pub async fn download(app: AppHandle) -> Result<UpdateView, String> {
         |v| broadcast(UPDATE_VIEW_EVENT, &app, v),
         |p| broadcast(DOWNLOAD_PROGRESS_EVENT, &app, p),
     )
-        .await?;
+    .await?;
     broadcast(UPDATE_VIEW_EVENT, &app, &view);
     Ok(view)
 }

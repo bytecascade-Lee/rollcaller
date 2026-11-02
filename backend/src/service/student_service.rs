@@ -116,10 +116,7 @@ pub async fn create(rb: &RBatis, student: Student, decision: Option<bool>) -> an
             // omp --resume 019fb824-b9cc-7000-8f16-4d2222d66cbc
             // 2026年7月31日21:10(Asia/Shanghai)
             let result = Student::insert(&mut tx, &student).await?;
-            let id = result
-                .last_insert_id
-                .as_i64()
-                .ok_or_else(|| anyhow!("插入失败"))?;
+            let id = result.last_insert_id.as_i64().ok_or_else(|| anyhow!("插入失败"))?;
             tx.commit().await?;
             let vec = StudentTable::select_by_map(rb, value! {"id": id}).await?;
             Ok(StudentSingleCreateResult::Insert(vec.into_iter().next().unwrap()))
@@ -348,7 +345,9 @@ pub async fn get_by_student_nos(rb: &dyn Executor, student_nos: Vec<String>) -> 
 
 /// 更新学生
 pub async fn update(rb: &RBatis, student: Student) -> anyhow::Result<StudentSingleUpdate> {
-    let id = student.id.ok_or_else(|| anyhow!("学号[{}]对应的id为空!", student.student_no))?;
+    let id = student
+        .id
+        .ok_or_else(|| anyhow!("学号[{}]对应的id为空!", student.student_no))?;
     let mut tx = rb.acquire_begin().await?;
     let existing = StudentTable::select_by_map(&mut tx, value! {"student_no": &student.student_no}).await?;
     // UNIQUE的限制，导致Vec长度不会大于1

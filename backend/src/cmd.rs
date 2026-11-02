@@ -1,6 +1,6 @@
-pub mod attendance_status;
 pub mod app_info;
 pub mod app_paths;
+pub mod attendance_status;
 pub mod export;
 pub mod help;
 pub mod import;

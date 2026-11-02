@@ -28,11 +28,17 @@ pub async fn import_excel(
     name_column: usize,
     decisions: HashMap<String, bool>,
 ) -> Result<StudentBatchCreateResult, String> {
-    let rb = database_pool::database()
-        .await
-        .map_err(|e| e.to_string())?;
+    let rb = database_pool::database().await.map_err(|e| e.to_string())?;
     let path = Path::new(&file_path);
-    import_service::import(&*rb, path, &sheet_name, header_rows, student_no_column, name_column, decisions)
-        .await
-        .map_err(|e| e.to_string())
+    import_service::import(
+        &*rb,
+        path,
+        &sheet_name,
+        header_rows,
+        student_no_column,
+        name_column,
+        decisions,
+    )
+    .await
+    .map_err(|e| e.to_string())
 }

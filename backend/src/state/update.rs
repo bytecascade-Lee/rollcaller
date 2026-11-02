@@ -90,10 +90,7 @@ impl UpdaterState {
     ///
     /// 闭包返回 `Err` 时回滚本次修改（用于入口防重入等校验，状态不落变更）。
     /// 调用方不得在闭包内执行任何 `.await`（锁不跨 await）。
-    pub fn mutate(
-        &self,
-        f: impl FnOnce(&mut UpdateSession) -> Result<(), String>,
-    ) -> Result<UpdateView, String> {
+    pub fn mutate(&self, f: impl FnOnce(&mut UpdateSession) -> Result<(), String>) -> Result<UpdateView, String> {
         let mut guard = self.session.lock().unwrap_or_else(|e| e.into_inner());
         f(&mut guard)?;
         Ok(guard.view())

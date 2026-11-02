@@ -264,7 +264,7 @@ pub async fn download(
             last_broadcast = Instant::now();
         }
     })
-        .await;
+    .await;
     // 无论成功 / 失败 / 取消都复位取消标志与进度槽
     state.reset_cancel();
     state.slot().reset();

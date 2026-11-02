@@ -99,7 +99,7 @@ async fn apply_batch(rb: &RBatis, pending: &[&sql::SqlMigration]) -> Result<()> 
         }
         Ok::<(), anyhow::Error>(())
     }
-        .await;
+    .await;
 
     match outcome {
         Ok(()) => {
@@ -123,7 +123,10 @@ async fn apply_batch(rb: &RBatis, pending: &[&sql::SqlMigration]) -> Result<()> 
 /// 恢复本条连接的外键强制
 async fn restore_foreign_keys(tx: &rbatis::RBatisTxExecutor) {
     if let Err(e) = tx.exec("PRAGMA foreign_keys = ON", vec![]).await {
-        error!("为连接 {} 恢复外键约束失败，具体错误为：{e}。该连接将失去外键保护！", tx.tx_id);
+        error!(
+            "为连接 {} 恢复外键约束失败，具体错误为：{e}。该连接将失去外键保护！",
+            tx.tx_id
+        );
     }
 }
 
@@ -234,8 +237,8 @@ mod tests {
                     ),
                     vec![],
                 )
-                    .await
-                    .unwrap();
+                .await
+                .unwrap();
             }
 
             // V30 之后：状态码已 +1，records 带两个外键
@@ -248,8 +251,8 @@ mod tests {
                      (1, 2, 1786421798789, 'sess-1');",
                 vec![],
             )
-                .await
-                .unwrap();
+            .await
+            .unwrap();
 
             run(&rb, &path).await.unwrap();
 
@@ -382,8 +385,8 @@ mod tests {
                  );",
                 vec![],
             )
-                .await
-                .unwrap();
+            .await
+            .unwrap();
             for migration in &sql::MIGRATIONS[..3] {
                 rb.exec(&sql::normalize(migration.sql), vec![]).await.unwrap();
             }
@@ -396,14 +399,15 @@ mod tests {
                  VALUES (1, 2, 1786421798789, 'sess-1');",
                 vec![],
             )
-                .await
-                .unwrap();
+            .await
+            .unwrap();
 
             run(&rb, &path).await.unwrap();
 
             // 账本：列类型 TEXT、值 ISO、旧版本一个不少，V40 也记上了
-            let column_type =
-                migrate::column_type(&rb, migrate::HISTORY_TABLE, "migrated_at").await.unwrap();
+            let column_type = migrate::column_type(&rb, migrate::HISTORY_TABLE, "migrated_at")
+                .await
+                .unwrap();
             assert!(column_type.eq_ignore_ascii_case("TEXT"), "账本列应改为 TEXT: {column_type}");
             let versions: Vec<i64> = migrate::select_applied(&rb)
                 .await
@@ -413,10 +417,7 @@ mod tests {
                 .collect();
             assert_eq!(versions, vec![0, 20, 30, 40]);
             let stamp: String = rb
-                .exec_decode(
-                    "SELECT migrated_at FROM database_migration_history WHERE version = 0",
-                    vec![],
-                )
+                .exec_decode("SELECT migrated_at FROM database_migration_history WHERE version = 0", vec![])
                 .await
                 .unwrap();
             assert_eq!(stamp, "2026-08-11T04:16:38.789Z", "旧毫秒值必须等值换算");
