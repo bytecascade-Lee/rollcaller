@@ -5,6 +5,7 @@
  * - `anchor` = 标题上的 DOM id，源文写作 `## 标题 {#anchor}`
  */
 import {parseRoute, type Route, routeOf} from "$routing/address";
+import type {WindowKind} from "$types";
 
 /** kebab-case 锚点/目录名：小写字母数字，单连字符分隔 */
 const KEBAB_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -20,12 +21,13 @@ const NON_DOC_HREF_RE = /^(?:[a-z][a-z0-9+.-]*:|\/|#)/i;
 
 export class HelpAddress {
   /**
-   * 本域的处理者名，恰好是帮助窗口的窗口名。
+   * 本域的处理者名，恰好是帮助窗口的窗口名。类型来自 Rust 的 `WindowKind`：
+   * 与 `nav.install` 的 host、后端建窗用的 label 是同一个值，写错即编译错误。
    *
    * 用 `#/` 而不是大小写来区分"应用内路由"与"本文档原生锚点"（`#v0-8-1` 没有斜杠），
    * 所以域名统一小写并不损失一眼可辨性。
    */
-  static readonly HOST = "help";
+  static readonly HOST: WindowKind = "help";
 
   /** 路由省略 doc 段时的默认文档 */
   static readonly DEFAULT_DOC = "overview";
