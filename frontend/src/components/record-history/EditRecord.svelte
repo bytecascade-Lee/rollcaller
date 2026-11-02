@@ -4,11 +4,11 @@
   import {recordStore} from "$stores/recordStore.svelte";
   import type {RecordOverlayName, RollcallRecord} from "$types";
   import type {EntryRegistry} from "$routing/registry";
-  import type {AppEntryPayload} from "$routing/app.entries.generated";
-  import {AppEntry} from "$routing/app.entries.generated";
+  import type {AppEntryPayload} from "$routing/app/entries.generated";
+  import {AppEntry} from "$routing/app/entries.generated";
   import {clickOutside, findAnchor, POPUP_CENTERED, updatePosition} from "$actions";
   import {attendanceStatusStore} from "$stores/attendanceStatusStore.svelte";
-  import {appNavigate} from "$routing/appNavigate";
+  import {appNavigate} from "$routing/app/navigate";
 
   let {onselect, overlays}: {
     /** 改完回报新的选择集（清空即 `[]`）。选中集归页面所有，弹窗不直接改它 */
