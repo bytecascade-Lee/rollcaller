@@ -49,6 +49,16 @@ def check(args: list[str], cwd: Path | None = None) -> None:
     cargo(["check", *args], cwd=cwd)
 
 
+def clippy(args: list[str], cwd: Path | None = None) -> None:
+    """执行 `cargo clippy`；`--` 之后的参数传给 rustc，例如 `-D clippy::all`"""
+    try:
+        cargo(["clippy", *args], cwd=cwd)
+    except CargoError as error:
+        if "no such command" in str(error) or "not installed" in str(error):
+            raise CargoError("未找到 'cargo-clippy'，请执行 'rustup component add clippy' 安装") from error
+        raise
+
+
 def fmt_check(args: list[str] | None = None, cwd: Path | None = None) -> None:
     """执行 `cargo fmt --check`"""
     cargo(["fmt", "--check", *(args or [])], cwd=cwd)
