@@ -15,10 +15,10 @@ export type HelpViewport = {
 };
 
 /** 一次落地的意图：由 `open()` 置位，`apply()` 消费即复位 */
-type Intent = { record: boolean; fold: boolean };
+type Intent = { push: boolean; fold: boolean };
 
 /** 地址**不是**来自本窗口的点击时的意图：不记栈、折叠树 */
-const DELIVERED: Intent = {record: false, fold: true};
+const DELIVERED: Intent = {push: false, fold: true};
 
 /**
  * help 域的导航
@@ -80,7 +80,7 @@ class HelpNavigate {
 
   /** **用户点击**打开一处（侧栏树、搜索结果、文档内链接）—— 这一次落地入栈 */
   open(address: HelpAddress, options?: { fold?: boolean }): void {
-    this.#intent = {record: true, fold: options?.fold ?? true};
+    this.#intent = {push: true, fold: options?.fold ?? true};
     const action: Action = {route: address.toHash()};
     nav.go(action);
   }
@@ -91,7 +91,7 @@ class HelpNavigate {
    * 幂等：重复投递同一地址只重新定位，不重复加载（连点也不会把栈灌满）。
    */
   async apply(address: HelpAddress): Promise<void> {
-    const {record, fold} = this.#intent;
+    const {push, fold} = this.#intent;
     this.#intent = DELIVERED;
 
     nav.replaceHash(address.toHash());
@@ -103,7 +103,7 @@ class HelpNavigate {
     const loading = await this.#load(address, fold);
     // 加载期间又被更晚的导航取代：这一条连栈都不进，否则会盖在后来的那次之上
     if (loading !== this.#loading) return;
-    if (record) {
+    if (push) {
       this.#push(address);
     } else {
       this.#stack = [address];
