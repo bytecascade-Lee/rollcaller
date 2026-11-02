@@ -17,16 +17,17 @@
   import "$styles/titlebar.css";
   import "$styles/icon-button.css";
   import logo from "$assets/icon.ico";
-  import {WindowsCommand} from "$commands";
   import SearchHelpDocs from "$components/help/SearchHelpDocs.svelte";
+  import {appNavigate} from "$routing/app/navigate";
+  import {helpNavigate} from "$routing/help/navigate";
   import type {EntryRegistry} from "$routing/registry";
-  import {HelpOverlay, type HelpOverlayName} from "$types";
+  import {type HelpOverlayName, type HelpOverlayPayload} from "$types";
   import {invoke} from "@tauri-apps/api/core";
 
   let {window, overlays, onback, onforward, canGoBack, canGoForward}: {
     window: WebviewWindow,
     /** 本窗口的叠加层注册表（注册表归窗口所有，逐个传下去而不是全局单例） */
-    overlays: EntryRegistry<HelpOverlayName>,
+    overlays: EntryRegistry<HelpOverlayName, HelpOverlayPayload>,
     onback?: () => void,
     onforward?: () => void,
     canGoBack?: boolean,
@@ -106,8 +107,9 @@
       aria-label="搜索"
       class="icon-button"
       onclick={(e) => {
+        // anchor 只用于 clickOutside 排除自己，避免再次点击按钮被当作外部点击
         anchor = e.currentTarget;
-        overlays.open(HelpOverlay.search);
+        helpNavigate.openSearch();
       }}
       title="搜索"
     >
@@ -116,7 +118,8 @@
     <button
       aria-label="主界面"
       class="icon-button"
-      onclick={WindowsCommand.openAppWindow}
+      // 目标是 app host：门面照常投递，由 nav 判归属后转发给主窗口落地
+      onclick={() => appNavigate.enter("rollcall")}
       title="主界面"
     >
       <DiceFourIcon size="16" weight="bold"/>
