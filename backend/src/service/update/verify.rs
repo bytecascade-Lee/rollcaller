@@ -39,8 +39,6 @@ use crate::common::entity::update::Artifact;
 use crate::common::ext::encode_ext::Base64Ext;
 use crate::common::ext::hash_ext::HashExt;
 use anyhow::anyhow;
-use base64::Engine;
-use sha2::Digest;
 use std::path::Path;
 
 /// 与官方插件 verify_signature 逐行一致：先解 base64，再解析 minisign 文本并验证
@@ -181,6 +179,8 @@ pub(crate) mod test_keys {
 mod tests {
     use super::*;
     use crate::config::app_paths;
+    use base64::Engine;
+    use sha2::Digest;
     use std::path::PathBuf;
 
     /// 动态生成临时密钥对并对 data 签名，返回 (公钥外层 base64, 签名外层 base64)
@@ -190,7 +190,7 @@ mod tests {
         let key_pair = minisign::KeyPair::generate_unencrypted_keypair().expect("生成密钥对失败");
         // minisign 0.7：sign(pk: Option<&PublicKey>, sk: &SecretKey, reader: Read, trusted, untrusted)，
         // 恒定使用预哈希（对应 minisign-verify 的 verify(..., true)）
-        let signature = minisign::sign(None, &key_pair.sk, &data[..], None, None).expect("签名失败");
+        let signature = minisign::sign(None, &key_pair.sk, data, None, None).expect("签名失败");
         let pub_text = key_pair.pk.to_box().expect("公钥转 PublicKeyBox 失败").into_string();
         let pub_b64 = base64::engine::general_purpose::STANDARD.encode(pub_text);
         let sig_b64 = base64::engine::general_purpose::STANDARD.encode(signature.to_string());
@@ -351,7 +351,7 @@ mod tests {
         }
 
         let dir = app_paths::temp_dir().join(format!("rollcaller-verify-interop-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect(&format!("创建临时目录 {} 失败", dir.display()));
+        std::fs::create_dir_all(&dir).unwrap_or_else(|error| panic!("创建临时目录 {} 失败: {error}", dir.display()));
 
         // 1. 生成密钥对（固定测试密码，非交互）
         // 新版 tauri-cli（2.11）：generate 用 -p 密码 + -w 私钥输出文件 + --ci 免交互；

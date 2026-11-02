@@ -103,7 +103,7 @@ pub fn unflatten_from_value(flat_map: &HashMap<String, Value>, config: &FlattenC
     // Sort by key length (shortest first) so parent paths are created before children,
     // making conflict detection deterministic regardless of HashMap iteration order.
     let mut entries: Vec<(&String, &Value)> = flat_map.iter().collect();
-    entries.sort_by(|a, b| a.0.len().cmp(&b.0.len()));
+    entries.sort_by_key(|a| a.0.len());
 
     for (key, value) in entries {
         if config.preserve_empty_arrays && key.ends_with("__empty") {

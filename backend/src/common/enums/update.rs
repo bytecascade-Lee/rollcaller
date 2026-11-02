@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use ts_rs::TS;
 
+// `CNB` 是平台专有名称（cnb.cool），缩写不拆成 `Cnb`
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, TS)]
 pub enum UpdateSource {
     Github,

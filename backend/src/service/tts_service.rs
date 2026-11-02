@@ -1,4 +1,3 @@
-use crate::common::enums::tts::TtsMode;
 use crate::common::ext::hash_ext::HashExt;
 use crate::config::app_paths;
 use crate::state::http_client;
@@ -7,7 +6,6 @@ use base64::Engine;
 use serde_json::json;
 use std::env;
 use std::fs::File;
-use std::io::BufReader;
 use std::io::Write;
 use tracing::info;
 

@@ -4,7 +4,7 @@
 //!
 //! 本领域**不感知也不接收任何路径参数**：part 工作区由 [`paths::part`] 生成（随机
 //! uuid、落 `temp/downloads/`）；正式产物落点由 `artifact.file_name()`（url 最后一段）
-//! + [`paths::package`] 现推（`temp/update/packages/`）。目录布局收口于 [`paths`]，
+//! 与 [`paths::package`] 现推（`temp/update/packages/`）。目录布局收口于 [`paths`]，
 //! 领域只负责"流到 part → 校验 → rename"。
 //! 下载物先完整写入随机 `.part`——无信息量的名字、非可执行扩展名，顺序与内容不可被
 //! 外部按文件名推断；完整写盘并校验**通过后**才 `rename` 为正式文件名。

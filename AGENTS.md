@@ -62,6 +62,9 @@ cd ./backend && cargo tauri dev
 # Check backend compilation only
 cd ./backend && cargo check
 
+# Backend lint (clippy denies its default group; rustc warnings stay warnings)
+cd ./backend && cargo clippy --all-targets -- -D clippy::all
+
 # Backend formatting check / apply (rustfmt, max_width = 125)
 cd ./backend && cargo fmt --check
 cd ./backend && cargo fmt
@@ -197,8 +200,12 @@ cd ./backend && cargo tauri build
   Run `pnpm format` instead; grep for `prettier:content` if a component looks empty
 - `just test` runs the whole chain (codegen → cargo test → ts-rs commit check → `pnpm test`)
 - `just check` runs `scripts/check.py` (cargo fmt check → Prettier check → ESLint → svelte-check →
-  `cargo check`); CI runs it too
+  `cargo clippy -D clippy::all`); CI runs it too
 - Rust style: rustfmt owns formatting (`backend/rustfmt.toml`, `max_width = 125`), nothing else. Never
   hand-format or let the IDE pick its own width — `cargo fmt` is the only writer
+- Rust lints: clippy's default group is denied (`-D clippy::all`), **not** all rustc warnings — the repo is
+  mid-refactor, so `dead_code` stays a visible warning instead of a build error. Two style lints
+  (`enum_variant_names` on `OS::MacOS`, `upper_case_acronyms` on `UpdateSource::CNB`) are `#[allow]`ed
+  in-place because renaming them would change brand strings in `Display`
 - Tauri capabilities/permissions must be updated in `backend/capabilities/*.json` when adding new plugins
 - ts-rs types are regenerated at compile time — `cargo check` will regenerate `frontend/src/lib/types/*.ts`

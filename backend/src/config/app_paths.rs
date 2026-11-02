@@ -1,3 +1,4 @@
+#[cfg(not(test))]
 use directories::ProjectDirs;
 use serde::{Serialize, Serializer};
 use std::path::{Path, PathBuf};
@@ -209,7 +210,7 @@ fn detect_user_data_dir(mode: AppMode, root_dir: &Path) -> PathBuf {
 
 /// 获取用户数据根目录，测试构建：指向 data/test/{uuid}
 #[cfg(test)]
-fn detect_user_data_dir(mode: AppMode, root_dir: &Path) -> PathBuf {
+fn detect_user_data_dir(_mode: AppMode, root_dir: &Path) -> PathBuf {
     root_dir.join(format!("data/test/{}", &uuid::Uuid::new_v4().to_string()[..6]))
 }
 

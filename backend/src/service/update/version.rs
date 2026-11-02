@@ -5,12 +5,9 @@
 //! 因此用户设定的等级表示：至少要有这么大的变化才值得更新，
 //! 低于门槛的更新被忽略（延迟聚合，等下一个达标的版本一次跳过去）。
 
-use crate::common::constant::update::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
 use crate::common::enums::update::{UpdateChannel, UpdateDecision, UpdateLevel};
 use semver::Version;
-use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
-use ts_rs::TS;
 
 /// 变化幅度：升级路径中只比较主/次/补丁号（预发布标识不参与幅度分类）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,6 +102,7 @@ fn floor_satisfied(change: VersionChange, floor: UpdateLevel) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::common::constant::update::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
     use semver::Version;
     use UpdateChannel::*;
     use UpdateLevel::*;

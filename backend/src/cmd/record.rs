@@ -6,7 +6,7 @@ use crate::service::record_service;
 #[tauri::command]
 pub async fn record_list() -> Result<Vec<RollcallRecord>, String> {
     let rb = database_pool::database().await.map_err(|e| e.to_string())?;
-    record_service::list_all(&*rb).await.map_err(|e| e.to_string())
+    record_service::list_all(&rb).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -22,7 +22,7 @@ pub async fn record_batch_update(
     remark: String,
 ) -> Result<Vec<RollcallRecord>, String> {
     let rb = database_pool::database().await.map_err(|e| e.to_string())?;
-    record_service::update(&*rb, ids, attendance_status, remark)
+    record_service::update(&rb, ids, attendance_status, remark)
         .await
         .map_err(|e| e.to_string())
 }
@@ -33,7 +33,7 @@ pub async fn record_batch_update_attendance_status(
     attendance_status: i8,
 ) -> Result<Vec<RollcallRecord>, String> {
     let rb = database_pool::database().await.map_err(|e| e.to_string())?;
-    record_service::update_attendance_status(&*rb, ids, attendance_status)
+    record_service::update_attendance_status(&rb, ids, attendance_status)
         .await
         .map_err(|e| e.to_string())
 }
@@ -41,7 +41,7 @@ pub async fn record_batch_update_attendance_status(
 #[tauri::command]
 pub async fn record_batch_update_remark(ids: Vec<i64>, remark: String) -> Result<Vec<RollcallRecord>, String> {
     let rb = database_pool::database().await.map_err(|e| e.to_string())?;
-    record_service::update_remark(&*rb, ids, remark)
+    record_service::update_remark(&rb, ids, remark)
         .await
         .map_err(|e| e.to_string())
 }
