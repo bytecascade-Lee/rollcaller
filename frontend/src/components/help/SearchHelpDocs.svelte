@@ -1,7 +1,7 @@
 <script lang="ts">
   import {clickOutside} from "$actions";
   import {type HelpSearchResult, helpStore} from "$stores/helpStore.svelte";
-  import {HelpAddress} from "$utils/helpAddress";
+  import {HelpAddress} from "$routing/help/address";
   import type {EntryRegistry} from "$routing/registry";
   import {HelpOverlay, type HelpOverlayName} from "$types";
   import {MagnifyingGlassIcon} from "phosphor-svelte";
