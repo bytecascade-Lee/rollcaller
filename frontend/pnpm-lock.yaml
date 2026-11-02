@@ -224,6 +224,9 @@ importers:
       flexilexi:
         specifier: ^0.1.24
         version: 0.1.24(svelte@5.57.2(@typescript-eslint/types@8.72.0))
+      globals:
+        specifier: ^17.14.0
+        version: 17.14.0
       phosphor-svelte:
         specifier: ^3.1.1
         version: 3.1.1(svelte@5.57.2(@typescript-eslint/types@8.72.0))(vite@6.4.5(@types/node@26.6.5))
@@ -1174,6 +1177,10 @@ packages:
 
   globals@16.0.0:
     resolution: {integrity: sha512-iInW14XItCXET01CQFqudPOWP2jYMl7T+QRQT+UNcR/iQncN/F0UNpgd76iFkBPgNQb4+X3LV9tLJYzwh+Gl3A==}
+    engines: {node: '>=18'}
+
+  globals@17.14.0:
+    resolution: {integrity: sha512-UtdkTVyAJePQv0J2M9Xe4L0ruNSDV314XiIJsADI2Zf40bcdAonE/D/OhAU8AT99oij9mhLByb+NvA3QWZYgCg==}
     engines: {node: '>=18'}
 
   hashery@1.5.1:
@@ -2495,6 +2502,8 @@ snapshots:
       is-glob: 4.0.3
 
   globals@16.0.0: {}
+
+  globals@17.14.0: {}
 
   hashery@1.5.1:
     dependencies:

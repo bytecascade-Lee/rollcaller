@@ -23,7 +23,8 @@
 
   // 输入变化即搜索；索引构建完成（indexing 翻转）后自动补搜一次
   $effect(() => {
-    helpStore.indexing;
+    // 读一次即可建立依赖；`void` 是为了让"有意只读不消费"这件事对 linter 显式
+    void helpStore.indexing;
     results = helpStore.search(query);
     selectedIndex = 0;
   });
@@ -127,8 +128,10 @@
             onmouseenter={() => (selectedIndex = i)}
             onclick={() => select(result.id)}
           >
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -- renderSnippet 先 escapeHtml，只插入自己的 <strong> -->
             <span class="result-title">{@html renderSnippet(result.title, query)}</span>
             {#if result.snippet}
+              <!-- eslint-disable-next-line svelte/no-at-html-tags -- 同上 -->
               <span class="result-snippet">{@html renderSnippet(result.snippet, query)}</span>
             {/if}
           </button>
