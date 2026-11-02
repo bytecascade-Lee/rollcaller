@@ -297,7 +297,7 @@
   function decideAll(override: boolean) {
     const next = new Map(pendingChoices);
     for (const s of pendingDecisions) {
-      next.set(s.student_no, override);
+      next.set(s.student_no, override)
     }
     pendingChoices = next;
   }

@@ -86,6 +86,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="markdown-body" onclick={handleClick} style="background: transparent;">
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
   {@html safeHtml}
 </div>
 
