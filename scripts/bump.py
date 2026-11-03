@@ -36,12 +36,12 @@ from pathlib import Path
 
 from cli import git
 from codegen import (
-    CODEGEN_PATHS,
     CodegenError,
     GeneratedNotCommittedError,
     ensure_committed,
     generate_all,
 )
+from common.constant.paths import FRONTEND_ROUTING_ENTRIES_PATHS
 from common.constant.repo import REMOTE
 from common.entity.version import Version, VersionError
 from common.logger import error, info, success, warning
@@ -119,7 +119,7 @@ def _ensure_generated_artifacts_current() -> None:
         generate_all()
     except CodegenError as e:
         raise BumpError(f"代码生成失败，无法确认生成物与仓库一致: {e}") from e
-    _ensure_unchanged(CODEGEN_PATHS, "代码生成的入口表")
+    _ensure_unchanged(FRONTEND_ROUTING_ENTRIES_PATHS, "代码生成的入口表")
 
 
 def _ensure_unchanged(paths: Sequence[Path], label: str) -> None:
