@@ -7,7 +7,7 @@
 按档位推算下一个版本号，在 master 上打附注 tag。不动任何版本文件——
 版本号由 `scripts/build.py` 在构建期临时写入，构建结束即还原。
 
-打 tag 前会重跑代码生成与 ts-rs 导出，确认生成物都已提交；这一步需要本地能编译后端。
+打 tag 前会重跑代码生成，确认生成物都已提交（只跑入口表，不编译后端）。
 
 档位：
 
@@ -34,15 +34,13 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from cli import cargo, git
+from cli import git
 from codegen import (
     CODEGEN_PATHS,
-    TS_RS_PATHS,
     CodegenError,
     GeneratedNotCommittedError,
     ensure_committed,
     generate_all,
-    ts_rs,
 )
 from common.constant.repo import REMOTE
 from common.entity.version import Version, VersionError
@@ -116,18 +114,12 @@ def _ensure_worktree_clean() -> None:
 
 
 def _ensure_generated_artifacts_current() -> None:
-    """重跑生成器与 ts-rs 导出，确认生成物与 HEAD 一致"""
+    """重跑生成器，确认生成物与 HEAD 一致"""
     try:
         generate_all()
     except CodegenError as e:
         raise BumpError(f"代码生成失败，无法确认生成物与仓库一致: {e}") from e
     _ensure_unchanged(CODEGEN_PATHS, "代码生成的入口表")
-
-    try:
-        ts_rs.export()
-    except cargo.CargoError as e:
-        raise BumpError(f"触发 ts-rs 导出失败（cargo test --lib）: {e}") from e
-    _ensure_unchanged(TS_RS_PATHS, "ts-rs 导出的类型")
 
 
 def _ensure_unchanged(paths: Sequence[Path], label: str) -> None:
