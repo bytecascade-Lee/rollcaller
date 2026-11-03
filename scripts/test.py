@@ -55,7 +55,8 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
 
     ensure_committed(CODEGEN_PATHS, label="代码生成的入口表")
 
-    info(f"运行后端测试")
+    info(f"运行后端测试（{target.triple}）")
+    # lib 测试会顺带执行 ts-rs 的导出测试，把类型写回 frontend/src/lib/types
     cargo.test(target)
     if is_interrupted():
         return 0
