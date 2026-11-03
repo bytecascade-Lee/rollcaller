@@ -39,28 +39,28 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
 
     gate.ensure(target, Action.CHECK, host=rustc.host_target())
 
-    info("检查后端格式: cargo fmt --check")
+    info("检查后端格式")
     cargo.fmt_check()
     if is_interrupted():
         return 0
 
-    info("检查前端格式: pnpm format:check")
+    info("检查前端格式")
     pnpm.format_check()
     if is_interrupted():
         return 0
 
-    info("检查前端 lint: pnpm lint")
+    info("检查前端 lint")
     pnpm.lint()
     if is_interrupted():
         return 0
 
-    info("检查前端类型: pnpm check")
+    info("检查前端类型")
     pnpm.check()
     if is_interrupted():
         return 0
 
-    info(f"检查后端 lint: cargo clippy --all-targets -- -D clippy::all（{target.triple}）")
-    cargo.clippy(["--locked", "--target", target.triple, "--all-targets", "--", "-D", "clippy::all"])
+    info(f"检查后端 lint")
+    cargo.clippy(target)
 
     success("前后端检查通过")
     return 0

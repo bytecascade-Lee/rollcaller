@@ -5,7 +5,7 @@
 ts-rs 类型导出
 """
 
-from cli import cargo
+from cli import cargo, rustc
 from common.constant.paths import CARGO_CONFIG_PATH, PROJECT_BASE_DIR
 
 
@@ -19,4 +19,4 @@ def export() -> None:
         relative = CARGO_CONFIG_PATH.relative_to(PROJECT_BASE_DIR).as_posix()
         raise TSRSError(f"缺少 {relative}，ts-rs 会导出到默认目录，无法校验类型；请先跑 just setup")
 
-    cargo.test(["--locked", "--lib"])
+    cargo.test(rustc.host_target(), lib_only=True)
