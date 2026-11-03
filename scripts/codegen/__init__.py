@@ -13,7 +13,7 @@ from cli import git
 from common.constant.paths import FRONTEND_ROUTING_ENTRIES_PATHS, FRONTEND_TYPES_DIR
 from common.logger import info
 from util.str_format import join_repr
-from . import build_info, routing_entries, ts_rs
+from . import build_info, routing_entries
 
 
 class CodegenError(Exception):
