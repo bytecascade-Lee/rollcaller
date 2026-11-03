@@ -60,7 +60,7 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
     if is_interrupted():
         return 0
 
-    ensure_committed(TS_RS_PATHS, label="ts-rs 导出的类型")
+    ensure_committed((TS_RS_PATHS,), label="ts-rs 导出的类型")
 
     info("运行前端测试")
     pnpm.test()
