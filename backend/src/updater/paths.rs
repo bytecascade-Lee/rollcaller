@@ -36,7 +36,7 @@ pub fn updater_bin_dir() -> PathBuf {
 }
 
 /// 更新器可执行文件的存放路径 `cache/update/bin/{file_name}`
-pub fn portable_updater_bin(file_name: &str) -> PathBuf {
+pub fn updater_bin_file(file_name: &str) -> PathBuf {
     updater_bin_dir().join(file_name)
 }
 

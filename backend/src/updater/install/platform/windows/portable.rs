@@ -3,9 +3,8 @@
 //! Go updater 不会自动解压 zip，`update.source` 必须是已解压目录；config 与解压内容必须分居
 //! 两个目录，否则会被当作 source 一起复制进 target。
 
-use super::process;
 use crate::config::app_paths::AppMode;
-use crate::updater::install::common::{extract_zip, updater_exe};
+use crate::updater::install::common::{base_config, extract_zip};
 use crate::updater::paths;
 use crate::util::path_utils;
 use anyhow::anyhow;
@@ -15,51 +14,33 @@ use std::path::Path;
 
 /// 便携版完整安装编排（返回即表示更新器已启动，调用方应随即退出）
 pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow::Result<()> {
-    // 编排层已先 ensure_updater 下载/校验，这里只需发现
-    let updater = updater_exe().ok_or_else(|| anyhow!("锁定版本的更新器未就绪（预期位于 cache/update/bin）"))?;
-
     let exe_path = path_utils::current_exe_clean()?;
     let target_dir = exe_path
         .parent()
         .map(Path::to_path_buf)
         .ok_or_else(|| anyhow!("无法获取当前可执行文件目录"))?;
     let data_dir = target_dir.join("data");
-
-    let staging = paths::zip_staging(&AppMode::Portable, to);
-    let source_dir = extract_zip(zip_path, &staging)?;
-
-    let log_file = paths::updater_log(&AppMode::Portable, from, to);
-    if let Some(parent) = log_file.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新日志目录失败（{}）：{e}", parent.display()))?;
-    }
-    let config_path = paths::updater_config(&AppMode::Portable, from, to);
+    let source_dir = extract_zip(zip_path, &paths::zip_staging(&AppMode::Portable, to))?;
     // 备份目录不必预建：Go updater 复制前会自行 MkdirAll
     let backup_dir = paths::backup(&AppMode::Portable, from, to);
 
-    // fs::write 不创建父目录，而 temp/update/config 不属 bootstrap 预建的顶层目录
-    if let Some(parent) = config_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新配置目录失败（{}）：{e}", parent.display()))?;
-    }
-    let config = compose_config(
-        std::process::id(),
-        &source_dir,
-        &target_dir,
-        &data_dir,
-        &backup_dir,
-        &exe_path,
-        &log_file,
-    );
-    std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)
-        .map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", config_path.display()))?;
-
-    process::spawn_updater(&updater, &config_path, &log_file)
+    super::start_updater(AppMode::Portable, from, to, |log_file| {
+        compose_config(
+            std::process::id(),
+            &source_dir,
+            &target_dir,
+            &data_dir,
+            &backup_dir,
+            &exe_path,
+            log_file,
+        )
+    })
 }
 
 /// 组装 Go updater 的完整 config（version 3；字段写全、路径转正斜杠）
 ///
 /// `backup.location` 落在 `data` 树内（Portable 的 `temp_dir` = `exe_dir/data/temp`），同时命中
 /// `backup.exclude` 与 `update.preserve`：前者防止备份遍历自己，后者防止备份被清理阶段删掉。
-/// `wait` 在 version 3 只认 `pids`（写 `pid` 会被 loader 拒绝）。
 fn compose_config(
     pid: u32,
     source_dir: &Path,
@@ -69,57 +50,23 @@ fn compose_config(
     exe_path: &Path,
     log_file: &Path,
 ) -> serde_json::Value {
-    json!({
-        "version": 3,
-        "runtime": {
-            "headless": false,
-            "log": {
-                "file": path_utils::to_slash(log_file),
-                "level": {
-                    "console": "info",
-                    "file": "info",
-                },
-            },
-        },
-        "wait": {
-            "pids": [pid],
-            "timeout": 10000,
-            "forceKill": true,
-            "interval": 500,
-        },
-        "update": {
-            "source": path_utils::to_slash(source_dir),
-            "target": path_utils::to_slash(target_dir),
-            "preserve": [path_utils::to_slash(data_dir)],
-            "cleanBeforeCopy": true,
-            "backup": {
-                "enabled": true,
-                "location": path_utils::to_slash(backup_dir),
-                "exclude": [path_utils::to_slash(data_dir)],
-                "cleanupOnSuccess": false,
-            },
-        },
-        "launch": {
-            "execution": {
-                "mode": "direct",
-                "path": path_utils::to_slash(exe_path),
-            },
-            "context": {
-                "workspace": path_utils::to_slash(target_dir),
-                "args": [],
-                "env": {},
-            },
-            "lifecycle": {
-                "stayAlive": 0,
-                "captureOutput": false,
-                "captureFormat": "log",
-                "captureToFile": true,
-            },
-        },
-        "rollback": {
+    let mut config = base_config(pid, log_file, exe_path, target_dir);
+    config["update"] = json!({
+        "source": path_utils::to_slash(source_dir),
+        "target": path_utils::to_slash(target_dir),
+        "preserve": [path_utils::to_slash(data_dir)],
+        "cleanBeforeCopy": true,
+        "backup": {
             "enabled": true,
-            "fallbackExecutable": path_utils::to_slash(exe_path),
-            "maxAttempts": 2,
+            "location": path_utils::to_slash(backup_dir),
+            "exclude": [path_utils::to_slash(data_dir)],
+            "cleanupOnSuccess": false,
         },
-    })
+    });
+    config["rollback"] = json!({
+        "enabled": true,
+        "fallbackExecutable": path_utils::to_slash(exe_path),
+        "maxAttempts": 2,
+    });
+    config
 }

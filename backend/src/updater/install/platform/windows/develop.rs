@@ -3,10 +3,9 @@
 //! target 是 `backend/target/debug`，其余中间产物必须保留；启动目标用独立文件名
 //! （[`DEVELOP_UPDATE_BIN_NAME`]），因为运行中的 `rollcaller.exe` 可删可改名但不可写。
 
-use super::process;
 use crate::config::app_paths::AppMode;
 use crate::updater::constant::DEVELOP_UPDATE_BIN_NAME;
-use crate::updater::install::common::{extract_zip, updater_exe};
+use crate::updater::install::common::{base_config, extract_zip};
 use crate::updater::paths;
 use crate::util::path_utils;
 use anyhow::anyhow;
@@ -14,41 +13,23 @@ use semver::Version;
 use serde_json::json;
 use std::path::Path;
 
-/// develop zip 内可执行文件的原始名
+/// develop zip 内可执行文件的原始名（bundler 的输出名）
 const PAYLOAD_BIN_NAME: &str = "rollcaller.exe";
 
 /// Develop 更新：解压 → 载荷归一 → 组装 config → spawn updater（返回即表示调用方应退出）
 pub fn install_develop(zip_path: &Path, from: &Version, to: &Version) -> anyhow::Result<()> {
-    // 编排层已先 ensure_updater 下载/校验，这里只需发现
-    let updater = updater_exe().ok_or_else(|| anyhow!("锁定版本的更新器未就绪（预期位于 cache/update/bin）"))?;
-
     let exe_path = path_utils::current_exe_clean()?;
     let target_dir = exe_path
         .parent()
         .map(Path::to_path_buf)
         .ok_or_else(|| anyhow!("无法获取当前可执行文件目录"))?;
     let launch_path = target_dir.join(DEVELOP_UPDATE_BIN_NAME);
-
-    let staging = paths::zip_staging(&AppMode::Develop, to);
-    let source_dir = extract_zip(zip_path, &staging)?;
-
+    let source_dir = extract_zip(zip_path, &paths::zip_staging(&AppMode::Develop, to))?;
     normalize_payload(&source_dir, &launch_path, &exe_path)?;
 
-    let log_file = paths::updater_log(&AppMode::Develop, from, to);
-    if let Some(parent) = log_file.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新日志目录失败（{}）：{e}", parent.display()))?;
-    }
-    let config_path = paths::updater_config(&AppMode::Develop, from, to);
-
-    // fs::write 不创建父目录，而 temp/update/config 不属 bootstrap 预建的顶层目录
-    if let Some(parent) = config_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新配置目录失败（{}）：{e}", parent.display()))?;
-    }
-    let config = compose_config(std::process::id(), &source_dir, &target_dir, &launch_path, &log_file);
-    std::fs::write(&config_path, serde_json::to_string_pretty(&config)?)
-        .map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", config_path.display()))?;
-
-    process::spawn_updater(&updater, &config_path, &log_file)
+    super::start_updater(AppMode::Develop, from, to, |log_file| {
+        compose_config(std::process::id(), &source_dir, &target_dir, &launch_path, log_file)
+    })
 }
 
 /// 载荷归一：source 内的 exe 改名为 [`DEVELOP_UPDATE_BIN_NAME`]，并复制一份到 `launch_path`
@@ -104,52 +85,18 @@ fn compose_config(pid: u32, source_dir: &Path, target_dir: &Path, launch_path: &
         )
     });
 
-    json!({
-        "version": 3,
-        "runtime": {
-            "headless": false,
-            "log": {
-                "file": path_utils::to_slash(log_file),
-                "level": {
-                    "console": "info",
-                    "file": "info",
-                },
-            },
-        },
-        "wait": {
-            "pids": [pid],
-            "timeout": 10000,
-            "forceKill": true,
-            "interval": 500,
-        },
-        "update": {
-            "source": path_utils::to_slash(source_dir),
-            "target": path_utils::to_slash(target_dir),
-            "preserve": [],
-            "cleanBeforeCopy": false,
-            "backup": {
-                "enabled": false,
-            },
-        },
-        "launch": {
-            "execution": {
-                "mode": "direct",
-                "path": path_utils::to_slash(launch_path),
-            },
-            "context": {
-                "workspace": path_utils::to_slash(workspace),
-                "args": [],
-                "env": {},
-            },
-            "lifecycle": {
-                "stayAlive": 0,
-                "captureOutput": false,
-                "captureFormat": "log",
-                "captureToFile": true,
-            },
-        },
-        "rollback": {
+    let mut config = base_config(pid, log_file, launch_path, workspace);
+    config["update"] = json!({
+        "source": path_utils::to_slash(source_dir),
+        "target": path_utils::to_slash(target_dir),
+        "preserve": [],
+        "cleanBeforeCopy": false,
+        "backup": {
             "enabled": false,
         },
-    })
+    });
+    config["rollback"] = json!({
+        "enabled": false,
+    });
+    config
 }

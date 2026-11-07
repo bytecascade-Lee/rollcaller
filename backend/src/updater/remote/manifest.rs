@@ -2,7 +2,8 @@
 
 use crate::updater::model::{ManifestDigest, UpdateManifest};
 use crate::updater::remote::fetch;
-use crate::updater::verify::verify_manifest;
+use crate::updater::verify::{verify_manifest, verify_sha256};
+use crate::util::fs_utils;
 use anyhow::{anyhow, Context};
 use reqwest::Client;
 use std::fs;
@@ -14,14 +15,18 @@ pub fn parse_manifest(bytes: &[u8]) -> anyhow::Result<UpdateManifest> {
 }
 
 /// 取目标版本清单字节：缓存优先，缓存不可信则删掉回源
+///
+/// `require_signature` 由调用方按源决定：发布源的索引保证带签名（`just bump` 的前置闸门），
+/// 本地联调源没有私钥、只能给摘要。
 pub async fn load(
     client: &Client,
     url: &str,
     cache_path: &Path,
     expected: Option<&ManifestDigest>,
+    require_signature: bool,
 ) -> anyhow::Result<Vec<u8>> {
     if let Ok(cached) = fs::read(cache_path) {
-        if is_trusted(&cached, expected).is_ok() {
+        if is_trusted(&cached, expected, require_signature).is_ok() {
             return Ok(cached);
         }
         // 自愈：解析不了或摘要不符，都说明这份缓存不该再被信任
@@ -34,51 +39,54 @@ pub async fn load(
     // 连 JSON 都不是 → 无可继续，直接暴露（与"摘要不符"区别对待）
     parse_manifest(&fetched)?;
 
-    if let Some(digest) = expected {
-        if let Err(error) = verify_manifest(&fetched, digest) {
-            tracing::warn!(
-                "更新清单与版本索引的摘要不符，本次使用但不写缓存（{url}，索引期望 {}）：{error}",
-                digest.sha256
-            );
-            return Ok(fetched);
-        }
+    let Some(digest) = expected else {
+        // 老索引没有摘要：能解析即可用（无从比对）
+        write_cache(cache_path, &fetched);
+        return Ok(fetched);
+    };
+
+    // 签名是硬闸门：验不过说明清单不是发布方给的，宁可让用户看到"检查失败"
+    if require_signature {
+        verify_manifest(&fetched, digest)?;
     }
 
-    if let Err(error) = write_atomic(cache_path, &fetched) {
-        // 缓存只是加速手段，写不进去不影响本次检查
-        tracing::warn!("写入更新清单缓存失败（{}）：{error}", cache_path.display());
+    // 摘要不符多为索引抄错（签名已证明清单本身可信）→ 本次可用，但不固化进缓存
+    if let Err(error) = verify_sha256(&fetched, &digest.sha256) {
+        tracing::warn!(
+            "更新清单与版本索引的摘要不符，本次使用但不写缓存（{url}，索引期望 {}）：{error}",
+            digest.sha256
+        );
+        return Ok(fetched);
     }
+
+    write_cache(cache_path, &fetched);
     Ok(fetched)
 }
 
-/// 缓存字节是否可直接使用：能解析 **且**（有摘要时）摘要匹配
-fn is_trusted(bytes: &[u8], expected: Option<&ManifestDigest>) -> anyhow::Result<()> {
+/// 缓存字节是否可信：能解析 +（发布源）签名成立 + 摘要逐字匹配
+fn is_trusted(bytes: &[u8], expected: Option<&ManifestDigest>, require_signature: bool) -> anyhow::Result<()> {
     parse_manifest(bytes)?;
-    match expected {
-        Some(digest) => verify_manifest(bytes, digest),
-        None => Ok(()),
+    let Some(digest) = expected else {
+        return Ok(());
+    };
+    if require_signature {
+        verify_manifest(bytes, digest)?;
     }
+    verify_sha256(bytes, &digest.sha256)
 }
 
-/// 同卷原子写：先写 `*.tmp`，再 rename 覆盖
-fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
+/// 缓存只是加速手段，写不进去不影响本次检查
+fn write_cache(path: &Path, bytes: &[u8]) {
+    if let Err(error) = fs_utils::write_atomic(path, bytes) {
+        tracing::warn!("写入更新清单缓存失败（{}）：{error}", path.display());
     }
-    let tmp = path.with_extension("json.tmp");
-    fs::write(&tmp, bytes)?;
-    // 同目录 rename 在同卷内原子；Windows 上 std 的实现是 MoveFileEx + REPLACE_EXISTING
-    if let Err(error) = fs::rename(&tmp, path) {
-        let _ = fs::remove_file(&tmp);
-        return Err(error);
-    }
-    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::app_paths;
+    use crate::updater::verify::test_keys;
     use sha2::{Digest, Sha256};
     use std::path::PathBuf;
     use std::thread::JoinHandle;
@@ -126,6 +134,14 @@ mod tests {
         }
     }
 
+    /// 用当前构建的有效密钥对签名的摘要（发布源真实形态）
+    fn signed_digest_of(bytes: &[u8]) -> ManifestDigest {
+        ManifestDigest {
+            signature: Some(test_keys::sign(bytes)),
+            ..digest_of(bytes)
+        }
+    }
+
     /// 不可达地址：一旦真发起请求就会立刻失败，用来证明"零网络"
     const UNREACHABLE: &str = "http://127.0.0.1:1/latest-cnb.json";
 
@@ -136,7 +152,7 @@ mod tests {
             fs::write(&path, BODY).unwrap();
             let expected = digest_of(BODY);
 
-            let bytes = load(&Client::new(), UNREACHABLE, &path, Some(&expected))
+            let bytes = load(&Client::new(), UNREACHABLE, &path, Some(&expected), false)
                 .await
                 .expect("摘要匹配的缓存应直接命中");
             assert_eq!(bytes, BODY);
@@ -152,7 +168,7 @@ mod tests {
             fs::write(&path, OTHER).unwrap();
 
             // 老索引没有摘要：只要能解析就沿用，不发起网络（若回源，UNREACHABLE 必失败）
-            let bytes = load(&Client::new(), UNREACHABLE, &path, None)
+            let bytes = load(&Client::new(), UNREACHABLE, &path, None, false)
                 .await
                 .expect("legacy 路径应沿用可解析的缓存");
             assert_eq!(bytes, OTHER);
@@ -168,7 +184,7 @@ mod tests {
             let server = MockServer::spawn(BODY.to_vec());
             let expected = digest_of(BODY);
 
-            let bytes = load(&Client::new(), &server.url, &path, Some(&expected))
+            let bytes = load(&Client::new(), &server.url, &path, Some(&expected), false)
                 .await
                 .expect("摘要不符应回源");
             assert_eq!(bytes, BODY, "应拿到线上那份，而不是缓存里的旧那份");
@@ -187,7 +203,9 @@ mod tests {
             let server = MockServer::spawn(BODY.to_vec());
 
             // 无摘要时"能解析"是唯一自愈信号，不能被丢掉
-            let bytes = load(&Client::new(), &server.url, &path, None).await.expect("坏缓存应回源");
+            let bytes = load(&Client::new(), &server.url, &path, None, false)
+                .await
+                .expect("坏缓存应回源");
             assert_eq!(bytes, BODY);
             assert_eq!(fs::read(&path).unwrap(), BODY);
 
@@ -203,7 +221,7 @@ mod tests {
             let server = MockServer::spawn(BODY.to_vec());
             let wrong = digest_of(OTHER); // 索引抄错 / 清单被覆盖上传后没重算索引
 
-            let bytes = load(&Client::new(), &server.url, &path, Some(&wrong))
+            let bytes = load(&Client::new(), &server.url, &path, Some(&wrong), false)
                 .await
                 .expect("摘要不符不应阻断更新（宽松档语义）");
             assert_eq!(bytes, BODY, "仍然使用线上那份字节");
@@ -213,13 +231,59 @@ mod tests {
         });
     }
 
+    /// 发布源：索引缺签名 → 检查直接失败，绝不"验不了就用"
+    #[test]
+    fn unsigned_manifest_is_rejected_when_signature_required() {
+        tauri::async_runtime::block_on(async {
+            let path = cache_path("unsigned");
+            let server = MockServer::spawn(BODY.to_vec());
+            let expected = digest_of(BODY); // 只有摘要，没有签名
+
+            let error = load(&Client::new(), &server.url, &path, Some(&expected), true)
+                .await
+                .expect_err("缺签名应报错");
+            assert!(
+                format!("{error:#}").contains("缺少 minisign 签名"),
+                "错误应指出签名缺失: {error}"
+            );
+            assert!(!path.exists(), "验不过的清单不得写缓存");
+
+            server.handle.join().unwrap();
+        });
+    }
+
+    /// 发布源：签名对得上就落缓存，下次同一版本可直接离线命中
+    #[test]
+    fn signed_manifest_is_cached_and_reused_offline() {
+        tauri::async_runtime::block_on(async {
+            let path = cache_path("signed");
+            let server = MockServer::spawn(BODY.to_vec());
+            let expected = signed_digest_of(BODY);
+
+            let first = load(&Client::new(), &server.url, &path, Some(&expected), true)
+                .await
+                .expect("签名正确应通过");
+            assert_eq!(first, BODY);
+            assert!(path.is_file(), "验过的清单应落缓存");
+
+            // 第二次指向不可达地址：命中缓存才可能成功
+            let second = load(&Client::new(), UNREACHABLE, &path, Some(&expected), true)
+                .await
+                .expect("签名与摘要都在缓存里，应离线命中");
+            assert_eq!(second, BODY);
+
+            server.handle.join().unwrap();
+            let _ = fs::remove_file(&path);
+        });
+    }
+
     #[test]
     fn remote_non_json_is_error() {
         tauri::async_runtime::block_on(async {
             let path = cache_path("bad-remote");
             let server = MockServer::spawn(b"<html>404 Not Found</html>".to_vec());
 
-            let error = load(&Client::new(), &server.url, &path, None)
+            let error = load(&Client::new(), &server.url, &path, None, false)
                 .await
                 .expect_err("非 JSON 应报错");
             assert!(
@@ -236,11 +300,11 @@ mod tests {
     fn atomic_write_replaces_existing_and_leaves_no_tmp() {
         let dir = app_paths::temp_dir().join("update/atomic");
         let path = dir.join("0.8.6.json");
-        write_atomic(&path, OTHER).expect("首次写入应成功");
-        write_atomic(&path, BODY).expect("覆盖写入应成功");
+        fs_utils::write_atomic(&path, OTHER).expect("首次写入应成功");
+        fs_utils::write_atomic(&path, BODY).expect("覆盖写入应成功");
 
         assert_eq!(fs::read(&path).unwrap(), BODY, "应原子覆盖为最新字节");
-        assert!(!dir.join("0.8.6.json.tmp").exists(), "临时文件不应残留");
+        assert!(!fs_utils::tmp_path(&path).exists(), "临时文件不应残留");
         let _ = fs::remove_dir_all(&dir);
     }
 }

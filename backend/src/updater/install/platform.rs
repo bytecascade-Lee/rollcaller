@@ -5,9 +5,9 @@
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
-pub use windows::launch;
+pub use windows::{ensure_updater, launch};
 
 #[cfg(not(target_os = "windows"))]
 mod unsupported;
 #[cfg(not(target_os = "windows"))]
-pub use unsupported::launch;
+pub use unsupported::{ensure_updater, launch};

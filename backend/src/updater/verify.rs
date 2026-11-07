@@ -16,12 +16,14 @@ use std::path::Path;
 pub fn verify_signature(data: &[u8], release_signature: &str, pub_key_b64: &str) -> anyhow::Result<()> {
     let public_key = minisign_verify::PublicKey::decode(
         &pub_key_b64
+            .trim()
             .base64_decode()
             .map_err(|e| anyhow!("签名公钥 base64 解码失败：{e} / {pub_key_b64}"))?,
     )
     .map_err(|e| anyhow!("minisign 公钥解析失败（外层解码后应为两行：untrusted comment 行 + 42 字节公钥 base64）：{e}"))?;
     let signature = minisign_verify::Signature::decode(
         &release_signature
+            .trim()
             .base64_decode()
             .map_err(|e| anyhow!("签名 base64 解码失败：{e} / {release_signature}"))?,
     )
@@ -40,35 +42,35 @@ pub fn verify_sha256(data: &[u8], expected_hex: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// 签名必填前置，空签名即拒绝
-fn ensure_signed(artifact: &Artifact) -> anyhow::Result<()> {
-    if artifact.signature.trim().is_empty() {
-        anyhow::bail!("清单缺少产物签名（signature 为空），拒绝校验：更新产物必须带 minisign 签名")
+/// 签名必填前置：空签名即拒绝（产物与清单同一档 fail closed）
+fn ensure_signed(signature: &str, what: &str) -> anyhow::Result<()> {
+    if signature.trim().is_empty() {
+        anyhow::bail!("{what}缺少 minisign 签名（signature 为空），拒绝校验")
     }
     Ok(())
 }
 
 /// 产物校验：签名必填 -> sha256 -> minisign
 pub fn verify_artifact(data: &[u8], artifact: &Artifact) -> anyhow::Result<()> {
-    ensure_signed(artifact)?;
+    ensure_signed(&artifact.signature, "更新产物")?;
     verify_sha256(data, &artifact.sha256)?;
     verify_signature(data, &artifact.signature, active_pubkey())?;
     Ok(())
 }
 
-// [FIXME]：清单也已经完成了 sha256 + minisig 签名，故也应该走 [`verify_artifact`]
-/// 清单校验：sha256 必验，签名有则验
+/// 清单验签：签名必填（与产物同一档）
+///
+/// sha256 不在这里比——调用方对"摘要不符"的处理是宽松的（索引抄错不该阻断更新），
+/// 而签名验不过说明清单不是发布方给的，必须直接失败。
 pub fn verify_manifest(data: &[u8], digest: &ManifestDigest) -> anyhow::Result<()> {
-    verify_sha256(data, &digest.sha256)?;
-    if let Some(signature) = digest.signature.as_deref().filter(|s| !s.trim().is_empty()) {
-        verify_signature(data, signature, active_pubkey())?;
-    }
-    Ok(())
+    let signature = digest.signature.as_deref().unwrap_or_default();
+    ensure_signed(signature, "清单")?;
+    verify_signature(data, signature, active_pubkey())
 }
 
 /// 产物校验：签名必填 -> sha256 -> minisign
 pub fn verify_artifact_path(path: &Path, artifact: &Artifact) -> anyhow::Result<()> {
-    ensure_signed(artifact)?;
+    ensure_signed(&artifact.signature, "更新产物")?;
     let data = std::fs::read(path).map_err(|e| anyhow!("读取下载产物失败（{}）：{e}", path.display()))?;
     verify_sha256(&data, &artifact.sha256)?;
     verify_signature(&data, &artifact.signature, active_pubkey())?;
@@ -215,54 +217,40 @@ mod tests {
         assert!(non_utf8.base64_decode().is_err());
     }
 
-    // [FIXME]：理论上不存在只有 sha256 的清单，清单已经全面改造为了 sha256 + minisign 签名
-    /// 清单摘要：只有 sha256 时通过
+    /// 清单签名必填：缺失或纯空白一律拒绝（与产物同一档 fail closed）
     #[test]
-    fn verify_manifest_accepts_sha256_only() {
+    fn verify_manifest_rejects_unsigned() {
         let data = br#"{"version":"0.8.6","platforms":{}}"#;
-        let digest = ManifestDigest {
+        let unsigned = ManifestDigest {
             sha256: hex::encode(sha2::Sha256::digest(data)),
             signature: None,
         };
-        verify_manifest(data, &digest).expect("sha256 正确应通过");
+        assert!(verify_manifest(data, &unsigned).is_err(), "缺签名应被拒绝");
 
-        // 空签名 / 纯空白等同于"无签名"，不能因为字段存在就误判为"要验签"
+        // 空签名 / 纯空白等同于"无签名"，不能因为字段存在就当成"有签名"
         let blank = ManifestDigest {
             signature: Some("  \n".to_string()),
-            ..digest.clone()
+            ..unsigned
         };
-        verify_manifest(data, &blank).expect("空白签名应视为无签名");
+        assert!(verify_manifest(data, &blank).is_err(), "空白签名应被拒绝");
     }
 
-    /// 清单摘要：有签名时必须验过（用当前构建的有效密钥对真实签名）
+    /// 清单签名：必须由当前构建的密钥对签出，别人的签名一律拒绝
     #[test]
-    fn verify_manifest_checks_signature_when_present() {
+    fn verify_manifest_requires_active_key_signature() {
         let data = br#"{"version":"0.8.6","platforms":{}}"#;
         let digest = ManifestDigest {
             sha256: hex::encode(sha2::Sha256::digest(data)),
             signature: Some(super::test_keys::sign(data)),
         };
-        verify_manifest(data, &digest).expect("正确签名应通过");
+        verify_manifest(data, &digest).expect("当前密钥的签名应通过");
 
-        // 摘要对但签名不属于当前公钥 → 拒绝（否则"有签名"就形同虚设）
         let (_, foreign_sig) = sign_fixture(data);
         let foreign = ManifestDigest {
             signature: Some(foreign_sig),
             ..digest
         };
-        assert!(verify_manifest(data, &foreign).is_err());
-    }
-
-    /// 清单摘要：sha256 不符即拒绝，且先于验签
-    #[test]
-    fn verify_manifest_rejects_wrong_sha256() {
-        let data = br#"{"version":"0.8.6","platforms":{}}"#;
-        let digest = ManifestDigest {
-            sha256: "00".repeat(32),
-            signature: Some(super::test_keys::sign(data)),
-        };
-        let err = verify_manifest(data, &digest).expect_err("sha256 错误应被拒绝");
-        assert!(err.to_string().contains("sha256 不匹配"), "错误应指出来源: {err}");
+        assert!(verify_manifest(data, &foreign).is_err(), "异己签名应被拒绝");
     }
 
     #[test]
@@ -295,7 +283,7 @@ mod tests {
             ..make_signed_artifact(data)
         };
         let err = verify_artifact(data, &artifact).expect_err("空签名应被拒绝");
-        assert!(err.to_string().contains("缺少产物签名"), "错误应指出签名缺失: {err}");
+        assert!(err.to_string().contains("缺少 minisign 签名"), "错误应指出签名缺失: {err}");
 
         // 空白签名同样拒绝（避免 trim 前后不一致被绕过）
         let blank = Artifact {
@@ -323,10 +311,9 @@ mod tests {
     /// 互操作测试：本机存在 tauri CLI 时，用 `tauri signer sign` 生成真实 .sig 并验证。
     ///
     /// 无 tauri CLI 的环境自动跳过（打印提示），手动复现步骤见本模块文档。
-    // [FIXME]：此处仍然存在着仅属于 Windows 平台的代码
     #[test]
     fn interop_with_tauri_signer() {
-        let tauri_cli_path = app_paths::resources_dir().join("tauri/cargo-tauri.exe");
+        let tauri_cli_path = app_paths::resources_dir().join(format!("tauri/cargo-tauri{}", std::env::consts::EXE_SUFFIX));
         let tauri_ok = std::process::Command::new(&tauri_cli_path)
             .arg("--version")
             .output()

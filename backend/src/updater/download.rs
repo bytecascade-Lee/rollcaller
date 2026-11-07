@@ -291,7 +291,7 @@ mod tests {
 
             let err = download(&artifact, &cancel, |_| {}).await.expect_err("空签名应被拒绝");
             assert!(
-                err.chain().any(|c| c.to_string().contains("缺少产物签名")),
+                err.chain().any(|c| c.to_string().contains("缺少 minisign 签名")),
                 "错误链应指出签名缺失: {err:?}"
             );
             assert!(!expect_package_path("unsigned").exists(), "签名缺失不得留下正式产物");

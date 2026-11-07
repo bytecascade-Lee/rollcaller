@@ -288,6 +288,27 @@ impl UpdateSource {
             UpdateSource::Local => "develop",
         }
     }
+
+    /// 该源的清单是否必须带签名
+    ///
+    /// 发布源由 CI 签名，`just bump` 会拦住缺签名的历史版本；本地联调源跑在开发机上、
+    /// 拿不到私钥，只能给摘要——这是唯一的例外。
+    pub fn requires_manifest_signature(&self) -> bool {
+        !matches!(self, UpdateSource::Local)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 签名豁免只允许本地联调源一家
+    #[test]
+    fn only_local_source_may_skip_manifest_signature() {
+        assert!(UpdateSource::GitHub.requires_manifest_signature());
+        assert!(UpdateSource::CNB.requires_manifest_signature());
+        assert!(!UpdateSource::Local.requires_manifest_signature());
+    }
 }
 
 /// 幅度门槛，最少需要多大的数字变化才触发更新
