@@ -20,7 +20,7 @@ def _base(source: Source) -> str:
         case Source.GITHUB:
             return f"https://github.com/{GITHUB_REPO}"
         case Source.CNB:
-            return f"https://cnb.cool/{CNB_REPO}"
+            return f"https://cnb.cool/{CNB_REPO}/-"
         case Source.DEVELOP:
             return "http://localhost:14652/rollcaller"
         case _ as unreachable:
