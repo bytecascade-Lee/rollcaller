@@ -11,12 +11,12 @@
 //! - `versions.json` 每次发布都会新增条目，缓存无意义，**每次检查都拉取**
 //!   （URL 见 [`versions_index_url`]）；
 //! - 目标版本的清单 `latest-{github|cnb|develop}.json` 以固定文件名挂在**对应版本**的 Release 下
-//!   （URL 见 [`manifest_url`]），拉取后落盘缓存 `cache_dir/update/{source}/{version}.json`
+//!   （URL 见 [`manifest_url`]），拉取后落盘缓存 `cache_dir/update/{slug}/{version}.json`
 //!   （按版本号命名、不含 v）。下次检查再次选中同一目标版本时直接读缓存，不再走网络；
 //!   versions.json 仍照常拉取以感知新版本。
-//!   ⚠️ 当前缓存只判"能否解析成 JSON"，不判"是不是这一版该有的那份字节"——内容合法但事实错误的
-//!   缓存（如 0.8.4 的 CNB 清单少了 `/-/`）永远不会被推翻，发布端覆盖上传也修不回来。
-//!   清单摘要校验（摘要写进 `versions.json`、缓存不符即删重拉）尚未实施。
+//! - 缓存的**可信判定**在 [`manifest::load`]：索引条目里带了该源的 `sha256`（+ 可选签名）时，
+//!   缓存必须能解析且摘要匹配才被沿用，否则删掉重拉——发布端覆盖上传修好的清单由此立刻生效，
+//!   不再被"内容合法但事实错误"的旧缓存永久压住（v0.8.4 CNB 清单漏 `/-/` 即此）。
 //!
 //! # `versions.json` 在 [`check`] 流程里的职责
 //!
@@ -34,7 +34,6 @@ use crate::updater::{decide, paths};
 use anyhow::anyhow;
 use reqwest::Client;
 use semver::Version;
-use std::fs;
 
 /// 检查是否有可用更新
 ///
@@ -67,27 +66,11 @@ pub async fn check(
         return Ok(None);
     };
 
-    // 3. 目标版本清单：缓存优先（命中则免网络）；缺失或缓存损坏则拉取并写缓存
+    // 3. 目标版本清单：缓存优先（命中且摘要匹配则免网络）；缺失、损坏或摘要不符则回源
+    let url = manifest_url(source, &target.version);
     let cache_path = paths::manifest(&source, &target.version);
-    let cache_content = fs::read_to_string(&cache_path).ok();
-    let manifest = match cache_content.clone().and_then(|t| manifest::parse_manifest(&t).ok()) {
-        Some(pair) => pair,
-        None => {
-            // 缓存存在但解析失败 → 视为损坏，清除后回源
-            if cache_content.is_some() {
-                let _ = fs::remove_file(&cache_path);
-            }
-            let text = fetch::fetch_json_text(client, &manifest_url(source, &target.version)).await?;
-            // 避免父目录不存在
-            if let Some(parent) = cache_path.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            if let Err(e) = fs::write(&cache_path, &text) {
-                tracing::warn!("写入更新清单缓存失败（{}）：{e}", cache_path.display());
-            }
-            manifest::parse_manifest(&text)?
-        }
-    };
+    let bytes = manifest::load(client, &url, &cache_path, target.manifests.get(source)).await?;
+    let manifest = manifest::parse_manifest(&bytes)?;
 
     // 4. 一致性复判 + 按运行形态取产物；无产物视为无更新
     validate_manifest(current, policy, &target.version, &manifest, mode)
