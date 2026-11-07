@@ -142,7 +142,7 @@ cp backend/.cargo/config.toml.example backend/.cargo/config.toml
 uv sync
 
 # 5. 脚本导入钩子
-cp scripts/tool/sitecustomize.py .venv/sitecustomize.py
+cp scripts/setup/template/sitecustomize.py .venv/sitecustomize.py
 
 # 6. 前端依赖
 cd frontend && pnpm install --frozen-lockfile && cd ..

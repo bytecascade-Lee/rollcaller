@@ -330,22 +330,27 @@ tag 统一由 `just bump` 产出，基准是仓库里最大的 `v*` tag：
 | `just bump prerelease --serial`       | 同档进号：`alpha.1` → `alpha.2`                                                      |
 | `just bump prerelease --base minor`   | 从稳定版进入预发布时改用下一个 minor 作基线（默认 patch）                            |
 
-`--dry-run` 只打印将要打的 tag，不创建。`bump` **只创建 tag，不推送**——推送才会触发发布。
+以上命令都不带目标三元组：`bump` 只做版本推算与索引校验，检查与测试由 `just check` / `just test`（以及 CI）负责。
 
-前置条件，任一不满足即拒绝执行：在 `master` 上（detached HEAD 也算失败）、已跟踪文件无未提交改动、`HEAD` 等于 `github/master`、同名 tag 尚不存在、重跑 codegen 与 ts-rs 导出后生成物仍与 `HEAD` 一致（因此要求本地能编译后端，且 `backend/.cargo/config.toml` 已由 `just setup` 生成）。
+`--dry-run` 只打印将要打的 tag（并做前置条件检查），不创建。`bump` **只创建 tag，不推送**——推送才会触发发布。
+
+前置条件，任一不满足即拒绝执行：在 `master` 上（detached HEAD 也算失败）、已跟踪文件无未提交改动、`HEAD` 等于 `github/master`、同名 tag 尚不存在、本版本已在 `resources/update/versions.json` 标定 `severity`、**所有更早版本的 GitHub 与 CNB 清单摘要与签名齐全**。
+
+「更早版本摘要与签名齐全」是**回填闸门**：每个正式发布都会把当次两源清单的 `sha256` 与 minisign 签名写进线上 `versions.json`，仓库要用 `just backfill-versions` 把它抄回来，否则下一次 `bump` 直接失败。原理见仓库根 `更新清单摘要校验-方案与实施计划.md`。
 
 ### 6.2 发布前检查清单
 
 - [ ] `develop` 上所有目标功能已合入，工作区干净
-- [ ] `just check` 通过（前端 `pnpm check` + 后端 `cargo check`）
+- [ ] `just check <triple>` 通过（`bump` 会再跑一遍，这里只是省时间）
 - [ ] `CHANGELOG.md` 已新增本版本章节：`## 0.8.2 {#0-8-2}`，并更新顶部目录
 - [ ] `RELEASE_NOTES.md` 已新增本版本章节：`## 0.8.2 {#v0-8-2}`（面向用户，只写可感知的变化），并更新顶部目录
 - [ ] `resources/update/versions.json` 已登记本版本的 `severity`
+- [ ] `just backfill-versions --check` 通过（更早版本的两源摘要齐全，且与线上一致）
 - [ ] `master` 上尚无同名 tag（`just bump` 会自己拦住）
 
 CI 的 `prepare` 阶段只解析 `RELEASE_NOTES.md`，要求章节**存在、唯一、非空**，任一不满足即失败（`--draft` 时跳过该校验）。`CHANGELOG.md` 与两份文档的顶部目录不参与校验，但缺失属文档缺陷。章节写法与内容要求见 `docs/standards/CHANGELOG_STANDARD.md` 与 `docs/standards/RELEASE_NOTES_STANDARD.md`。
 
-`resources/update/versions.json` 是仓库维护的版本索引，CI 从里面读 `severity`；查不到会告警并按 `normal` 兜底，然后写进构建出的索引。
+`resources/update/versions.json` 是仓库维护的版本索引，CI 从里面读 `severity` 与历史摘要。`bump` 要求本版本条目必须存在（不再有 `normal` 兜底）；`release_ci` 仍保留兜底告警，但它同时会把索引里**高于本次发布**的条目剔除——索引一旦带上尚未发布的版本，客户端就会去取不存在的清单。
 
 ### 6.3 发布步骤
 
@@ -369,7 +374,7 @@ git merge --no-ff develop -m "release: 发布版本 v0.8.2"
 git push github master
 
 # 3. 在 master 的最新提交上生成 tag，再推送触发 CI
-just bump patch          # 先 --dry-run 确认推算结果是 v0.8.2
+just bump patch   # 先 --dry-run 确认推算结果是 v0.8.2
 git push github v0.8.2
 ```
 
@@ -557,27 +562,27 @@ PR 标题遵循 §七 的提交信息格式；描述写清动机、影响面和�
 
 ## 十二、命令速查
 
-| 场景                                            | 命令                                                                   |
-|:------------------------------------------------|:-----------------------------------------------------------------------|
-| 克隆（默认检出 develop）                        | `git clone git@github.com:bytecascade-Lee/rollcaller.git`              |
-| 初始化环境                                      | `just setup`（等价：`uv run ./scripts/setup.py`）                      |
-| 体检环境                                        | `just doctor`（只读）                                                  |
-| 同步 develop（安全）                            | `git pull --ff-only github develop`                                    |
-| 从 develop 建分支                               | `git checkout -b feat/xxx develop`                                     |
-| 未推送分支同步 develop                          | `git rebase github/develop`                                            |
-| 已推送分支同步 develop                          | `git merge github/develop`                                             |
-| 合并功能到 develop                              | `git merge --no-ff feat/xxx -m "Merge branch 'feat/xxx' into develop"` |
-| 创建 hotfix                                     | `git checkout -b hotfix/v0.8.3/xxx master`                             |
-| 合并 hotfix 到 master                           | `git merge --no-ff hotfix/v0.8.3/xxx`                                  |
-| 修复摘到 hotfix                                 | `git cherry-pick -x <sha> <sha>`（**显式列 SHA，禁用范围写法**）       |
-| 修复摘回 develop（例外）                        | `git cherry-pick -x <sha>`（**永不 merge hotfix 进 develop**）         |
-| 预览下一个版本号                                | `just bump patch --dry-run`（档位可换 major / minor / prerelease）     |
-| 打 tag                                          | `just bump patch`（在 `master` 上，只创建不推送）                      |
-| 本地构建                                        | `just build 0.8.2 x86_64-pc-windows-msvc`                              |
-| 本地发布（驻留更新服务，需先构建同版本）        | `just release 0.8.2`                                                   |
-| 推 tag 触发发布                                 | `git push github v0.8.2`                                               |
-| 删除远程分支                                    | `git push github --delete <branch>`                                    |
-| 查看提交计数                                    | `git rev-list --count HEAD`                                            |
-| 查看拓扑                                        | `git log --oneline --graph --all`                                      |
+| 场景                                     | 命令                                                                   |
+|:-----------------------------------------|:-----------------------------------------------------------------------|
+| 克隆（默认检出 develop）                 | `git clone git@github.com:bytecascade-Lee/rollcaller.git`              |
+| 初始化环境                               | `just setup`（等价：`uv run ./scripts/setup.py`）                      |
+| 体检环境                                 | `just doctor`（只读）                                                  |
+| 同步 develop（安全）                     | `git pull --ff-only github develop`                                    |
+| 从 develop 建分支                        | `git checkout -b feat/xxx develop`                                     |
+| 未推送分支同步 develop                   | `git rebase github/develop`                                            |
+| 已推送分支同步 develop                   | `git merge github/develop`                                             |
+| 合并功能到 develop                       | `git merge --no-ff feat/xxx -m "Merge branch 'feat/xxx' into develop"` |
+| 创建 hotfix                              | `git checkout -b hotfix/v0.8.3/xxx master`                             |
+| 合并 hotfix 到 master                    | `git merge --no-ff hotfix/v0.8.3/xxx`                                  |
+| 修复摘到 hotfix                          | `git cherry-pick -x <sha> <sha>`（**显式列 SHA，禁用范围写法**）       |
+| 修复摘回 develop（例外）                 | `git cherry-pick -x <sha>`（**永不 merge hotfix 进 develop**）         |
+| 预览下一个版本号                         | `just bump patch --dry-run`（档位可换 major / minor / prerelease）     |
+| 打 tag                                   | `just bump patch`（在 `master` 上，只创建不推送）                      |
+| 本地构建                                 | `just build 0.8.2 x86_64-pc-windows-msvc`                              |
+| 本地发布（驻留更新服务，需先构建同版本） | `just release 0.8.2`                                                   |
+| 推 tag 触发发布                          | `git push github v0.8.2`                                               |
+| 删除远程分支                             | `git push github --delete <branch>`                                    |
+| 查看提交计数                             | `git rev-list --count HEAD`                                            |
+| 查看拓扑                                 | `git log --oneline --graph --all`                                      |
 
 本地 `just build` / `just release` 同样要签名：缺 `TAURI_SIGNING_PRIVATE_KEY` 或 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 会直接失败，密钥材料放在 `env/`（不纳入版本控制）。
