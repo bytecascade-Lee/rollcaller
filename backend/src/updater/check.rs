@@ -2,10 +2,10 @@
 //!
 //! # 判定语义分层
 //!
-//! - 纯策略判定在 `service/update/version.rs::decide`（不认识 severity，保持纯粹"通道门禁 + 幅度门槛"语义）；
-//! - severity 豁免与 critical 强制在 [`evaluate`] 融合（本模块 check 与 download 入口复核共用同一个纯函数，判定语义只写一次）；
+//! - 纯策略判定在 `service/update/decide::decide`（不认识 severity，保持纯粹"通道门禁 + 幅度门槛"语义）；
+//! - severity 豁免与 critical 强制在 [`decide::evaluate`] 融合（本模块 check 与 download 入口复核共用同一个纯函数，判定语义只写一次）；
 //! - 索引 ↔ 清单的一致性复判暂在本模块实现（见 [`validate_manifest`]）。
-//!   该职责的归宿是 version.rs——后期在 version 中新增函数统一处理 severity 后迁走。
+//!   该职责的归宿是 decide——后期在 version 中新增函数统一处理 severity 后迁走。
 //!
 //! # 数据获取与缓存
 //!
@@ -22,7 +22,7 @@
 //! # `versions.json` 在 [`check`] 流程里的职责
 //!
 //! 版本索引随每次发布附带全部历史版本的 severity。
-//! [`check`] 据此在 `(current, latest]` 区间内**从高到低**扫描，取首个被 [`evaluate`] 放行的版本作为目标版本。
+//! [`check`] 据此在 `(current, latest]` 区间内**从高到低**扫描，取首个被 [`decide::evaluate`] 放行的版本作为目标版本。
 //! - 例：latest 0.4.6 是 normal 补丁，被 Minor 门槛挡下时，0.4.5 important 通过豁免入选。
 //!
 
@@ -32,10 +32,11 @@ use crate::updater::constant::{
     PLACEHOLDER, SPECIFIED_LATEST_MANIFEST_CNB, SPECIFIED_LATEST_MANIFEST_DEVELOP, SPECIFIED_LATEST_MANIFEST_GITHUB,
     VERSIONS_INDEX_CNB, VERSIONS_INDEX_DEVELOP, VERSIONS_INDEX_GITHUB,
 };
-use crate::updater::entity::{FoundUpdate, HistoryVersion, Policy, UpdateInfo, UpdateManifest};
-use crate::updater::enums::{Severity, UpdateDecision, UpdateLevel, UpdateSource};
-use crate::updater::paths;
-use crate::updater::version::decide;
+use crate::updater::decide::decide;
+use crate::updater::model::{
+    FoundUpdate, HistoryVersion, Policy, Severity, UpdateDecision, UpdateInfo, UpdateLevel, UpdateManifest, UpdateSource,
+};
+use crate::updater::{decide, paths};
 use anyhow::{anyhow, Context};
 use reqwest::Client;
 use semver::Version;
@@ -98,41 +99,6 @@ pub async fn check(
     validate_manifest(current, policy, &target.version, &manifest, mode)
 }
 
-/// 版本判定 + severity 融合
-///
-/// # severity 语义
-///
-/// | decide 返回 Skip 的原因 | normal | important | critical |
-/// |---|---|---|---|
-/// | 幅度不足 | 不通知 | **豁免 → 通知** | 豁免 → 通知 |
-/// | 用户关闭更新 | 不通知 | 不通知 | **穿透 → 通知（强制更新）** |
-/// | Stable 通道拦预发布 | 不豁免 | 不豁免 | 不豁免 |
-/// | 同版本 / 降级 | 不豁免 | 不豁免 | 不豁免 |
-///
-/// 实现方式：
-/// - 豁免 = 仅把幅度门槛临时降到 `Patch`（等价"无视幅度门槛"），
-///   其余门禁原样交给 `decide`——因此无需给 `decide` 增加 Skip 原因，
-///   也不破坏其纯 Copy 枚举形态。
-/// - 强制更新 = critical，即使 level=Never 也穿透放行。
-pub fn evaluate(current: &Version, latest: &Version, policy: &Policy, severity: Severity) -> UpdateDecision {
-    // 用户关闭更新（level=UpdateLevel::Never）：仅 critical（强制更新）穿透放行
-    if policy.level == UpdateLevel::Never {
-        return if severity == Severity::Critical {
-            UpdateDecision::Update
-        } else {
-            UpdateDecision::Skip
-        };
-    }
-    // severity 豁免：normal 之外把幅度门槛降到 Patch，等价"无视幅度门槛"；
-    // 通道门禁 / 同版本 / 降级 / 逃逸 / 递进由 decide 原样保留
-    let level = if severity == Severity::Normal {
-        policy.level
-    } else {
-        UpdateLevel::Patch
-    };
-    decide(current, latest, level, policy.channel)
-}
-
 /// 版本索引地址：`releases/latest/download/versions.json`
 ///
 /// 本地数据源存在时指向本地服务的同构路径；否则按 source 返回远端常量。
@@ -184,7 +150,7 @@ fn pick_target(current: &Version, candidates: &[HistoryVersion], policy: &Policy
     let mut newer: Vec<&HistoryVersion> = candidates.iter().filter(|hv| hv.version > *current).collect();
     newer.sort_by(|a, b| b.version.cmp(&a.version));
     for hv in newer {
-        match evaluate(current, &hv.version, policy, hv.severity) {
+        match decide::evaluate(current, &hv.version, policy, hv.severity) {
             UpdateDecision::Update => return Ok(Some(hv.clone())),
             UpdateDecision::Skip => continue,
         }
@@ -216,7 +182,7 @@ fn validate_manifest(
             manifest.version
         ));
     }
-    match evaluate(current, &manifest.version, policy, manifest.severity) {
+    match decide::evaluate(current, &manifest.version, policy, manifest.severity) {
         UpdateDecision::Skip => {
             return Err(anyhow!(
                 "版本索引与清单不一致：{} 的清单标注的 severity 不足以放行本次更新",

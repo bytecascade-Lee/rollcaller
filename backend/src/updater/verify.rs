@@ -34,10 +34,10 @@
 //! 4. 将 `<文件>.sig` 的**完整内容**（已是 base64(minisign 签名文本)）填入清单的 `signature` 字段；
 //! 5. 运行互操作测试 `cargo test --lib service::update::verify::interop_with_tauri_signer` 验证（本机无 tauri CLI 时自动跳过并打印提示，此时可依上述步骤手动验证）。
 
-use crate::common::constant::secrets::ROLLCALLER_UPDATE_PUBKEY;
 use crate::common::ext::encode_ext::Base64Ext;
 use crate::common::ext::hash_ext::HashExt;
-use crate::updater::entity::Artifact;
+use crate::updater::model::Artifact;
+use crate::updater::model::ROLLCALLER_UPDATE_PUBKEY;
 use anyhow::anyhow;
 use std::path::Path;
 

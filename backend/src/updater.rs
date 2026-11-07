@@ -38,9 +38,8 @@
 
 use crate::config::app_paths::{current_mode, AppMode};
 use crate::state::http_client;
-use crate::updater::entity::{Artifact, DownloadProgress, Policy};
-use crate::updater::enums::{UpdateDecision, UpdateError, UpdateSource, UpdateStatus, UpdateView};
 use anyhow::anyhow;
+use model::{Artifact, DownloadProgress, Policy, UpdateDecision, UpdateError, UpdateSource, UpdateStatus, UpdateView};
 use semver::Version;
 use state::UpdaterState;
 use std::path::{Path, PathBuf};
@@ -48,14 +47,15 @@ use std::time::{Duration, Instant};
 
 pub mod check;
 pub mod constant;
+pub mod decide;
 pub mod download;
-pub mod entity;
-pub mod enums;
 pub mod install;
+pub mod model;
 pub mod paths;
+pub mod remote;
 pub mod state;
+pub mod urls;
 pub mod verify;
-pub mod version;
 
 /// 下载进度广播的最小间隔（进度过高频时会节流）
 const PROGRESS_BROADCAST_INTERVAL: Duration = Duration::from_millis(100);
@@ -223,7 +223,7 @@ pub async fn download(
     // 入口复核：策略变更 → 旧凭据作废，落 Error(Check) 要求重查（基线版本为命令层传入，
     // 与 check 同源；会话不再保存 current_version）
     let decision = match session.info.as_ref().map(|i| &i.version) {
-        Some(target) => check::evaluate(current_version, target, &current_policy(), session.severity),
+        Some(target) => decide::evaluate(current_version, target, &current_policy(), session.severity),
         None => return Err("更新凭据不完整，请重新执行 check".to_string()),
     };
     if decision != UpdateDecision::Update {

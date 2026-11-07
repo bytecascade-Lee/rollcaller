@@ -1,4 +1,4 @@
-use crate::updater::enums::{UpdateChannel, UpdateLevel};
+use crate::updater::model::{UpdateChannel, UpdateLevel};
 
 /// 默认更新等级策略：`level = Patch`
 pub const DEFAULT_UPDATE_LEVEL: UpdateLevel = UpdateLevel::Patch;

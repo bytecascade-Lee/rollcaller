@@ -19,7 +19,7 @@
 //! 命令返回与广播共用同一类型与同一 apply 逻辑；进度帧是独立窄类型。
 
 use crate::updater;
-use crate::updater::enums::UpdateView;
+use crate::updater::model::UpdateView;
 use crate::updater::state::UpdaterState;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};

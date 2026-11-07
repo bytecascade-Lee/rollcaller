@@ -33,7 +33,7 @@
 //! 仅需 sha256 的 Go updater（更新器）**不走本入口**，改直接调用 `verify::verify_sha256`。
 
 use crate::state::http_client;
-use crate::updater::entity::{Artifact, DownloadProgress};
+use crate::updater::model::{Artifact, DownloadProgress};
 use crate::updater::paths;
 use crate::updater::verify::verify_artifact_path;
 use anyhow::anyhow;

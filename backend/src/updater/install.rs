@@ -14,6 +14,7 @@ mod common;
 mod develop;
 mod nsis;
 mod portable;
+pub mod windows;
 
 use crate::config::app_paths::AppMode;
 #[cfg(target_os = "windows")]

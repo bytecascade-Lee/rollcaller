@@ -1,7 +1,7 @@
 use crate::common::constant::sys::{ARCH, OS};
 use crate::state::http_client;
 use crate::updater::constant::{PLACEHOLDER, UPDATER_MANIFEST_CNB, UPDATER_VERSION};
-use crate::updater::entity::Artifact;
+use crate::updater::model::Artifact;
 use crate::updater::paths;
 use crate::updater::verify::{verify_artifact, verify_sha256};
 use anyhow::{anyhow, Context};
