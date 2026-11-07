@@ -78,9 +78,21 @@ fmt:
 
 # 脚本工具
 
-# 打发布 tag，用法: just bump patch / just bump prerelease --serial
+# 打发布 tag（只校验版本索引，不跑检查与测试），用法: just bump patch / just bump prerelease --serial
 bump *args:
     {{ uv }} run python {{ scripts_dir }}/bump.py {{ args }}
+
+# 把线上清单的 sha256 回填进仓库版本索引，用法: just backfill-versions / just backfill-versions -v 0.8.6
+backfill-versions *args:
+    {{ uv }} run python {{ scripts_dir }}/backfill_versions.py {{ args }}
+
+# 发布后自检：逐源逐版本核对线上清单 / 版本索引，用法: just verify-release / just verify-release -v 0.8.5
+verify-release *args:
+    {{ uv }} run python {{ scripts_dir }}/verify_release.py {{ args }}
+
+# 重新生成代码（开发时手动刷新，流水线不走这里）
+generate:
+    {{ uv }} run python {{ scripts_dir }}/generate.py
 
 # 生成提交信息
 gen-msg *args:
