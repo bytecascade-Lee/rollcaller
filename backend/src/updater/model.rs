@@ -260,7 +260,7 @@ impl UpdateSession {
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, TS)]
 pub enum UpdateSource {
-    Github,
+    GitHub,
     CNB,
     Local,
 }
@@ -268,7 +268,7 @@ pub enum UpdateSource {
 impl fmt::Display for UpdateSource {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
-            UpdateSource::Github => "Github",
+            UpdateSource::GitHub => "GitHub",
             UpdateSource::CNB => "CNB",
             UpdateSource::Local => "Local",
         };

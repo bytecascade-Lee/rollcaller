@@ -28,15 +28,15 @@
 
 use crate::common::constant::sys::{ARCH, OS};
 use crate::config::app_paths::AppMode;
-use crate::updater::constant::{
-    PLACEHOLDER, SPECIFIED_LATEST_MANIFEST_CNB, SPECIFIED_LATEST_MANIFEST_DEVELOP, SPECIFIED_LATEST_MANIFEST_GITHUB,
-    VERSIONS_INDEX_CNB, VERSIONS_INDEX_DEVELOP, VERSIONS_INDEX_GITHUB,
-};
 use crate::updater::decide::decide;
 use crate::updater::model::{
     FoundUpdate, HistoryVersion, Policy, Severity, UpdateDecision, UpdateInfo, UpdateLevel, UpdateManifest, UpdateSource,
 };
 use crate::updater::remote::{fetch, index, manifest};
+use crate::updater::urls::{
+    PLACEHOLDER, SPECIFIED_LATEST_MANIFEST_CNB, SPECIFIED_LATEST_MANIFEST_DEVELOP, SPECIFIED_LATEST_MANIFEST_GITHUB,
+    VERSIONS_INDEX_CNB, VERSIONS_INDEX_DEVELOP, VERSIONS_INDEX_GITHUB,
+};
 use crate::updater::{decide, paths};
 use anyhow::{anyhow, Context};
 use reqwest::Client;
@@ -105,7 +105,7 @@ pub async fn check(
 /// 本地数据源存在时指向本地服务的同构路径；否则按 source 返回远端常量。
 fn versions_index_url(source: UpdateSource) -> String {
     match source {
-        UpdateSource::Github => VERSIONS_INDEX_GITHUB,
+        UpdateSource::GitHub => VERSIONS_INDEX_GITHUB,
         UpdateSource::CNB => VERSIONS_INDEX_CNB,
         UpdateSource::Local => VERSIONS_INDEX_DEVELOP,
     }
@@ -117,7 +117,7 @@ fn versions_index_url(source: UpdateSource) -> String {
 /// 按 source 返回远端模板并替换 [`PLACEHOLDER`]。
 fn latest_manifest_url(source: UpdateSource, version: &Version) -> String {
     match source {
-        UpdateSource::Github => SPECIFIED_LATEST_MANIFEST_GITHUB,
+        UpdateSource::GitHub => SPECIFIED_LATEST_MANIFEST_GITHUB,
         UpdateSource::CNB => SPECIFIED_LATEST_MANIFEST_CNB,
         UpdateSource::Local => SPECIFIED_LATEST_MANIFEST_DEVELOP,
     }
