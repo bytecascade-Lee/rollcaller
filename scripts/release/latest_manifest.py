@@ -133,8 +133,8 @@ def to_dict(manifest: Manifest) -> dict[str, object]:
 
 
 def write(manifest: Manifest, path: Path) -> Path:
-    """写入 latest-*.json，2 空格缩进、UTF-8"""
+    """写入 latest-*.json，2 空格缩进、UTF-8、LF 行尾"""
     path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(to_dict(manifest), ensure_ascii=False, indent=2)
-    path.write_text(text, encoding="UTF-8")
+    path.write_text(text, encoding="UTF-8", newline="\n")
     return path
