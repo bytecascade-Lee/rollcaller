@@ -1,5 +1,8 @@
 //! 下载产物的签名验证（minisign / Ed25519）与 sha256 完整性校验
 //!
+//! 同一套原语也用于**版本清单**字节（[`verify_manifest`]）：那边只强制 sha256，签名有则验——
+//! 清单签名在索引自身被签名之前不是信任锚，详见该函数的文档。
+//!
 //! # 双层内容约定
 //!
 //! `manifest.signature` 与公钥文件 [`ROLLCALLER_UPDATE_PUBKEY`] 的原始内容都是 **base64(minisign 文本)**：
@@ -37,7 +40,7 @@
 use crate::common::ext::encode_ext::Base64Ext;
 use crate::common::ext::hash_ext::HashExt;
 use crate::updater::constant::ROLLCALLER_UPDATE_PUBKEY;
-use crate::updater::model::Artifact;
+use crate::updater::model::{Artifact, ManifestDigest};
 use anyhow::anyhow;
 use std::path::Path;
 
@@ -92,6 +95,22 @@ pub fn verify_artifact(data: &[u8], artifact: &Artifact) -> anyhow::Result<()> {
     ensure_signed(artifact)?;
     verify_sha256(data, &artifact.sha256)?;
     verify_signature(data, &artifact.signature, active_pubkey())?;
+    Ok(())
+}
+
+/// 清单字节的校验入口：sha256 必验 → 有签名再验签
+///
+/// 与 [`verify_artifact`] 的两点差异，都是刻意的：
+/// - **签名非必填**：清单签名在索引未被签名之前不是信任锚（能改索引的人也能换签名），
+///   它的作用是与产物链路共用一套约定、并为"索引签名"预铺路；而 sha256 覆盖的是
+///   "这份字节是不是索引所说的那份"，正是缓存自愈需要的那个问题。
+/// - **不复用 [`verify_artifact`]**：那边要 `Artifact`（url / size），语义是"下载产物"，
+///   硬套会让清单与产物的约束纠缠在一起。
+pub fn verify_manifest(data: &[u8], digest: &ManifestDigest) -> anyhow::Result<()> {
+    verify_sha256(data, &digest.sha256)?;
+    if let Some(signature) = digest.signature.as_deref().filter(|s| !s.trim().is_empty()) {
+        verify_signature(data, signature, active_pubkey())?;
+    }
     Ok(())
 }
 
@@ -274,6 +293,55 @@ mod tests {
         assert!("!!!".base64_decode().is_err());
         let non_utf8 = base64::engine::general_purpose::STANDARD.encode([0xFF, 0xFE]);
         assert!(non_utf8.base64_decode().is_err());
+    }
+
+    /// 清单摘要：只有 sha256 时通过（老/匿名清单的常规形态）
+    #[test]
+    fn verify_manifest_accepts_sha256_only() {
+        let data = br#"{"version":"0.8.6","platforms":{}}"#;
+        let digest = ManifestDigest {
+            sha256: hex::encode(sha2::Sha256::digest(data)),
+            signature: None,
+        };
+        verify_manifest(data, &digest).expect("sha256 正确应通过");
+
+        // 空签名 / 纯空白等同于"无签名"，不能因为字段存在就误判为"要验签"
+        let blank = ManifestDigest {
+            signature: Some("  \n".to_string()),
+            ..digest.clone()
+        };
+        verify_manifest(data, &blank).expect("空白签名应视为无签名");
+    }
+
+    /// 清单摘要：有签名时必须验过（用当前构建的有效密钥对真实签名）
+    #[test]
+    fn verify_manifest_checks_signature_when_present() {
+        let data = br#"{"version":"0.8.6","platforms":{}}"#;
+        let digest = ManifestDigest {
+            sha256: hex::encode(sha2::Sha256::digest(data)),
+            signature: Some(super::test_keys::sign(data)),
+        };
+        verify_manifest(data, &digest).expect("正确签名应通过");
+
+        // 摘要对但签名不属于当前公钥 → 拒绝（否则"有签名"就形同虚设）
+        let (_, foreign_sig) = sign_fixture(data);
+        let foreign = ManifestDigest {
+            signature: Some(foreign_sig),
+            ..digest
+        };
+        assert!(verify_manifest(data, &foreign).is_err());
+    }
+
+    /// 清单摘要：sha256 不符即拒绝，且**先于**验签（sig 正确也不能救）
+    #[test]
+    fn verify_manifest_rejects_wrong_sha256() {
+        let data = br#"{"version":"0.8.6","platforms":{}}"#;
+        let digest = ManifestDigest {
+            sha256: "00".repeat(32),
+            signature: Some(super::test_keys::sign(data)),
+        };
+        let err = verify_manifest(data, &digest).expect_err("sha256 错误应被拒绝");
+        assert!(err.to_string().contains("sha256 不匹配"), "错误应指出来源: {err}");
     }
 
     #[test]
