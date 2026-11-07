@@ -34,12 +34,12 @@
 
 use crate::state::http_client;
 use crate::updater::model::{Artifact, DownloadProgress};
-use crate::updater::paths;
 use crate::updater::verify::verify_artifact_path;
+use crate::updater::{paths, verify};
 use anyhow::anyhow;
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// 流式下载 `artifact.url`，校验后重命名为正式产物并返回其路径
@@ -309,5 +309,27 @@ mod tests {
 
             server.handle.join().unwrap();
         });
+    }
+}
+
+/// 就绪锚点判定：产物文件存在 → 先以 size 短路（不符视为损坏清除）→ 再整体验签
+///
+/// 返回 `Some(路径)` 表示"已下载待安装"（可跳过下载直接安装）；
+/// 不存在 / 校验失败均返回 `None`，且校验失败或 size 不符时清除文件待重下。
+pub fn ready(path: &Path, artifact: &Artifact) -> Option<PathBuf> {
+    if !path.is_file() {
+        return None;
+    }
+    let size_ok = path.metadata().map(|m| m.len()).ok() == Some(artifact.size);
+    if !size_ok {
+        let _ = std::fs::remove_file(path);
+        return None;
+    }
+    match verify::verify_artifact_path(path, artifact) {
+        Ok(()) => Some(path.to_path_buf()),
+        Err(_) => {
+            let _ = std::fs::remove_file(path);
+            None
+        }
     }
 }

@@ -3,16 +3,11 @@ use crate::state::http_client;
 use crate::updater::constant::UPDATER_VERSION;
 use crate::updater::model::Artifact;
 use crate::updater::paths;
-use crate::updater::urls::{PLACEHOLDER, UPDATER_MANIFEST_CNB};
+use crate::updater::urls;
 use crate::updater::verify::{verify_artifact, verify_sha256};
 use anyhow::{anyhow, Context};
 use std::fs;
 use std::path::{Path, PathBuf};
-
-/// 锁定版本的更新器清单地址
-fn updater_manifest_url() -> String {
-    UPDATER_MANIFEST_CNB.replace(PLACEHOLDER, UPDATER_VERSION)
-}
 
 /// 清单里属于当前平台的那一项（产物名 / sha256 / 字节数 / 签名都由清单给）
 fn platform_artifact(manifest: &serde_json::Value) -> anyhow::Result<Artifact> {
@@ -112,7 +107,7 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
 
     // 2. 拉锁定版本（tag）的清单
     let text = http_client::client()
-        .get(updater_manifest_url())
+        .get(urls::updater_manifest_url(UPDATER_VERSION))
         .header("Accept", "application/json")
         .send()
         .await
@@ -172,12 +167,12 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
 mod tests {
     use super::*;
 
-    /// 清单地址由锁定版本拼出，不留占位符
+    /// 更新器清单按锁定版本的 tag 取，不用 latest
     #[test]
-    fn manifest_url_uses_pinned_version() {
-        let url = updater_manifest_url();
-        assert!(!url.contains(PLACEHOLDER), "占位符未替换：{url}");
+    fn updater_manifest_url_is_pinned_to_locked_version() {
+        let url = urls::updater_manifest_url(UPDATER_VERSION);
         assert!(url.contains(&format!("/v{UPDATER_VERSION}/")), "tag 不符：{url}");
+        assert!(!url.contains("latest/download"), "不得退化成 latest：{url}");
     }
 
     /// 清单解析：取当前平台那一项，签名缺省为空（将来有则照抄）

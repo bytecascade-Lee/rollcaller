@@ -24,7 +24,7 @@ pub struct UpdateManifest {
     pub severity: Severity,
 
     #[serde(default)]
-    pub platforms: OS,
+    pub platforms: ManifestPlatforms,
 }
 
 impl UpdateManifest {
@@ -49,14 +49,14 @@ impl UpdateManifest {
 /// 系统分组
 #[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize, TS)]
 #[serde(default)]
-pub struct OS {
-    pub windows: Option<Arch>,
+pub struct ManifestPlatforms {
+    pub windows: Option<ManifestArches>,
 }
 
 /// 架构分组
 #[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize, TS)]
 #[serde(default)]
-pub struct Arch {
+pub struct ManifestArches {
     pub x86_64: Option<Payloads>,
     pub arm64: Option<Payloads>,
 }
@@ -273,6 +273,25 @@ impl fmt::Display for UpdateSource {
             UpdateSource::Local => "Local",
         };
         write!(f, "{}", s)
+    }
+}
+
+impl UpdateSource {
+    /// 源的小写标识（`github` / `cnb` / `develop`）
+    ///
+    /// 这是**同一个源的唯一外部名字**，三处必须逐字符一致，全部由本函数产出：
+    /// - 清单文件名：`latest-{slug}.json`（见 [`crate::updater::urls::manifest_name`]）；
+    /// - 清单缓存目录：`cache/update/{slug}/`（见 [`crate::updater::paths::manifest`]）；
+    /// - 版本索引里 `manifests` 的键（发布端 `Source` 的 `StrEnum` 取值即这三串）。
+    ///
+    /// 注意 `Local` 的 slug 是 `develop`（对齐发布端 `Source.DEVELOP`），不是 `local`；
+    /// [`fmt::Display`] 只用于日志，不要拿它拼路径或文件名。
+    pub fn slug(&self) -> &'static str {
+        match self {
+            UpdateSource::GitHub => "github",
+            UpdateSource::CNB => "cnb",
+            UpdateSource::Local => "develop",
+        }
     }
 }
 

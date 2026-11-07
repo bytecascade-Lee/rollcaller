@@ -2,22 +2,21 @@
 //!
 //! # 判定语义分层
 //!
-//! - 纯策略判定在 `service/update/decide::decide`（不认识 severity，保持纯粹"通道门禁 + 幅度门槛"语义）；
+//! - 纯策略判定在 `updater/decide.rs::decide`（不认识 severity，保持纯粹"通道门禁 + 幅度门槛"语义）；
 //! - severity 豁免与 critical 强制在 [`decide::evaluate`] 融合（本模块 check 与 download 入口复核共用同一个纯函数，判定语义只写一次）；
-//! - 索引 ↔ 清单的一致性复判暂在本模块实现（见 [`validate_manifest`]）。
-//!   该职责的归宿是 decide——后期在 version 中新增函数统一处理 severity 后迁走。
+//! - 索引 ↔ 清单的一致性复判在本模块 [`validate_manifest`]——清单才是该版本的最终发布数据。
 //!
 //! # 数据获取与缓存
 //!
 //! - `versions.json` 每次发布都会新增条目，缓存无意义，**每次检查都拉取**
-//!   `releases/latest/download/versions.json`（URL 见 [`versions_index_url`]）；
+//!   （URL 见 [`versions_index_url`]）；
 //! - 目标版本的清单 `latest-{github|cnb|develop}.json` 以固定文件名挂在**对应版本**的 Release 下
-//!   （URL 模板见 [`latest_manifest_url`]，[`PLACEHOLDER`] 占位替换），
-//!   拉取后落盘缓存 `cache_dir/update/{source}/{version}.json`（按版本号命名、不含 v）。
-//!   下次检查再次选中同一目标版本时直接读缓存，不再走网络；versions.json 仍照常拉取以感知新版本。
-//! - 起始版本语义：版本索引/清单/签名自 `common::constant::update::*_FILE_START_*`
-//!   标定的版本起才存在，更早的历史版本在 GitHub/CNB 上均无对应文件。
-//!   由于目标版本恒不低于起始版本（索引候选均在其上），本流程无需对起始版本做特判。
+//!   （URL 见 [`manifest_url`]），拉取后落盘缓存 `cache_dir/update/{source}/{version}.json`
+//!   （按版本号命名、不含 v）。下次检查再次选中同一目标版本时直接读缓存，不再走网络；
+//!   versions.json 仍照常拉取以感知新版本。
+//!   ⚠️ 当前缓存只判"能否解析成 JSON"，不判"是不是这一版该有的那份字节"——内容合法但事实错误的
+//!   缓存（如 0.8.4 的 CNB 清单少了 `/-/`）永远不会被推翻，发布端覆盖上传也修不回来。
+//!   清单摘要校验（摘要写进 `versions.json`、缓存不符即删重拉）尚未实施。
 //!
 //! # `versions.json` 在 [`check`] 流程里的职责
 //!
@@ -28,17 +27,11 @@
 
 use crate::common::constant::sys::{ARCH, OS};
 use crate::config::app_paths::AppMode;
-use crate::updater::decide::decide;
-use crate::updater::model::{
-    FoundUpdate, HistoryVersion, Policy, Severity, UpdateDecision, UpdateInfo, UpdateLevel, UpdateManifest, UpdateSource,
-};
+use crate::updater::model::{FoundUpdate, Policy, UpdateDecision, UpdateInfo, UpdateManifest, UpdateSource};
 use crate::updater::remote::{fetch, index, manifest};
-use crate::updater::urls::{
-    PLACEHOLDER, SPECIFIED_LATEST_MANIFEST_CNB, SPECIFIED_LATEST_MANIFEST_DEVELOP, SPECIFIED_LATEST_MANIFEST_GITHUB,
-    VERSIONS_INDEX_CNB, VERSIONS_INDEX_DEVELOP, VERSIONS_INDEX_GITHUB,
-};
+use crate::updater::urls::{manifest_url, versions_index_url};
 use crate::updater::{decide, paths};
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use reqwest::Client;
 use semver::Version;
 use std::fs;
@@ -84,7 +77,7 @@ pub async fn check(
             if cache_content.is_some() {
                 let _ = fs::remove_file(&cache_path);
             }
-            let text = fetch::fetch_json_text(client, &latest_manifest_url(source, &target.version)).await?;
+            let text = fetch::fetch_json_text(client, &manifest_url(source, &target.version)).await?;
             // 避免父目录不存在
             if let Some(parent) = cache_path.parent() {
                 fs::create_dir_all(parent)?;
@@ -98,30 +91,6 @@ pub async fn check(
 
     // 4. 一致性复判 + 按运行形态取产物；无产物视为无更新
     validate_manifest(current, policy, &target.version, &manifest, mode)
-}
-
-/// 版本索引地址：`releases/latest/download/versions.json`
-///
-/// 本地数据源存在时指向本地服务的同构路径；否则按 source 返回远端常量。
-fn versions_index_url(source: UpdateSource) -> String {
-    match source {
-        UpdateSource::GitHub => VERSIONS_INDEX_GITHUB,
-        UpdateSource::CNB => VERSIONS_INDEX_CNB,
-        UpdateSource::Local => VERSIONS_INDEX_DEVELOP,
-    }
-    .to_string()
-}
-
-/// 指定版本 Release 的清单地址
-///
-/// 按 source 返回远端模板并替换 [`PLACEHOLDER`]。
-fn latest_manifest_url(source: UpdateSource, version: &Version) -> String {
-    match source {
-        UpdateSource::GitHub => SPECIFIED_LATEST_MANIFEST_GITHUB,
-        UpdateSource::CNB => SPECIFIED_LATEST_MANIFEST_CNB,
-        UpdateSource::Local => SPECIFIED_LATEST_MANIFEST_DEVELOP,
-    }
-    .replace(PLACEHOLDER, &version.to_string())
 }
 
 /// 一致性复判 + 取产物 + 组装检查命中。

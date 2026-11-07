@@ -33,17 +33,17 @@ use std::path::PathBuf;
 /// 每次仍照常拉取以感知新版本）。
 ///
 /// # 参数
-/// - `source`：更新源（GitHub / CNB / Develop），转小写作为目录名；
+/// - `source`：更新源，取 [`UpdateSource::slug`]（`github` / `cnb` / `develop`）作为目录名；
 /// - `version`：目标语义化版本号，用于唯一标识一个发布版本。
 ///
 /// # 返回
-/// `cache_dir/update/{source}/{version}.json`。
+/// `cache_dir/update/{slug}/{version}.json`。
 ///
 /// # 例
-/// `manifest(&UpdateSource::Github, v1.2.3)` → `.../cache/update/github/1.2.3.json`
+/// `manifest(&UpdateSource::GitHub, v1.2.3)` → `.../cache/update/github/1.2.3.json`
 ///
 pub fn manifest(source: &UpdateSource, version: &Version) -> PathBuf {
-    cache_dir().join(format!("update/{}/{version}.json", source.to_string().to_ascii_lowercase(),))
+    cache_dir().join(format!("update/{}/{version}.json", source.slug()))
 }
 
 /// 生成下载中的临时碎片文件（`.part`）路径

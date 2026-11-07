@@ -33,16 +33,15 @@
 //! 产物目录布局统一由 [`paths`] 管理：下载产物平铺于 `temp/update/packages/`、
 //! 文件名取发布产物 url 的最后一段（`Artifact::file_name()`，自带版本等完整信息），
 //! 下载中数据暂存 `temp/downloads/` 的随机 `.part`。
-//! "已下载待安装"以磁盘事实表达：目标文件存在且校验通过（[`ready_artifact`]）
+//! "已下载待安装"以磁盘事实表达：目标文件存在且校验通过（[`download::ready`]）
 //! 即为就绪；check 命中与 download 入口都会先探测，命中则跳过下载（不跳过验签）。
 
 use crate::config::app_paths::{current_mode, AppMode};
 use crate::state::http_client;
 use anyhow::anyhow;
-use model::{Artifact, DownloadProgress, Policy, UpdateDecision, UpdateError, UpdateSource, UpdateStatus, UpdateView};
+use model::{DownloadProgress, Policy, UpdateDecision, UpdateError, UpdateSource, UpdateStatus, UpdateView};
 use semver::Version;
 use state::UpdaterState;
-use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 pub mod check;
@@ -66,28 +65,6 @@ const PROGRESS_BROADCAST_INTERVAL: Duration = Duration::from_millis(100);
 /// 返回出厂默认（Patch + Stable）。接入设置后只需改这一处。
 pub fn current_policy() -> Policy {
     Policy::default()
-}
-
-/// 就绪锚点判定：产物文件存在 → 先以 size 短路（不符视为损坏清除）→ 再整体验签
-///
-/// 返回 `Some(路径)` 表示"已下载待安装"（可跳过下载直接安装）；
-/// 不存在 / 校验失败均返回 `None`，且校验失败或 size 不符时清除文件待重下。
-pub fn ready_artifact(path: &Path, artifact: &Artifact) -> Option<PathBuf> {
-    if !path.is_file() {
-        return None;
-    }
-    let size_ok = path.metadata().map(|m| m.len()).ok() == Some(artifact.size);
-    if !size_ok {
-        let _ = std::fs::remove_file(path);
-        return None;
-    }
-    match verify::verify_artifact_path(path, artifact) {
-        Ok(()) => Some(path.to_path_buf()),
-        Err(_) => {
-            let _ = std::fs::remove_file(path);
-            None
-        }
-    }
 }
 
 /// 检查是否有可用更新（编排）
@@ -136,7 +113,7 @@ pub async fn check(
             .artifact
             .file_name()
             .map(|name| paths::package(&name))
-            .and_then(|path| ready_artifact(&path, &found.artifact)),
+            .and_then(|path| download::ready(&path, &found.artifact)),
         _ => None,
     };
 
@@ -246,7 +223,7 @@ pub async fn download(
     );
 
     // 就绪锚点：目标文件已存在 → 跳过下载，但不能跳过校验；损坏清除重下
-    if ready_artifact(&final_path, &artifact).is_some() {
+    if download::ready(&final_path, &artifact).is_some() {
         return state
             .mutate(|s| {
                 s.status = UpdateStatus::Downloaded;

@@ -14,7 +14,6 @@
 
 use crate::config::app_paths;
 use crate::config::app_paths::AppMode;
-use crate::updater::constant::DEVELOP_UPDATE_BIN_NAME;
 use crate::updater::install::common::{extract_zip, updater_exe};
 use crate::updater::install::windows::process;
 use crate::updater::paths;
@@ -184,3 +183,9 @@ fn compose_config(pid: u32, source_dir: &Path, target_dir: &Path, launch_path: &
         },
     })
 }
+
+/// Develop 形态直更产物的文件名
+///
+/// 与 `scripts/build/packager.py` 里的同名常量必须**逐字符一致**；换名是为了避开
+/// RustRover 对正在运行的 `rollcaller.exe` 的占用。
+pub const DEVELOP_UPDATE_BIN_NAME: &str = "rollcaller-update-from-develop.exe";
