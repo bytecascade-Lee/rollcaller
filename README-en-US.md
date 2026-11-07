@@ -142,7 +142,7 @@ cp backend/.cargo/config.toml.example backend/.cargo/config.toml
 uv sync
 
 # 5. Script import hook
-cp scripts/tool/sitecustomize.py .venv/sitecustomize.py
+cp scripts/setup/template/sitecustomize.py .venv/sitecustomize.py
 
 # 6. Frontend dependencies
 cd frontend && pnpm install --frozen-lockfile && cd ..
