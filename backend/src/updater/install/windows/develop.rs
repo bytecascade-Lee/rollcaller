@@ -12,11 +12,11 @@
 //! Develop 形态的 exe 是 debug 构建，但是已同步捆绑前端 dist 资源
 //! 不需要再启动前端开发服务
 
-use super::common;
 use crate::config::app_paths;
 use crate::config::app_paths::AppMode;
 use crate::updater::constant::DEVELOP_UPDATE_BIN_NAME;
 use crate::updater::install::common::{extract_zip, updater_exe};
+use crate::updater::install::windows;
 use crate::updater::paths;
 use crate::util::path_utils;
 use anyhow::anyhow;
@@ -71,7 +71,7 @@ pub fn install_develop(zip_path: &Path, from: &Version, to: &Version) -> anyhow:
         .map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", config_path.display()))?;
 
     // 6. 分离式 spawn updater（成功后由调用方执行退出清理并 exit(0)）
-    common::spawn_updater(&updater, &config_path, &log_file)
+    windows::spawn_updater(&updater, &config_path, &log_file)
 }
 
 /// 非 Windows 平台：Develop 直更不可用

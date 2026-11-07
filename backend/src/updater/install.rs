@@ -11,9 +11,6 @@
 //! 进程存活可重试。
 
 mod common;
-mod develop;
-mod nsis;
-mod portable;
 pub mod windows;
 
 use crate::config::app_paths::AppMode;
@@ -21,6 +18,7 @@ use crate::config::app_paths::AppMode;
 use crate::config::app_paths::Installer;
 use semver::Version;
 use std::path::Path;
+use windows::{develop, nsis, portable};
 
 /// 安装前确保更新器就绪（Portable / Develop 形态需要；Install 无更新器直接返回）
 ///

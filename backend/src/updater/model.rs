@@ -412,5 +412,3 @@ pub enum UpdateError {
     /// 安装失败 → 重试 install（后端保留产物路径）
     Install(String),
 }
-
-pub const ROLLCALLER_UPDATE_PUBKEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERBNTVDNkMyRUQyMzUxQUQKUldTdFVTUHR3c1pWMnJ3ME55Mkl4d1BpRXpmdmtLOGo0Q3cxeGtrbVJPQjEyQWVyUG5rbGZLS3AK";

@@ -36,6 +36,7 @@ use crate::updater::decide::decide;
 use crate::updater::model::{
     FoundUpdate, HistoryVersion, Policy, Severity, UpdateDecision, UpdateInfo, UpdateLevel, UpdateManifest, UpdateSource,
 };
+use crate::updater::remote::{fetch, index, manifest};
 use crate::updater::{decide, paths};
 use anyhow::{anyhow, Context};
 use reqwest::Client;
@@ -65,25 +66,25 @@ pub async fn check(
     mode: AppMode,
 ) -> anyhow::Result<Option<FoundUpdate>> {
     // 1. 拉版本索引；versions.json 每次发布都有新增，不缓存
-    let index_text = fetch_json_text(client, &versions_index_url(source)).await?;
-    let candidates = parse_index(&index_text)?;
+    let index_text = fetch::fetch_json_text(client, &versions_index_url(source)).await?;
+    let candidates = index::parse_index(&index_text)?;
 
     // 2. 决策目标版本；无放行版本 → 无更新
-    let Some(target) = pick_target(current, &candidates, policy)? else {
+    let Some(target) = index::pick_target(current, &candidates, policy)? else {
         return Ok(None);
     };
 
     // 3. 目标版本清单：缓存优先（命中则免网络）；缺失或缓存损坏则拉取并写缓存
     let cache_path = paths::manifest(&source, &target.version);
     let cache_content = fs::read_to_string(&cache_path).ok();
-    let manifest = match cache_content.clone().and_then(|t| parse_manifest(&t).ok()) {
+    let manifest = match cache_content.clone().and_then(|t| manifest::parse_manifest(&t).ok()) {
         Some(pair) => pair,
         None => {
             // 缓存存在但解析失败 → 视为损坏，清除后回源
             if cache_content.is_some() {
                 let _ = fs::remove_file(&cache_path);
             }
-            let text = fetch_json_text(client, &latest_manifest_url(source, &target.version)).await?;
+            let text = fetch::fetch_json_text(client, &latest_manifest_url(source, &target.version)).await?;
             // 避免父目录不存在
             if let Some(parent) = cache_path.parent() {
                 fs::create_dir_all(parent)?;
@@ -91,7 +92,7 @@ pub async fn check(
             if let Err(e) = fs::write(&cache_path, &text) {
                 tracing::warn!("写入更新清单缓存失败（{}）：{e}", cache_path.display());
             }
-            parse_manifest(&text)?
+            manifest::parse_manifest(&text)?
         }
     };
 
@@ -121,46 +122,6 @@ fn latest_manifest_url(source: UpdateSource, version: &Version) -> String {
         UpdateSource::Local => SPECIFIED_LATEST_MANIFEST_DEVELOP,
     }
     .replace(PLACEHOLDER, &version.to_string())
-}
-
-/// 拉取远程文本
-async fn fetch_json_text(client: &Client, url: &str) -> anyhow::Result<String> {
-    let response = client
-        .get(url)
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .context(anyhow!("检查更新失败：网络错误"))?;
-    let status = response.status();
-    if !status.is_success() {
-        return Err(anyhow!("检查更新失败：{url}服务器返回 HTTP {status}"));
-    }
-    response.text().await.context(anyhow!("检查更新失败：读取响应失败"))
-}
-
-/// 解析版本索引 JSON 为候选列表（顺序与合法性由调用方把关）
-fn parse_index(text: &str) -> anyhow::Result<Vec<HistoryVersion>> {
-    serde_json::from_str(text).context(anyhow!("版本索引不是合法 JSON"))
-}
-
-/// 决策目标版本：在比当前新的候选中从高到低扫描，取首个被放行的版本。
-///
-/// 候选过滤（`> current`）与倒序排序也在此完成；无任何版本放行时返回 `Ok(None)`。
-fn pick_target(current: &Version, candidates: &[HistoryVersion], policy: &Policy) -> anyhow::Result<Option<HistoryVersion>> {
-    let mut newer: Vec<&HistoryVersion> = candidates.iter().filter(|hv| hv.version > *current).collect();
-    newer.sort_by(|a, b| b.version.cmp(&a.version));
-    for hv in newer {
-        match decide::evaluate(current, &hv.version, policy, hv.severity) {
-            UpdateDecision::Update => return Ok(Some(hv.clone())),
-            UpdateDecision::Skip => continue,
-        }
-    }
-    Ok(None)
-}
-
-/// 解析目标版本清单 JSON，返回结构体与原始 JSON
-fn parse_manifest(text: &str) -> anyhow::Result<UpdateManifest> {
-    serde_json::from_str(text).context(anyhow!("清单格式不符合规范"))
 }
 
 /// 一致性复判 + 取产物 + 组装检查命中。

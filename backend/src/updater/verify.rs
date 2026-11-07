@@ -36,8 +36,8 @@
 
 use crate::common::ext::encode_ext::Base64Ext;
 use crate::common::ext::hash_ext::HashExt;
+use crate::updater::constant::ROLLCALLER_UPDATE_PUBKEY;
 use crate::updater::model::Artifact;
-use crate::updater::model::ROLLCALLER_UPDATE_PUBKEY;
 use anyhow::anyhow;
 use std::path::Path;
 

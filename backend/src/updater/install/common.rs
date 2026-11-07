@@ -7,7 +7,6 @@ use crate::updater::verify::{verify_artifact, verify_sha256};
 use anyhow::{anyhow, Context};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 
 /// 锁定版本的更新器清单地址
 fn updater_manifest_url() -> String {
@@ -96,32 +95,6 @@ pub(crate) fn extract_zip(zip_path: &Path, dest: &Path) -> anyhow::Result<PathBu
     } else {
         Ok(dest.to_path_buf())
     }
-}
-
-/// 分离式 spawn updater.exe
-#[cfg(target_os = "windows")]
-pub(crate) fn spawn_updater(exec_path: &Path, config_path: &Path, log_file: &Path) -> anyhow::Result<()> {
-    use std::os::windows::process::CommandExt;
-
-    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
-    const DETACHED_PROCESS: u32 = 0x0000_0008;
-
-    let output_path = log_file.with_extension("stderr.log");
-    let stdout =
-        fs::File::create(&output_path).map_err(|e| anyhow!("创建更新器输出日志失败（{}）：{e}", output_path.display()))?;
-    let stderr = stdout
-        .try_clone()
-        .map_err(|e| anyhow!("复制更新器输出日志句柄失败（{}）：{e}", output_path.display()))?;
-
-    Command::new(exec_path)
-        .arg(config_path)
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(stdout))
-        .stderr(Stdio::from(stderr))
-        .creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS)
-        .spawn()
-        .map(|_| ())
-        .map_err(|e| anyhow::anyhow!("spawn updater.exe 失败: {e}"))
 }
 
 /// 便携版更新器就绪（安装前 ensure；幂等）
