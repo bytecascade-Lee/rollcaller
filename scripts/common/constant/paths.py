@@ -78,7 +78,7 @@ VERSIONS_INDEX_SOURCE_PATH = RESOURCES_DIR / "update" / "versions.json"
 
 # 虚拟环境与脚本导入钩子
 VENV_DIR = PROJECT_BASE_DIR / ".venv"
-SITECUSTOMIZE_TEMPLATE_PATH = SCRIPTS_DIR / "tool" / "sitecustomize.py"
+SITECUSTOMIZE_TEMPLATE_PATH = SCRIPTS_DIR / "setup" / "template" / "sitecustomize.py"
 
 # 依赖 / 构建 / 签名 / 生成物
 FRONTEND_NODE_DIR = FRONTEND_DIR / "node_modules"
