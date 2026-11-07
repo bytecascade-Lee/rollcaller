@@ -38,6 +38,8 @@
 
 use crate::config::app_paths::{current_mode, AppMode};
 use crate::state::http_client;
+use crate::updater::entity::{Artifact, DownloadProgress, Policy};
+use crate::updater::enums::{UpdateDecision, UpdateError, UpdateSource, UpdateStatus, UpdateView};
 use anyhow::anyhow;
 use semver::Version;
 use state::UpdaterState;

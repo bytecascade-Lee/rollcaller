@@ -126,8 +126,8 @@ pub struct Policy {
     pub channel: UpdateChannel,
 }
 
-impl Policy {
-    pub fn default() -> Policy {
+impl Default for Policy {
+    fn default() -> Policy {
         Policy {
             level: DEFAULT_UPDATE_LEVEL,
             channel: DEFAULT_UPDATE_CHANNEL,
