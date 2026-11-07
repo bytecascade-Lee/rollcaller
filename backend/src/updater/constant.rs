@@ -18,8 +18,14 @@ pub const DEFAULT_UPDATE_CHANNEL: UpdateChannel = UpdateChannel::Stable;
 /// （见 [`crate::updater::urls::updater_manifest_url`]）。
 ///
 /// 升级流程：只改本常量，并确认新版本支持的 config 版本 ≥
-/// `updater/install/windows/{portable,develop}.rs::compose_config` 写出的版本。
+/// `updater/install/platform/windows/{portable,develop}.rs::compose_config` 写出的版本。
 pub const UPDATER_VERSION: &str = "0.3.0";
+
+/// develop 直更产物的文件名
+///
+/// 打包侧产出的是 `rollcaller.exe`；客户端解压后改名为本名再覆盖，为的是避开 IDE 对运行中
+/// `rollcaller.exe` 的占用（运行中的镜像可删可改名，但写打开会失败）。两者不要混为一谈。
+pub const DEVELOP_UPDATE_BIN_NAME: &str = "rollcaller-update-from-develop.exe";
 
 /// 主包产物的验签公钥（base64(minisign 公钥文本)）
 ///

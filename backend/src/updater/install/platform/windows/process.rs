@@ -1,7 +1,6 @@
 use std::path::Path;
 
 /// 分离式 spawn updater.exe
-#[cfg(target_os = "windows")]
 pub(crate) fn spawn_updater(exec_path: &Path, config_path: &Path, log_file: &Path) -> anyhow::Result<()> {
     use anyhow::anyhow;
     use std::fs;

@@ -2,11 +2,6 @@
 
 /**
  * 下载进度的通用载体
- *
- * 一份载荷多处复用：download 域每 chunk 的回调参数、state 原子槽
- * （[`crate::updater::state::DownloadSlot`]）的写入口与快照、以及 download 通道
- * 的窄进度事件帧——三处的语义都是"瞬时进度"，与持久会话事实（info /
- * severity / artifact）解耦。
  */
 export type DownloadProgress = { 
 /**
@@ -14,6 +9,6 @@ export type DownloadProgress = {
  */
 downloaded: number, 
 /**
- * 总字节数（来自 Content-Length，未知时为 None）
+ * 总字节数
  */
 total: number | null, };

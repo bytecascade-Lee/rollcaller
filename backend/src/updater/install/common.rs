@@ -1,3 +1,5 @@
+//! 安装器无关的公共能力：解压、Go 更新器就绪。
+
 use crate::common::constant::sys::{ARCH, OS};
 use crate::state::http_client;
 use crate::updater::constant::UPDATER_VERSION;
@@ -71,7 +73,7 @@ fn discard_others(keep: &Path) {
 
 /// 解压 zip 到 `dest`；若 zip 内是单一顶层目录则返回该目录（解包一层），否则返回 `dest`
 ///
-/// 解压的路径穿越防护被移除，后续有这方面的话需要小心
+/// 路径与符号链接由 `zip` 的 `extract` 收敛在 `dest` 内（`enclosed_name` + 只允许指向目标目录内的链接）。
 pub(crate) fn extract_zip(zip_path: &Path, dest: &Path) -> anyhow::Result<PathBuf> {
     if dest.exists() {
         fs::remove_dir_all(dest).map_err(|e| anyhow!("清理解压目录失败（{}）：{e}", dest.display()))?;
@@ -93,19 +95,15 @@ pub(crate) fn extract_zip(zip_path: &Path, dest: &Path) -> anyhow::Result<PathBu
     }
 }
 
-/// 便携版更新器就绪（安装前 ensure；幂等）
-///
-/// 本地已有锁定版本 → 直接用，不联网；没有才拉该版本 tag 的清单，按清单下载 / 校验 / 落盘。
-/// 两条路径最后都把目录收敛到只剩锁定版本。触发点 = Portable / Develop 安装前的编排层异步段。
-#[cfg(target_os = "windows")]
+/// 更新器就绪（幂等）：本地已有锁定版本就直接用，否则拉该 tag 的清单下载 / 校验 / 落盘
 pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
-    // 1. 本地已有 → 直接复用（不拉清单）
+    // 本地已有 → 直接复用（不拉清单）
     if let Some(local) = updater_exe() {
         discard_others(&local);
         return Ok(local);
     }
 
-    // 2. 拉锁定版本（tag）的清单
+    // 拉锁定版本（tag）的清单
     let text = http_client::client()
         .get(urls::updater_manifest_url(UPDATER_VERSION))
         .header("Accept", "application/json")
@@ -130,7 +128,7 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
         .ok_or_else(|| anyhow!("更新器下载地址缺少文件名：{}", artifact.url))?;
     let dest = paths::portable_updater_bin(&file_name);
 
-    // 3. 下载（体积小，内存收齐后整体校验再落盘）
+    // 体积小，内存收齐后整体校验再落盘
     let bytes = http_client::download()
         .get(artifact.url.clone())
         .send()
@@ -152,15 +150,9 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
     }
     fs::write(&dest, bytes).map_err(|e| anyhow!("写入更新器失败（{}）：{e}", dest.display()))?;
 
-    // 4. 只留锁定版本
+    // 只留锁定版本
     discard_others(&dest);
     Ok(dest)
-}
-
-/// 非 Windows 平台：便携版安装不可用，更新器亦无需下载
-#[cfg(not(target_os = "windows"))]
-pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
-    anyhow::bail!("便携版安装仅支持 Windows")
 }
 
 #[cfg(test)]

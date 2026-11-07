@@ -162,7 +162,10 @@ mod tests {
 
     /// 每个用例独占一个缓存路径（进程内测试目录本身已按进程随机）
     fn cache_path(tag: &str) -> PathBuf {
-        app_paths::temp_dir().join(format!("update/manifest-cache-{tag}.json"))
+        let path = app_paths::temp_dir().join(format!("update/manifest-cache-{tag}.json"));
+        // 目录由各写入点自建（`fs::write` 不创建父目录），这里同样不能假设它已存在
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        path
     }
 
     fn digest_of(bytes: &[u8]) -> ManifestDigest {
