@@ -217,6 +217,39 @@ def upload_release_assets(repo: str, tag: str, files: Iterable[Path]) -> None:
     )
 
 
+def pr_open_numbers(repo: str, head: str) -> list[int]:
+    """该 head 分支上处于打开状态的 PR 编号；没有则返回空列表"""
+    output = stdout([
+        "pr", "list",
+        "--repo", repo,
+        "--head", head,
+        "--state", "open",
+        "--json", "number",
+        "--limit", str(PAGE_SIZE),
+    ])
+    if not output:
+        return []
+    try:
+        data = json.loads(output)
+    except json.JSONDecodeError as error:
+        raise GhError(f"gh pr list 返回非 JSON: {error}") from error
+    if not isinstance(data, list):
+        raise GhError(f"gh pr list 返回的不是数组: {output[:120]!r}")
+    return [int(item["number"]) for item in data if isinstance(item, dict) and "number" in item]
+
+
+def pr_create(repo: str, head: str, base: str, title: str, body: str) -> str:
+    """创建 PR，返回 gh 打印的 PR 地址；同 head/base 已有打开 PR 时 gh 会报错"""
+    return stdout([
+        "pr", "create",
+        "--repo", repo,
+        "--head", head,
+        "--base", base,
+        "--title", title,
+        "--body", body,
+    ])
+
+
 def http_status(error: GhError) -> int | None:
     """从 GhError 消息中解析 HTTP 状态码；无法解析返回 None"""
     return http_status_from_text(str(error))
