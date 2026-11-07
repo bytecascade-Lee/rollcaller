@@ -7,7 +7,21 @@
 按档位推算下一个版本号，在 master 上打附注 tag。不动任何版本文件——
 版本号由 `scripts/build.py` 在构建期临时写入，构建结束即还原。
 
-打 tag 前会重跑代码生成，确认生成物都已提交（只跑入口表，不编译后端）。
+# 闸门
+
+打 tag 是不可逆动作（tag 一经推送不移动、不复用），所以前置条件一律硬失败：
+
+    1. 在 master 上
+    2. 已跟踪文件干净（未跟踪不计）
+    3. 本地 master 与远端一致
+    4. 目标 tag 不存在
+    5. 目标版本已在 resources/update/versions.json 标定 severity
+    6. 所有更早版本的两源清单 sha256 与 minisign 签名齐全（回填闸门）
+
+第 5 / 6 条的顺序是刻意的：先 `bump --dry-run` 看版本 → 在 develop 上给索引加
+`{"version": "x.y.z", "severity": "..."}` → 合并到 master → `bump` 正式跑。
+
+本脚本**不跑检查与测试**：那是 `just check` / `just test` 的职责，两者在 CI 里各有一道。
 
 档位：
 
@@ -26,32 +40,31 @@
     uv run ./scripts/bump.py patch
     uv run ./scripts/bump.py prerelease --base minor
     uv run ./scripts/bump.py prerelease --serial
+    uv run ./scripts/bump.py patch --dry-run
 """
 
 import argparse
 import re
 import sys
 from collections.abc import Sequence
-from pathlib import Path
 
 from cli import git
-from codegen import (
-    CodegenError,
-    GeneratedNotCommittedError,
-    ensure_committed,
-    generate_all,
-)
-from common.constant.paths import FRONTEND_ROUTING_ENTRIES_PATHS
+from common.constant.paths import VERSIONS_INDEX_SOURCE_PATH
 from common.constant.repo import REMOTE
 from common.entity.version import Version, VersionError
+from common.entity.version_index import VersionIndex
+from common.enums.source import Source
 from common.logger import error, info, success, warning
-from util.sigint import graceful_sigint
+from release import versions_index
 
 # 预发布档位，顺序即推进方向
 STAGES = ("alpha", "beta", "rc")
 
 # 预发布段形如 alpha.1 / beta.2 / rc.3
 _PRERELEASE_RE = re.compile(r"^(alpha|beta|rc)\.(\d+)$")
+
+# 正式发布必须带摘要与签名的源（develop 是本地联调索引，不参与正式发布）
+DIGEST_SOURCES = (Source.GITHUB, Source.CNB)
 
 
 class BumpError(Exception):
@@ -78,12 +91,15 @@ def main() -> int:
     _ensure_on_master()
     _ensure_worktree_clean()
     _ensure_master_in_sync()
-    _ensure_generated_artifacts_current()
 
     current = _latest_version()
-    target = _next_version(current, args)
-    tag = target.to_tag()
+    next_version = _next_version(current, args)
+    tag = next_version.to_tag()
     _ensure_tag_absent(tag)
+
+    entries = _read_versions_index()
+    _ensure_severity_calibrated(entries, next_version)
+    _ensure_manifest_digests(entries, next_version)
 
     info(f"最新版本 {current.to_tag()}")
     success(f"下一个版本 {tag}")
@@ -113,23 +129,6 @@ def _ensure_worktree_clean() -> None:
         raise BumpError(f"有 {count} 个已跟踪文件改动未提交，先提交再打 tag")
 
 
-def _ensure_generated_artifacts_current() -> None:
-    """重跑生成器，确认生成物与 HEAD 一致"""
-    try:
-        generate_all()
-    except CodegenError as e:
-        raise BumpError(f"代码生成失败，无法确认生成物与仓库一致: {e}") from e
-    _ensure_unchanged(FRONTEND_ROUTING_ENTRIES_PATHS, "代码生成的入口表")
-
-
-def _ensure_unchanged(paths: Sequence[Path], label: str) -> None:
-    """生成物与 HEAD 不一致就停下，并把补救办法写进消息"""
-    try:
-        ensure_committed(paths, label=label)
-    except GeneratedNotCommittedError as error:
-        raise BumpError(f"{error}；先在 develop 上提交生成物，再合并到 master 打 tag") from error
-
-
 def _ensure_master_in_sync() -> None:
     """本地 master 必须与远端一致，否则 tag 会指向一个尚未推送的提交"""
     ref = f"{REMOTE}/master"
@@ -148,6 +147,55 @@ def _ensure_tag_absent(tag: str) -> None:
     """版本号不复用：同名 tag 已存在就停下"""
     if git.try_rev_parse(f"refs/tags/{tag}") is not None:
         raise BumpError(f"tag {tag} 已存在；版本号不复用，请换一档或人工处理")
+
+
+def _read_versions_index() -> list[VersionIndex]:
+    """读仓库版本索引（发布端读取历史摘要的唯一来源）"""
+    try:
+        return versions_index.read(VERSIONS_INDEX_SOURCE_PATH)
+    except versions_index.VersionIndexError as e:
+        raise BumpError(f"仓库版本索引不可用: {e}") from e
+
+
+def _ensure_severity_calibrated(entries: Sequence[VersionIndex], version: Version) -> None:
+    """目标版本必须在索引里标定过 severity
+
+    缺省兜底（normal）看着无害，但它让"这次发布到底算不算重要更新"变成发布脚本临时猜的——
+    而 severity 决定的是用户会不会被强制更新。
+    """
+    if versions_index.find(entries, version) is None:
+        raise BumpError(
+            f"仓库版本索引未标定 {version}；先在 develop 上给它加一条 "
+            f'{{"version": "{version}", "severity": "normal|important|critical"}} 再合并到 master'
+        )
+
+
+def _ensure_manifest_digests(entries: Sequence[VersionIndex], version: Version) -> None:
+    """所有更早版本的两源清单必须同时有 sha256 与 minisign 签名
+
+    这是回填的**强制闸门**：上一版发布后若没把流水线算出的摘要与签名合进仓库索引，
+    这里直接失败，而不是等到客户端发现"摘要对不上、每次重下一遍清单"才暴露。
+    条目按版本倒序存放，故 `entry.version < version` 即"更早的版本"。
+
+    签名与摘要一起查的理由：只有摘要的条目等于"不可验真"——索引自身还没签名之前，
+    sha256 只能证明"字节没变"，不能证明"字节出自谁"。
+    """
+    missing = []
+    for entry in entries:
+        if entry.version >= version:
+            continue
+        for source in DIGEST_SOURCES:
+            digest = entry.manifests.get(source)
+            if digest is None:
+                missing.append(f"{entry.version}({source.value} 缺摘要)")
+            elif not digest.signature:
+                missing.append(f"{entry.version}({source.value} 缺签名)")
+    if missing:
+        raise BumpError(
+            f"以下更早版本缺少清单摘要或签名：{'；'.join(missing)}。"
+            "先跑 `just backfill-versions` 把它们写回 resources/update/versions.json，"
+            "提交到 develop 再合并到 master"
+        )
 
 
 def _latest_version() -> Version:
@@ -238,10 +286,8 @@ def _prerelease(base: Version, stage: str, number: int) -> Version:
 
 
 if __name__ == "__main__":
-    with graceful_sigint() as is_interrupted:
-        try:
-            sys.exit(main())
-        except (BumpError, VersionError, git.GitError) as e:
-            if not is_interrupted():
-                error(f"打 tag 失败: {e}")
-                sys.exit(1)
+    try:
+        sys.exit(main())
+    except (BumpError, VersionError, git.GitError, versions_index.VersionIndexError) as e:
+        error(f"打 tag 失败: {e}")
+        sys.exit(1)

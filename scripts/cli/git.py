@@ -8,7 +8,7 @@ Git 操作模块：封装常用 git 命令，返回结构化数据
 import os
 import subprocess
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Iterable, Mapping, Sequence
 
 from cli import _process
 from cli._version import version_string
@@ -17,6 +17,8 @@ from common.logger import debug
 
 # 单条 git 命令的超时（秒）
 DEFAULT_TIMEOUT = 60
+# push 命令的超时
+PUSH_TIMEOUT = 180
 
 ABBREVIATED_HASH_SLICE = slice(0, 10)
 
@@ -26,7 +28,8 @@ class GitError(Exception):
 
 
 def _run(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int = DEFAULT_TIMEOUT,
-         allow: tuple[int, ...] = (0,), text: bool = True) -> subprocess.CompletedProcess:
+         allow: tuple[int, ...] = (0,), text: bool = True,
+         env: Mapping[str, str] | None = None) -> subprocess.CompletedProcess:
     """
     执行 git 命令并返回 CompletedProcess
 
@@ -38,14 +41,18 @@ def _run(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int =
     :param timeout: 超时秒数
     :param allow: 额外允许的退出码，例如 `rev-parse --verify` 的 1 表示对象不存在
     :param text: True 返回 str，False 返回原始 bytes
+    :param env: 完整环境变量映射
 
     :raise GitError: 未找到 git 命令，或命令超时，或命令执行失败
     """
+    base = dict(os.environ) if env is None else dict(env)
+    base["LC_ALL"] = "C"
+    base["GIT_TERMINAL_PROMPT"] = "0"
     try:
         return _process.run(
             ["git", "--no-pager", "-c", "core.quotepath=false", *args],
             cwd=cwd or PROJECT_BASE_DIR,
-            env={**os.environ, "LC_ALL": "C", "GIT_TERMINAL_PROMPT": "0"},
+            env=base,
             timeout=timeout,
             text=text,
             allow=allow,
@@ -141,13 +148,7 @@ def remote_url(name: str = "origin", *, cwd: Path | None = None) -> str | None:
 
 
 def set_config(key: str, value: str, *, cwd: Path | None = None) -> None:
-    """
-    写入仓库级配置
-
-    :param key: 配置键，如 `pull.ff`
-    :param value: 配置值，如 `only`
-    :param cwd: 当前工作目录
-    """
+    """写入仓库级配置"""
     stdout(["config", "--local", key, value], cwd=cwd)
 
 
@@ -220,6 +221,41 @@ def untracked_names(paths: Iterable[str | Path], *, cwd: Path | None = None) -> 
 def checkout_paths(paths: Iterable[str | Path], *, cwd: Path | None = None) -> None:
     """丢弃工作区给定路径的改动"""
     stdout(["checkout", "--", *_paths(paths)], cwd=cwd)
+
+
+def checkout_branch(branch: str, *, start_point: str | None = None, force: bool = False, cwd: Path | None = None) -> None:
+    """
+    切换分支
+
+    :param branch: 分支名
+    :param start_point: 起点（缺省为当前 HEAD）
+    :param force: 用 `-B`；同名分支已存在时重置到 start_point，供流水线重跑覆盖机器人分支
+    """
+    args = ["checkout", "-B" if force else "-b", branch]
+    if start_point is not None:
+        args.append(start_point)
+    stdout(args, cwd=cwd)
+
+
+def add(paths: Iterable[str | Path], *, cwd: Path | None = None) -> None:
+    """暂存指定路径"""
+    stdout(["add", "--", *_paths(paths)], cwd=cwd)
+
+
+def commit(message: str, *, env: Mapping[str, str] | None = None, cwd: Path | None = None) -> None:
+    """提交已暂存内容
+
+    `env` 是**追加**的提交身份（`GIT_AUTHOR_*` / `GIT_COMMITTER_*`）：在当前环境上叠加，
+    `_run` 是替换语义，直接透传会让 git 丢掉 HOME 里的用户配置。
+    """
+    _run(["commit", "-m", message], cwd=cwd, env={**os.environ, **env} if env else None)
+
+
+def push_branch(branch: str, *, remote: str = "origin", force: bool = False,
+                cwd: Path | None = None) -> None:
+    """推送分支到远端"""
+    args = ["push", *(["--force"] if force else []), remote, f"refs/heads/{branch}:refs/heads/{branch}"]
+    stdout(args, cwd=cwd, timeout=PUSH_TIMEOUT)
 
 
 def show_blob(ref: str, path: str, *, cwd: Path | None = None) -> bytes | None:

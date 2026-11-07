@@ -200,3 +200,34 @@ jobs:
                     TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
                     TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
                 run: uv run --frozen ./scripts/release.py -v "${{ needs.prepare.outputs.version }}" -m ci ${{ needs.prepare.outputs.draft == 'true' && '--draft' || '' }}
+
+            -   name: Verify release
+                if: needs.prepare.outputs.draft != 'true'
+                run: uv run --frozen ./scripts/verify_release.py -v "${{ needs.prepare.outputs.version }}"
+
+    backfill:
+        name: Backfill manifest digests
+        needs: [ prepare, release ]
+        if: needs.prepare.outputs.draft != 'true'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            pull-requests: write
+        steps:
+            -   name: Check out repository with develop
+                uses: actions/checkout@v7
+                with:
+                    ref: develop
+
+            -   name: Set up uv
+                uses: astral-sh/setup-uv@v10.3.0
+                with:
+                    enable-cache: true
+
+            -   name: Install Python dependencies
+                run: uv sync --frozen
+
+            -   name: Backfill and open pull request
+                env:
+                    GH_TOKEN: ${{ github.token }}
+                run: uv run --frozen ./scripts/backfill_versions.py -v "${{ needs.prepare.outputs.version }}" --pr

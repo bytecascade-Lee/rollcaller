@@ -1,22 +1,72 @@
 [
     {
         "version": "0.8.5",
-        "severity": "normal"
+        "severity": "normal",
+        "manifests": {
+            "github": {
+                "sha256": "7553b8b0f4e0774b674567cfbf82e0db796ca576643c6bcd75106895447ad7c6",
+                "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdFVTUHR3c1pWMm5BVHQwYWNCcmFYdkdTajh5MmR5UGx3SE9la2VrZENwU1NKUk1SYWwzWHhFNkpXbGl3bFBtYmd5VlpxeWdwcWl2SjVVNGN2dzcxRXowa25WcThOREFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0MDQ1NDU4CWZpbGU6bGF0ZXN0LWdpdGh1Yi5qc29uCng2QVhpS1NQdGdodFk4UTV2Rng1Uk1FQUVoS3lIWVBrd2Z6V09abGNERXZ1dGRFNm0ycFZuSitzaFErKzdMMDFxaktFbkRHK0VaMm9RdU1OeVovb0RnPT0K"
+            },
+            "cnb": {
+                "sha256": "5dc9c770465160f9bd05757843e18f5ed31fb75ce8f2e848ea5b9a6ea42fa588",
+                "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdFVTUHR3c1pWMnNndVdVbGsrWjBZRXc0RmlaVVFUOVgwMkQ1SDR3K3B1REYzZ3Z3MGN0Skd4QzFGRDQxVTRIOEd2ejdvWnVSMDJMdUFwc3RRVmRSK09zaVFDYTJKd2dnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0MDQ1NDMxCWZpbGU6bGF0ZXN0LWNuYi5qc29uCmhqL29UZ2VsZTJqdHBkSkFyVHpIaGN0VC9HZmg3MXhHUEhaTzBwRzFodUlQRFRoY3VDeG9ad0VGbFg5NFRtVjRPR29WZlRwNk1JY3BTK0dIZG1RMEJBPT0K"
+            }
+        }
     },
     {
         "version": "0.8.4",
-        "severity": "normal"
+        "severity": "normal",
+        "manifests": {
+            "github": {
+                "sha256": "03c5ce56ca4a56fcdeb11359c2e23db04ca33850dcddfdac639425460207a730",
+                "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdFVTUHR3c1pWMmw0bmtkOXg1cGRKc1QrajFFTmlKbEEyUHd0TjdNYkJlZU50QU55Z29JSlhjZGhUS1JYNG50a21JMk9yWGtTUjRXcWxsMVVicXlUVkEyRUhDVlIvOEE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0MDQ1NDU0CWZpbGU6bGF0ZXN0LWdpdGh1Yi5qc29uCjI0b3NQV3l1dUZqRmJRQmgwb3h0aWJDclEvUkNHcHdBTFdPRlg1bTREeU4vcVowQ1I0S2s4STI2KzlSWWF1bXJIcnI1TG5jNVRJalNvcWZVQytLOUFnPT0K"
+            },
+            "cnb": {
+                "sha256": "1d885d40c303833298261d5fa25c82a5232679d14447d82205dcb2baa9c8dd9c",
+                "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdFVTUHR3c1pWMmdVTlYvcVNWd1JoUG0xYjZ4MFdpSHBXbHNCbWFZbk1tNGdVeC9RaFpBMmVhTCttU2FFUFFPdXRSWGNWQnQxQ2dYRTVGNUV3U2VMeXJsSmVBNlVRbFFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0MDQ1NDI2CWZpbGU6bGF0ZXN0LWNuYi5qc29uCkNvWEdwd09BMVRMUXZQU0IvUlp5NUFmVHZ1TlVqYkxTOVh0dS9kRlNJRUxaUENqNG94clpxY1VmSVR2cm1TUlhMUzdYSHhBSnN0TkJwL1RlZFNwWUJRPT0K"
+            }
+        }
     },
     {
         "version": "0.8.2",
-        "severity": "normal"
+        "severity": "normal",
+        "manifests": {
+            "github": {
+                "sha256": "3e4a4f4f68774c1ca6fd449bbbadc3bff15b0b8757ce03a998c8008942c9baca",
+                "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdFVTUHR3c1pWMmdsU1hXUXBMLzFDUlBDa291Ny9wV3dyTkY0aWtTVHVjZlpkK0l0MjZFQVRVeFpMYkQyUnFSMmpsU3pTYjFOWlA5YmJDMlhmanlCNzlxM21TeXRYNlFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0MDQ1NDQ3CWZpbGU6bGF0ZXN0LWdpdGh1Yi5qc29uCnk0OWRvL2w4dkpzcGxFYU5rM3NJa3hDUFd1QnQxMlJERG1Ha2ZQZUcxcUVMMi83M3ZEeVB6MkNaV05YRVR3Z25KUnl4bW1OS3gyV2ZHRXNPMm52bUJ3PT0K"
+            },
+            "cnb": {
+                "sha256": "3b83a44f86d0e25a91b0396d7e7e630724eb250e5f6235ed854833f315410b8a",
+                "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdFVTUHR3c1pWMnFtaVZrZFM4UTdvSjdqdjN4MXRYL0dSUFlFSlRMaHVjRExORTRxRXRKZkJPUmV4SDJkWStOcWp5cVh4cVhRT1k3SllYZHVseWp5c3MxMGF5QWQ0YVFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0MDQ1NDIxCWZpbGU6bGF0ZXN0LWNuYi5qc29uCjR0eGRVQm4zcllLbUdpemVmZXAwdmZ6WmY3R05sUkdxbVJPMWlEZ0VDYUNpaUgrVktHNFBSeGtmQVlUOTdaM0ZaZFJYUENJYVBQUklIR1hhL1FheUR3PT0K"
+            }
+        }
     },
     {
         "version": "0.8.1",
-        "severity": "normal"
+        "severity": "normal",
+        "manifests": {
+            "github": {
+                "sha256": "0059a50e5588d57248ab9bbbdd77e6678a953f05862f38ba4599f2a9b23c7132",
+                "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdFVTUHR3c1pWMnNkVGF2V3BxeExsUENGVEVkY1pBNmp1dXExTU9keFZraTl5eGpVZEJvejgvdHlrUWJkQnlVczFQeDlQMW1zSkxuYXQxVXVhMzFBalUvOGpiTHNKOVFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0MDQ1NDQyCWZpbGU6bGF0ZXN0LWdpdGh1Yi5qc29uCmNoaVB6VTI2QmdSUmNYQjRIOTFIeU9vb3ZBUHh3NDNvVEsrOXN1cGNNVmJ0Snc0V3lSWEJTYlFhQW9veUdobUVmRjlRVUFDY09NRlVEN1BBQjBpeENnPT0K"
+            },
+            "cnb": {
+                "sha256": "94b32c693a58e45e4151dc5bd43495ace680987e94a267fb8819ff8e2cab805a",
+                "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdFVTUHR3c1pWMnA1WkxNTTZkMkFJNlA1S2Y3VG1GcEwxdmJNcnlWVWJ4ODQ1TkVPZzFvdmZ2WG44OFl6U0g1SGt0RmYzdFE1RDNMRFlCRy9uaitFNkNNOGRFUS9tM0F3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0MDQ1NDExCWZpbGU6bGF0ZXN0LWNuYi5qc29uCjVyYXVibjluOENUeHNXYXFwTFpHNUxrNkpQSVNUU3lmRitsbGtWOWs5VFJ1My9jam96L21MaGVaTmhJT1RnSnBSempRVlVITEt1cTRrbkZQSThLRURnPT0K"
+            }
+        }
     },
     {
         "version": "0.8.0",
-        "severity": "normal"
+        "severity": "normal",
+        "manifests": {
+            "github": {
+                "sha256": "730768e59e48fa4166a201609ca839b1b02dab4cdca106e8794f57d754a55395",
+                "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdFVTUHR3c1pWMnR2UFlQT3Z5V0Jmd29nb3o0dEloNWExN1hXL3AwcUZJdTErZ0RNZndVSDR0VEJxOXFXRGdEVEM1OS9CQTVyb3ZIYW40MGRwcnBwZ2tpMGpsQnZ5a1F3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0MDQ1Mzk3CWZpbGU6bGF0ZXN0LWdpdGh1Yi5qc29uCm11TUJHbUExNjJvS1l4QmpVYjhJbmJXcVMzMnd2cm9pNTFYcDJyYjZoV2EzN2tETWd4K3VtcEpGSW5SaUlLQnZCeEU5ODUzRUs5Ujh5Wkg4RVNMV0JRPT0K"
+            },
+            "cnb": {
+                "sha256": "dc55855390148f70f6e0fecc2e59eaa64855d517b9e742e5ca4b01b395ada9f8",
+                "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTdFVTUHR3c1pWMnI5Nk1DNzhidFNCbWE0OVB1L0FqVVdyZjl4MGZpQ0dKSlhudzNNQzlzYndxVk5Oei94YzhWY2phMHVDcHgyYldTdDZSc1F1NXdtZS9tYWZQZW9CMlFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0MDQ1NDA0CWZpbGU6bGF0ZXN0LWNuYi5qc29uCmZFNTZYcHR1dWsxaXVibWFXTTRTNUN1UGdZRFRlMUR4RFYxNG9nWTNKNmVmYTlZOWdSeUZkdTR2VWpUQStsWURsZ29CanRCUGhLMVJld2x5bEUxR0NRPT0K"
+            }
+        }
     }
 ]
