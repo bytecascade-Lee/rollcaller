@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ## Table of Contents
 
+- [0.8.5](#0-8-5) — ISO 8601 timestamps (V40 migration), export status-code fix, routing and toolchain rework.
 - [0.8.4](#0-8-4) — Republish of 0.8.3 content, release job dependency fix.
 - [0.8.3](#0-8-3) — Embedded migrations with pre-upgrade snapshots, CLI diagnostics, unified shutdown flow, 78% smaller frontend bundle.
 - [0.8.2](#0-8-2) — Address-driven in-app routing, multi-sheet import (.xls included), updater Checking transition frame.
@@ -24,6 +25,58 @@ All notable changes to this project will be documented in this file.
 - [0.2.0](#0-2-0) — Click-outside/positioning utils, export modes/feedback, UI polish.
 - [0.1.0](#0-1-0) — First stable: CSS design system, components, rollcall engine.
 - [0.1.0-rc.1](#0-1-0-rc1) — Initial RC: core architecture, CRUD, import/export, SQLite, Svelte.
+
+## 0.8.5 {#0-8-5}
+
+### Added
+
+- 新增 V40 迁移 `V40__convert-timestamp-columns-to-iso8601.sql`：重建 `students`、`records`、`attendance_status_definition` 三表，时间列由毫秒整数改为 ISO 8601 文本；同步重建 `idx_student_no`、`idx_student_name`、`idx_roll_call_at`、`idx_session_id` 与三个 update 触发器，默认值改用 `strftime` 生成，换算用 `col / 1000.0` 避免整数除法丢毫秒
+- 新增迁移账本时间戳的原地改写：`Kind::IntegerStamp` 就地改写 `migrated_at`，`Kind::Legacy` 整表搬入后删旧表，两条路径收敛为同一形状，账本仍禁加列
+- 新增 `util/time_utils.rs` 的 `ISO8601` 格式化器（`Display` + `{:.3}`）：`current_iso_8601` 与序列化路径同源，非 UTC 输入经 `Timestamp` 归一为 UTC
+- 新增日志 `LogFormat`（`FormatEvent`）：时间戳 ISO 8601、级别输出全称并按级别着色、只写线程名、`target` 截到 crate 段、路径统一正斜杠并裁掉 registry 前缀；控制台与文件层共用
+- 新增安装形态 `Installer`（NSIS / MSI / DMG / RPM / DEB / AppImage）与 `AppMode::Install(Installer)`；`Payloads::get` 按形态取产物槽位，缺槽位视为无更新、不回退到 `nsis`
+- 新增路由 `nav` 单例与 `Domain` 接口：`app` / `help` 两域各自实现落地，两个窗口根组件改为向 `nav` 安装域；`WindowKind` 收敛窗口种类
+- 新增帮助窗口载荷 `HelpPayload` / `HelpOverlayPayload` 与 `readSearch`（宽进窄出）：搜索浮层支持预填，`helpNavigate.openSearch` 走门面直调而不进地址空间
+- 新增 `findAnchor`（按 `data-anchor` 查触发元素）与 `POPUP_CENTERED`（查不到触发元素时居中），弹窗锚点不再逐层传 props
+- 路由生成物拆分为 `routing/app/entries.generated.ts` 与 `routing/help/entries.generated.ts`，各自只带本域入口与载荷类型
+- 新增 `scripts/check.py` 静态检查入口与 `Action.CHECK` 档位（`cargo fmt --check` → `format:check` → `lint` → `svelte-check` → `cargo check`）；`just check` 与 CI 走同一条命令
+- 新增前端工具链：Prettier（`pnpm format` / `format:check`）、ESLint（`pnpm lint`，只管语义）、Vitest（`pnpm test`）
+- 新增 `git.diff_names` / `git.untracked_names` 与 `codegen.ensure_committed`；`bump.py` 打 tag 前重跑生成器，生成物与 HEAD 不一致即拒绝
+- 归档 Actions 日志时抹掉 ANSI 转义（`download_actions_logs.py`），CI 侧改用 `FORCE_COLOR=1`，网页端保留配色
+
+### Changed
+
+- 时间跨边界统一为规范 ISO 8601 串（UTC、恒三位小数、`Z` 后缀）：数据库 TEXT 列、IPC、CLI 输出、日志、更新清单一致；Excel 导出是唯一的本地时区例外（`%Y-%m-%dT%H:%M:%S%.3f%:z`）
+- 实体时间字段的 serde 适配器改为 `#[serde(with = "...")]` 模块，消除 ts-rs 的未知键告警；对应 ts 类型由 `number` 改为 `string`
+- 前端时间列排序由 `localeCompare` 改为 ISO 串字典序；`DateTimeUtils.format` 接受 `string | number`，非法日期返回 `-`
+- 迁移改为整批单事务：`foreign_keys` 在事务外关闭、提交或回滚后恢复，并以 `foreign_key_check` 做最终校验（`defer_foreign_keys` 覆盖不了 `DROP TABLE` 重建的中间态）
+- 数据库快照保留按构建模式分档：发布版保留最近 `KEEP`（3）份，开发模式不清理任何备份
+- 更新域目录名改用 `AppMode::slug()`；`launch` 仅对 `Install(NSIS)` 生效，其余形态返回可重试的 `Error(Install)`；检查源分派改为 `Portable | Install(_)` 都走 CNB
+- 发布链路：GitHub 与 CNB 各自只上传面向自己的清单，二进制与版本索引仍两边都传；CNB 各接口补齐 not-found errcode 判定
+- 路由：地址解析收敛为单次 `parseAction`、载荷按入口声明收窄、`appNavigate` 由 class 改为冻结的命名空间、`HelpAddress.HOST` 收窄为 `WindowKind`
+- 脚本：`cargo` 封装的测试与检查固定目标与参数（`--locked --target <triple>`，clippy 固定 `--all-targets -- -D clippy::all`）；生成物路径统一取自 `common.constant.paths`
+- CI：quality-gate 与 release 的 rust-cache `shared-key` 拆为 `cargo-test` / `cargo-release`（原键相同，release 产物永远进不了缓存）；Python 解释器固定为 3.15.1
+- 依赖：`zip` 8.6.0 → 9.0.5
+
+### Fixed
+
+- 修复历史记录导出的出勤状态整体错位：`0` 为回滚、`1`–`5` 依次为缺勤 / 出勤 / 迟到 / 早退 / 请假（此前整体后移一位，缺勤会导出成「出勤」，请假落到「未知」）
+- 修复导出 Excel 的点名时间格式：固定为 `%Y-%m-%dT%H:%M:%S%.3f%:z`，三位毫秒并保留时区偏移
+- 修复创建记录时 `rollcall_at` 写入毫秒数的问题：改用 `new Date().toISOString()`，与后端实体的字符串类型对齐
+- 修复 V40 迁移在外键开启时因 `DROP TABLE` 失败：改为事务外关闭 `PRAGMA foreign_keys`
+- 修复 `test.py` 向 `ensure_committed` 传入单个 `Path` 导致的 `TypeError`
+- 修复 CNB `releases get-release-by-tag` 把 HTTP 404 直接当失败抛出、未被识别为「不存在」的问题：`NOT_FOUND_ERROR_CODES` 补入 404（`git get-tag` 仍靠业务码 2004002），v0.8.4 的发布即卡在此处
+- 修复 `vite.config.ts` 导出函数导致 `vitest.config.ts` 无法用 `mergeConfig` 合并：改为导出对象
+
+### Removed
+
+- 移除 `codegen/ts_rs.py`：ts-rs 导出改由 `cargo test` 的 lib 测试触发，不再需要独立模块与 `bump.py` 的调用
+- 移除 `WindowRouter` / `router` 模块与 `commands/windows.ts`（由 `nav` 单例与 `appNavigate.enter` 取代）
+- 移除拆分前的单份 `routing/entries.generated.ts`，以及迁移到 `routing/help/` 后的 `utils/helpAddress.ts`
+- 移除裸 node 测试（`tests/*.test.mjs`）与别名解析钩子 `tests/_alias-resolver.mjs` / `_register-alias.mjs`
+- 移除毫秒整数时间戳的 serde 适配器（`deserialize_timestamp_from_millisecond_i64` 及其可选版本）
+
+---
 
 ## 0.8.4 {#0-8-4}
 
