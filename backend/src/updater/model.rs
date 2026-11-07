@@ -142,6 +142,53 @@ pub struct HistoryVersion {
     /// 缺省视为 normal（老索引未标定时兼容，语义与 manifest 的 severity 默认一致）
     #[serde(default)]
     pub severity: Severity,
+    /// 各源清单的内容摘要；缺省 = 老索引 / 未回填 ⇒ 该源走 legacy 路径（只判能否解析）
+    #[serde(default)]
+    pub manifests: ManifestDigests,
+}
+
+/// 单个源清单的摘要
+///
+/// 清单是**逐源**独立的：`latest-github.json` 与 `latest-cnb.json` 只有 url 的 host 不同，
+/// 但 sha256 是逐字节的，所以两份文件必然两个摘要，不能共用。
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, TS)]
+pub struct ManifestDigest {
+    /// 十六进制小写 sha256（必填：缺摘要就走 legacy，不存在"空字符串摘要"的中间态）
+    pub sha256: String,
+    /// base64(minisign 签名文本)，即清单旁 `.sig` 文件全文；缺省 = 只验完整性
+    ///
+    /// ⚠️ 索引自身未被签名之前，本字段**不是信任锚**：能改索引的人也能把它一起换掉。
+    /// 它的价值是与产物链路共用同一套 minisign 约定、并为"索引签名"预铺路。
+    #[serde(default)]
+    pub signature: Option<String>,
+}
+
+/// 三个源各自的清单摘要
+///
+/// 用 struct-of-option 而不是 map：JSON 键是固定的三个 slug，结构体让"缺哪个源"在类型上
+/// 可见，也避免 map 键的 serde 歧义。JSON 形状为 `{"github": {...}, "cnb": {...}, "develop": {...}}`。
+#[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize, TS)]
+#[serde(default)]
+pub struct ManifestDigests {
+    pub github: Option<ManifestDigest>,
+    pub cnb: Option<ManifestDigest>,
+    pub develop: Option<ManifestDigest>,
+}
+
+impl ManifestDigests {
+    /// 取某个源的摘要（`Local` 对应 `develop`，与 [`UpdateSource::slug`] 一致）
+    pub fn get(&self, source: UpdateSource) -> Option<&ManifestDigest> {
+        match source {
+            UpdateSource::GitHub => self.github.as_ref(),
+            UpdateSource::CNB => self.cnb.as_ref(),
+            UpdateSource::Local => self.develop.as_ref(),
+        }
+    }
+
+    /// 三个源都无摘要（老索引 / 未回填）
+    pub fn is_empty(&self) -> bool {
+        self.github.is_none() && self.cnb.is_none() && self.develop.is_none()
+    }
 }
 
 /// 展示给用户的更新信息
