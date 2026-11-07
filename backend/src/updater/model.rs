@@ -1,6 +1,5 @@
 use crate::common::enums;
 use crate::config::app_paths::{AppMode, Installer};
-use crate::updater::constant::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -117,8 +116,8 @@ pub struct Policy {
 impl Default for Policy {
     fn default() -> Policy {
         Policy {
-            level: DEFAULT_UPDATE_LEVEL,
-            channel: DEFAULT_UPDATE_CHANNEL,
+            level: UpdateLevel::Patch,
+            channel: UpdateChannel::Stable,
         }
     }
 }

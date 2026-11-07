@@ -1,8 +1,9 @@
 //! 下载更新产物：流式写入 `.part` → 校验 → 重命名为正式产物。
 //!
-//! `.part` 用随机 uuid 命名、非可执行扩展名，且与正式产物（[`paths::package`]）分居两个目录：
-//! 只有通过校验的字节才会以正式文件名出现。暂时不做断点续传（CNB 无 `Range` 支持），
-//! 失败或取消即全量重下，详见架构文档 §6.5。
+//! 下载中的文件使用 `{随机uuid}.part` 命名、非可执行扩展名，且与正式产物分居两个目录，
+//! 只有通过校验的字节才会以正式文件名出现，失败或取消即全量重下。
+//!
+//! 暂时不做断点续传（CNB 无 `Range` 支持）
 
 use crate::state::http_client;
 use crate::updater::model::{Artifact, DownloadProgress};
@@ -14,7 +15,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// 用户取消下载（`cancel` 命令置位后被逐 chunk 感知）
+/// 用户取消下载
 ///
 /// 用类型而非错误文案传递：编排层据 `downcast_ref` 回到可重下状态，改文案不会破协议。
 #[derive(Debug)]
@@ -30,7 +31,7 @@ impl std::error::Error for Cancelled {}
 
 /// 流式下载 `artifact.url`，校验后落为正式产物并返回其路径
 ///
-/// 正式产物已存在且验签通过时幂等返回；卸载后置位的取消不再生效（产物已落盘，由调用方另行删除）。
+/// 正式产物已存在且验签通过时幂等返回；卸载后置位的取消不再生效，彼时产物已落盘，由调用方另行删除。
 pub async fn download(
     artifact: &Artifact,
     cancel: &AtomicBool,
@@ -47,7 +48,7 @@ pub async fn download(
         std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建产物目录失败（{}）：{e}", parent.display()))?;
     }
 
-    // 同名残留：验签通过即复用，否则删掉重下
+    // 同名残留，验签通过即复用，否则删掉重下
     if final_path.exists() {
         match verify_artifact_path(&final_path, artifact) {
             Ok(_) => return Ok(final_path),
@@ -99,9 +100,9 @@ pub async fn download(
     Ok(final_path)
 }
 
-/// 就绪锚点判定：产物文件存在 → 先以 size 短路（不符视为损坏清除）→ 再整体验签
+/// 就绪锚点判定：产物文件存在 -> 先以 size 短路 -> 再整体验签
 ///
-/// 返回 `Some(路径)` 表示"已下载待安装"（可跳过下载直接安装）；
+/// 返回 `Some(路径)` 表示"已下载待安装"；
 /// 不存在 / 校验失败均返回 `None`，且校验失败或 size 不符时清除文件待重下。
 pub fn ready(path: &Path, artifact: &Artifact) -> Option<PathBuf> {
     if !path.is_file() {

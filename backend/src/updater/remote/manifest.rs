@@ -1,38 +1,4 @@
 //! 目标版本清单：字节级解析 + 摘要可信的本地缓存
-//!
-//! # 为什么缓存需要摘要
-//!
-//! 缓存按 `cache/update/{slug}/{version}.json` 寻址（见 [`crate::updater::paths::manifest`]），
-//! 命中即免网络。旧实现只判"能否解析成 JSON"，于是**内容合法但事实错误**的缓存永远不会被推翻：
-//! v0.8.4 的 CNB 清单把 `/-/releases/` 漏成了 `/releases/`，发布端覆盖上传修好了线上文件，
-//! 但已经缓存过坏字节的客户端仍按缓存里的坏 url 取产物、每次 404。
-//!
-//! 摘要（`versions.json` 条目里的 `manifests[slug].sha256`）回答了"这份字节是不是该版本该有的
-//! 那份"，不符即删、回源重取——覆盖上传由此立刻对所有客户端生效。
-//!
-//! # 判定顺序
-//!
-//! ```text
-//! 缓存存在？
-//!   能解析 且（有摘要时）摘要匹配 → 直接用，零网络
-//!   否则                          → 删掉（自愈），回源
-//! 回源字节
-//!   解析失败 → Err（连 JSON 都不是，没有任何可继续的路径）
-//!   摘要不符 → 用，但**不写缓存**（见下）
-//!   通过     → 原子写缓存（tmp + rename）→ 返回
-//! ```
-//!
-//! "能否解析"必须参与缓存判定：摘要缺省（老索引 / 未回填）时，解析失败是**唯一**的自愈信号，
-//! 早期实现正是靠它清掉损坏的缓存，重排流程时不能丢。
-//!
-//! # 回源后仍不匹配为什么不报错
-//!
-//! 严格报错会把"发布端改了清单忘了改索引"升级成**所有老版本用户永久无法更新**——那正是本次
-//! 事故的同款伤害，只是换了个触发点。清单本身不含可执行内容，产物还要过签名必填的
-//! [`crate::updater::verify::verify_artifact`] 才会被安装；而"用、但不缓存"保证了自愈永远有效：
-//! 既然索引说这份字节不对，就不要把它固化成"下次也信"的东西。
-//!
-//! 若日后要改成严格模式，落点是本模块的一个布尔参数，不影响其它模块。
 
 use crate::updater::model::{ManifestDigest, UpdateManifest};
 use crate::updater::remote::fetch;
@@ -43,23 +9,11 @@ use std::fs;
 use std::path::Path;
 
 /// 解析清单字节
-///
-/// 入参是**字节**而非 `&str`：调用方刚从 [`load`] 拿到的那份字节必须与算摘要 / 验签的是同一份
-/// （中间不做任何转码），否则等于给自己留一个 TOCTOU。
 pub fn parse_manifest(bytes: &[u8]) -> anyhow::Result<UpdateManifest> {
     serde_json::from_slice(bytes).context(anyhow!("清单格式不符合规范"))
 }
 
 /// 取目标版本清单字节：缓存优先，缓存不可信则删掉回源
-///
-/// # 参数
-/// - `client`：HTTP 客户端；
-/// - `url`：清单直链（由 [`crate::updater::urls::manifest_url`] 给出）；
-/// - `cache_path`：缓存落点（由 [`crate::updater::paths::manifest`] 给出）；
-/// - `expected`：索引里该源该版本的摘要；`None` = 老索引 / 未回填 ⇒ legacy 路径（只判能否解析）。
-///
-/// # 返回
-/// 清单的原始字节。调用方用 [`parse_manifest`] 解析，保证"校验的字节"与"使用的字节"是同一份。
 pub async fn load(
     client: &Client,
     url: &str,
@@ -107,9 +61,6 @@ fn is_trusted(bytes: &[u8], expected: Option<&ManifestDigest>) -> anyhow::Result
 }
 
 /// 同卷原子写：先写 `*.tmp`，再 rename 覆盖
-///
-/// `fs::write` 是"截断 + 写"，崩在中间会留下半截文件。摘要校验虽然能把它判为"不符"再删掉，
-/// 但那是**多一次网络往返**换来的正确性；`tmp + rename` 三行代码，直接做掉。
 fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;

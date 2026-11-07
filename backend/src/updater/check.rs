@@ -1,7 +1,4 @@
-//! 更新检查：拉版本索引挑"最高可安装版本" → 拉该版本清单（缓存优先）→ 一致性复判 → 组装命中结果。
-//!
-//! 索引只做预筛选，清单才是该版本的最终发布数据；判定语义（通道门禁 / 幅度门槛 / severity）
-//! 全在 [`decide`]，本文件不做策略判断。
+//! 更新检查：拉版本索引挑"最高可安装版本" -> 拉该版本清单（缓存优先）-> 一致性复判 -> 组装命中结果
 
 use crate::common::constant::sys::{ARCH, OS};
 use crate::config::app_paths::AppMode;
@@ -15,8 +12,8 @@ use semver::Version;
 
 /// 检查是否有可用更新（`Ok(None)` = 无更新）
 ///
-/// `versions.json` 每次发布都新增条目，故每次都拉、不缓存；目标版本清单按"源 + 版本"寻址，
-/// 命中缓存且摘要匹配时免网络（见 [`manifest::load`]）。
+/// `versions.json` 每次发布都新增条目，故每次都拉、不缓存
+/// 目标版本清单按"源 + 版本"寻址，命中缓存且摘要匹配时免网络（见 [`manifest::load`]）
 pub async fn check(
     client: &Client,
     source: UpdateSource,
@@ -36,14 +33,11 @@ pub async fn check(
     let bytes = manifest::load(client, &url, &cache_path, target.manifests.get(source)).await?;
     let manifest = manifest::parse_manifest(&bytes)?;
 
-    validate_manifest(current, policy, &target.version, &manifest, mode)
+    validate(current, policy, &target.version, &manifest, mode)
 }
 
 /// 一致性复判 + 取当前形态产物 + 组装命中结果
-///
-/// 版本号必须与索引一致，且用**清单自身**的 severity 再判一次；不一致视为发布端错误，
-/// 宁可暴露也不静默降级。当前形态无产物 → `Ok(None)`，留一条 warn 供发布端排查漏矩阵的 target。
-fn validate_manifest(
+fn validate(
     current: &Version,
     policy: &Policy,
     expected: &Version,

@@ -137,7 +137,6 @@ pub fn evaluate(current: &Version, latest: &Version, policy: &Policy, severity: 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::updater::constant::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
     use crate::updater::model::UpdateChannel::*;
     use crate::updater::model::UpdateLevel::*;
     use semver::Version;
@@ -311,12 +310,5 @@ mod tests {
         assert_eq!(classify_numeric_change(&v("1.2.1"), &v("1.2.2")), VersionChange::Patch);
         // 主/次/补丁号完全相同（正常流程被递进分支接管，此处回退 Patch）
         assert_eq!(classify_numeric_change(&v("1.2.3"), &v("1.2.3-beta")), VersionChange::Patch);
-    }
-
-    /// 出厂默认值与文档推荐一致：Patch + Stable
-    #[test]
-    fn defaults_match_recommended_policy() {
-        assert_eq!(DEFAULT_UPDATE_LEVEL, Patch);
-        assert_eq!(DEFAULT_UPDATE_CHANNEL, Stable);
     }
 }

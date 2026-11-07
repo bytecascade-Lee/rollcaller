@@ -1,12 +1,10 @@
-//! 更新管线的共享状态（Tauri manage）——后端权威执行状态。
+//! 更新管线的共享状态，后端权威执行状态
 
 use crate::updater::model::{DownloadProgress, UpdateError, UpdateSession, UpdateStatus, UpdateView};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 
-/// 一次下载会话的瞬时资源（原子槽，无锁）
-///
-/// 热路径（每 chunk）只碰原子，不碰 session 锁。`total` 以 `0` 哨兵表达"未知"。
+/// 一次下载会话的瞬时资源，`total` 以 `0` 哨兵表达"未知"
 #[derive(Default)]
 pub struct DownloadSlot {
     downloaded: AtomicU64,
@@ -20,28 +18,28 @@ impl DownloadSlot {
         self.total.store(p.total.unwrap_or(0), Ordering::Relaxed);
     }
 
-    /// 读进度快照（`0` 哨兵还原 `None`）
     pub fn snapshot(&self) -> DownloadProgress {
         DownloadProgress {
             downloaded: self.downloaded.load(Ordering::Relaxed),
             total: match self.total.load(Ordering::Relaxed) {
+                // `0` 哨兵还原 `None`
                 0 => None,
                 n => Some(n),
             },
         }
     }
 
-    /// 下载取消标志的共享引用（download 每 chunk 检查）
+    /// 下载取消标志的共享引用
     pub fn cancel_flag(&self) -> &AtomicBool {
         &self.cancel
     }
 
-    /// 请求取消当前下载（仅置位）
+    /// 请求取消当前下载
     pub fn request_cancel(&self) {
         self.cancel.store(true, Ordering::Relaxed);
     }
 
-    /// 下载结束复位：清进度与取消位（成功 / 失败 / 取消都要调用）
+    /// 下载结束复位，清进度与取消位
     pub fn finish(&self) {
         self.downloaded.store(0, Ordering::Relaxed);
         self.total.store(0, Ordering::Relaxed);
@@ -49,7 +47,7 @@ impl DownloadSlot {
     }
 }
 
-/// 更新管线的共享状态（通过 `tauri::Builder::manage` 注入）
+/// 更新管线的共享状态
 #[derive(Default)]
 pub struct UpdaterState {
     session: Mutex<UpdateSession>,
@@ -59,7 +57,7 @@ pub struct UpdaterState {
 impl UpdaterState {
     /// 在短临界区内读写会话并返回投影视图
     ///
-    /// 闭包返回 `Err` 时回滚本次修改。**闭包内禁止 `.await`**（锁不跨 await）。
+    /// 闭包返回 `Err` 时回滚本次修改，闭包内禁止 `.await`（锁不跨 await）。
     pub fn mutate(&self, f: impl FnOnce(&mut UpdateSession) -> Result<(), String>) -> Result<UpdateView, String> {
         let mut guard = self.session.lock().unwrap_or_else(|e| e.into_inner());
         f(&mut guard)?;
