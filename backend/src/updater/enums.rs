@@ -1,4 +1,4 @@
-use crate::common::entity::update::UpdateInfo;
+use crate::updater::entity::UpdateInfo;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use ts_rs::TS;

@@ -5,7 +5,7 @@
 //! 因此用户设定的等级表示：至少要有这么大的变化才值得更新，
 //! 低于门槛的更新被忽略（延迟聚合，等下一个达标的版本一次跳过去）。
 
-use crate::common::enums::update::{UpdateChannel, UpdateDecision, UpdateLevel};
+use crate::updater::enums::{UpdateChannel, UpdateDecision, UpdateLevel};
 use semver::Version;
 use std::cmp::Ordering;
 
@@ -102,7 +102,7 @@ fn floor_satisfied(change: VersionChange, floor: UpdateLevel) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::constant::update::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
+    use crate::updater::constant::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
     use semver::Version;
     use UpdateChannel::*;
     use UpdateLevel::*;

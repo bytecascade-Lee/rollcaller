@@ -6,7 +6,7 @@
 //! - [`launch`]：按运行形态分派到对应安装器（领域内唯一的启动入口）。
 //!
 //! 退出收尾不在这里，属于进程级语义：[`crate::shutdown_hooks::finish_and_exit`]。
-//! 编排方（`service/update.rs::install_update`）只需：
+//! 编排方（`updater.rs::install_update`）只需：
 //! `launch(...)?` → `shutdown_hooks::finish_and_exit(0).await`；失败路径不触发清理，
 //! 进程存活可重试。
 

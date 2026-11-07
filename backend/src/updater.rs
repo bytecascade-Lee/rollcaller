@@ -8,7 +8,7 @@
 //!   （`&UpdaterState` + 所需依赖）；对外统一返回裁剪的展示视图 [`UpdateView`]。
 //!   事件分两路、由命令层注入的回调发出：**状态迁移帧**（进入 Checking / Downloading
 //!   等，view 通道）与**进度窄帧**（download 通道，节流后）各自独立；命令返回的终态视图由
-//!   命令层再广播。进度数据落 state 原子槽（[`crate::state::update::DownloadSlot`]），
+//!   命令层再广播。进度数据落 state 原子槽（[`state::DownloadSlot`]），
 //!   下载过程不碰 session 锁。
 //!
 //! # 状态机约定（编排层负责推进）
@@ -36,22 +36,24 @@
 //! "已下载待安装"以磁盘事实表达：目标文件存在且校验通过（[`ready_artifact`]）
 //! 即为就绪；check 命中与 download 入口都会先探测，命中则跳过下载（不跳过验签）。
 
-mod check;
-mod download;
-mod install;
-mod paths;
-mod verify;
-mod version;
-
-use crate::common::entity::update::{Artifact, DownloadProgress, Policy};
-use crate::common::enums::update::{UpdateDecision, UpdateError, UpdateSource, UpdateStatus, UpdateView};
 use crate::config::app_paths::{current_mode, AppMode};
 use crate::state::http_client;
-use crate::state::update::UpdaterState;
 use anyhow::anyhow;
 use semver::Version;
+use state::UpdaterState;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
+
+pub mod check;
+pub mod constant;
+pub mod download;
+pub mod entity;
+pub mod enums;
+pub mod install;
+pub mod paths;
+pub mod state;
+pub mod verify;
+pub mod version;
 
 /// 下载进度广播的最小间隔（进度过高频时会节流）
 const PROGRESS_BROADCAST_INTERVAL: Duration = Duration::from_millis(100);
@@ -68,7 +70,7 @@ pub fn current_policy() -> Policy {
 ///
 /// 返回 `Some(路径)` 表示"已下载待安装"（可跳过下载直接安装）；
 /// 不存在 / 校验失败均返回 `None`，且校验失败或 size 不符时清除文件待重下。
-fn ready_artifact(path: &Path, artifact: &Artifact) -> Option<PathBuf> {
+pub fn ready_artifact(path: &Path, artifact: &Artifact) -> Option<PathBuf> {
     if !path.is_file() {
         return None;
     }

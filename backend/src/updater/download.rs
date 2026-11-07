@@ -32,10 +32,10 @@
 //! 先过签名必填，再 sha256 必验，最后 minisign 签名验证（双重 base64 处理见该模块）。
 //! 仅需 sha256 的 Go updater（更新器）**不走本入口**，改直接调用 `verify::verify_sha256`。
 
-use crate::common::entity::update::{Artifact, DownloadProgress};
-use crate::service::update::paths;
-use crate::service::update::verify::verify_artifact_path;
 use crate::state::http_client;
+use crate::updater::entity::{Artifact, DownloadProgress};
+use crate::updater::paths;
+use crate::updater::verify::verify_artifact_path;
 use anyhow::anyhow;
 use std::fs::File;
 use std::io::Write;
@@ -139,7 +139,7 @@ pub async fn download(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::service::update::verify::test_keys;
+    use crate::updater::verify::test_keys;
     use sha2::{Digest, Sha256};
     use std::sync::atomic::AtomicBool;
     use std::thread::JoinHandle;

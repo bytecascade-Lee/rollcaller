@@ -21,8 +21,8 @@
 //!   - `temp/update/backup/{mode}-backup-{from}-to-{to}-{uuid前6位}/`：更新前的原 target 备份
 //!     （见 [`backup`]；位于 `data` 内，靠 `backup.exclude` + `update.preserve` 合法化）。
 
-use crate::common::enums::update::UpdateSource;
 use crate::config::app_paths::{cache_dir, temp_dir, AppMode};
+use crate::updater::enums::UpdateSource;
 use semver::Version;
 use std::path::PathBuf;
 

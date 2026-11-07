@@ -1,8 +1,8 @@
 use crate::state::nav::NavState;
-use crate::state::update::UpdaterState;
 use crate::windows::app_window;
 use crate::windows::common::WindowKind;
 use tauri::Manager;
+use updater::state::UpdaterState;
 
 mod bootstrap;
 pub mod cli;
@@ -15,6 +15,7 @@ mod repo;
 mod service;
 mod shutdown_hooks;
 mod state;
+pub mod updater;
 mod util;
 mod windows;
 

@@ -27,15 +27,15 @@
 //!
 
 use crate::common::constant::sys::{ARCH, OS};
-use crate::common::constant::update::{
+use crate::config::app_paths::AppMode;
+use crate::updater::constant::{
     PLACEHOLDER, SPECIFIED_LATEST_MANIFEST_CNB, SPECIFIED_LATEST_MANIFEST_DEVELOP, SPECIFIED_LATEST_MANIFEST_GITHUB,
     VERSIONS_INDEX_CNB, VERSIONS_INDEX_DEVELOP, VERSIONS_INDEX_GITHUB,
 };
-use crate::common::entity::update::{FoundUpdate, HistoryVersion, Policy, UpdateInfo, UpdateManifest};
-use crate::common::enums::update::{Severity, UpdateDecision, UpdateLevel, UpdateSource};
-use crate::config::app_paths::AppMode;
-use crate::service::update::paths;
-use crate::service::update::version::decide;
+use crate::updater::entity::{FoundUpdate, HistoryVersion, Policy, UpdateInfo, UpdateManifest};
+use crate::updater::enums::{Severity, UpdateDecision, UpdateLevel, UpdateSource};
+use crate::updater::paths;
+use crate::updater::version::decide;
 use anyhow::{anyhow, Context};
 use reqwest::Client;
 use semver::Version;

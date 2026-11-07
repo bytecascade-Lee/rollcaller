@@ -1,9 +1,9 @@
 use crate::common::constant::sys::{ARCH, OS};
-use crate::common::constant::update::{PLACEHOLDER, UPDATER_MANIFEST_CNB, UPDATER_VERSION};
-use crate::common::entity::update::Artifact;
-use crate::service::update::paths;
-use crate::service::update::verify::{verify_artifact, verify_sha256};
 use crate::state::http_client;
+use crate::updater::constant::{PLACEHOLDER, UPDATER_MANIFEST_CNB, UPDATER_VERSION};
+use crate::updater::entity::Artifact;
+use crate::updater::paths;
+use crate::updater::verify::{verify_artifact, verify_sha256};
 use anyhow::{anyhow, Context};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -51,7 +51,7 @@ fn is_pinned_name(name: &str) -> bool {
 }
 
 /// 本地锁定版本的更新器（只看文件名里的版本段：不联网、不执行）
-pub(in crate::service::update) fn updater_exe() -> Option<PathBuf> {
+pub(crate) fn updater_exe() -> Option<PathBuf> {
     fs::read_dir(paths::updater_bin_dir())
         .ok()?
         .flatten()
@@ -77,7 +77,7 @@ fn discard_others(keep: &Path) {
 /// 解压 zip 到 `dest`；若 zip 内是单一顶层目录则返回该目录（解包一层），否则返回 `dest`
 ///
 /// 解压的路径穿越防护被移除，后续有这方面的话需要小心
-pub(in crate::service::update) fn extract_zip(zip_path: &Path, dest: &Path) -> anyhow::Result<PathBuf> {
+pub(crate) fn extract_zip(zip_path: &Path, dest: &Path) -> anyhow::Result<PathBuf> {
     if dest.exists() {
         fs::remove_dir_all(dest).map_err(|e| anyhow!("清理解压目录失败（{}）：{e}", dest.display()))?;
     }
@@ -100,11 +100,7 @@ pub(in crate::service::update) fn extract_zip(zip_path: &Path, dest: &Path) -> a
 
 /// 分离式 spawn updater.exe
 #[cfg(target_os = "windows")]
-pub(in crate::service::update) fn spawn_updater(
-    exec_path: &Path,
-    config_path: &Path,
-    log_file: &Path,
-) -> anyhow::Result<()> {
+pub(crate) fn spawn_updater(exec_path: &Path, config_path: &Path, log_file: &Path) -> anyhow::Result<()> {
     use std::os::windows::process::CommandExt;
 
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;

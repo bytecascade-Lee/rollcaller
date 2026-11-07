@@ -1,7 +1,7 @@
-use crate::common::constant::update::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
 use crate::common::enums;
-use crate::common::enums::update::{Severity, UpdateChannel, UpdateError, UpdateLevel, UpdateStatus, UpdateView};
 use crate::config::app_paths::{AppMode, Installer};
+use crate::updater::constant::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
+use crate::updater::enums::{Severity, UpdateChannel, UpdateError, UpdateLevel, UpdateStatus, UpdateView};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -172,7 +172,7 @@ pub struct FoundUpdate {
 /// 下载进度的通用载体
 ///
 /// 一份载荷多处复用：download 域每 chunk 的回调参数、state 原子槽
-/// （[`crate::state::update::DownloadSlot`]）的写入口与快照、以及 download 通道
+/// （[`crate::updater::state::DownloadSlot`]）的写入口与快照、以及 download 通道
 /// 的窄进度事件帧——三处的语义都是"瞬时进度"，与持久会话事实（info /
 /// severity / artifact）解耦。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, TS)]

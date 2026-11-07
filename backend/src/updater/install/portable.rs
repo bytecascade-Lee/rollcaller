@@ -20,8 +20,8 @@
 use super::common;
 use crate::config::app_paths;
 use crate::config::app_paths::AppMode;
-use crate::service::update::install::common::{extract_zip, updater_exe};
-use crate::service::update::paths;
+use crate::updater::install::common::{extract_zip, updater_exe};
+use crate::updater::paths;
 use crate::util::path_utils;
 use anyhow::anyhow;
 use semver::Version;

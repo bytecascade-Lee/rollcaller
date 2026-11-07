@@ -35,9 +35,9 @@
 //! 5. 运行互操作测试 `cargo test --lib service::update::verify::interop_with_tauri_signer` 验证（本机无 tauri CLI 时自动跳过并打印提示，此时可依上述步骤手动验证）。
 
 use crate::common::constant::secrets::ROLLCALLER_UPDATE_PUBKEY;
-use crate::common::entity::update::Artifact;
 use crate::common::ext::encode_ext::Base64Ext;
 use crate::common::ext::hash_ext::HashExt;
+use crate::updater::entity::Artifact;
 use anyhow::anyhow;
 use std::path::Path;
 

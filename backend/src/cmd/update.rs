@@ -18,9 +18,9 @@
 //!
 //! 命令返回与广播共用同一类型与同一 apply 逻辑；进度帧是独立窄类型。
 
-use crate::common::enums::update::UpdateView;
-use crate::service::update as update_service;
-use crate::state::update::UpdaterState;
+use crate::updater;
+use crate::updater::enums::UpdateView;
+use crate::updater::state::UpdaterState;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -42,7 +42,7 @@ fn broadcast<T: Serialize>(event: &str, app: &AppHandle, payload: &T) {
 pub async fn check(app: AppHandle) -> Result<UpdateView, String> {
     let state = app.state::<UpdaterState>();
     let current_version = app.package_info().version.clone();
-    let view = update_service::check(state.inner(), &current_version, |v| broadcast(UPDATE_VIEW_EVENT, &app, v))
+    let view = updater::check(state.inner(), &current_version, |v| broadcast(UPDATE_VIEW_EVENT, &app, v))
         .await
         .map_err(|e| e.to_string())?;
     broadcast(UPDATE_VIEW_EVENT, &app, &view);
@@ -57,7 +57,7 @@ pub async fn check(app: AppHandle) -> Result<UpdateView, String> {
 pub async fn download(app: AppHandle) -> Result<UpdateView, String> {
     let state = app.state::<UpdaterState>();
     let current_version = app.package_info().version.clone();
-    let view = update_service::download(
+    let view = updater::download(
         state.inner(),
         &current_version,
         |v| broadcast(UPDATE_VIEW_EVENT, &app, v),
@@ -72,7 +72,7 @@ pub async fn download(app: AppHandle) -> Result<UpdateView, String> {
 #[tauri::command]
 pub async fn cancel(app: AppHandle) -> Result<UpdateView, String> {
     let state = app.state::<UpdaterState>();
-    let view = update_service::cancel(state.inner())?;
+    let view = updater::cancel(state.inner())?;
     broadcast(UPDATE_VIEW_EVENT, &app, &view);
     Ok(view)
 }
@@ -82,7 +82,7 @@ pub async fn cancel(app: AppHandle) -> Result<UpdateView, String> {
 pub async fn install(app: AppHandle) -> Result<UpdateView, String> {
     let state = app.state::<UpdaterState>();
     let current_version = app.package_info().version.clone();
-    let view = update_service::install(state.inner(), &current_version).await?;
+    let view = updater::install(state.inner(), &current_version).await?;
     broadcast(UPDATE_VIEW_EVENT, &app, &view);
     Ok(view)
 }
