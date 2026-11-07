@@ -35,7 +35,7 @@
 use crate::state::http_client;
 use crate::updater::model::{Artifact, DownloadProgress};
 use crate::updater::verify::verify_artifact_path;
-use crate::updater::{paths, verify};
+use crate::updater::paths;
 use anyhow::anyhow;
 use std::fs::File;
 use std::io::Write;
@@ -134,6 +134,28 @@ pub async fn download(
         )
     })?;
     Ok(final_path)
+}
+
+/// 就绪锚点判定：产物文件存在 → 先以 size 短路（不符视为损坏清除）→ 再整体验签
+///
+/// 返回 `Some(路径)` 表示"已下载待安装"（可跳过下载直接安装）；
+/// 不存在 / 校验失败均返回 `None`，且校验失败或 size 不符时清除文件待重下。
+pub fn ready(path: &Path, artifact: &Artifact) -> Option<PathBuf> {
+    if !path.is_file() {
+        return None;
+    }
+    let size_ok = path.metadata().map(|m| m.len()).ok() == Some(artifact.size);
+    if !size_ok {
+        let _ = std::fs::remove_file(path);
+        return None;
+    }
+    match verify_artifact_path(path, artifact) {
+        Ok(()) => Some(path.to_path_buf()),
+        Err(_) => {
+            let _ = std::fs::remove_file(path);
+            None
+        }
+    }
 }
 
 #[cfg(test)]
@@ -309,27 +331,5 @@ mod tests {
 
             server.handle.join().unwrap();
         });
-    }
-}
-
-/// 就绪锚点判定：产物文件存在 → 先以 size 短路（不符视为损坏清除）→ 再整体验签
-///
-/// 返回 `Some(路径)` 表示"已下载待安装"（可跳过下载直接安装）；
-/// 不存在 / 校验失败均返回 `None`，且校验失败或 size 不符时清除文件待重下。
-pub fn ready(path: &Path, artifact: &Artifact) -> Option<PathBuf> {
-    if !path.is_file() {
-        return None;
-    }
-    let size_ok = path.metadata().map(|m| m.len()).ok() == Some(artifact.size);
-    if !size_ok {
-        let _ = std::fs::remove_file(path);
-        return None;
-    }
-    match verify::verify_artifact_path(path, artifact) {
-        Ok(()) => Some(path.to_path_buf()),
-        Err(_) => {
-            let _ = std::fs::remove_file(path);
-            None
-        }
     }
 }
