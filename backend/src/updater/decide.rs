@@ -5,7 +5,7 @@
 //! 因此用户设定的等级表示：至少要有这么大的变化才值得更新，
 //! 低于门槛的更新被忽略（延迟聚合，等下一个达标的版本一次跳过去）。
 
-use crate::common::enums::update::{UpdateChannel, UpdateDecision, UpdateLevel};
+use crate::updater::model::{Policy, Severity, UpdateChannel, UpdateDecision, UpdateLevel};
 use semver::Version;
 use std::cmp::Ordering;
 
@@ -99,13 +99,48 @@ fn floor_satisfied(change: VersionChange, floor: UpdateLevel) -> bool {
     }
 }
 
+/// 版本判定 + severity 融合
+///
+/// # severity 语义
+///
+/// | decide 返回 Skip 的原因 | normal | important | critical |
+/// |---|---|---|---|
+/// | 幅度不足 | 不通知 | **豁免 → 通知** | 豁免 → 通知 |
+/// | 用户关闭更新 | 不通知 | 不通知 | **穿透 → 通知（强制更新）** |
+/// | Stable 通道拦预发布 | 不豁免 | 不豁免 | 不豁免 |
+/// | 同版本 / 降级 | 不豁免 | 不豁免 | 不豁免 |
+///
+/// 实现方式：
+/// - 豁免 = 仅把幅度门槛临时降到 `Patch`（等价"无视幅度门槛"），
+///   其余门禁原样交给 `decide`——因此无需给 `decide` 增加 Skip 原因，
+///   也不破坏其纯 Copy 枚举形态。
+/// - 强制更新 = critical，即使 level=Never 也穿透放行。
+pub fn evaluate(current: &Version, latest: &Version, policy: &Policy, severity: Severity) -> UpdateDecision {
+    // 用户关闭更新（level=UpdateLevel::Never）：仅 critical（强制更新）穿透放行
+    if policy.level == UpdateLevel::Never {
+        return if severity == Severity::Critical {
+            UpdateDecision::Update
+        } else {
+            UpdateDecision::Skip
+        };
+    }
+    // severity 豁免：normal 之外把幅度门槛降到 Patch，等价"无视幅度门槛"；
+    // 通道门禁 / 同版本 / 降级 / 逃逸 / 递进由 decide 原样保留
+    let level = if severity == Severity::Normal {
+        policy.level
+    } else {
+        UpdateLevel::Patch
+    };
+    decide(current, latest, level, policy.channel)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::constant::update::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
+    use crate::updater::constant::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
+    use crate::updater::model::UpdateChannel::*;
+    use crate::updater::model::UpdateLevel::*;
     use semver::Version;
-    use UpdateChannel::*;
-    use UpdateLevel::*;
 
     fn v(s: &str) -> Version {
         Version::parse(s).unwrap()

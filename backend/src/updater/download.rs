@@ -32,14 +32,14 @@
 //! 先过签名必填，再 sha256 必验，最后 minisign 签名验证（双重 base64 处理见该模块）。
 //! 仅需 sha256 的 Go updater（更新器）**不走本入口**，改直接调用 `verify::verify_sha256`。
 
-use crate::common::entity::update::{Artifact, DownloadProgress};
-use crate::service::update::paths;
-use crate::service::update::verify::verify_artifact_path;
 use crate::state::http_client;
+use crate::updater::model::{Artifact, DownloadProgress};
+use crate::updater::paths;
+use crate::updater::verify::verify_artifact_path;
 use anyhow::anyhow;
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// 流式下载 `artifact.url`，校验后重命名为正式产物并返回其路径
@@ -136,10 +136,32 @@ pub async fn download(
     Ok(final_path)
 }
 
+/// 就绪锚点判定：产物文件存在 → 先以 size 短路（不符视为损坏清除）→ 再整体验签
+///
+/// 返回 `Some(路径)` 表示"已下载待安装"（可跳过下载直接安装）；
+/// 不存在 / 校验失败均返回 `None`，且校验失败或 size 不符时清除文件待重下。
+pub fn ready(path: &Path, artifact: &Artifact) -> Option<PathBuf> {
+    if !path.is_file() {
+        return None;
+    }
+    let size_ok = path.metadata().map(|m| m.len()).ok() == Some(artifact.size);
+    if !size_ok {
+        let _ = std::fs::remove_file(path);
+        return None;
+    }
+    match verify_artifact_path(path, artifact) {
+        Ok(()) => Some(path.to_path_buf()),
+        Err(_) => {
+            let _ = std::fs::remove_file(path);
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::service::update::verify::test_keys;
+    use crate::updater::verify::test_keys;
     use sha2::{Digest, Sha256};
     use std::sync::atomic::AtomicBool;
     use std::thread::JoinHandle;

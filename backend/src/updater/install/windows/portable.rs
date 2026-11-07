@@ -17,11 +17,11 @@
 //! - Windows 路径统一写成正斜杠，避免 JSON 转义；
 //! - 日志毫秒时间戳命名。
 
-use super::common;
 use crate::config::app_paths;
 use crate::config::app_paths::AppMode;
-use crate::service::update::install::common::{extract_zip, updater_exe};
-use crate::service::update::paths;
+use crate::updater::install::common::{extract_zip, updater_exe};
+use crate::updater::install::windows::process;
+use crate::updater::paths;
 use crate::util::path_utils;
 use anyhow::anyhow;
 use semver::Version;
@@ -91,7 +91,7 @@ pub fn install_portable(zip_path: &Path, from: &Version, to: &Version) -> anyhow
         .map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", config_path.display()))?;
 
     // 6. 分离式 spawn updater（成功后由调用方执行退出清理并 exit(0)）
-    common::spawn_updater(&updater, &config_path, &log_file)
+    process::spawn_updater(&updater, &config_path, &log_file)
 }
 
 /// 非 Windows 平台：便携版安装不可用

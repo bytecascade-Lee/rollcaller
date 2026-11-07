@@ -1,18 +1,13 @@
 use crate::common::constant::sys::{ARCH, OS};
-use crate::common::constant::update::{PLACEHOLDER, UPDATER_MANIFEST_CNB, UPDATER_VERSION};
-use crate::common::entity::update::Artifact;
-use crate::service::update::paths;
-use crate::service::update::verify::{verify_artifact, verify_sha256};
 use crate::state::http_client;
+use crate::updater::constant::UPDATER_VERSION;
+use crate::updater::model::Artifact;
+use crate::updater::paths;
+use crate::updater::urls;
+use crate::updater::verify::{verify_artifact, verify_sha256};
 use anyhow::{anyhow, Context};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-
-/// 锁定版本的更新器清单地址
-fn updater_manifest_url() -> String {
-    UPDATER_MANIFEST_CNB.replace(PLACEHOLDER, UPDATER_VERSION)
-}
 
 /// 清单里属于当前平台的那一项（产物名 / sha256 / 字节数 / 签名都由清单给）
 fn platform_artifact(manifest: &serde_json::Value) -> anyhow::Result<Artifact> {
@@ -51,7 +46,7 @@ fn is_pinned_name(name: &str) -> bool {
 }
 
 /// 本地锁定版本的更新器（只看文件名里的版本段：不联网、不执行）
-pub(in crate::service::update) fn updater_exe() -> Option<PathBuf> {
+pub(crate) fn updater_exe() -> Option<PathBuf> {
     fs::read_dir(paths::updater_bin_dir())
         .ok()?
         .flatten()
@@ -77,7 +72,7 @@ fn discard_others(keep: &Path) {
 /// 解压 zip 到 `dest`；若 zip 内是单一顶层目录则返回该目录（解包一层），否则返回 `dest`
 ///
 /// 解压的路径穿越防护被移除，后续有这方面的话需要小心
-pub(in crate::service::update) fn extract_zip(zip_path: &Path, dest: &Path) -> anyhow::Result<PathBuf> {
+pub(crate) fn extract_zip(zip_path: &Path, dest: &Path) -> anyhow::Result<PathBuf> {
     if dest.exists() {
         fs::remove_dir_all(dest).map_err(|e| anyhow!("清理解压目录失败（{}）：{e}", dest.display()))?;
     }
@@ -98,36 +93,6 @@ pub(in crate::service::update) fn extract_zip(zip_path: &Path, dest: &Path) -> a
     }
 }
 
-/// 分离式 spawn updater.exe
-#[cfg(target_os = "windows")]
-pub(in crate::service::update) fn spawn_updater(
-    exec_path: &Path,
-    config_path: &Path,
-    log_file: &Path,
-) -> anyhow::Result<()> {
-    use std::os::windows::process::CommandExt;
-
-    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
-    const DETACHED_PROCESS: u32 = 0x0000_0008;
-
-    let output_path = log_file.with_extension("stderr.log");
-    let stdout =
-        fs::File::create(&output_path).map_err(|e| anyhow!("创建更新器输出日志失败（{}）：{e}", output_path.display()))?;
-    let stderr = stdout
-        .try_clone()
-        .map_err(|e| anyhow!("复制更新器输出日志句柄失败（{}）：{e}", output_path.display()))?;
-
-    Command::new(exec_path)
-        .arg(config_path)
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(stdout))
-        .stderr(Stdio::from(stderr))
-        .creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS)
-        .spawn()
-        .map(|_| ())
-        .map_err(|e| anyhow::anyhow!("spawn updater.exe 失败: {e}"))
-}
-
 /// 便携版更新器就绪（安装前 ensure；幂等）
 ///
 /// 本地已有锁定版本 → 直接用，不联网；没有才拉该版本 tag 的清单，按清单下载 / 校验 / 落盘。
@@ -142,7 +107,7 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
 
     // 2. 拉锁定版本（tag）的清单
     let text = http_client::client()
-        .get(updater_manifest_url())
+        .get(urls::updater_manifest_url(UPDATER_VERSION))
         .header("Accept", "application/json")
         .send()
         .await
@@ -202,12 +167,12 @@ pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
 mod tests {
     use super::*;
 
-    /// 清单地址由锁定版本拼出，不留占位符
+    /// 更新器清单按锁定版本的 tag 取，不用 latest
     #[test]
-    fn manifest_url_uses_pinned_version() {
-        let url = updater_manifest_url();
-        assert!(!url.contains(PLACEHOLDER), "占位符未替换：{url}");
+    fn updater_manifest_url_is_pinned_to_locked_version() {
+        let url = urls::updater_manifest_url(UPDATER_VERSION);
         assert!(url.contains(&format!("/v{UPDATER_VERSION}/")), "tag 不符：{url}");
+        assert!(!url.contains("latest/download"), "不得退化成 latest：{url}");
     }
 
     /// 清单解析：取当前平台那一项，签名缺省为空（将来有则照抄）

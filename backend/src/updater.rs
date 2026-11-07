@@ -8,7 +8,7 @@
 //!   （`&UpdaterState` + 所需依赖）；对外统一返回裁剪的展示视图 [`UpdateView`]。
 //!   事件分两路、由命令层注入的回调发出：**状态迁移帧**（进入 Checking / Downloading
 //!   等，view 通道）与**进度窄帧**（download 通道，节流后）各自独立；命令返回的终态视图由
-//!   命令层再广播。进度数据落 state 原子槽（[`crate::state::update::DownloadSlot`]），
+//!   命令层再广播。进度数据落 state 原子槽（[`state::DownloadSlot`]），
 //!   下载过程不碰 session 锁。
 //!
 //! # 状态机约定（编排层负责推进）
@@ -33,25 +33,28 @@
 //! 产物目录布局统一由 [`paths`] 管理：下载产物平铺于 `temp/update/packages/`、
 //! 文件名取发布产物 url 的最后一段（`Artifact::file_name()`，自带版本等完整信息），
 //! 下载中数据暂存 `temp/downloads/` 的随机 `.part`。
-//! "已下载待安装"以磁盘事实表达：目标文件存在且校验通过（[`ready_artifact`]）
+//! "已下载待安装"以磁盘事实表达：目标文件存在且校验通过（[`download::ready`]）
 //! 即为就绪；check 命中与 download 入口都会先探测，命中则跳过下载（不跳过验签）。
 
-mod check;
-mod download;
-mod install;
-mod paths;
-mod verify;
-mod version;
-
-use crate::common::entity::update::{Artifact, DownloadProgress, Policy};
-use crate::common::enums::update::{UpdateDecision, UpdateError, UpdateSource, UpdateStatus, UpdateView};
 use crate::config::app_paths::{current_mode, AppMode};
 use crate::state::http_client;
-use crate::state::update::UpdaterState;
 use anyhow::anyhow;
+use model::{DownloadProgress, Policy, UpdateDecision, UpdateError, UpdateSource, UpdateStatus, UpdateView};
 use semver::Version;
-use std::path::{Path, PathBuf};
+use state::UpdaterState;
 use std::time::{Duration, Instant};
+
+pub mod check;
+pub mod constant;
+pub mod decide;
+pub mod download;
+pub mod install;
+pub mod model;
+pub mod paths;
+pub mod remote;
+pub mod state;
+pub mod urls;
+pub mod verify;
 
 /// 下载进度广播的最小间隔（进度过高频时会节流）
 const PROGRESS_BROADCAST_INTERVAL: Duration = Duration::from_millis(100);
@@ -62,28 +65,6 @@ const PROGRESS_BROADCAST_INTERVAL: Duration = Duration::from_millis(100);
 /// 返回出厂默认（Patch + Stable）。接入设置后只需改这一处。
 pub fn current_policy() -> Policy {
     Policy::default()
-}
-
-/// 就绪锚点判定：产物文件存在 → 先以 size 短路（不符视为损坏清除）→ 再整体验签
-///
-/// 返回 `Some(路径)` 表示"已下载待安装"（可跳过下载直接安装）；
-/// 不存在 / 校验失败均返回 `None`，且校验失败或 size 不符时清除文件待重下。
-fn ready_artifact(path: &Path, artifact: &Artifact) -> Option<PathBuf> {
-    if !path.is_file() {
-        return None;
-    }
-    let size_ok = path.metadata().map(|m| m.len()).ok() == Some(artifact.size);
-    if !size_ok {
-        let _ = std::fs::remove_file(path);
-        return None;
-    }
-    match verify::verify_artifact_path(path, artifact) {
-        Ok(()) => Some(path.to_path_buf()),
-        Err(_) => {
-            let _ = std::fs::remove_file(path);
-            None
-        }
-    }
 }
 
 /// 检查是否有可用更新（编排）
@@ -132,7 +113,7 @@ pub async fn check(
             .artifact
             .file_name()
             .map(|name| paths::package(&name))
-            .and_then(|path| ready_artifact(&path, &found.artifact)),
+            .and_then(|path| download::ready(&path, &found.artifact)),
         _ => None,
     };
 
@@ -219,7 +200,7 @@ pub async fn download(
     // 入口复核：策略变更 → 旧凭据作废，落 Error(Check) 要求重查（基线版本为命令层传入，
     // 与 check 同源；会话不再保存 current_version）
     let decision = match session.info.as_ref().map(|i| &i.version) {
-        Some(target) => check::evaluate(current_version, target, &current_policy(), session.severity),
+        Some(target) => decide::evaluate(current_version, target, &current_policy(), session.severity),
         None => return Err("更新凭据不完整，请重新执行 check".to_string()),
     };
     if decision != UpdateDecision::Update {
@@ -242,7 +223,7 @@ pub async fn download(
     );
 
     // 就绪锚点：目标文件已存在 → 跳过下载，但不能跳过校验；损坏清除重下
-    if ready_artifact(&final_path, &artifact).is_some() {
+    if download::ready(&final_path, &artifact).is_some() {
         return state
             .mutate(|s| {
                 s.status = UpdateStatus::Downloaded;

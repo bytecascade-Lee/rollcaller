@@ -6,20 +6,19 @@
 //! - [`launch`]：按运行形态分派到对应安装器（领域内唯一的启动入口）。
 //!
 //! 退出收尾不在这里，属于进程级语义：[`crate::shutdown_hooks::finish_and_exit`]。
-//! 编排方（`service/update.rs::install_update`）只需：
+//! 编排方（`updater.rs::install_update`）只需：
 //! `launch(...)?` → `shutdown_hooks::finish_and_exit(0).await`；失败路径不触发清理，
 //! 进程存活可重试。
 
 mod common;
-mod develop;
-mod nsis;
-mod portable;
+pub mod windows;
 
 use crate::config::app_paths::AppMode;
 #[cfg(target_os = "windows")]
 use crate::config::app_paths::Installer;
 use semver::Version;
 use std::path::Path;
+use windows::{develop, nsis, portable};
 
 /// 安装前确保更新器就绪（Portable / Develop 形态需要；Install 无更新器直接返回）
 ///
