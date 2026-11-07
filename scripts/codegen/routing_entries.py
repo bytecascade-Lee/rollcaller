@@ -4,17 +4,12 @@
 """
 从两个域的声明生成 TypeScript 导航入口
 
-产物两份（都用不上对方的段，拆开免得互相拖累）：
-    routing/app/entries.generated.ts   入口表 + 每个入口的载荷类型 + 地址链父表
-    routing/help/entries.generated.ts  帮助文档的深链句柄
-
-用法：
-    uv run ./scripts/codegen/routing_entries.py
+调用时机：
+    开发、构建前
 """
 
 import json
 import re
-import sys
 from pathlib import Path
 
 from common.constant.paths import (
@@ -25,8 +20,7 @@ from common.constant.paths import (
     PROJECT_BASE_DIR,
     RESOURCES_DIR,
 )
-from common.logger import error, success
-from util.sigint import graceful_sigint
+from common.logger import success
 
 APP_META_PATH = FRONTEND_DIR / "src" / "lib" / "resources" / "app" / "meta.json"
 HELP_META_PATH = FRONTEND_DIR / "src" / "lib" / "resources" / "help" / "meta.json"
@@ -359,17 +353,3 @@ def generate() -> None:
         f"{payload_count} 个带载荷）与 routing/{help_label}"
         f"（{len(help_anchors)} 篇文档 / {anchor_count} 个锚点）"
     )
-
-
-def main() -> int:
-    try:
-        generate()
-    except MetaError as e:
-        error(f"生成失败: {e}")
-        return 1
-    return 0
-
-
-if __name__ == "__main__":
-    with graceful_sigint():
-        sys.exit(main())
