@@ -1,15 +1,18 @@
 <script lang="ts">
   import {clickOutside} from "$actions";
   import {type HelpSearchResult, helpStore} from "$stores/helpStore.svelte";
-  import {HelpAddress} from "$utils/helpAddress";
+  import {HelpAddress} from "$routing/help/address";
   import type {EntryRegistry} from "$routing/registry";
-  import {HelpOverlay, type HelpOverlayName} from "$types";
+  import {HelpOverlay, type HelpOverlayName, type HelpOverlayPayload} from "$types";
   import {MagnifyingGlassIcon} from "phosphor-svelte";
 
-  let {anchor = $bindable(), overlays}: {
+  let {
+    anchor = $bindable(),
+    overlays,
+  }: {
     anchor: HTMLElement | null;
     /** 本窗口的叠加层注册表：搜索是纯过程，不进地址空间，只在本窗口内部使用 */
-    overlays: EntryRegistry<HelpOverlayName>;
+    overlays: EntryRegistry<HelpOverlayName, HelpOverlayPayload>;
   } = $props();
 
   let isVisible = $state(false);
@@ -20,7 +23,8 @@
 
   // 输入变化即搜索；索引构建完成（indexing 翻转）后自动补搜一次
   $effect(() => {
-    helpStore.indexing;
+    // 读一次即可建立依赖；`void` 是为了让"有意只读不消费"这件事对 linter 显式
+    void helpStore.indexing;
     results = helpStore.search(query);
     selectedIndex = 0;
   });
@@ -78,9 +82,10 @@
     }
   }
 
-  export function open() {
+  /** 打开弹层；`query` 由载荷带来（跨窗口投递的「打开帮助并搜某词」），无载荷时清空 */
+  export function open(payload?: {query?: string}) {
     isVisible = true;
-    query = "";
+    query = payload?.query ?? "";
     selectedIndex = 0;
     helpStore.ensureIndexed();
   }
@@ -93,7 +98,6 @@
     overlays.register(HelpOverlay.search, {
       open,
       close,
-      isVisible: () => isVisible,
     });
     return () => overlays.unregister(HelpOverlay.search);
   });
@@ -103,21 +107,13 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="popup help"
-    use:clickOutside={{ callback: close, exclude: anchor ?? undefined }}
+    use:clickOutside={{callback: close, exclude: anchor ?? undefined}}
     onkeydown={handleKeydown}
     onmousedown={() => searchInput?.focus()}
   >
-    <div
-      class="search help"
-    >
-      <MagnifyingGlassIcon size="18"/>
-      <input
-        class="help"
-        type="search"
-        placeholder="搜索帮助文档..."
-        bind:value={query}
-        bind:this={searchInput}
-      />
+    <div class="search help">
+      <MagnifyingGlassIcon size="18" />
+      <input class="help" type="search" placeholder="搜索帮助文档..." bind:value={query} bind:this={searchInput} />
     </div>
     <div class="search-results">
       {#if helpStore.indexing}
@@ -132,8 +128,10 @@
             onmouseenter={() => (selectedIndex = i)}
             onclick={() => select(result.id)}
           >
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -- renderSnippet 先 escapeHtml，只插入自己的 <strong> -->
             <span class="result-title">{@html renderSnippet(result.title, query)}</span>
             {#if result.snippet}
+              <!-- eslint-disable-next-line svelte/no-at-html-tags -- 同上 -->
               <span class="result-snippet">{@html renderSnippet(result.snippet, query)}</span>
             {/if}
           </button>

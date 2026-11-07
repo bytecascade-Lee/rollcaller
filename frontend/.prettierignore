@@ -1,0 +1,12 @@
+# 锁文件
+pnpm-lock.yaml
+
+# ts-rs 导出的类型
+src/lib/types/
+
+# 路由入口表与帮助句柄表
+src/lib/routing/app/entries.generated.ts
+src/lib/routing/help/entries.generated.ts
+
+# 构建产物
+dist/

@@ -15,6 +15,7 @@
     - 预检 gh 登录，未登录给出明确指引
     - 默认只处理 .github/workflows 下真实 workflow 的 run；
       GitHub 内部自动 workflow 默认跳过，--include-gh-runs 可放开
+    - 归档时抹掉日志里的 ANSI 转义：CI 端可以放心开色，本地文件保持可读
 
 用法:
     uv run ./scripts/tool/download_actions_logs.py
@@ -24,9 +25,12 @@
 """
 
 import argparse
+import io
 import os
+import re
 import sys
 import time
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -43,6 +47,40 @@ OUT_DIR = RELEASE_DIR / "CI-CD" / "logs"
 
 class LogsError(Exception):
     """无法确定仓库，或过滤后没有可处理的 run"""
+
+
+# ANSI 转义：CSI（ESC [ …）、OSC（ESC ] …）与其余双字节转义。只匹配 ASCII 控制序列，
+# 因此在 bytes 上替换不会切坏 UTF-8 多字节字符。
+_ANSI_RE = re.compile(
+    rb"\x1b\[[0-9;?]*[ -/]*[@-~]"           # CSI：ESC [ 参数 中间字节 终止字节
+    rb"|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC：ESC ] … BEL 或 ST（含超链接）
+    rb"|\x1b[@-Z\\-_]"                      # 其余双字节转义
+)
+
+
+def _strip_ansi_zip(data: bytes, run_id: int) -> bytes:
+    """重写日志 zip，抹掉每个 .txt 成员里的 ANSI 转义
+
+    颜色有三个来源且都不受 env 控制：runner 回显 `run:` 脚本内容、cargo 的
+    `CARGO_TERM_COLOR`、rustup 等工具。既然关不掉，就在归档侧统一清理，
+    让 CI 保留配色（网页端更醒目）而本地文件保持可读。
+
+    zip 结构、成员顺序与元数据（时间戳 / 属性）原样保留，只是内容被过滤。
+    """
+    buffer = io.BytesIO()
+    try:
+        with (
+            zipfile.ZipFile(io.BytesIO(data)) as source,
+            zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as target,
+        ):
+            for info in source.infolist():
+                content = source.read(info)
+                if info.filename.lower().endswith(".txt"):
+                    content = _ANSI_RE.sub(b"", content)
+                target.writestr(info, content)
+    except zipfile.BadZipFile as error:
+        raise gh.GhError(f"run {run_id} 的日志 zip 无法解压: {error}") from error
+    return buffer.getvalue()
 
 
 @dataclass(frozen=True, slots=True)
@@ -265,15 +303,16 @@ def _download_run_log(repo: str, run_id: int, dest: Path) -> None:
     """下载单个 run 的日志并落盘为 zip
 
     /actions/runs/{id}/logs 会 302 到签名 URL，gh api 自动跟随；
-    下载完成后校验 zip 魔数，避免空响应 / 错误页被当成日志。
+    下载完成后校验 zip 魔数，避免空响应 / 错误页被当成日志；
+    落盘前抹掉 .txt 里的 ANSI 转义（见 `_strip_ansi_zip`）。
 
-    :raise gh.GhError: 下载失败或内容不是 zip（日志过期时消息含 HTTP 404/410）
+    :raise gh.GhError: 下载失败、内容不是 zip，或 zip 无法解析
     """
     data = gh.stdout_bytes(["api", gh.api_path(repo, f"actions/runs/{run_id}/logs")])
     if not data.startswith(b"PK\x03\x04"):
         raise gh.GhError(f"run {run_id} 的日志下载结果不是有效的 zip（可能尚未生成完整日志）")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(data)
+    dest.write_bytes(_strip_ansi_zip(data, run_id))
 
 
 def _download_groups(repo: str, groups: dict[str, list[Run]], args: argparse.Namespace) -> dict[str, int]:

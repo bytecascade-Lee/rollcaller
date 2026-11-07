@@ -4,15 +4,10 @@ use crate::common::enums::student::{StudentBatchCreateResult, StudentSingleCreat
 use crate::repo::student_repo;
 use anyhow::anyhow;
 use rbatis::executor::Executor;
-use rbatis::rbatis_codegen::ops::AsProxy;
 use rbatis::RBatis;
 use rbs::value;
-use serde::de::Error;
-use serde::Deserialize;
-use sha2::digest::typenum::Len;
-use std::cmp::PartialEq;
 use std::collections::HashMap;
-use tracing::{debug, error, warn};
+use tracing::warn;
 
 /// 创建单个学生
 ///
@@ -55,7 +50,7 @@ pub async fn create(rb: &RBatis, student: Student, decision: Option<bool>) -> an
     // 1. 开启事务，锁库
     let mut tx = rb.acquire_begin().await?;
     // 2. 查询所有与给定学号相同的学生（理论上长度为1）
-    let all_matched = StudentTable::select_by_map(&mut tx, value! {"student_no": &student.student_no}).await?;
+    let all_matched = StudentTable::select_by_map(&tx, value! {"student_no": &student.student_no}).await?;
     let length = all_matched.len();
     if length > 1 {
         return Err(anyhow!("学号 {} 有多余一条记录！", length));
@@ -115,11 +110,8 @@ pub async fn create(rb: &RBatis, student: Student, decision: Option<bool>) -> an
             // Deepseek v4 flash official-version
             // omp --resume 019fb824-b9cc-7000-8f16-4d2222d66cbc
             // 2026年7月31日21:10(Asia/Shanghai)
-            let result = Student::insert(&mut tx, &student).await?;
-            let id = result
-                .last_insert_id
-                .as_i64()
-                .ok_or_else(|| anyhow!("插入失败"))?;
+            let result = Student::insert(&tx, &student).await?;
+            let id = result.last_insert_id.as_i64().ok_or_else(|| anyhow!("插入失败"))?;
             tx.commit().await?;
             let vec = StudentTable::select_by_map(rb, value! {"id": id}).await?;
             Ok(StudentSingleCreateResult::Insert(vec.into_iter().next().unwrap()))
@@ -233,11 +225,11 @@ pub async fn batch_create(
     let mut tx = rb.acquire_begin().await?;
 
     // 查询所有与给定学号相同的学生
-    let existing = StudentTable::select_by_map(&mut tx, value! {"student_no": &student_nos}).await?;
+    let existing = StudentTable::select_by_map(&tx, value! {"student_no": &student_nos}).await?;
 
     // 如果没有冲突，直接全部插入
     if existing.is_empty() {
-        Student::insert_batch(&mut tx, &*students, students.len() as u64).await?;
+        Student::insert_batch(&tx, &students, students.len() as u64).await?;
         tx.commit().await?;
         let inserted_students = StudentTable::select_by_map(rb, value! {"student_no": student_nos}).await?;
         return Ok(StudentBatchCreateResult::Insert(inserted_students));
@@ -298,7 +290,7 @@ pub async fn batch_create(
     // 执行插入操作
     let inserted_student_nos: Vec<String> = to_insert.iter().map(|s| s.student_no.clone()).collect();
     if !to_insert.is_empty() {
-        Student::insert_batch(&mut tx, &*to_insert, to_insert.len() as u64).await?;
+        Student::insert_batch(&tx, &to_insert, to_insert.len() as u64).await?;
     }
 
     // 执行恢复操作
@@ -311,7 +303,7 @@ pub async fn batch_create(
     let override_ids: Vec<i64> = to_override.iter().map(|(_, st)| st.id).collect();
     if !to_override.is_empty() {
         for (s, st) in to_override {
-            student_repo::update_name(&mut tx, st.id, &*s.name).await?;
+            student_repo::update_name(&mut tx, st.id, &s.name).await?;
         }
         student_repo::restore(&mut tx, override_ids.clone()).await?;
     }
@@ -348,16 +340,18 @@ pub async fn get_by_student_nos(rb: &dyn Executor, student_nos: Vec<String>) -> 
 
 /// 更新学生
 pub async fn update(rb: &RBatis, student: Student) -> anyhow::Result<StudentSingleUpdate> {
-    let id = student.id.ok_or_else(|| anyhow!("学号[{}]对应的id为空!", student.student_no))?;
-    let mut tx = rb.acquire_begin().await?;
-    let existing = StudentTable::select_by_map(&mut tx, value! {"student_no": &student.student_no}).await?;
+    let id = student
+        .id
+        .ok_or_else(|| anyhow!("学号[{}]对应的id为空!", student.student_no))?;
+    let tx = rb.acquire_begin().await?;
+    let existing = StudentTable::select_by_map(&tx, value! {"student_no": &student.student_no}).await?;
     // UNIQUE的限制，导致Vec长度不会大于1
     if let Some(conflict) = existing.into_iter().next().filter(|matched| matched.id != id) {
         // 存在且id不同，表示有不同的id占用了该学号
         tx.rollback().await?;
         Ok(StudentSingleUpdate::Conflict(conflict))
     } else {
-        Student::update_by_map(&mut tx, &student, value! {"id": id}).await?;
+        Student::update_by_map(&tx, &student, value! {"id": id}).await?;
         tx.commit().await?;
         Ok(StudentSingleUpdate::Update(
             StudentTable::select_by_map(rb, value! {"id": id})

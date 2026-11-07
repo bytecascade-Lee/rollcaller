@@ -16,6 +16,7 @@
 
 use crate::state::nav::{NavState, PendingNav};
 use crate::windows;
+use crate::windows::common::WindowKind;
 use serde_json::Value;
 use tauri::{Emitter, Manager};
 
@@ -33,20 +34,16 @@ const ROUTE_PREFIX: &str = "#/";
 /// 目标窗口不存在则建窗（此时**不发事件**，前端还没开始监听）；已存在则先唤到前台
 /// 再发唤醒事件——否则用户在后台窗口里看到内容变了却毫无感知。
 #[tauri::command]
-pub async fn nav_open(
-    app: tauri::AppHandle,
-    route: String,
-    payload: Option<Value>,
-) -> Result<(), String> {
-    let host = host_of(&route)
-        .ok_or_else(|| format!("invalid route: {route}"))?
-        .to_string();
+pub async fn nav_open(app: tauri::AppHandle, route: String, payload: Option<Value>) -> Result<(), String> {
+    let host = host_of(&route).ok_or_else(|| format!("invalid route: {route}"))?;
+    // host 在这里一次性解析成窗口枚举：后续建窗、投递、发事件都用它，不再比字符串
+    let window = WindowKind::from_host(host).ok_or_else(|| format!("unknown window host: {host}"))?;
 
-    let created = windows::open_by_host(&app, &host).map_err(|e| e.to_string())?;
-    app.state::<NavState>().put(&host, PendingNav { route, payload });
+    let created = windows::open_by_host(&app, window).map_err(|e| e.to_string())?;
+    app.state::<NavState>().put(window, PendingNav { route, payload });
 
     if !created {
-        let _ = app.emit_to(host.as_str(), NAV_WAKE_EVENT, ());
+        let _ = app.emit_to(window.as_str(), NAV_WAKE_EVENT, ());
     }
     Ok(())
 }
@@ -56,8 +53,8 @@ pub async fn nav_open(
 /// host 从窗口 label 取、不由前端传：窗口名就是它自己的身份，没有传错的可能。
 #[tauri::command]
 pub async fn nav_take_pending(window: tauri::WebviewWindow) -> Option<PendingNav> {
-    let host = window.label().to_string();
-    window.app_handle().state::<NavState>().take(&host)
+    let kind = WindowKind::from_host(window.label())?;
+    window.app_handle().state::<NavState>().take(kind)
 }
 
 /// 从 `#/<host>/...` 里取第一段（后端对 route 的唯一"理解"）

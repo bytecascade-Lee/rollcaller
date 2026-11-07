@@ -1,7 +1,9 @@
 export * from "./AttendanceStatus"
 export * from "./AppInfo"
 export * from "./AppMode";
+export * from "./Installer";
 export * from "./NavItem";
+export * from "./FileType";
 export * from "./Record";
 export * from "./RecordGroupMetaData";
 export * from "./RecordTable";
@@ -28,3 +30,4 @@ export * from "./overlays"
 export * from "./Arch";
 export * from "./DownloadProgress";
 export * from "./UpdateError";
+export * from "./WindowKind";

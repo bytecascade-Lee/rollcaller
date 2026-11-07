@@ -5,4 +5,4 @@
  *
  * 包含全部字段，用于 SELECT 返回给前端
  */
-export type StudentTable = { id: bigint, student_no: string, name: string, created_at: number, updated_at: number, is_deleted: number, deleted_at: number | null, };
+export type StudentTable = { id: bigint, student_no: string, name: string, created_at: string, updated_at: string, is_deleted: number, deleted_at: string | null, };

@@ -4,7 +4,7 @@
 //!
 //! 本领域**不感知也不接收任何路径参数**：part 工作区由 [`paths::part`] 生成（随机
 //! uuid、落 `temp/downloads/`）；正式产物落点由 `artifact.file_name()`（url 最后一段）
-//! + [`paths::package`] 现推（`temp/update/packages/`）。目录布局收口于 [`paths`]，
+//! 与 [`paths::package`] 现推（`temp/update/packages/`）。目录布局收口于 [`paths`]，
 //! 领域只负责"流到 part → 校验 → rename"。
 //! 下载物先完整写入随机 `.part`——无信息量的名字、非可执行扩展名，顺序与内容不可被
 //! 外部按文件名推断；完整写盘并校验**通过后**才 `rename` 为正式文件名。
@@ -77,12 +77,10 @@ pub async fn download(
     let final_path = paths::package(&file_name);
     // 0. 确保 part 与 final 的父目录存在（分居两目录，均可能尚未创建）
     if let Some(parent) = part_path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| anyhow!("创建下载工作目录失败（{}）：{e}", parent.display()))?;
+        std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建下载工作目录失败（{}）：{e}", parent.display()))?;
     }
     if let Some(parent) = final_path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| anyhow!("创建产物目录失败（{}）：{e}", parent.display()))?;
+        std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建产物目录失败（{}）：{e}", parent.display()))?;
     }
 
     // 1. final 残留已就绪：校验通过直接返回（不重复下载）；失败删除重下
@@ -114,7 +112,8 @@ pub async fn download(
             let _ = std::fs::remove_file(&part_path);
             return Err(anyhow!("CANCELLED"));
         }
-        file.write_all(&chunk).map_err(|e| anyhow!("写入临时下载文件 {} 失败：{e}", part_path.display()))?;
+        file.write_all(&chunk)
+            .map_err(|e| anyhow!("写入临时下载文件 {} 失败：{e}", part_path.display()))?;
         downloaded += chunk.len() as u64;
         on_progress(DownloadProgress { downloaded, total });
     }
@@ -241,10 +240,7 @@ mod tests {
                 .await
                 .expect_err("404 应报错");
             assert!(err.to_string().contains("404"), "错误信息应可读: {err}");
-            assert!(
-                !expect_package_path("http404").exists(),
-                "HTTP 失败不应留下正式产物"
-            );
+            assert!(!expect_package_path("http404").exists(), "HTTP 失败不应留下正式产物");
 
             server.handle.join().unwrap();
         });
@@ -262,10 +258,7 @@ mod tests {
                 .await
                 .expect_err("置位取消应报错");
             assert!(err.to_string().contains("CANCELLED"), "取消文案应可识别: {err}");
-            assert!(
-                !expect_package_path("cancel").exists(),
-                "取消后不应留下正式产物"
-            );
+            assert!(!expect_package_path("cancel").exists(), "取消后不应留下正式产物");
 
             server.handle.join().unwrap();
         });
@@ -286,10 +279,7 @@ mod tests {
                 err.chain().any(|c| c.to_string().contains("sha256 不匹配")),
                 "错误链应含 sha256 不匹配: {err:?}"
             );
-            assert!(
-                !expect_package_path("sha256").exists(),
-                "校验失败不应留下正式产物"
-            );
+            assert!(!expect_package_path("sha256").exists(), "校验失败不应留下正式产物");
 
             server.handle.join().unwrap();
         });
@@ -310,17 +300,12 @@ mod tests {
                 ..artifact_for(&server.url, &body, None)
             };
 
-            let err = download(&artifact, &cancel, |_| {})
-                .await
-                .expect_err("空签名应被拒绝");
+            let err = download(&artifact, &cancel, |_| {}).await.expect_err("空签名应被拒绝");
             assert!(
                 err.chain().any(|c| c.to_string().contains("缺少产物签名")),
                 "错误链应指出签名缺失: {err:?}"
             );
-            assert!(
-                !expect_package_path("unsigned").exists(),
-                "签名缺失不得留下正式产物"
-            );
+            assert!(!expect_package_path("unsigned").exists(), "签名缺失不得留下正式产物");
 
             server.handle.join().unwrap();
         });

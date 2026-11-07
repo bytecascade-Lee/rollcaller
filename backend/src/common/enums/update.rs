@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use ts_rs::TS;
 
+// `CNB` 是平台专有名称（cnb.cool），缩写不拆成 `Cnb`
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, TS)]
 pub enum UpdateSource {
     Github,
@@ -132,19 +134,11 @@ pub enum UpdateView {
     /// 检查完，已是最新版
     UpToDate,
     /// 有可用更新（severity=critical 即强制更新，前端不应提供忽略/稍后）
-    Available {
-        info: UpdateInfo,
-        severity: Severity,
-    },
+    Available { info: UpdateInfo, severity: Severity },
     /// 下载中（纯状态：不带进度数字，实时进度经 download 通道窄帧推送）
-    Downloading {
-        info: UpdateInfo,
-    },
+    Downloading { info: UpdateInfo },
     /// 已下载待安装
-    Downloaded {
-        info: UpdateInfo,
-        severity: Severity,
-    },
+    Downloaded { info: UpdateInfo, severity: Severity },
     /// 出错（[`UpdateError`] 的 `message` 供展示；`type` 供前端决定重试按钮对应的命令）
     Error(UpdateError),
 }

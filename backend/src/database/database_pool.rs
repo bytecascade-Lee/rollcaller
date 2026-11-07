@@ -15,7 +15,7 @@ pub fn db_path() -> PathBuf {
     {
         let name = env!("DEVELOP_DATABASE_FILENAME");
         assert!(!name.is_empty(), "DEVELOP_DATABASE_FILENAME not set");
-        return app_paths::data_dir().join(name);
+        app_paths::data_dir().join(name)
     }
     #[cfg(not(debug_assertions))]
     {

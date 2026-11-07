@@ -108,4 +108,3 @@ pub enum StudentSingleUpdate {
     Update(StudentTable),
     Conflict(StudentTable),
 }
-

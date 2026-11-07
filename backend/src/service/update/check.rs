@@ -31,7 +31,7 @@ use crate::common::constant::update::{
     PLACEHOLDER, SPECIFIED_LATEST_MANIFEST_CNB, SPECIFIED_LATEST_MANIFEST_DEVELOP, SPECIFIED_LATEST_MANIFEST_GITHUB,
     VERSIONS_INDEX_CNB, VERSIONS_INDEX_DEVELOP, VERSIONS_INDEX_GITHUB,
 };
-use crate::common::entity::update::{Artifact, FoundUpdate, HistoryVersion, Policy, UpdateInfo, UpdateManifest};
+use crate::common::entity::update::{FoundUpdate, HistoryVersion, Policy, UpdateInfo, UpdateManifest};
 use crate::common::enums::update::{Severity, UpdateDecision, UpdateLevel, UpdateSource};
 use crate::config::app_paths::AppMode;
 use crate::service::update::paths;
@@ -111,8 +111,8 @@ pub async fn check(
 ///
 /// 实现方式：
 /// - 豁免 = 仅把幅度门槛临时降到 `Patch`（等价"无视幅度门槛"），
-/// 其余门禁原样交给 `decide`——因此无需给 `decide` 增加 Skip 原因，
-/// 也不破坏其纯 Copy 枚举形态。
+///   其余门禁原样交给 `decide`——因此无需给 `decide` 增加 Skip 原因，
+///   也不破坏其纯 Copy 枚举形态。
 /// - 强制更新 = critical，即使 level=Never 也穿透放行。
 pub fn evaluate(current: &Version, latest: &Version, policy: &Policy, severity: Severity) -> UpdateDecision {
     // 用户关闭更新（level=UpdateLevel::Never）：仅 critical（强制更新）穿透放行
@@ -142,7 +142,7 @@ fn versions_index_url(source: UpdateSource) -> String {
         UpdateSource::CNB => VERSIONS_INDEX_CNB,
         UpdateSource::Local => VERSIONS_INDEX_DEVELOP,
     }
-        .to_string()
+    .to_string()
 }
 
 /// 指定版本 Release 的清单地址
@@ -154,7 +154,7 @@ fn latest_manifest_url(source: UpdateSource, version: &Version) -> String {
         UpdateSource::CNB => SPECIFIED_LATEST_MANIFEST_CNB,
         UpdateSource::Local => SPECIFIED_LATEST_MANIFEST_DEVELOP,
     }
-        .replace(PLACEHOLDER, &version.to_string())
+    .replace(PLACEHOLDER, &version.to_string())
 }
 
 /// 拉取远程文本
@@ -234,7 +234,9 @@ fn validate_manifest(
         info: UpdateInfo {
             version: manifest.version.clone(),
             notes: manifest.release_notes.clone(),
-            date: manifest.publish_date.map(|d| d.to_string()),
+            date: manifest
+                .publish_date
+                .map(|d| crate::util::time_utils::ISO8601(&d).to_string()),
         },
         severity: manifest.severity,
         artifact,

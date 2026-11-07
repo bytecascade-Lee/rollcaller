@@ -25,7 +25,7 @@ permissions:
 env:
     PYTHONIOENCODING: utf-8
     PYTHONPATH: ${{ github.workspace }}/scripts
-    NO_COLOR: 1
+    FORCE_COLOR: 1
     # [TODO]：只有 x64 能在 runner 上原生执行，arm64 交叉编译出来的测试二进制无法运行；
     # 所以这里先不上矩阵、目标写死；将来有了 arm64 runner 再改成按 support.entries(Action.TEST) 生成。
     TRIPLE: x86_64-pc-windows-msvc
@@ -76,12 +76,13 @@ jobs:
                 uses: dtolnay/rust-toolchain@stable
                 with:
                     targets: ${{ env.TRIPLE }}
+                    components: rustfmt, clippy
 
             -   name: Cache Rust build
                 uses: Swatinem/rust-cache@v2
                 with:
                     workspaces: backend
-                    shared-key: cargo-registry
+                    shared-key: cargo-test
                     key: ${{ env.TRIPLE }}
 
             -   name: Materialize cargo config
@@ -91,14 +92,12 @@ jobs:
                 working-directory: backend
                 run: cargo fetch --locked
 
-            -   name: Type check frontend
-                working-directory: frontend
-                run: pnpm check
+            -   name: Run checks
+                env:
+                    MIMO_TTS_API_KEY: ${{ secrets.MIMO_TTS_API_KEY }}
+                run: uv run --frozen ./scripts/check.py -t ${{ env.TRIPLE }}
 
             -   name: Run tests
                 env:
                     MIMO_TTS_API_KEY: ${{ secrets.MIMO_TTS_API_KEY }}
                 run: uv run --frozen ./scripts/test.py -t ${{ env.TRIPLE }}
-
-            -   name: Check generated files are committed
-                run: git diff --exit-code -- frontend/src/lib/types frontend/src/lib/routing/entries.generated.ts

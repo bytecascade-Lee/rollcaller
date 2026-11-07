@@ -1,10 +1,8 @@
 /// # 即将被废弃
-
 use crate::config::app_paths;
 use crate::util::yaml_flatten_utils;
 use anyhow::Context;
 use parking_lot::RwLock;
-use rbatis::dark_std::err;
 use serde_yaml::Value;
 use std::collections::HashMap;
 use std::fs::File;
@@ -80,7 +78,7 @@ fn filter_user_props(inner: &mut Inner) {
     let default_config = &inner.default_config;
     inner
         .user_config
-        .retain(|k, v| default_config.get(k).map_or(true, |def| def != v));
+        .retain(|k, v| default_config.get(k).is_none_or(|def| def != v));
 }
 
 /// 将 userProps 写入磁盘
@@ -189,7 +187,7 @@ impl AppConfig {
 
     /// 立刻将制定配置项保存到文件，绕过临时区
     /// 如果对应配置项值未发生变化或过滤后无需写入，则不写入磁盘
-    pub fn save_key(key: &str) -> anyhow::Result<()> {
+    pub fn save_key(_key: &str) -> anyhow::Result<()> {
         // ? 随后处理
         Ok(())
     }
@@ -250,5 +248,3 @@ impl AppConfig {
             .count()
     }
 }
-
-

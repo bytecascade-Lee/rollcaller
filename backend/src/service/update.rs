@@ -120,7 +120,7 @@ pub async fn check(
     let mode = current_mode();
     let source = match mode {
         AppMode::Develop => UpdateSource::Local,
-        AppMode::Install | AppMode::Portable => UpdateSource::CNB,
+        AppMode::Portable | AppMode::Install(_) => UpdateSource::CNB,
     };
     let outcome = check::check(http_client::client(), source, current_version, &policy, mode).await;
 
@@ -183,6 +183,7 @@ pub async fn check(
 /// - `on_view`：状态迁移帧——确认进入下载时广播一次 `Downloading`（view 通道）；
 /// - `on_progress`：进度窄帧——每 chunk 只写 state 原子槽（不碰 session 锁），
 ///   节流达 [`PROGRESS_BROADCAST_INTERVAL`] 后从槽读快照回调（download 通道）。
+///
 /// 进度是瞬时数据、只经窄帧广播，不落 session；终态视图由命令层在返回后统一广播。
 ///
 /// `current_version` 为复核基线（与 check 同源，由命令层从 `package_info` 传入），
@@ -264,7 +265,7 @@ pub async fn download(
             last_broadcast = Instant::now();
         }
     })
-        .await;
+    .await;
     // 无论成功 / 失败 / 取消都复位取消标志与进度槽
     state.reset_cancel();
     state.slot().reset();

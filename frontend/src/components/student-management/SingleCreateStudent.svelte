@@ -2,12 +2,13 @@
   import {studentStore} from "$stores/studentStore.svelte";
   import type {Student, StudentOverlayName, StudentSingleCreateResult} from "$types";
   import {format} from "$utils/DateTimeUtils";
-  import {StudentCommand} from "$commands"
+  import {StudentCommand} from "$commands";
   import type {EntryRegistry} from "$routing/registry";
-  import {AppEntry} from "$routing/entries.generated";
-  import {appNavigate} from "$routing/appNavigate";
+  import type {AppEntryPayload} from "$routing/app/entries.generated";
+  import {AppEntry} from "$routing/app/entries.generated";
+  import {appNavigate} from "$routing/app/navigate";
 
-  let {overlays}: { overlays: EntryRegistry<StudentOverlayName> } = $props();
+  let {overlays}: {overlays: EntryRegistry<StudentOverlayName, AppEntryPayload>} = $props();
 
   let newStudent = $state<Student>({
     id: null,
@@ -18,14 +19,7 @@
   let isCreating = $state(false);
   let isVisible = $state(false);
 
-  /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
-  function requestClose() {
-    appNavigate.leave(AppEntry.createStudent);
-  }
-
-  let canSubmit = $derived(
-    newStudent.student_no.trim() !== "" && newStudent.name.trim() !== ""
-  );
+  let canSubmit = $derived(newStudent.student_no.trim() !== "" && newStudent.name.trim() !== "");
 
   function resetForm() {
     result = null;
@@ -42,7 +36,11 @@
     resetForm();
   }
 
-  async function create(override: boolean | null) {
+  function requestClose() {
+    appNavigate.leave(AppEntry.createStudent);
+  }
+
+  async function doCreate(override: boolean | null) {
     newStudent.student_no = newStudent.student_no.trim();
     newStudent.name = newStudent.name.trim();
     if (!canSubmit || isCreating) return;
@@ -79,10 +77,9 @@
     overlays.register(AppEntry.createStudent, {
       open,
       close,
-      isVisible: () => isVisible
-    })
+    });
     return () => overlays.unregister(AppEntry.createStudent);
-  })
+  });
 </script>
 
 {#if isVisible}
@@ -91,116 +88,90 @@
   <!-- 点击遮罩不可关闭，确保不会误触 -->
   <div class="overlay">
     <div class="popup" onclick={(e) => e.stopPropagation()}>
-      <form onsubmit={(e) => { e.preventDefault(); create(null); }}>
+      <form
+        onsubmit={(e) => {
+          e.preventDefault();
+          doCreate(null);
+        }}
+      >
         <h3 class="text-title">添加学生</h3>
         <div class="field">
           <span class="field-label">学号</span>
           <!-- svelte-ignore a11y_autofocus -->
-          <input
-            type="text"
-            bind:value={newStudent.student_no}
-            placeholder="如 1097260001"
-            autofocus
-          />
+          <input type="text" bind:value={newStudent.student_no} placeholder="如 1097260001" autofocus />
         </div>
         <div class="field">
           <span class="field-label">姓名</span>
-          <input
-            type="text"
-            bind:value={newStudent.name}
-            placeholder="如 张三"
-          />
+          <input type="text" bind:value={newStudent.name} placeholder="如 张三" />
         </div>
         {#if result != null}
           {#if result.type == "ActiveExists"}
-            <span class="text-subtitle error">学号已被占用<br/></span>
+            <span class="text-subtitle error">学号已被占用<br /></span>
             <span class="text-content">
-                学号「{result.data.student_no}」已被学生<b>{result.data.name}</b>使用<br/>
-                （创建于 {format(result.data.created_at)}）<br/>
-                请修改学号后重试
-              </span>
+              学号「{result.data.student_no}」已被学生<b>{result.data.name}</b>使用<br />
+              （创建于 {format(result.data.created_at)}）<br />
+              请修改学号后重试
+            </span>
           {:else if result.type == "Conflict"}
-            <span class="text-subtitle warn">学号冲突 — 存在已删除的记录<br/></span>
+            <span class="text-subtitle warn">学号冲突 — 存在已删除的记录<br /></span>
             <table>
               <thead>
-              <tr>
-                <th></th>
-                <th>当前输入</th>
-                <th>原记录</th>
-              </tr>
+                <tr>
+                  <th></th>
+                  <th>当前输入</th>
+                  <th>原记录</th>
+                </tr>
               </thead>
               <tbody>
-              <tr>
-                <td>学号</td>
-                <td>{newStudent.student_no}</td>
-                <td>{result.data.student_no}</td>
-              </tr>
-              <tr>
-                <td>姓名</td>
-                <td><b>{newStudent.name}</b></td>
-                <td><b>{result.data.name}</b></td>
-              </tr>
+                <tr>
+                  <td>学号</td>
+                  <td>{newStudent.student_no}</td>
+                  <td>{result.data.student_no}</td>
+                </tr>
+                <tr>
+                  <td>姓名</td>
+                  <td><b>{newStudent.name}</b></td>
+                  <td><b>{result.data.name}</b></td>
+                </tr>
               </tbody>
             </table>
             <span class="text-content">原记录已被删除，是否用新姓名覆盖并恢复？</span>
           {:else if result.type == "Restore"}
-            <span class="text-subtitle success">已自动恢复<br/></span>
+            <span class="text-subtitle success">已自动恢复<br /></span>
             <span class="text-content">
-                学号「{result.data.student_no}」曾存在且已删除，系统已自动恢复原记录。
-              </span>
+              学号「{result.data.student_no}」曾存在且已删除，系统已自动恢复原记录。
+            </span>
           {:else if result.type == "Insert"}
-            <span class="text-subtitle success">添加成功<br/></span>
+            <span class="text-subtitle success">添加成功<br /></span>
             <span class="text-content">
-                学生 <b>{result.data.name}</b>（{result.data
-              .student_no}）已添加，可继续录入下一位。
-              </span>
+              学生 <b>{result.data.name}</b>（{result.data.student_no}）已添加，可继续录入下一位。
+            </span>
           {:else if result.type == "Override"}
-            <span class="text-subtitle">已覆写<br/></span>
+            <span class="text-subtitle">已覆写<br /></span>
             <span class="text-content">
-                学生「{result.data.student_no}」已用新姓名<br/>
-                <b>{result.data.name}</b> 覆写并恢复。
-              </span>
+              学生「{result.data.student_no}」已用新姓名<br />
+              <b>{result.data.name}</b> 覆写并恢复。
+            </span>
           {:else if result.type == "Retain"}
-            <span class="text-subtitle">已保留原记录<br/></span>
+            <span class="text-subtitle">已保留原记录<br /></span>
             <span class="text-content">
-                学号「{result.data.student_no}」的原记录未被修改<br/>
-                请更换学号后重新添加。
-              </span>
+              学号「{result.data.student_no}」的原记录未被修改<br />
+              请更换学号后重新添加。
+            </span>
           {/if}
         {/if}
 
         <div class="button-group">
-          <button
-            type="button"
-            class="button"
-            onclick={requestClose}
-            disabled={isCreating}
-          >
-            取消
-          </button>
+          <button type="button" class="button" onclick={requestClose} disabled={isCreating}> 取消 </button>
           {#if result?.type == "Conflict"}
-            <button
-              type="button"
-              class="button yes"
-              onclick={() => create(false)}
-              disabled={isCreating}
-            >
+            <button type="button" class="button yes" onclick={() => doCreate(false)} disabled={isCreating}>
               保留原记录
             </button>
-            <button
-              type="button"
-              class="button warn"
-              onclick={() => create(true)}
-              disabled={isCreating}
-            >
+            <button type="button" class="button warn" onclick={() => doCreate(true)} disabled={isCreating}>
               {isCreating ? "处理中..." : "覆盖并恢复"}
             </button>
           {:else}
-            <button
-              type="submit"
-              class="button yes"
-              disabled={isCreating || !canSubmit}
-            >
+            <button type="submit" class="button yes" disabled={isCreating || !canSubmit}>
               {isCreating ? "提交中..." : "确定"}
             </button>
           {/if}
@@ -216,7 +187,8 @@
     border-collapse: collapse;
   }
 
-  th, td {
+  th,
+  td {
     border: var(--border-size-xs) solid var(--border-color-5);
     border-radius: var(--radius-md);
     padding: var(--space-xs) var(--space-sm);

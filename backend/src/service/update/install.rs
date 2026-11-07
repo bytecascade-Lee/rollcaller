@@ -10,12 +10,14 @@
 //! `launch(...)?` → `shutdown_hooks::finish_and_exit(0).await`；失败路径不触发清理，
 //! 进程存活可重试。
 
+mod common;
 mod develop;
 mod nsis;
 mod portable;
-mod common;
 
 use crate::config::app_paths::AppMode;
+#[cfg(target_os = "windows")]
+use crate::config::app_paths::Installer;
 use semver::Version;
 use std::path::Path;
 
@@ -25,7 +27,7 @@ use std::path::Path;
 /// 准备到 `cache/update/bin/`（缓存里就是这一版且校验通过则跳过），再由各安装器的
 /// `updater_exe` 原样取用；失败返回 `Err`（不触碰会话，由编排层落错误）。
 pub async fn ensure_updater(mode: AppMode) -> anyhow::Result<()> {
-    if mode == AppMode::Portable || mode == AppMode::Develop {
+    if matches!(mode, AppMode::Portable | AppMode::Develop) {
         common::ensure_updater().await?;
     }
     Ok(())
@@ -37,23 +39,22 @@ pub async fn ensure_updater(mode: AppMode) -> anyhow::Result<()> {
 /// # 参数
 ///
 /// - `mode`：运行形态。
-///   - `Install` -> NSIS；
+///   - `Install(NSIS)` -> NSIS 安装器；
+///   - `Install(_)` -> 尚无安装器实现，返回 `Err`，回落到 `Error(Install)`，可重试；
 ///   - `Portable` -> Go updater 编排（整目录替换）；
 ///   - `Develop` -> Go updater 编排的 develop 直更（单文件覆盖当前 exe，见 [`develop`]）
-/// - `artifact_path`：已下载并校验的产物（Install = nsis exe；Portable = portable zip；
-///   Develop = develop zip）
-/// - `from` / `to`：当前版本与目标版本（Portable / Develop 用于命名 config 与日志；
-///   NSIS 不需要，后期将调整相关策略，不再传递这两个字段）
+/// - `artifact_path`：已下载并校验的产物，`Install(NSIS)` = nsis exe；`Portable` = portable zip；`Develop` = develop zip
+/// - `from` / `to`：当前版本与目标版本
 ///
 /// # 返回
 ///
-/// - `OK(())` -> 安装器已启动，本进程应随即调用
-///   [`crate::shutdown_hooks::finish_and_exit`]
+/// - `OK(())` -> 安装器已启动，本进程应随即调用 [`crate::shutdown_hooks::finish_and_exit`]
 /// - `Err` -> 任一环节失败返回 `Err`，进程保持存活、资源未清理，调用方可提示重试
-///
 pub fn launch(mode: AppMode, artifact_path: &Path, from: &Version, to: &Version) -> anyhow::Result<()> {
     match mode {
-        AppMode::Install => nsis::install(artifact_path.to_path_buf(), nsis::NsisOptions::default()),
+        #[cfg(target_os = "windows")]
+        AppMode::Install(Installer::Nsis) => nsis::install(artifact_path.to_path_buf(), nsis::NsisOptions::default()),
+        AppMode::Install(installer) => Err(anyhow::anyhow!("当前安装形态（{installer}）暂不支持自动更新")),
         AppMode::Portable => portable::install_portable(artifact_path, from, to),
         AppMode::Develop => develop::install_develop(artifact_path, from, to),
     }

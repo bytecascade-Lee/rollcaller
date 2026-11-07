@@ -1,7 +1,6 @@
 use crate::common::entity::student::Student;
 use crate::repo::record_repo;
 use anyhow::{anyhow, Context};
-use jiff::__jcore::bounds::const_check::i8;
 use jiff::tz::TimeZone;
 use rbatis::RBatis;
 use rbs::value;
@@ -12,7 +11,7 @@ pub async fn export_students(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow:
     if ids.is_empty() {
         return Err(anyhow!("长度为0，没有待导出的学生。"));
     }
-    let mut students = Student::select_by_map(rb, value! {"id": ids}).await?;
+    let students = Student::select_by_map(rb, value! {"id": ids}).await?;
     let mut workbook = Workbook::new();
     let header_format = Format::new()
         .set_align(FormatAlign::Center)
@@ -23,7 +22,7 @@ pub async fn export_students(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow:
         .set_align(FormatAlign::Center)
         .set_font_name("微软雅黑")
         .set_font_size(12);
-    let mut worksheet = workbook.add_worksheet();
+    let worksheet = workbook.add_worksheet();
 
     worksheet.write_with_format(0, 0, "序号", &header_format)?;
     worksheet.write_with_format(0, 1, "学号", &header_format)?;
@@ -60,7 +59,7 @@ pub async fn export_records(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow::
         .set_align(FormatAlign::Center)
         .set_font_name("微软雅黑")
         .set_font_size(12);
-    let mut worksheet = workbook.add_worksheet();
+    let worksheet = workbook.add_worksheet();
 
     worksheet.write_with_format(0, 0, "序号", &header_format)?;
     worksheet.write_with_format(0, 1, "学号", &header_format)?;
@@ -76,7 +75,16 @@ pub async fn export_records(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow::
         worksheet.write_with_format(row, 2, &record.name, &content_format)?;
         worksheet.write_with_format(row, 3, get_status_from_code(record.attendance_status), &content_format)?;
         worksheet.write_with_format(row, 4, record.remark.clone().unwrap_or_default(), &content_format)?;
-        worksheet.write_with_format(row, 5, &record.rollcall_at.to_zoned(TimeZone::system()).to_string(), &content_format)?;
+        worksheet.write_with_format(
+            row,
+            5,
+            record
+                .rollcall_at
+                .to_zoned(TimeZone::system())
+                .strftime("%Y-%m-%dT%H:%M:%S%.3f%:z")
+                .to_string(),
+            &content_format,
+        )?;
     }
 
     worksheet.set_column_width(0, 4)?;
@@ -92,11 +100,12 @@ pub async fn export_records(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow::
 
 fn get_status_from_code(code: i8) -> String {
     match code {
-        0 => String::from("缺勤"),
-        1 => String::from("出勤"),
-        2 => String::from("迟到"),
-        3 => String::from("早退"),
-        4 => String::from("请假"),
-        _ => String::from("未知")
+        0 => String::from("回滚"),
+        1 => String::from("缺勤"),
+        2 => String::from("出勤"),
+        3 => String::from("迟到"),
+        4 => String::from("早退"),
+        5 => String::from("请假"),
+        _ => String::from("未知"),
     }
 }

@@ -5,4 +5,4 @@
  *
  * 含有全部字段
  */
-export type AttendanceStatus = { id: number, name: string, background: string, color: string, remark: string | null, is_deleted: number, deleted_at: number | null, };
+export type AttendanceStatus = { id: number, name: string, background: string, color: string, remark: string | null, is_deleted: number, deleted_at: string | null, };

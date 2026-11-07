@@ -13,26 +13,31 @@
 
   const engine = rollcallEngine;
   let {active = $bindable(false)} = $props();
-  let sortKey = $state("rollcall_at")
-  let isAsc = $state(true)
-  let tableEl = $state<HTMLDivElement | null>(null)
-  let display = $derived<RollcallRecord[]>([...recordStore.records]
-    .filter((r) => r.id > recordStore.boundaryPoint)
-    .sort((a, b) => {
-      if (!sortKey) return 0;
-      const key = sortKey as "name" | "student_no" | "attendance_status" | "remark" | "rollcall_at";
-      const valA = a[key];
-      const valB = b[key];
-      let cmp: number;
-      if (typeof valA === "string" && typeof valB === "string") {
-        cmp = valA.localeCompare(valB, "zh-Hans-CN");
-      } else if (typeof valA === "number" && typeof valB === "number") {
-        cmp = valA - valB;
-      } else {
-        cmp = 0;
-      }
-      return isAsc ? cmp : -cmp;
-    })
+  let sortKey = $state("rollcall_at");
+  let isAsc = $state(true);
+  let tableEl = $state<HTMLDivElement | null>(null);
+  let display = $derived<RollcallRecord[]>(
+    [...recordStore.records]
+      .filter((r) => r.id > recordStore.boundaryPoint)
+      .sort((a, b) => {
+        if (!sortKey) return 0;
+        const key = sortKey as "name" | "student_no" | "attendance_status" | "remark" | "rollcall_at";
+        const valA = a[key];
+        const valB = b[key];
+        let cmp: number;
+        if (key === "rollcall_at") {
+          const x = String(valA),
+            y = String(valB);
+          cmp = x < y ? -1 : x > y ? 1 : 0;
+        } else if (typeof valA === "string" && typeof valB === "string") {
+          cmp = valA.localeCompare(valB, "zh-Hans-CN");
+        } else if (typeof valA === "number" && typeof valB === "number") {
+          cmp = valA - valB;
+        } else {
+          cmp = 0;
+        }
+        return isAsc ? cmp : -cmp;
+      }),
   );
   let groupInfo = $derived<RecordGroupMetaData[]>(recordService.group(display));
 
@@ -54,7 +59,8 @@
   // 表格按点名时间升序排列，新点名记录追加在最后一行。
   // 记录条数变化（新增/首次加载）时，将滚动容器自动滚到底部以显示最新记录。
   $effect(() => {
-    const count = display.length;
+    // 读一次长度即可建立依赖；`void` 是为了让"有意只读不消费"这件事对 linter 显式
+    void display.length;
     if (tableEl && sortKey == "rollcall_at" && isAsc) {
       tableEl.scrollTop = tableEl.scrollHeight;
     }
@@ -67,7 +73,7 @@
   });
 </script>
 
-<div class:active={active}>
+<div class:active>
   <section class="result">
     {#if display.length == 0 && engine.phase == RollcallPhase.Idle}
       <span class="name waiting">等待点名</span>
@@ -87,21 +93,15 @@
   </section>
 
   <div class="toolbar">
-    <div
-      class="field"
-      style:flex-direction="column"
-    >
+    <div class="field" style:flex-direction="column">
       <span class="field-label">点名次数</span>
-      <div
-        style:display="flex"
-        style:gap="2px"
-      >
+      <div style:display="flex" style:gap="2px">
         <button
           class="icon-button"
           onclick={() => engine.updateTotalTimes(engine.totalTimes - 1)}
           disabled={engine.isRolling || engine.totalTimes == 1}
         >
-          <MinusIcon/>
+          <MinusIcon />
         </button>
         <input
           type="text"
@@ -110,10 +110,10 @@
           disabled={engine.isRolling}
           oninput={(e) => {
             const raw = e.currentTarget.value;
-            const cleaned = raw.replace(/[^0-9]/g, '');
-            if (cleaned === '') {
+            const cleaned = raw.replace(/[^0-9]/g, "");
+            if (cleaned === "") {
               // 如果清空了，设为最小值
-              e.currentTarget.value = '1';
+              e.currentTarget.value = "1";
               return;
             }
             let val = Number(cleaned);
@@ -133,17 +133,18 @@
             e.currentTarget.value = String(finalVal);
             engine.updateTotalTimes(finalVal);
           }}
-          onkeydown={e => {
-            if (!/^[0-9]$/.test(e.key) &&
-              e.key !== 'Backspace' &&
-              e.key !== 'Delete' &&
-              e.key !== 'ArrowLeft' &&
-              e.key !== 'ArrowRight' &&
-              e.key !== 'Home' &&
-              e.key !== 'End' &&
-              e.key !== 'Tab'
-              ) {
-                e.preventDefault()
+          onkeydown={(e) => {
+            if (
+              !/^[0-9]$/.test(e.key) &&
+              e.key !== "Backspace" &&
+              e.key !== "Delete" &&
+              e.key !== "ArrowLeft" &&
+              e.key !== "ArrowRight" &&
+              e.key !== "Home" &&
+              e.key !== "End" &&
+              e.key !== "Tab"
+            ) {
+              e.preventDefault();
             }
           }}
         />
@@ -152,7 +153,7 @@
           onclick={() => engine.updateTotalTimes(engine.totalTimes + 1)}
           disabled={engine.isRolling || engine.totalTimes == (studentStore.students.length || 1)}
         >
-          <PlusIcon/>
+          <PlusIcon />
         </button>
       </div>
     </div>
@@ -169,12 +170,8 @@
 
     <div class="field">
       <span class="field-label">{engine.allowRepetition ? "允许重复" : "禁止重复"}</span>
-      <button
-        class="switch-button"
-        onclick={() => (engine.allowRepetition = !engine.allowRepetition)}
-        type="button"
-      >
-        <Switch yes={engine.allowRepetition}/>
+      <button class="switch-button" onclick={() => (engine.allowRepetition = !engine.allowRepetition)} type="button">
+        <Switch yes={engine.allowRepetition} />
       </button>
     </div>
 
@@ -188,31 +185,16 @@
           云端语音
         {/if}
       </span>
-      <button
-        class="switch-button"
-        disabled={engine.isRolling}
-        onclick={() => ttsStore.nextMode()}
-        type="button"
-      >
-        <TriSwitch value={TtsModeUtils.toId(ttsStore.mode)}/>
+      <button class="switch-button" disabled={engine.isRolling} onclick={() => ttsStore.nextMode()} type="button">
+        <TriSwitch value={TtsModeUtils.toId(ttsStore.mode)} />
       </button>
     </div>
 
     <div class="field">
       {#if engine.isRolling}
-        <button
-          class="button warn rollcall-button"
-          onclick={() => engine.toggle()}
-        >
-          停止点名
-        </button>
+        <button class="button warn rollcall-button" onclick={() => engine.toggle()}> 停止点名 </button>
       {:else}
-        <button
-          class="button yes rollcall-button"
-          onclick={() => engine.toggle()}
-        >
-          开始点名
-        </button>
+        <button class="button yes rollcall-button" onclick={() => engine.toggle()}> 开始点名 </button>
       {/if}
     </div>
   </div>
@@ -226,104 +208,98 @@
       <h3 class="text-title">
         当前点名记录（{display.length}）
       </h3>
-      <div
-        class="table"
-        bind:this={tableEl}
-      >
+      <div class="table" bind:this={tableEl}>
         <table>
           <thead>
-          <tr>
-            <th
-              style:border="0px"
-              style:width="8px"
-            ></th>
-            <th style:display="none"></th>
-            <th style:cursor="auto">序号</th>
-            <th onclick={() => sort("name")}>
-              姓名
-              {#if sortKey === "name"}
-                {#if isAsc}
-                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
+            <tr>
+              <th style:border="0px" style:width="8px"></th>
+              <th style:display="none"></th>
+              <th style:cursor="auto">序号</th>
+              <th onclick={() => sort("name")}>
+                姓名
+                {#if sortKey === "name"}
+                  {#if isAsc}
+                    <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)" />
+                  {:else}
+                    <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)" />
+                  {/if}
                 {:else}
-                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
+                  <ArrowsDownUpIcon size="14" />
                 {/if}
-              {:else}
-                <ArrowsDownUpIcon size="14"/>
-              {/if}
-            </th>
-            <th onclick={() => sort("student_no")}>
-              学号
-              {#if sortKey === "student_no"}
-                {#if isAsc}
-                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
+              </th>
+              <th onclick={() => sort("student_no")}>
+                学号
+                {#if sortKey === "student_no"}
+                  {#if isAsc}
+                    <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)" />
+                  {:else}
+                    <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)" />
+                  {/if}
                 {:else}
-                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
+                  <ArrowsDownUpIcon size="14" />
                 {/if}
-              {:else}
-                <ArrowsDownUpIcon size="14"/>
-              {/if}
-            </th>
-            <th onclick={() => sort("attendance_status")}>
-              状态
-              {#if sortKey === "attendance_status"}
-                {#if isAsc}
-                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
+              </th>
+              <th onclick={() => sort("attendance_status")}>
+                状态
+                {#if sortKey === "attendance_status"}
+                  {#if isAsc}
+                    <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)" />
+                  {:else}
+                    <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)" />
+                  {/if}
                 {:else}
-                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
+                  <ArrowsDownUpIcon size="14" />
                 {/if}
-              {:else}
-                <ArrowsDownUpIcon size="14"/>
-              {/if}
-            </th>
-            <th onclick={() => sort("remark")}>
-              备注
-              {#if sortKey === "remark"}
-                {#if isAsc}
-                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
+              </th>
+              <th onclick={() => sort("remark")}>
+                备注
+                {#if sortKey === "remark"}
+                  {#if isAsc}
+                    <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)" />
+                  {:else}
+                    <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)" />
+                  {/if}
                 {:else}
-                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
+                  <ArrowsDownUpIcon size="14" />
                 {/if}
-              {:else}
-                <ArrowsDownUpIcon size="14"/>
-              {/if}
-            </th>
-            <th onclick={() => sort("rollcall_at")}>
-              点名时间
-              {#if sortKey === "rollcall_at"}
-                {#if isAsc}
-                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
+              </th>
+              <th onclick={() => sort("rollcall_at")}>
+                点名时间
+                {#if sortKey === "rollcall_at"}
+                  {#if isAsc}
+                    <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)" />
+                  {:else}
+                    <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)" />
+                  {/if}
                 {:else}
-                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
+                  <ArrowsDownUpIcon size="14" />
                 {/if}
-              {:else}
-                <ArrowsDownUpIcon size="14"/>
-              {/if}
-            </th>
-          </tr>
+              </th>
+            </tr>
           </thead>
           <tbody>
-          {#each display as record, index (record.id)}
-            {@const color = recordService.groupColors[groupInfo[index].groupIndex % recordService.groupColors.length]}
-            <tr>
-              {#if groupInfo[index].isStart}
-                <td
-                  rowspan={groupInfo[index].rowspan}
-                  style:background-color={color}
-                  style:border="0px"
-                  style:visibility={(sortKey == "rollcall_at") ? "visible" : "hidden"}
-                ></td>
-              {/if}
-              <td style:display="none"></td>
-              <td>{index + 1}</td>
-              <td>{record.name}</td>
-              <td>{record.student_no}</td>
-              <td onclick={() => recordService.updateToNextStatus(record.id, record.attendance_status)}>
-                <AttendanceStatusBadge id={record.attendance_status}/>
-              </td>
-              <td>{record.remark}</td>
-              <td>{DateTimeUtils.format(record.rollcall_at)}</td>
-            </tr>
-          {/each}
+            {#each display as record, index (record.id)}
+              {@const color = recordService.groupColors[groupInfo[index].groupIndex % recordService.groupColors.length]}
+              <tr>
+                {#if groupInfo[index].isStart}
+                  <td
+                    rowspan={groupInfo[index].rowspan}
+                    style:background-color={color}
+                    style:border="0px"
+                    style:visibility={sortKey == "rollcall_at" ? "visible" : "hidden"}
+                  ></td>
+                {/if}
+                <td style:display="none"></td>
+                <td>{index + 1}</td>
+                <td>{record.name}</td>
+                <td>{record.student_no}</td>
+                <td onclick={() => recordService.updateToNextStatus(record.id, record.attendance_status)}>
+                  <AttendanceStatusBadge id={record.attendance_status} />
+                </td>
+                <td>{record.remark}</td>
+                <td>{DateTimeUtils.format(record.rollcall_at)}</td>
+              </tr>
+            {/each}
           </tbody>
         </table>
       </div>
@@ -417,5 +393,4 @@
     font-size: var(--font-size-lg);
     margin-left: 0;
   }
-
 </style>

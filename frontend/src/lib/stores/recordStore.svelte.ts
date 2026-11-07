@@ -38,19 +38,16 @@ class RecordStore {
     }
   }
 
-  get(id: bigint) {
-    let find = this.#records.find(value => value.id == id);
-    return find ? find : null
+  /** `id` 允许 number：i64 的 TS 投影是 bigint，但经 JSON 到达的一直是 number（导航载荷也是） */
+  get(id: bigint | number) {
+    let find = this.#records.find((value) => value.id == id);
+    return find ? find : null;
   }
 
   upsert(record: RollcallRecord) {
     const index = this.#records.findIndex((s) => s.id == record.id);
     if (index >= 0) {
-      this.#records = [
-        ...this.#records.slice(0, index),
-        record,
-        ...this.#records.slice(index + 1)
-      ];
+      this.#records = [...this.#records.slice(0, index), record, ...this.#records.slice(index + 1)];
     } else {
       this.#records = [record, ...this.#records];
     }

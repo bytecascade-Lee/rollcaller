@@ -19,7 +19,7 @@ use std::time::Duration;
 const EXIT_WATCHDOG: Duration = Duration::from_secs(2);
 
 /// 一个退出前钩子，无参 async 闭包，错误在闭包内部记录
-type AsyncHook = Box<dyn FnOnce() -> Pin<Box<dyn Future<Output=()> + Send>> + Send>;
+type AsyncHook = Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + Send>> + Send>;
 
 static HOOKS: LazyLock<Mutex<Vec<AsyncHook>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
@@ -32,7 +32,7 @@ static DONE: AtomicBool = AtomicBool::new(false);
 pub fn register<F, Fut>(hook: F)
 where
     F: FnOnce() -> Fut + Send + 'static,
-    Fut: Future<Output=()> + Send + 'static,
+    Fut: Future<Output = ()> + Send + 'static,
 {
     let mut slots = HOOKS.lock().unwrap_or_else(|e| e.into_inner());
     if DONE.load(Ordering::SeqCst) {

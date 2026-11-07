@@ -208,8 +208,8 @@ COMMIT
 | 全新库首次迁移 | ❌ 空库没有备份价值 |
 | 无待执行迁移 | ❌ 直接把启动开销压到零 |
 
-同一个启动周期最多一份（收敛场景把 `rebuilding` 传出去，避免"收敛 + 迁移"打两份）。
-快照用 `VACUUM INTO`（连带 WAL 中未回写的页），失败只 `warn` 不阻断；同类文件只保留最近 3 份，避免每次升级在数据目录里堆一份整库副本。
+同一个启动周期最多一份（账本要收敛时先把快照打掉，避免"收敛 + 迁移"打两份）。
+快照用 `VACUUM INTO`（连带 WAL 中未回写的页），失败只 `warn` 不阻断；保留策略按构建模式分档——**发布版**只留最近 3 份，避免每次升级在数据目录里堆一份整库副本；**开发模式**一份都不删，调试期反复迁移时被清掉的往往正是要对照的那份。
 
 ### 5.2 "没有 status 列，怎么知道成功"
 
@@ -229,8 +229,8 @@ COMMIT
 | 文件 | 职责 |
 |---|---|
 | `database/migration.rs` | `run(rb, db_path)`：建 `app_meta` → 账本收敛 → 读账本 → 快照 → 单事务执行 + 记账 |
-| `database/migration/ledger.rs` | `inspect` / `create` / `rebuild`：账本形状收敛（不碰路径、不打快照） |
-| `database/migration/snapshot.rs` | `database()`：`VACUUM INTO` 快照 + 只保留最近 3 份 |
+| `database/migration/ledger.rs` | `inspect` / `create` / `rebuild`：账本形状收敛（不碰路径、不打快照），`rebuild` 统一处理旧表搬迁与时间戳改写两种来源 |
+| `database/migration/snapshot.rs` | `database()`：`VACUUM INTO` 快照 + 按构建模式清理（发布版留 3 份、开发模式全留） |
 | `database/migration/sql.rs` | `MIGRATIONS` 常量、`normalize`、金标哈希与版本序测试 |
 | `database/migration/migrate.rs` | 账本与 `app_meta` 的 SQL（含 `pragma_table_info` / `pragma_foreign_key_check` 的表值函数形式） |
 | `database/database_pool.rs` | `db_path()`：debug 用 `DEVELOP_DATABASE_FILENAME`、release 用 `sqlite.db`，供迁移备份复用 |
@@ -247,7 +247,7 @@ COMMIT
 - 版本严格递增 / 金标哈希 / normalize 幂等与边界（BOM、CRLF、末尾空行、行尾空格保留）
 - 全新库：建账本 → 跑完 V0/V20/V30 → 账本为 `[0,20,30]` → 再跑不重复 → 不留快照
 - 旧库：9 列表 + 3 行（含 FAILED）→ 收敛 → 版本集合与时间戳保留、旧表消失、幂等
-- 旧库收敛只产生一份快照；快照只保留最近 3 份
+- 旧库收敛只产生一份快照；快照保留策略随构建模式（发布版 3 份、开发模式全留）
 - 认不出的账本表 → 拒绝启动
 - 外键默认开启（驱动默认 pragma 的回归守卫）
 
@@ -274,7 +274,7 @@ config 的特殊性：用户配置是**相对默认值的稀疏 diff**（`filter
 
 ## 8. 后续待办
 
-1. 首个版本发布后观察 `app_meta.ledger_rebuilt_at`，满 6 个月 / 下个大版本删除 `ledger::rebuild` 与 `State::Legacy` 分支（§4.6）。
+1. 首个版本发布后观察 `app_meta.ledger_rebuilt_at`，满 6 个月 / 下个大版本删除 `ledger::rebuild` 与 `Kind::Legacy` 分支（§4.6）。
 2. `last_migration_error` 是否要落库（当前只进日志）。
 3. fs / config 两域的实现与表结构。
 4. `checksums.json` 已删除；若还想留一份历史哈希，放到 `docs/` 而不是仓库根。

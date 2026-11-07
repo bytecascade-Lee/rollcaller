@@ -38,12 +38,8 @@ class RollcallEngine {
   /** 用户暂停标记：不打断当前事务，仅在自然中断点（ShowDone）生效 */
   #pendingStop = $state(false);
   #sessionId = $state("");
-  // @ts-ignore
-  #animTimer: NodeJS.Timeout | null = null;
-  // @ts-ignore
-  #animTimeout: NodeJS.Timeout | null = null;
-  // @ts-ignore
-  #showTimeout: NodeJS.Timeout | null = null;
+  #animTimer: ReturnType<typeof setTimeout> | null = null;
+  #animTimeout: ReturnType<typeof setTimeout> | null = null;
   #savedRecord: RollcallRecord | null = null;
 
   isRolling = $derived(this.phase !== RollcallPhase.Idle);
@@ -98,16 +94,12 @@ class RollcallEngine {
         if (event === RollcallEvent.SaveSuccess) {
           if (this.#savedRecord) recordStore.upsert(this.#savedRecord);
           this.completedTimes++;
-          this.#showTimeout = setTimeout(
-            () => this.#dispatch(RollcallEvent.ShowDone),
-            SHOW_DURATION
-          );
+          setTimeout(() => this.#dispatch(RollcallEvent.ShowDone), SHOW_DURATION);
         } else if (event === RollcallEvent.SaveFailed) {
           this.#undoShow();
         } else if (event === RollcallEvent.UserStop) {
           this.#pendingStop = true;
         } else if (event === RollcallEvent.ShowDone) {
-          this.#showTimeout = null;
           if (this.#pendingStop || this.completedTimes >= this.totalTimes) {
             this.#pendingStop = false;
             this.phase = RollcallPhase.Idle;
@@ -130,10 +122,7 @@ class RollcallEngine {
       }
     }, ROLL_INTERVAL);
     if (autoAdvance) {
-      this.#animTimeout = setTimeout(
-        () => this.#dispatch(RollcallEvent.AnimateDone),
-        ANIMATE_DURATION
-      );
+      this.#animTimeout = setTimeout(() => this.#dispatch(RollcallEvent.AnimateDone), ANIMATE_DURATION);
     }
   }
 
@@ -176,7 +165,7 @@ class RollcallEngine {
         student_id: studentId,
         attendance_status: 2, // 出勤
         remark: null,
-        rollcall_at: Date.now(),
+        rollcall_at: new Date().toISOString(),
         session_id: this.#sessionId,
       };
       this.#savedRecord = await RecordCommand.create(record);

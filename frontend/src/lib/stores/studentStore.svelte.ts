@@ -18,25 +18,22 @@ class StudentStore {
     try {
       this.#students = await StudentCommand.list();
     } catch (e) {
-      alert(e)
+      alert(e);
     } finally {
       this.#isLoading = false;
     }
   }
 
-  get(id: bigint) {
-    let find = this.#students.find(value => value.id == id);
-    return find ? find : null
+  /** `id` 允许 number：i64 的 TS 投影是 bigint，但经 JSON 到达的一直是 number（导航载荷也是） */
+  get(id: bigint | number) {
+    let find = this.#students.find((value) => value.id == id);
+    return find ? find : null;
   }
 
   upsert(student: StudentTable) {
     const index = this.#students.findIndex((s) => s.id === student.id);
     if (index >= 0) {
-      this.#students = [
-        ...this.#students.slice(0, index),
-        student,
-        ...this.#students.slice(index + 1)
-      ];
+      this.#students = [...this.#students.slice(0, index), student, ...this.#students.slice(index + 1)];
     } else {
       this.#students = [...this.#students, student];
     }

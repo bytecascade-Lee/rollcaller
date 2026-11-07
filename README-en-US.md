@@ -128,11 +128,12 @@ cd rollcaller
 #    Full rules for fork / CNB-mirror clones are in docs/standards/Git.md §1.1
 git remote rename origin github
 
-# 2. Repository-level git config
-git config --local pull.ff only           # pulls may only fast-forward
-git config --local merge.ff false         # merges must create a merge commit
-git config --local core.quotepath false   # keep CJK paths unescaped
-git config --local fetch.prune true       # prune deleted remote branches
+# 2. Repository-level git config (merges on long-lived branches must leave a commit)
+git config --local pull.ff only                        # pulls may only fast-forward
+git config --local branch.develop.mergeOptions --no-ff # merges into develop must create a commit
+git config --local branch.master.mergeOptions --no-ff  # merges into master must create a commit
+git config --local core.quotepath false                # keep CJK paths unescaped
+git config --local fetch.prune true                    # prune deleted remote branches
 
 # 3. Local cargo config (ts-rs export dir and development database file name)
 cp backend/.cargo/config.toml.example backend/.cargo/config.toml

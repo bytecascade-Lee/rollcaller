@@ -8,7 +8,6 @@ class WebViewTtsService {
   #synthesis = window.speechSynthesis;
   #voicesReady = $state(false);
   #voicesReadyPromise: Promise<void> | null = null;
-  #currentUtterance: SpeechSynthesisUtterance | null = null;
 
   constructor() {
     this.#initVoices();
@@ -43,13 +42,12 @@ class WebViewTtsService {
   /**
    * 播放文本，返回 Promise —— onend resolve，onerror reject
    */
-  play(text: string, options?: { lang?: string; rate?: number; pitch?: number }): Promise<void> {
+  play(text: string, options?: {lang?: string; rate?: number; pitch?: number}): Promise<void> {
     if (!text?.trim()) return Promise.resolve();
 
     return new Promise<void>((resolve, reject) => {
       this.#ensureVoicesReady().then(() => {
         const utterance = new SpeechSynthesisUtterance(text);
-        this.#currentUtterance = utterance;
 
         utterance.lang = options?.lang || "zh-CN";
         utterance.rate = options?.rate || 1.0;
@@ -60,12 +58,10 @@ class WebViewTtsService {
         if (zhVoice) utterance.voice = zhVoice;
 
         utterance.onend = () => {
-          this.#currentUtterance = null;
           resolve();
         };
 
         utterance.onerror = (event) => {
-          this.#currentUtterance = null;
           if (event.error === "canceled") {
             resolve(); // cancel 不算错误
             return;
@@ -81,7 +77,6 @@ class WebViewTtsService {
   /** 立即停止当前播放（不触发 reject） */
   cancel() {
     this.#synthesis.cancel();
-    this.#currentUtterance = null;
   }
 
   pause() {

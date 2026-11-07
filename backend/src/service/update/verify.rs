@@ -39,35 +39,25 @@ use crate::common::entity::update::Artifact;
 use crate::common::ext::encode_ext::Base64Ext;
 use crate::common::ext::hash_ext::HashExt;
 use anyhow::anyhow;
-use base64::Engine;
-use sha2::Digest;
 use std::path::Path;
 
 /// 与官方插件 verify_signature 逐行一致：先解 base64，再解析 minisign 文本并验证
 ///
 /// - `release_signature`：base64(minisign 签名文本)，即 `Artifact.signature`
 /// - `pub_key_b64`：base64(minisign 公钥文本)，即 [`ROLLCALLER_UPDATE_PUBKEY`]
-pub fn verify_signature(
-    data: &[u8],
-    release_signature: &str,
-    pub_key_b64: &str,
-) -> anyhow::Result<()> {
+pub fn verify_signature(data: &[u8], release_signature: &str, pub_key_b64: &str) -> anyhow::Result<()> {
     let public_key = minisign_verify::PublicKey::decode(
         &pub_key_b64
             .base64_decode()
             .map_err(|e| anyhow!("签名公钥 base64 解码失败：{e} / {pub_key_b64}"))?,
     )
-        .map_err(|e| {
-            anyhow!("minisign 公钥解析失败（外层解码后应为两行：untrusted comment 行 + 42 字节公钥 base64）：{e}")
-        })?;
+    .map_err(|e| anyhow!("minisign 公钥解析失败（外层解码后应为两行：untrusted comment 行 + 42 字节公钥 base64）：{e}"))?;
     let signature = minisign_verify::Signature::decode(
         &release_signature
             .base64_decode()
             .map_err(|e| anyhow!("签名 base64 解码失败：{e} / {release_signature}"))?,
     )
-        .map_err(|e| {
-            anyhow!("minisign 签名解析失败（外层解码后应为四行 minisign 签名文本，当前行数或载荷长度不符）：{e}")
-        })?;
+    .map_err(|e| anyhow!("minisign 签名解析失败（外层解码后应为四行 minisign 签名文本，当前行数或载荷长度不符）：{e}"))?;
     // true = 兼容 legacy 预哈希签名
     public_key.verify(data, &signature, true)?;
     Ok(())
@@ -123,8 +113,7 @@ pub fn verify_artifact(data: &[u8], artifact: &Artifact) -> anyhow::Result<()> {
 /// 与官方插件行为一致，详见 [`verify_signature`]。
 pub fn verify_artifact_path(path: &Path, artifact: &Artifact) -> anyhow::Result<()> {
     ensure_signed(artifact)?;
-    let data = std::fs::read(path)
-        .map_err(|e| anyhow!("读取下载产物失败（{}）：{e}", path.display()))?;
+    let data = std::fs::read(path).map_err(|e| anyhow!("读取下载产物失败（{}）：{e}", path.display()))?;
     verify_sha256(&data, &artifact.sha256)?;
     verify_signature(&data, &artifact.signature, active_pubkey())?;
     Ok(())
@@ -190,6 +179,8 @@ pub(crate) mod test_keys {
 mod tests {
     use super::*;
     use crate::config::app_paths;
+    use base64::Engine;
+    use sha2::Digest;
     use std::path::PathBuf;
 
     /// 动态生成临时密钥对并对 data 签名，返回 (公钥外层 base64, 签名外层 base64)
@@ -199,12 +190,8 @@ mod tests {
         let key_pair = minisign::KeyPair::generate_unencrypted_keypair().expect("生成密钥对失败");
         // minisign 0.7：sign(pk: Option<&PublicKey>, sk: &SecretKey, reader: Read, trusted, untrusted)，
         // 恒定使用预哈希（对应 minisign-verify 的 verify(..., true)）
-        let signature = minisign::sign(None, &key_pair.sk, &data[..], None, None).expect("签名失败");
-        let pub_text = key_pair
-            .pk
-            .to_box()
-            .expect("公钥转 PublicKeyBox 失败")
-            .into_string();
+        let signature = minisign::sign(None, &key_pair.sk, data, None, None).expect("签名失败");
+        let pub_text = key_pair.pk.to_box().expect("公钥转 PublicKeyBox 失败").into_string();
         let pub_b64 = base64::engine::general_purpose::STANDARD.encode(pub_text);
         let sig_b64 = base64::engine::general_purpose::STANDARD.encode(signature.to_string());
         (pub_b64, sig_b64)
@@ -250,9 +237,7 @@ mod tests {
         tampered[0] ^= 0xFF;
         // 篡改 1 字节 → 签名与 sha256 任意一个环节都应拒绝
         assert!(verify_signature(&tampered, &sig_b64, &pub_b64).is_err());
-        assert!(
-            verify_sha256(&tampered, &hex::encode(sha2::Sha256::digest(data))).is_err()
-        );
+        assert!(verify_sha256(&tampered, &hex::encode(sha2::Sha256::digest(data))).is_err());
     }
 
     #[test]
@@ -324,10 +309,7 @@ mod tests {
             ..make_signed_artifact(data)
         };
         let err = verify_artifact(data, &artifact).expect_err("空签名应被拒绝");
-        assert!(
-            err.to_string().contains("缺少产物签名"),
-            "错误应指出签名缺失: {err}"
-        );
+        assert!(err.to_string().contains("缺少产物签名"), "错误应指出签名缺失: {err}");
 
         // 空白签名同样拒绝（避免 trim 前后不一致被绕过）
         let blank = Artifact {
@@ -369,7 +351,7 @@ mod tests {
         }
 
         let dir = app_paths::temp_dir().join(format!("rollcaller-verify-interop-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect(&format!("创建临时目录 {} 失败", dir.display()));
+        std::fs::create_dir_all(&dir).unwrap_or_else(|error| panic!("创建临时目录 {} 失败: {error}", dir.display()));
 
         // 1. 生成密钥对（固定测试密码，非交互）
         // 新版 tauri-cli（2.11）：generate 用 -p 密码 + -w 私钥输出文件 + --ci 免交互；
@@ -415,8 +397,10 @@ mod tests {
 
     /// 在目录中按扩展名查找文件（tauri signer 输出文件名随版本/命名变化，用扩展名兜底）
     fn find_file_with_ext(dir: &Path, ext: &str) -> Option<PathBuf> {
-        std::fs::read_dir(dir).ok()?.flatten().map(|e| e.path()).find(|p| {
-            p.extension().is_some_and(|e| e == ext)
-        })
+        std::fs::read_dir(dir)
+            .ok()?
+            .flatten()
+            .map(|e| e.path())
+            .find(|p| p.extension().is_some_and(|e| e == ext))
     }
 }

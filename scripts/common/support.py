@@ -19,13 +19,13 @@ class SupportTableError(Exception):
 SUPPORTED_TARGETS: tuple[SupportedTarget, ...] = (
     SupportedTarget(
         target=Target("x86_64-pc-windows-msvc"),
-        actions=frozenset({Action.BUILD, Action.RELEASE, Action.TEST}),
+        actions=frozenset({Action.BUILD, Action.RELEASE, Action.TEST, Action.CHECK}),
         kinds=frozenset({Kind.NSIS, Kind.PORTABLE, Kind.DEVELOP}),
         runner="windows-latest",
     ),
     SupportedTarget(
         target=Target("aarch64-pc-windows-msvc"),
-        actions=frozenset({Action.BUILD, Action.RELEASE}),
+        actions=frozenset({Action.BUILD, Action.RELEASE, Action.CHECK}),
         kinds=frozenset({Kind.NSIS, Kind.PORTABLE, Kind.DEVELOP}),
         runner="windows-latest",
     ),

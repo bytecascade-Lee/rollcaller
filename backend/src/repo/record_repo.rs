@@ -72,10 +72,6 @@ pub async fn update_attendance_status(
 }
 
 #[py_sql("UPDATE records SET remark = #{remark} WHERE id IN ${ids.sql()}")]
-pub async fn update_remark(
-    tx: &mut RBatisTxExecutor,
-    ids: &Vec<i64>,
-    remark: &str,
-) -> Result<ExecResult, rbatis::Error> {
+pub async fn update_remark(tx: &mut RBatisTxExecutor, ids: &Vec<i64>, remark: &str) -> Result<ExecResult, rbatis::Error> {
     impled!()
 }

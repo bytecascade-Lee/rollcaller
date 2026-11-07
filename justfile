@@ -61,7 +61,8 @@ test-fe:
 # 检查 & 格式化
 
 # 运行所有检查，前端 + 后端，用法: just check x86_64-pc-windows-msvc
-check target: check-fe (check-be target)
+check target:
+    {{ uv }} run python {{ scripts_dir }}/check.py -t {{ target }}
 
 # 前端类型检查
 check-fe:

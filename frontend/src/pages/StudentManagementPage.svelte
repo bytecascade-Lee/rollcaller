@@ -16,46 +16,54 @@
     PencilIcon,
     PencilSimpleIcon,
     PlusIcon,
-    TrashIcon
+    TrashIcon,
   } from "phosphor-svelte";
   import type {EntryRegistry} from "$routing/registry";
   import type {StudentOverlayName} from "$types";
-  import {readStudentIds} from "$routing/entries";
-  import {AppEntry} from "$routing/entries.generated";
+  import type {AppEntryPayload} from "$routing/app/entries.generated";
+  import {AppEntry} from "$routing/app/entries.generated";
   import EditStudent from "$components/student-management/EditStudent.svelte";
   import ExportStudents from "$components/student-management/ExportStudents.svelte";
-  import {appNavigate} from "$routing/appNavigate";
+  import {appNavigate} from "$routing/app/navigate";
 
-  let selected = $state<Set<bigint>>(new Set())
-  let {active = $bindable(false), overlays}: {
+  let selected = $state<Set<bigint>>(new Set());
+  let {
+    active = $bindable(false),
+    overlays,
+  }: {
     active?: boolean;
     /** 本页可见的落点表（类型收窄到本页子树：写别的页的名字编译报错） */
-    overlays: EntryRegistry<StudentOverlayName>;
+    overlays: EntryRegistry<StudentOverlayName, AppEntryPayload>;
   } = $props();
-  let searchQuery = $state("")
-  let sortKey = $state("")
-  let isAsc = $state(true)
-  let anchor = $state<HTMLElement | null>(null);
-  let display = $derived([...studentStore.students]
-    .filter(student =>
-      student.name.toLowerCase().includes(searchQuery) ||
-      student.student_no.toLowerCase().includes(searchQuery)
-    )
-    .sort((a, b) => {
-      if (!sortKey) return 0;
-      const key = sortKey as "name" | "student_no" | "created_at" | "updated_at";
-      const valA = a[key];
-      const valB = b[key];
-      let cmp: number;
-      if (typeof valA === "string" && typeof valB === "string") {
-        cmp = valA.localeCompare(valB, "zh-Hans-CN");
-      } else if (typeof valA === "number" && typeof valB === "number") {
-        cmp = valA - valB;
-      } else {
-        cmp = 0;
-      }
-      return isAsc ? cmp : -cmp;
-    }));
+  let searchQuery = $state("");
+  let sortKey = $state("");
+  let isAsc = $state(true);
+  let display = $derived(
+    [...studentStore.students]
+      .filter(
+        (student) =>
+          student.name.toLowerCase().includes(searchQuery) || student.student_no.toLowerCase().includes(searchQuery),
+      )
+      .sort((a, b) => {
+        if (!sortKey) return 0;
+        const key = sortKey as "name" | "student_no" | "created_at" | "updated_at";
+        const valA = a[key];
+        const valB = b[key];
+        let cmp: number;
+        if (key === "created_at" || key === "updated_at") {
+          const x = String(valA),
+            y = String(valB);
+          cmp = x < y ? -1 : x > y ? 1 : 0;
+        } else if (typeof valA === "string" && typeof valB === "string") {
+          cmp = valA.localeCompare(valB, "zh-Hans-CN");
+        } else if (typeof valA === "number" && typeof valB === "number") {
+          cmp = valA - valB;
+        } else {
+          cmp = 0;
+        }
+        return isAsc ? cmp : -cmp;
+      }),
+  );
 
   /**
    * 生效的选择集：按"学生仍然存在"过滤。
@@ -69,7 +77,7 @@
   });
 
   /** 只用于渲染勾选态与表头全选 */
-  let displaySelectedCount = $derived(display.filter(student => liveSelected.has(student.id)).length)
+  let displaySelectedCount = $derived(display.filter((student) => liveSelected.has(student.id)).length);
 
   function sort(key: string) {
     if (sortKey === key) {
@@ -83,7 +91,7 @@
   function select(id: bigint) {
     if (selected.has(id)) {
       let set = new Set(selected);
-      set.delete(id)
+      set.delete(id);
       selected = set;
     } else {
       selected = new Set([...selected, id]);
@@ -106,28 +114,12 @@
     }
   }
 
-  /**
-   * 载荷解释器：本页是 `{ids}` 的**唯一解释者**。
-   *
-   * 路由层不认识 `{ids}`；弹窗也不必认识 —— 它只管可见性，由注册表在 `show` 之前调用这里，
-   * 把"编辑这些学生"翻译成本页状态（选中集）。载荷非法或为空 ⇒ 什么都不做（纯导航）。
-   *
-   * 前置条件（"要看到选中效果，学生数据得在"）由 `liveSelected` 的过滤自然覆盖：
-   * 先写入 id，数据到达后过滤结果自动生效，故这里不必等 `load()`。
-   */
-  $effect(() => {
-    overlays.interpret(AppEntry.editStudent, (payload) => {
-      const ids = readStudentIds(payload);
-      if (ids.length === 0) return;
-      selected = new Set(ids.map((id) => BigInt(id)));
-      if (studentStore.students.length === 0) void studentStore.load();
-    });
-  });
-
+  /** 勾选集 → 载荷。载荷只装 id，行由弹窗按 id 从 store 实时取 */
+  let selectedIds = $derived([...liveSelected].map(Number));
 </script>
 
 <!-- 页面根节点由 .content > * 提供布局与激活态 -->
-<div class:active={active}>
+<div class:active>
   <div class="toolbar">
     <div class="icon-button-group">
       <button
@@ -137,25 +129,25 @@
         onclick={() => appNavigate.enter(AppEntry.createStudent)}
         title="添加学生"
       >
-        <PlusIcon size="24"/>
+        <PlusIcon size="24" />
       </button>
       <button
         aria-label="修改学生"
         class="icon-button"
-        disabled={liveSelected.size != 1}
-        onclick={() => appNavigate.enter(AppEntry.editStudent, {ids: [...liveSelected].map(Number)})}
+        disabled={selectedIds.length != 1}
+        onclick={() => appNavigate.enter(AppEntry.editStudent, selectedIds[0])}
         title="修改学生"
       >
-        <PencilIcon size="24"/>
+        <PencilIcon size="24" />
       </button>
       <button
         aria-label="删除学生"
         class="icon-button"
-        disabled={liveSelected.size == 0}
-        onclick={() => appNavigate.enter(AppEntry.deleteStudent, {ids: [...liveSelected].map(Number)})}
+        disabled={selectedIds.length == 0}
+        onclick={() => appNavigate.enter(AppEntry.deleteStudent, selectedIds)}
         title="删除学生"
       >
-        <TrashIcon size="24"/>
+        <TrashIcon size="24" />
       </button>
       <button
         aria-label="导入学生"
@@ -164,19 +156,21 @@
         onclick={() => appNavigate.enter(AppEntry.importStudent)}
         title="导入学生"
       >
-        <FileArrowUpIcon size="24"/>
+        <FileArrowUpIcon size="24" />
       </button>
       <button
         aria-label="导出学生"
         class="icon-button"
+        data-anchor={AppEntry.exportStudent}
         disabled={studentStore.isLoading}
-        onclick={e => {
-          anchor = e.currentTarget;
-          appNavigate.enter(AppEntry.exportStudent)
-        }}
+        onclick={() =>
+          appNavigate.enter(AppEntry.exportStudent, {
+            filtered: display.map((student) => Number(student.id)),
+            selected: selectedIds,
+          })}
         title="导出学生"
       >
-        <FileArrowDownIcon size="24"/>
+        <FileArrowDownIcon size="24" />
       </button>
       <!-- 功能后期添加 -->
       <button
@@ -186,7 +180,7 @@
         style="display: none"
         title="恢复已删除学生"
       >
-        <ClockClockwiseIcon size="24"/>
+        <ClockClockwiseIcon size="24" />
       </button>
       <button
         aria-label="刷新"
@@ -195,17 +189,12 @@
         onclick={() => studentStore.load()}
         title="刷新"
       >
-        <ArrowClockwiseIcon size="24"/>
+        <ArrowClockwiseIcon size="24" />
       </button>
     </div>
     <div class="search">
-      <MagnifyingGlassIcon size="18"/>
-      <input
-        bind:value={searchQuery}
-        disabled={studentStore.isLoading}
-        placeholder="搜索学号或姓名"
-        type="search"
-      />
+      <MagnifyingGlassIcon size="18" />
+      <input bind:value={searchQuery} disabled={studentStore.isLoading} placeholder="搜索学号或姓名" type="search" />
     </div>
   </div>
 
@@ -217,92 +206,89 @@
     <div class="table">
       <table>
         <thead>
-        <tr>
-          <th>
-            <input
-              type="checkbox"
-              checked={display.length > 0 && displaySelectedCount == display.length}
-              indeterminate={displaySelectedCount > 0 && displaySelectedCount < display.length}
-              onchange={selectAll}/>
-          </th>
-          <th style:cursor="auto">序号</th>
-          <th onclick={() => sort("name")}>
-            <PencilSimpleIcon size="14" weight="bold"/>
-            姓名
-            {#if sortKey === "name"}
-              {#if isAsc}
-                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
-              {:else}
-                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
-              {/if}
-            {:else}
-              <ArrowsDownUpIcon size="14"/>
-            {/if}
-          </th>
-          <th onclick={() => sort("student_no")}>
-            <PencilSimpleIcon size="14" weight="bold"/>
-            学号
-            {#if sortKey === "student_no"}
-              {#if isAsc}
-                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
-              {:else}
-                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
-              {/if}
-            {:else}
-              <ArrowsDownUpIcon size="14"/>
-            {/if}
-          </th>
-          <th onclick={() => sort("created_at")}>
-            创建时间
-            {#if sortKey === "created_at"}
-              {#if isAsc}
-                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
-              {:else}
-                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
-              {/if}
-            {:else}
-              <ArrowsDownUpIcon size="14"/>
-            {/if}
-          </th>
-          <th onclick={() => sort("updated_at")}>
-            最后更新时间
-            {#if sortKey === "updated_at"}
-              {#if isAsc}
-                <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)"/>
-              {:else}
-                <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)"/>
-              {/if}
-            {:else}
-              <ArrowsDownUpIcon size="14"/>
-            {/if}
-          </th>
-        </tr>
-        </thead>
-        <tbody>
-        {#each display as student, index (student.id)}
           <tr>
-            <td>
+            <th>
               <input
                 type="checkbox"
-                checked={liveSelected.has(student.id)}
-                onchange={() => select(student.id)}
+                checked={display.length > 0 && displaySelectedCount == display.length}
+                indeterminate={displaySelectedCount > 0 && displaySelectedCount < display.length}
+                onchange={selectAll}
               />
-            </td>
-            <td>{index + 1}</td>
-            <td>{student.name}</td>
-            <td>{student.student_no}</td>
-            <td>{DateTimeUtils.format(student.created_at)}</td>
-            <td>{DateTimeUtils.format(student.updated_at)}</td>
+            </th>
+            <th style:cursor="auto">序号</th>
+            <th onclick={() => sort("name")}>
+              <PencilSimpleIcon size="14" weight="bold" />
+              姓名
+              {#if sortKey === "name"}
+                {#if isAsc}
+                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)" />
+                {:else}
+                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)" />
+                {/if}
+              {:else}
+                <ArrowsDownUpIcon size="14" />
+              {/if}
+            </th>
+            <th onclick={() => sort("student_no")}>
+              <PencilSimpleIcon size="14" weight="bold" />
+              学号
+              {#if sortKey === "student_no"}
+                {#if isAsc}
+                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)" />
+                {:else}
+                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)" />
+                {/if}
+              {:else}
+                <ArrowsDownUpIcon size="14" />
+              {/if}
+            </th>
+            <th onclick={() => sort("created_at")}>
+              创建时间
+              {#if sortKey === "created_at"}
+                {#if isAsc}
+                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)" />
+                {:else}
+                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)" />
+                {/if}
+              {:else}
+                <ArrowsDownUpIcon size="14" />
+              {/if}
+            </th>
+            <th onclick={() => sort("updated_at")}>
+              最后更新时间
+              {#if sortKey === "updated_at"}
+                {#if isAsc}
+                  <ArrowUpIcon size="14" weight="bold" color="var(--color-primary)" />
+                {:else}
+                  <ArrowDownIcon size="14" weight="bold" color="var(--color-primary)" />
+                {/if}
+              {:else}
+                <ArrowsDownUpIcon size="14" />
+              {/if}
+            </th>
           </tr>
-        {/each}
+        </thead>
+        <tbody>
+          {#each display as student, index (student.id)}
+            <tr>
+              <td>
+                <input type="checkbox" checked={liveSelected.has(student.id)} onchange={() => select(student.id)} />
+              </td>
+              <td>{index + 1}</td>
+              <td>{student.name}</td>
+              <td>{student.student_no}</td>
+              <td>{DateTimeUtils.format(student.created_at)}</td>
+              <td>{DateTimeUtils.format(student.updated_at)}</td>
+            </tr>
+          {/each}
         </tbody>
       </table>
     </div>
   {/if}
 </div>
 
-<SingleCreateStudent {overlays}/>
-<EditStudent {overlays} selected={liveSelected}/>
-<DeleteStudents {overlays}/>
-<ImportStudents {overlays}/>
-<ExportStudents anchor={anchor} display={display} {overlays} selected={liveSelected}/>
+<SingleCreateStudent {overlays} />
+<EditStudent {overlays} />
+<DeleteStudents {overlays} />
+<ImportStudents {overlays} />
+<ExportStudents {overlays} />

@@ -96,21 +96,24 @@ def release_ci(version: Version, draft: bool) -> None:
     notes_path = ASSETS_DIR / "RELEASE_NOTES.md"
     notes_path.write_text(notes, encoding="utf-8")
 
-    manifests = []
-    for source in (Source.GITHUB, Source.CNB):
-        manifest = latest_manifest.build(version, notes, severity, discovered, source)
-        manifests.append(latest_manifest.write(manifest, ASSETS_DIR / urls.manifest_name(source)))
+    manifests = {
+        source: latest_manifest.write(
+            latest_manifest.build(version, notes, severity, discovered, source),
+            ASSETS_DIR / urls.manifest_name(source),
+        )
+        for source in (Source.GITHUB, Source.CNB)
+    }
 
-    # 上传顺序为 二进制 -> 清单 -> 版本索引，.sig/.sha256 只经 artifact 传递
-    files = [asset.path for asset in discovered] + manifests + [index_path]
+    # 上传顺序为 二进制 -> 当前平台清单 -> 版本索引，.sig/.sha256 只经 artifact 传递
+    shared_files = [asset.path for asset in discovered] + [index_path]
     sha = git.head_hash(cwd=PROJECT_BASE_DIR)
     tag = version.to_tag()
 
     github_release.ensure_tag(GITHUB_REPO, tag, sha)
-    github_release.publish(GITHUB_REPO, version, tag, notes_path, files, draft=draft)
+    github_release.publish(GITHUB_REPO, version, tag, notes_path, [*shared_files, manifests[Source.GITHUB]], draft=draft)
 
     cnb_release.ensure_tag(CNB_REPO, tag, sha)
-    cnb_release.publish(CNB_REPO, version, tag, notes_path, files, draft=draft)
+    cnb_release.publish(CNB_REPO, version, tag, notes_path, [*shared_files, manifests[Source.CNB]], draft=draft)
 
     info(f"发布完成: {tag}")
 

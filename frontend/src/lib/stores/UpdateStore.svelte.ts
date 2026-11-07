@@ -104,8 +104,7 @@ export class UpdateStore {
   #apply(next: UpdateView) {
     // 进度瞬时语义：进出 downloading 均清零，避免残留/陈旧值串到下一轮
     if (this.#view.status !== next.status) {
-      const leavingOrEntering =
-        this.#view.status === "downloading" || next.status === "downloading";
+      const leavingOrEntering = this.#view.status === "downloading" || next.status === "downloading";
       if (leavingOrEntering) this.#resetProgress();
     }
     this.#view = next;

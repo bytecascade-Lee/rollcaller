@@ -13,22 +13,37 @@
             "parentId": "student-management"
         },
         "import-student": {
-            "parentId": "student-management"
+            "parentId": "student-management",
+            "payload": {
+                "path": "string",
+                "format": "FileType"
+            }
         },
         "edit-student": {
-            "parentId": "student-management"
+            "parentId": "student-management",
+            "payload": "number"
         },
         "export-student": {
-            "parentId": "student-management"
+            "parentId": "student-management",
+            "payload": {
+                "filtered": ["number"],
+                "selected": ["number"]
+            }
         },
         "delete-student": {
-            "parentId": "student-management"
+            "parentId": "student-management",
+            "payload": ["number"]
         },
         "edit-record": {
-            "parentId": "record-history"
+            "parentId": "record-history",
+            "payload": ["number"]
         },
         "export-record": {
-            "parentId": "record-history"
+            "parentId": "record-history",
+            "payload": {
+                "filtered": ["number"],
+                "selected": ["number"]
+            }
         }
     }
 }

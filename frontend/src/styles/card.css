@@ -17,7 +17,8 @@
     background: var(--color-card);
     text-align: left;
     cursor: pointer;
-    transition: background-color var(--transition-duration-md) var(--transition-ease) color var(--transition-duration-md) var(--transition-ease);
+    transition: background-color var(--transition-duration-md) var(--transition-ease) color
+        var(--transition-duration-md) var(--transition-ease);
     user-select: none;
     -webkit-tap-highlight-color: transparent;
 }

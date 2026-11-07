@@ -57,9 +57,7 @@ export class TtsStore {
   }
 
   update(id: string, updates: Partial<TtsQueueItem>) {
-    this.#items = this.#items.map((item) =>
-      item.id === id ? {...item, ...updates} : item,
-    );
+    this.#items = this.#items.map((item) => (item.id === id ? {...item, ...updates} : item));
   }
 
   remove(id: string) {
@@ -84,7 +82,7 @@ export class TtsStore {
   nextMode() {
     switch (this.#mode) {
       case "Off":
-        this.#mode = "SystemNative"
+        this.#mode = "SystemNative";
         break;
       case "SystemNative":
         this.#mode = "AICloud";

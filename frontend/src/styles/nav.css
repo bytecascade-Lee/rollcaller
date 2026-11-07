@@ -16,7 +16,9 @@
     background: var(--color-page);
     color: var(--text-color-primary);
     cursor: pointer;
-    transition: background-color var(--transition-duration-md) var(--transition-ease), color var(--transition-duration-md) var(--transition-ease-in);
+    transition:
+        background-color var(--transition-duration-md) var(--transition-ease),
+        color var(--transition-duration-md) var(--transition-ease-in);
 }
 
 .nav-icon:hover {
@@ -51,7 +53,9 @@
     text-align: left;
     cursor: pointer;
     user-select: none;
-    transition: background-color var(--transition-duration-md) var(--transition-ease), color var(--transition-duration-md) var(--transition-ease-in);
+    transition:
+        background-color var(--transition-duration-md) var(--transition-ease),
+        color var(--transition-duration-md) var(--transition-ease-in);
 }
 
 .nav-item:hover {

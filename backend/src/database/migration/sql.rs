@@ -23,6 +23,11 @@ pub(crate) const MIGRATIONS: &[SqlMigration] = &[
         name: "add foreign key to attendance_status",
         sql: include_str!("../../../../resources/database/migrations/V30__add-foreign-key-to-attendance_status.sql"),
     },
+    SqlMigration {
+        version: 40,
+        name: "convert timestamp columns to iso8601",
+        sql: include_str!("../../../../resources/database/migrations/V40__convert-timestamp-columns-to-iso8601.sql"),
+    },
 ];
 
 /// 规范化：去 BOM、CRLF -> LF、去掉文件末尾的空行
@@ -44,6 +49,7 @@ mod tests {
         (0, "e8604196400db71af3f171bda2dd96db44b6459617b6ef230502e4470710c7c6"),
         (20, "177aaf77820dbb74f48bcd5b8d63b54083352a02079244a800a4926e00760ce1"),
         (30, "cdd1e6e2fe4ccc78e258ed456e3004171f5d1ebf41dcc5c599dec084cda63e93"),
+        (40, "6dfdb82d363f5f736cd3c2d53d3f2f15686fc1940a2401d65e545aab73715e1e"),
     ];
 
     #[test]
@@ -60,16 +66,16 @@ mod tests {
 
     #[test]
     fn published_migrations_are_frozen() {
-        assert_eq!(MIGRATIONS.len(), FROZEN.len(), "迁移数量变了，请同步 FROZEN");
+        assert_eq!(MIGRATIONS.len(), FROZEN.len(), "迁移脚本数量发送变化，请同步 FROZEN");
         for (version, expected) in FROZEN {
             let migration = MIGRATIONS
                 .iter()
                 .find(|m| m.version == *version)
                 .unwrap_or_else(|| panic!("缺少 V{version}"));
+            let actual = normalize(migration.sql).sha256();
             assert_eq!(
-                &normalize(migration.sql).sha256(),
-                *expected,
-                "V{version}={} 的内容已被改动；已发布的迁移不允许修改，请新增一条",
+                &actual, *expected,
+                "V{version}={} 的内容已被改动：原 sha256 为 {expected}，当前为 {actual}，已发布的迁移不允许修改，请新增一条",
                 migration.name
             );
         }

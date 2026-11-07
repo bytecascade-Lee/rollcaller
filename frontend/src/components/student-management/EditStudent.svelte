@@ -2,44 +2,60 @@
   import {studentStore} from "$stores/studentStore.svelte";
   import type {EntryRegistry} from "$routing/registry";
   import type {StudentOverlayName, StudentSingleUpdate, StudentTable} from "$types";
-  import {AppEntry} from "$routing/entries.generated";
-  import {StudentCommand} from "$commands"
+  import type {AppEntryPayload} from "$routing/app/entries.generated";
+  import {AppEntry} from "$routing/app/entries.generated";
+  import {StudentCommand} from "$commands";
   import {DateTimeUtils} from "$utils";
-  import {appNavigate} from "$routing/appNavigate";
+  import {appNavigate} from "$routing/app/navigate";
 
-  let {selected, overlays}: {
-    selected: Set<bigint>;
-    overlays: EntryRegistry<StudentOverlayName>;
-  } = $props();
-  let localEdit = $state<StudentTable | null>(null);
+  let {overlays}: {overlays: EntryRegistry<StudentOverlayName, AppEntryPayload>} = $props();
+
+  let targetId = $state<number | null>(null);
   let isVisible = $state(false);
+  let draft = $state<{student_no: string; name: string} | null>(null);
+  let editResult = $state<StudentSingleUpdate | undefined>(undefined);
+  let isSaving = $state(false);
 
-  /** 请求关闭：地址回退到父级（关闭是导航，不是本地状态）；`close()` 只留给注册表执行真正的隐藏 */
+  let target = $state<StudentTable | null>(null);
+
+  let canSave = $derived(draft != null && draft.student_no.trim() !== "" && draft.name.trim() !== "");
+
+  /** 把派生出来的行拷进草稿 */
+  $effect(() => {
+    if (draft !== null) return;
+    const row = target;
+    if (row) draft = {student_no: row.student_no, name: row.name};
+  });
+
+  function open(id: number | undefined) {
+    if (studentStore.students.length === 0) void studentStore.load();
+    if (id == null) return;
+    target = studentStore.get(id);
+    draft = null;
+    editResult = undefined;
+    isSaving = false;
+    isVisible = true;
+  }
+
+  function close() {
+    isVisible = false;
+    targetId = null;
+    draft = null;
+    editResult = undefined;
+    isSaving = false;
+  }
+
   function requestClose() {
     appNavigate.leave(AppEntry.editStudent);
   }
 
-  let closeOnOutside = true;
-  let editResult = $state<StudentSingleUpdate | undefined>(undefined);
-  let isSaving = $state(false);
-
-  let canSave = $derived(
-    localEdit != null &&
-    localEdit.student_no.trim() !== "" &&
-    localEdit.name.trim() !== ""
-  );
-
-  async function edit() {
-    if (!localEdit || !canSave || isSaving) return;
-    localEdit.student_no = localEdit.student_no.trim();
-    localEdit.name = localEdit.name.trim();
+  async function doEdit() {
+    if (!target || !draft || !canSave || isSaving) return;
+    const student_no = draft.student_no.trim();
+    const name = draft.name.trim();
     try {
       isSaving = true;
-      editResult = await StudentCommand.update({
-        id: localEdit.id,
-        student_no: localEdit.student_no,
-        name: localEdit.name,
-      });
+      editResult = await StudentCommand.update({id: target.id, student_no, name});
       if (editResult.type == "Update") {
         studentStore.upsert(editResult.data);
         requestClose();
@@ -52,92 +68,72 @@
     }
   }
 
-  function close() {
-    isVisible = false;
-    localEdit = null;
-    editResult = undefined;
-    isSaving = false;
-  }
-
-  function open() {
-    editResult = undefined;
-    isVisible = true;
-  }
-
-  $effect(() => {
-    if (isVisible && selected.size == 1) {
-      // 必须拷贝，否则拿到的是引用，表格中的照样会变
-      let value = selected.values().next().value;
-      if (value === undefined || value === null) return;
-      const original = studentStore.get(value);
-      localEdit = original ? {...original} : null;
-    }
-  });
   $effect(() => {
     overlays.register(AppEntry.editStudent, {
       open,
       close,
-      isVisible: () => isVisible
-    })
+    });
     return () => overlays.unregister(AppEntry.editStudent);
-  })
+  });
 </script>
 
 {#if isVisible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="overlay" onclick={closeOnOutside ? requestClose : undefined}>
+  <div class="overlay" onclick={requestClose}>
     <div class="popup" onclick={(e) => e.stopPropagation()}>
       <h3 class="text-title">修改学生</h3>
-      {#if selected.size > 1}
-        <h3 class="text-title error">仅支持单个修改<br/></h3>
-        <span class="text-content">当前选中了 {selected.size} 名学生，请只选择一名后再试</span>
-      {:else if localEdit == null}
-        <h3 class="text-title error">未找到待编辑的学生<br/></h3>
-        <span class="text-content">当前选中id：{Array.from(selected)}</span>
+      {#if draft == null}
+        <span class="text-content">
+          {#if studentStore.isLoading}
+            正在加载学生数据...
+          {:else}
+            未找到 id 为 {targetId} 的学生，可能已被删除
+          {/if}
+        </span>
+        <div class="button-group">
+          <button type="button" class="button" onclick={requestClose}> 关闭 </button>
+        </div>
       {:else}
-        <form onsubmit={(e) => { e.preventDefault(); edit(); }}>
+        <form
+          onsubmit={(e) => {
+            e.preventDefault();
+            doEdit();
+          }}
+        >
           <div class="field">
             <span class="field-label">学号</span>
             <input
               type="text"
-              bind:value={localEdit.student_no}
-              oninput={() => { if (editResult) editResult = undefined; }}
+              bind:value={draft.student_no}
+              oninput={() => {
+                if (editResult) editResult = undefined;
+              }}
             />
           </div>
           <div class="field">
             <span class="field-label">姓名</span>
             <input
               type="text"
-              bind:value={localEdit.name}
-              oninput={() => { if (editResult) editResult = undefined; }}
+              bind:value={draft.name}
+              oninput={() => {
+                if (editResult) editResult = undefined;
+              }}
             />
           </div>
           {#if editResult && editResult.type == "Conflict"}
-            <span class="text-subtitle error">学号已被占用<br/></span>
+            <span class="text-subtitle error">学号已被占用<br /></span>
             <span class="text-content">
-                学号「{editResult.data.student_no}」已被学生<b>{editResult.data.name}</b>使用<br/>
-                （创建于 {DateTimeUtils.format(editResult.data.created_at)}）<br/>
-                请修改学号后重试
-              </span>
+              学号「{editResult.data.student_no}」已被学生<b>{editResult.data.name}</b>使用<br />
+              （创建于 {DateTimeUtils.format(editResult.data.created_at)}）<br />
+              请修改学号后重试
+            </span>
           {/if}
           <div class="button-group">
-            <button
-              type="button"
-              class="button"
-              onclick={requestClose}
-              disabled={isSaving}
-            >
-              取消
+            <button type="button" class="button" onclick={requestClose} disabled={isSaving}> 取消 </button>
+            <button type="submit" class="button yes" disabled={isSaving || !canSave}>
+              {isSaving ? "保存中..." : "保存"}
             </button>
-            {#if selected.size == 1 && localEdit != null}
-              <button
-                type="submit"
-                class="button yes"
-                disabled={isSaving || !canSave}>
-                {isSaving ? "保存中..." : "保存"}
-              </button>
-            {/if}
           </div>
         </form>
       {/if}

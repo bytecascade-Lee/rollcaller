@@ -12,7 +12,7 @@
   import {AppInfoCommand} from "$commands";
   import {updateStore} from "$stores/UpdateStore.svelte";
 
-  let {autoCheck = true}: { autoCheck?: boolean } = $props();
+  let {autoCheck = true}: {autoCheck?: boolean} = $props();
 
   // 单一数据源：后端裁剪视图（命令返回 / 广播同类型），组件只渲染，不推断阶段
   let view = $derived(updateStore.view);
@@ -27,13 +27,11 @@
 
   // 从 tagged union 里安全取展示字段
   let info = $derived(
-    (view.status === "available" || view.status === "downloading" || view.status === "downloaded")
+    view.status === "available" || view.status === "downloading" || view.status === "downloaded"
       ? view.data.info
       : null,
   );
-  let severity = $derived(
-    (view.status === "available" || view.status === "downloaded") ? view.data.severity : null,
-  );
+  let severity = $derived(view.status === "available" || view.status === "downloaded" ? view.data.severity : null);
   let errorMessage = $derived(view.status === "error" ? view.data.message : null);
   // 后端错误已合并为 { type, message }：type = 失败阶段 = 重试应调的命令
   let retry = $derived(view.status === "error" ? view.data.type : null);
@@ -42,9 +40,7 @@
   let downloaded = $derived(progress.downloaded);
   let total = $derived(progress.total);
   let hasTotal = $derived(total !== null && total > 0);
-  let percent = $derived(
-    total !== null && total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0,
-  );
+  let percent = $derived(total !== null && total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0);
 
   // 状态变化时的自动弹窗：检查发现新版本 / 下载完成 / 下载或安装出错时主动提示。
   // 唯独「检查失败」不弹：自动检查是开机就跑的动作（autoCheck），失败时弹窗平白打扰
@@ -109,43 +105,23 @@
 
 <!-- 标题栏图标：按视图状态切换 -->
 {#if view.status == "idle"}
-  <button
-    aria-label="检查更新"
-    class="icon-button"
-    title="检查更新"
-    onclick={checkForUpdates}
-  >
-    <CloudIcon size="16" weight="bold"/>
+  <button aria-label="检查更新" class="icon-button" title="检查更新" onclick={checkForUpdates}>
+    <CloudIcon size="16" weight="bold" />
   </button>
 {:else if view.status == "checking"}
   <button aria-label="正在检查更新" class="icon-button" title="正在检查更新…">
-    <CircleNotchIcon size="16" style="animation: spin 1.5s linear infinite" weight="bold"/>
+    <CircleNotchIcon size="16" style="animation: spin 1.5s linear infinite" weight="bold" />
   </button>
 {:else if view.status == "available"}
-  <button
-    aria-label="发现新版本"
-    class="icon-button primary"
-    title="发现新版本"
-    onclick={() => (isVisible = true)}
-  >
-    <CloudWarningIcon size="16" weight="bold"/>
+  <button aria-label="发现新版本" class="icon-button primary" title="发现新版本" onclick={() => (isVisible = true)}>
+    <CloudWarningIcon size="16" weight="bold" />
   </button>
 {:else if view.status == "upToDate"}
-  <button
-    aria-label="已是最新版本"
-    class="icon-button"
-    title="已是最新版本"
-    onclick={() => (isVisible = true)}
-  >
-    <CloudCheckIcon size="16" weight="bold"/>
+  <button aria-label="已是最新版本" class="icon-button" title="已是最新版本" onclick={() => (isVisible = true)}>
+    <CloudCheckIcon size="16" weight="bold" />
   </button>
 {:else if view.status == "downloading"}
-  <button
-    aria-label="正在下载更新"
-    class="icon-button primary"
-    title="正在下载更新"
-    onclick={() => (isVisible = true)}
-  >
+  <button aria-label="正在下载更新" class="icon-button primary" title="正在下载更新" onclick={() => (isVisible = true)}>
     <CloudArrowDownIcon
       size="16"
       style="animation: pulse 1.5s var(--transition-ease-in-out) infinite, blink 1.5s var(--transition-ease-in-out) infinite"
@@ -159,16 +135,11 @@
     title="更新已就绪，点击重启应用"
     onclick={() => (isVisible = true)}
   >
-    <CloudCheckIcon size="16" weight="bold"/>
+    <CloudCheckIcon size="16" weight="bold" />
   </button>
 {:else if view.status == "error"}
-  <button
-    aria-label="更新出错"
-    class="icon-button error"
-    title="更新出错"
-    onclick={() => (isVisible = true)}
-  >
-    <CloudXIcon size="16" weight="bold"/>
+  <button aria-label="更新出错" class="icon-button error" title="更新出错" onclick={() => (isVisible = true)}>
+    <CloudXIcon size="16" weight="bold" />
   </button>
 {/if}
 
@@ -205,7 +176,7 @@
       {#if view.status == "available"}
         <span class="text-content">发布于：{info?.date}</span>
         <div class="changelog">
-          <MarkdownView markdown={info?.notes ?? ""}/>
+          <MarkdownView markdown={info?.notes ?? ""} />
         </div>
       {:else if view.status == "downloading"}
         {#if hasTotal}

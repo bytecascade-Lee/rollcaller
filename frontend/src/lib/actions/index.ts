@@ -1,2 +1,3 @@
 export * from "./clickOutside";
-export * from "./updatePopupPosition"
+export * from "./findAnchor";
+export * from "./updatePopupPosition";

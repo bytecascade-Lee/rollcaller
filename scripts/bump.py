@@ -7,6 +7,8 @@
 按档位推算下一个版本号，在 master 上打附注 tag。不动任何版本文件——
 版本号由 `scripts/build.py` 在构建期临时写入，构建结束即还原。
 
+打 tag 前会重跑代码生成，确认生成物都已提交（只跑入口表，不编译后端）。
+
 档位：
 
 | 档位         | 0.8.2 稳定版        | 0.9.0-rc.2 预发布态  |
@@ -29,8 +31,17 @@
 import argparse
 import re
 import sys
+from collections.abc import Sequence
+from pathlib import Path
 
 from cli import git
+from codegen import (
+    CodegenError,
+    GeneratedNotCommittedError,
+    ensure_committed,
+    generate_all,
+)
+from common.constant.paths import FRONTEND_ROUTING_ENTRIES_PATHS
 from common.constant.repo import REMOTE
 from common.entity.version import Version, VersionError
 from common.logger import error, info, success, warning
@@ -67,6 +78,7 @@ def main() -> int:
     _ensure_on_master()
     _ensure_worktree_clean()
     _ensure_master_in_sync()
+    _ensure_generated_artifacts_current()
 
     current = _latest_version()
     target = _next_version(current, args)
@@ -99,6 +111,23 @@ def _ensure_worktree_clean() -> None:
     if changes.strip():
         count = len([line for line in changes.splitlines() if line.strip()])
         raise BumpError(f"有 {count} 个已跟踪文件改动未提交，先提交再打 tag")
+
+
+def _ensure_generated_artifacts_current() -> None:
+    """重跑生成器，确认生成物与 HEAD 一致"""
+    try:
+        generate_all()
+    except CodegenError as e:
+        raise BumpError(f"代码生成失败，无法确认生成物与仓库一致: {e}") from e
+    _ensure_unchanged(FRONTEND_ROUTING_ENTRIES_PATHS, "代码生成的入口表")
+
+
+def _ensure_unchanged(paths: Sequence[Path], label: str) -> None:
+    """生成物与 HEAD 不一致就停下，并把补救办法写进消息"""
+    try:
+        ensure_committed(paths, label=label)
+    except GeneratedNotCommittedError as error:
+        raise BumpError(f"{error}；先在 develop 上提交生成物，再合并到 master 打 tag") from error
 
 
 def _ensure_master_in_sync() -> None:

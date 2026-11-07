@@ -62,11 +62,31 @@ cd ./backend && cargo tauri dev
 # Check backend compilation only
 cd ./backend && cargo check
 
+# Backend lint (clippy denies its default group; rustc warnings stay warnings)
+cd ./backend && cargo clippy --all-targets -- -D clippy::all
+
+# Backend formatting check / apply (rustfmt, max_width = 125)
+cd ./backend && cargo fmt --check
+cd ./backend && cargo fmt
+
 # Frontend dev server (for UI work without Tauri)
 cd ./frontend && pnpm dev
 
 # Frontend type-check
 cd ./frontend && pnpm check
+
+# Frontend lint (ESLint: semantics only, formatting is Prettier's job)
+cd ./frontend && pnpm lint
+
+# Frontend formatting check / apply
+cd ./frontend && pnpm format:check
+cd ./frontend && pnpm format
+
+# Frontend unit tests (Vitest)
+cd ./frontend && pnpm test
+
+# Everything at once (format / lint / type-check / cargo check)
+just check x86_64-pc-windows-msvc
 
 # Build for production (Tauri)
 cd ./backend && cargo tauri build
@@ -91,7 +111,15 @@ cd ./backend && cargo tauri build
 
 **SQL**: Complex queries use `#[py_sql("...")]` macro with `#{param}` binding and `trim`, `for` directives. Simple queries use auto-generated `crud!()` methods: `insert()`, `insert_batch()`, `select_by_map()`, `update_by_map()`.
 
-- **Timestamps**: `jiff::Timestamp`, serialized as millisecond `i64` via custom serde helpers in `util/serde_utils.rs`.
+- **Serde adapters**: custom (de)serialization lives in `util/serde_utils.rs` as `#[serde(with = "...")]`
+  modules (`timestamp` / `optional_timestamp_iso8601` / `bool_i64`). Do **not** use `serialize_with` /
+  `deserialize_with`: ts-rs treats them as unknown keys and prints one warning per field on every build.
+  A `with` field must also carry `#[ts(type = "...")]` or ts-rs errors out.
+- **Timestamps**: `jiff::Timestamp` in Rust, serialized by `util/serde_utils.rs` as **canonical ISO 8601** —
+  `YYYY-MM-DDTHH:MM:SS.sssZ` (UTC, always 3 fractional digits). The DB stores the same string (TEXT columns,
+  `strftime('%Y-%m-%dT%H:%M:%fZ', …)` in defaults/triggers); Excel export is the only local-offset exception.
+  Fixed width matters: lexicographic order = chronological order for `ORDER BY`, and the frontend compares
+  ISO strings directly instead of `localeCompare`. See `docs/architect/时间格式统一-ISO8601与V40迁移.md`.
 - **Random selection**: `rand::random_range(0..n)` (rand 0.10 API).
 - **Imports**: `merge_imports = true` in rustfmt config.
 - **Service fns take `rb: &RBatis`** as first param — cmd layer gets the pool and passes it in.
@@ -163,6 +191,21 @@ cd ./backend && cargo tauri build
 
 - Rust: `cargo test` in `backend/`
 - Frontend: `pnpm check` in `frontend/` (runs svelte-kit sync + svelte-check)
-- No unit test framework established yet — codebase currently relies on manual smoke testing
+- Frontend unit tests: Vitest (`pnpm test` = `vitest run`), files in `frontend/tests/*.test.ts`; config reuses
+  `vite.config.ts` via `mergeConfig` so the `$x` alias table stays single-source. `environment: "node"` ⇒
+  `.svelte.ts` compiles as **server**: `$state`/`$derived` read correctly, `$effect` never runs there
+- Frontend style: Prettier owns formatting (`prettier.config.js`), ESLint owns semantics (`eslint.config.js`,
+  `pnpm lint`). Never format `.svelte` with the IDE's Prettier integration — JetBrains' embedded-language
+  placeholders (`✂prettier:content✂="<base64>"`) can survive on disk and silently gut the component.
+  Run `pnpm format` instead; grep for `prettier:content` if a component looks empty
+- `just test` runs the whole chain (codegen → cargo test → ts-rs commit check → `pnpm test`)
+- `just check` runs `scripts/check.py` (cargo fmt check → Prettier check → ESLint → svelte-check →
+  `cargo clippy -D clippy::all`); CI runs it too
+- Rust style: rustfmt owns formatting (`backend/rustfmt.toml`, `max_width = 125`), nothing else. Never
+  hand-format or let the IDE pick its own width — `cargo fmt` is the only writer
+- Rust lints: clippy's default group is denied (`-D clippy::all`), **not** all rustc warnings — the repo is
+  mid-refactor, so `dead_code` stays a visible warning instead of a build error. Two style lints
+  (`enum_variant_names` on `OS::MacOS`, `upper_case_acronyms` on `UpdateSource::CNB`) are `#[allow]`ed
+  in-place because renaming them would change brand strings in `Display`
 - Tauri capabilities/permissions must be updated in `backend/capabilities/*.json` when adding new plugins
 - ts-rs types are regenerated at compile time — `cargo check` will regenerate `frontend/src/lib/types/*.ts`

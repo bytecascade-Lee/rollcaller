@@ -103,7 +103,10 @@ fn requested() -> bool {
 ///
 /// 未设置 / 空串 / `0` / `false` / `off` / `no` / `not` 为假，其余一律为真
 fn is_truthy(raw: &str) -> bool {
-    !matches!(raw.trim().to_ascii_lowercase().as_str(), "" | "0" | "false" | "off" | "no" | "not")
+    !matches!(
+        raw.trim().to_ascii_lowercase().as_str(),
+        "" | "0" | "false" | "off" | "no" | "not"
+    )
 }
 
 #[cfg(target_os = "windows")]
