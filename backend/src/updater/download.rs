@@ -34,8 +34,8 @@
 
 use crate::state::http_client;
 use crate::updater::model::{Artifact, DownloadProgress};
-use crate::updater::verify::verify_artifact_path;
 use crate::updater::paths;
+use crate::updater::verify::verify_artifact_path;
 use anyhow::anyhow;
 use std::fs::File;
 use std::io::Write;
