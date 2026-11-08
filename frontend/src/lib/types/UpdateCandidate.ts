@@ -5,8 +5,5 @@ import type { UpdateReason } from "./UpdateReason";
 
 /**
  * 一个候选更新的全部展示字段
- *
- * `available` / `downloading` / `downloaded` 三态描述的都是同一个候选；`reason` 只解释「为什么放行」，
- * **不是**强制更新的判据——那只看 `severity`。
  */
 export type UpdateCandidate = { info: UpdateInfo, severity: Severity, reason: UpdateReason, };
