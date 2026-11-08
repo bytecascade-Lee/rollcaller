@@ -28,7 +28,7 @@ class KindStyle(StrEnum):
 class Kind(Enum):
     """更新载荷类型"""
 
-    MSI = (KindStyle.SETUP, ((OS.WINDOWS, ".exe"),))
+    MSI = (KindStyle.SETUP, ((OS.WINDOWS, ".msi"),))
     NSIS = (KindStyle.SETUP, ((OS.WINDOWS, ".exe"),))
 
     DMG = (KindStyle.SETUP, ((OS.MACOS, ".dmg"),))
