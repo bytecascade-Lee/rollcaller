@@ -6,7 +6,7 @@
 
 LOCAL:
     推导 full 版本 -> 定位构建目录 -> 发现产物 -> 构造 latest-develop.json ->
-    计算摘要 -> 构造 versions.json -> 前台驻留本地更新服务（需 Ctrl+C 手动结束）
+    签名 + 计算摘要 -> 构造 versions.json -> 前台驻留本地更新服务（需 Ctrl+C 手动结束）
 
 CI:
     校验 tag -> 鉴权 -> release notes -> 发现产物 -> 构造 latest-{github|cnb}.json ->
@@ -74,7 +74,7 @@ def release_local(version: Version, severity: Severity, rate: int) -> None:
 
     manifest = latest_manifest.build(version, notes, severity, discovered, Source.DEVELOP)
     manifest_path = latest_manifest.write(manifest, build.directory / urls.manifest_name(Source.DEVELOP))
-    digest = ManifestDigest(sha256=hasher.sha256(manifest_path).read_text(encoding="ascii").strip())
+    digest = sign_and_digest(manifest_path)
     entries = versions_index.merge([], version, severity, {Source.DEVELOP: digest})
     index_path = versions_index.write(build.directory / versions_index.FILENAME, entries)
     info(f"已写入清单 {str(manifest_path)!r} 与版本索引 {str(index_path)!r}")

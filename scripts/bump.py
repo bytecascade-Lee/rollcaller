@@ -63,7 +63,7 @@ STAGES = ("alpha", "beta", "rc")
 # 预发布段形如 alpha.1 / beta.2 / rc.3
 _PRERELEASE_RE = re.compile(r"^(alpha|beta|rc)\.(\d+)$")
 
-# 正式发布必须带摘要与签名的源（develop 是本地联调索引，不参与正式发布）
+# 正式发布必须带摘要与签名的源，develop 只出现在本地联调索引里，不入仓库索引
 DIGEST_SOURCES = (Source.GITHUB, Source.CNB)
 
 

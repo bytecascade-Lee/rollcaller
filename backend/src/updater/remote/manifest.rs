@@ -15,18 +15,14 @@ pub fn parse_manifest(bytes: &[u8]) -> anyhow::Result<UpdateManifest> {
 }
 
 /// 取目标版本清单字节：缓存优先，缓存不可信则删掉回源
-///
-/// `require_signature` 由调用方按源决定：发布源的索引保证带签名（`just bump` 的前置闸门），
-/// 本地联调源没有私钥、只能给摘要。
 pub async fn load(
     client: &Client,
     url: &str,
     cache_path: &Path,
     expected: Option<&ManifestDigest>,
-    require_signature: bool,
 ) -> anyhow::Result<Vec<u8>> {
     if let Ok(cached) = fs::read(cache_path) {
-        if is_trusted(&cached, expected, require_signature).is_ok() {
+        if is_trusted(&cached, expected).is_ok() {
             return Ok(cached);
         }
         // 自愈：解析不了或摘要不符，都说明这份缓存不该再被信任
@@ -45,10 +41,7 @@ pub async fn load(
         return Ok(fetched);
     };
 
-    // 签名是硬闸门：验不过说明清单不是发布方给的，宁可让用户看到"检查失败"
-    if require_signature {
-        verify_manifest(&fetched, digest)?;
-    }
+    verify_manifest(&fetched, digest)?;
 
     // 摘要不符多为索引抄错（签名已证明清单本身可信）→ 本次可用，但不固化进缓存
     if let Err(error) = verify_sha256(&fetched, &digest.sha256) {
@@ -63,15 +56,13 @@ pub async fn load(
     Ok(fetched)
 }
 
-/// 缓存字节是否可信：能解析 +（发布源）签名成立 + 摘要逐字匹配
-fn is_trusted(bytes: &[u8], expected: Option<&ManifestDigest>, require_signature: bool) -> anyhow::Result<()> {
+/// 缓存字节是否可信：能解析 + 签名成立 + 摘要逐字匹配
+fn is_trusted(bytes: &[u8], expected: Option<&ManifestDigest>) -> anyhow::Result<()> {
     parse_manifest(bytes)?;
     let Some(digest) = expected else {
         return Ok(());
     };
-    if require_signature {
-        verify_manifest(bytes, digest)?;
-    }
+    verify_manifest(bytes, digest)?;
     verify_sha256(bytes, &digest.sha256)
 }
 
@@ -150,11 +141,11 @@ mod tests {
         tauri::async_runtime::block_on(async {
             let path = cache_path("hit");
             fs::write(&path, BODY).unwrap();
-            let expected = digest_of(BODY);
+            let expected = signed_digest_of(BODY);
 
-            let bytes = load(&Client::new(), UNREACHABLE, &path, Some(&expected), false)
+            let bytes = load(&Client::new(), UNREACHABLE, &path, Some(&expected))
                 .await
-                .expect("摘要匹配的缓存应直接命中");
+                .expect("摘要与签名都匹配的缓存应直接命中");
             assert_eq!(bytes, BODY);
             assert!(path.is_file(), "命中的缓存不应被删除");
             let _ = fs::remove_file(&path);
@@ -168,7 +159,7 @@ mod tests {
             fs::write(&path, OTHER).unwrap();
 
             // 老索引没有摘要：只要能解析就沿用，不发起网络（若回源，UNREACHABLE 必失败）
-            let bytes = load(&Client::new(), UNREACHABLE, &path, None, false)
+            let bytes = load(&Client::new(), UNREACHABLE, &path, None)
                 .await
                 .expect("legacy 路径应沿用可解析的缓存");
             assert_eq!(bytes, OTHER);
@@ -182,9 +173,9 @@ mod tests {
             let path = cache_path("stale");
             fs::write(&path, OTHER).unwrap();
             let server = MockServer::spawn(BODY.to_vec());
-            let expected = digest_of(BODY);
+            let expected = signed_digest_of(BODY);
 
-            let bytes = load(&Client::new(), &server.url, &path, Some(&expected), false)
+            let bytes = load(&Client::new(), &server.url, &path, Some(&expected))
                 .await
                 .expect("摘要不符应回源");
             assert_eq!(bytes, BODY, "应拿到线上那份，而不是缓存里的旧那份");
@@ -203,9 +194,7 @@ mod tests {
             let server = MockServer::spawn(BODY.to_vec());
 
             // 无摘要时"能解析"是唯一自愈信号，不能被丢掉
-            let bytes = load(&Client::new(), &server.url, &path, None, false)
-                .await
-                .expect("坏缓存应回源");
+            let bytes = load(&Client::new(), &server.url, &path, None).await.expect("坏缓存应回源");
             assert_eq!(bytes, BODY);
             assert_eq!(fs::read(&path).unwrap(), BODY);
 
@@ -219,9 +208,13 @@ mod tests {
         tauri::async_runtime::block_on(async {
             let path = cache_path("mismatch");
             let server = MockServer::spawn(BODY.to_vec());
-            let wrong = digest_of(OTHER); // 索引抄错 / 清单被覆盖上传后没重算索引
+            // 索引抄错：签名是这份字节的，sha256 却指向另一份
+            let wrong = ManifestDigest {
+                signature: Some(test_keys::sign(BODY)),
+                ..digest_of(OTHER)
+            };
 
-            let bytes = load(&Client::new(), &server.url, &path, Some(&wrong), false)
+            let bytes = load(&Client::new(), &server.url, &path, Some(&wrong))
                 .await
                 .expect("摘要不符不应阻断更新（宽松档语义）");
             assert_eq!(bytes, BODY, "仍然使用线上那份字节");
@@ -231,15 +224,15 @@ mod tests {
         });
     }
 
-    /// 发布源：索引缺签名 → 检查直接失败，绝不"验不了就用"
+    /// 索引缺签名 → 检查直接失败，绝不"验不了就用"
     #[test]
-    fn unsigned_manifest_is_rejected_when_signature_required() {
+    fn unsigned_manifest_is_rejected() {
         tauri::async_runtime::block_on(async {
             let path = cache_path("unsigned");
             let server = MockServer::spawn(BODY.to_vec());
             let expected = digest_of(BODY); // 只有摘要，没有签名
 
-            let error = load(&Client::new(), &server.url, &path, Some(&expected), true)
+            let error = load(&Client::new(), &server.url, &path, Some(&expected))
                 .await
                 .expect_err("缺签名应报错");
             assert!(
@@ -252,7 +245,7 @@ mod tests {
         });
     }
 
-    /// 发布源：签名对得上就落缓存，下次同一版本可直接离线命中
+    /// 签名对得上就落缓存，下次同一版本可直接离线命中
     #[test]
     fn signed_manifest_is_cached_and_reused_offline() {
         tauri::async_runtime::block_on(async {
@@ -260,14 +253,14 @@ mod tests {
             let server = MockServer::spawn(BODY.to_vec());
             let expected = signed_digest_of(BODY);
 
-            let first = load(&Client::new(), &server.url, &path, Some(&expected), true)
+            let first = load(&Client::new(), &server.url, &path, Some(&expected))
                 .await
                 .expect("签名正确应通过");
             assert_eq!(first, BODY);
             assert!(path.is_file(), "验过的清单应落缓存");
 
             // 第二次指向不可达地址：命中缓存才可能成功
-            let second = load(&Client::new(), UNREACHABLE, &path, Some(&expected), true)
+            let second = load(&Client::new(), UNREACHABLE, &path, Some(&expected))
                 .await
                 .expect("签名与摘要都在缓存里，应离线命中");
             assert_eq!(second, BODY);
@@ -283,7 +276,7 @@ mod tests {
             let path = cache_path("bad-remote");
             let server = MockServer::spawn(b"<html>404 Not Found</html>".to_vec());
 
-            let error = load(&Client::new(), &server.url, &path, None, false)
+            let error = load(&Client::new(), &server.url, &path, None)
                 .await
                 .expect_err("非 JSON 应报错");
             assert!(

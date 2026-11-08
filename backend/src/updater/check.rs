@@ -30,14 +30,7 @@ pub async fn check(
 
     let url = manifest_url(source, &target.version);
     let cache_path = paths::manifest(&source, &target.version);
-    let bytes = manifest::load(
-        client,
-        &url,
-        &cache_path,
-        target.manifests.get(source),
-        source.requires_manifest_signature(),
-    )
-    .await?;
+    let bytes = manifest::load(client, &url, &cache_path, target.manifests.get(source)).await?;
     let manifest = manifest::parse_manifest(&bytes)?;
 
     validate(current, policy, &target.version, &manifest, mode)

@@ -56,7 +56,7 @@
                     "pattern": "^[0-9a-f]{64}$"
                 },
                 "signature": {
-                    "description": "base64(minisign 签名文本)，即清单旁 `.sig` 文件的全文。**发布源（github / cnb）必填**：客户端 `verify_manifest` 会验签，缺失或不符即让本次检查失败（`just bump` 同样拦住缺签名的历史版本）。`develop`（本地联调源）是唯一豁免——开发机拿不到私钥，只给 sha256。⚠️ 索引自身未被签名之前它**不是信任锚**（能改索引的人也能一起换掉签名），价值在于与产物链路共用同一套 minisign 约定、并为「索引签名」预铺路。",
+                    "description": "base64(minisign 签名文本)，即清单旁 `.sig` 文件的全文。**三个源都必填**：客户端 `verify_manifest` 会验签，缺失或不符即让本次检查失败；CI 的 `release.py` 与本地 `release_local` 都走同一个 `sign_and_digest`（本地发布同样要求 `TAURI_SIGNING_PRIVATE_KEY`）。⚠️ 索引自身未被签名之前它**不是信任锚**（能改索引的人也能一起换掉签名），价值在于与产物链路共用同一套 minisign 约定、并为「索引签名」预铺路。",
                     "type": "string"
                 }
             }
