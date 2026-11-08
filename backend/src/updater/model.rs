@@ -383,9 +383,9 @@ pub enum UpdateReason {
     PrereleaseEscape,
     /// 预发布 -> 预发布，进通道时风险已接受，门槛不适用
     PrereleaseProgression,
-    /// severity 为 `Important` / `Critical`，绕过幅度门槛
+    /// severity 为 `Important`，豁免幅度门槛，但仍考虑用户的「已关闭更新」
     Exempt,
-    /// `Critical` 穿透了「用户已关闭更新」
+    /// severity 为 `Critical`，强制放行本会被拦的更新
     Force,
 }
 

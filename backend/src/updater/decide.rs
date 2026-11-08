@@ -54,10 +54,14 @@ fn fuse(verdict: Verdict, severity: Severity) -> UpdateDecision {
     use UpdateReason::*;
 
     match (verdict, severity) {
+        // 唯一可被 critical 穿透的门禁
         (Verdict::Blocked(SkipReason::Disabled), Severity::Critical) => Update(Force),
+        // 通道与方向是硬门禁，任何 severity 都越不过
         (Verdict::Blocked(reason), _) => Skip(reason),
+        // 幅度门槛：normal 拦下、important 豁免、critical 强制
         (Verdict::BelowFloor, Severity::Normal) => Skip(SkipReason::BelowFloor),
-        (Verdict::BelowFloor, _) => Update(Exempt),
+        (Verdict::BelowFloor, Severity::Important) => Update(Exempt),
+        (Verdict::BelowFloor, Severity::Critical) => Update(Force),
         (Verdict::FloorMet, _) => Update(Newer),
         (Verdict::PrereleaseEscape, _) => Update(PrereleaseEscape),
         (Verdict::PrereleaseProgression, _) => Update(PrereleaseProgression),
@@ -352,7 +356,7 @@ mod tests {
             ),
             (Verdict::Blocked(NotNewer), [Skip(NotNewer), Skip(NotNewer), Skip(NotNewer)]),
             (Verdict::Blocked(Disabled), [Skip(Disabled), Skip(Disabled), Update(Force)]),
-            (Verdict::BelowFloor, [Skip(BelowFloor), Update(Exempt), Update(Exempt)]),
+            (Verdict::BelowFloor, [Skip(BelowFloor), Update(Exempt), Update(Force)]),
             (Verdict::FloorMet, [Update(Newer), Update(Newer), Update(Newer)]),
             (Verdict::PrereleaseEscape, [Update(PrereleaseEscape); 3]),
             (Verdict::PrereleaseProgression, [Update(PrereleaseProgression); 3]),
@@ -365,6 +369,20 @@ mod tests {
                 assert_eq!(fuse(*verdict, severity), *want, "{verdict:?} × {severity:?}");
             }
         }
+    }
+
+    /// `Exempt` / `Force` 是「哪个 severity 解除了门禁」，不是「谁被 severity 标记过」：
+    /// 无需 severity 就通过的更新一律 `Newer`，哪怕它是 critical。
+    #[test]
+    fn severity_reason_names_the_severity_that_lifted_the_gate() {
+        // 门槛拦下：important 豁免 → Exempt，critical 强制 → Force
+        assert_eq!(full("1.2.1", "1.2.2", Minor, Stable, Severity::Important), Update(Exempt));
+        assert_eq!(full("1.2.1", "1.2.2", Minor, Stable, Severity::Critical), Update(Force));
+        // 已关闭更新：只有 critical 能穿透
+        assert_eq!(full("1.2.1", "1.3.0", Never, Stable, Severity::Important), Skip(Disabled));
+        assert_eq!(full("1.2.1", "1.3.0", Never, Stable, Severity::Critical), Update(Force));
+        // 本来就能通过：severity 不是必要条件，记 Newer
+        assert_eq!(full("1.2.1", "1.3.0", Minor, Stable, Severity::Critical), Update(Newer));
     }
 
     /// 不变量：任何组合下放行都意味着「严格更新」且未被通道拦截
