@@ -9,9 +9,7 @@
 use crate::config::app_paths::{current_mode, AppMode};
 use crate::state::http_client;
 use crate::updater::download::Cancelled;
-use model::{
-    Artifact, DownloadProgress, Policy, Severity, UpdateError, UpdateSession, UpdateSource, UpdateStatus, UpdateView,
-};
+use model::{Artifact, DownloadProgress, Policy, UpdateError, UpdateSession, UpdateSource, UpdateStatus, UpdateView};
 use semver::Version;
 use state::{DownloadSlot, UpdaterState};
 use std::path::{Path, PathBuf};
@@ -84,16 +82,14 @@ pub async fn check(
                 } else {
                     UpdateStatus::Available
                 };
-                s.info = Some(found.info);
-                s.severity = found.severity;
+                s.candidate = Some(found.candidate);
                 s.artifact = Some(found.artifact);
                 s.error = None;
             }
             // 无更新：清空会话（作废旧凭据）
             None => {
                 s.status = UpdateStatus::UpToDate;
-                s.info = None;
-                s.severity = Severity::Normal;
+                s.candidate = None;
                 s.artifact = None;
                 s.error = None;
             }
@@ -176,8 +172,8 @@ struct DownloadPlan {
 impl DownloadPlan {
     /// 复核会话：策略仍放行、凭据齐全、能推出落点
     fn new(session: &UpdateSession, current: &Version) -> Result<Self, Refusal> {
-        let info = session.info.as_ref().ok_or(Refusal::Incomplete)?;
-        if !decide::decide(current, &info.version, &current_policy(), session.severity).is_update() {
+        let candidate = session.candidate.as_ref().ok_or(Refusal::Incomplete)?;
+        if !decide::decide(current, &candidate.info.version, &current_policy(), candidate.severity).is_update() {
             return Err(Refusal::SettingsChanged);
         }
         let artifact = session.artifact.clone().ok_or(Refusal::Incomplete)?;
@@ -239,9 +235,9 @@ pub async fn install(state: &UpdaterState, current_version: &Version) -> Result<
         .ok_or_else(|| "更新凭据缺失，请重新 check".to_string())?;
     let path = paths::package_of(&artifact).map_err(|e| format!("{e}，请重新 check"))?;
     let target = session
-        .info
+        .candidate
         .as_ref()
-        .map(|i| i.version.clone())
+        .map(|c| c.info.version.clone())
         .ok_or_else(|| "目标版本缺失，请重新 check".to_string())?;
 
     if let Err(message) = verify_downloaded(&path, &artifact) {

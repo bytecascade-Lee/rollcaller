@@ -202,10 +202,18 @@ pub struct UpdateInfo {
     pub date: Option<String>,
 }
 
-/// 一次成功的检查命中
-pub struct FoundUpdate {
+/// 一个候选更新的全部展示字段
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct UpdateCandidate {
     pub info: UpdateInfo,
     pub severity: Severity,
+    pub reason: UpdateReason,
+}
+
+/// 一次成功的检查命中
+pub struct FoundUpdate {
+    pub candidate: UpdateCandidate,
     pub artifact: Artifact,
 }
 
@@ -225,8 +233,8 @@ pub struct DownloadProgress {
 #[derive(Debug, Clone)]
 pub struct UpdateSession {
     pub status: UpdateStatus,
-    pub info: Option<UpdateInfo>,
-    pub severity: Severity,
+    /// `Available` / `Downloading` / `Downloaded` 时必为 `Some`，与 `status` 同锁写入
+    pub candidate: Option<UpdateCandidate>,
     /// 已批准下载的产物凭据
     pub artifact: Option<Artifact>,
     /// `status == Error` 时必为 `Some`，与状态同锁写入
@@ -237,8 +245,7 @@ impl Default for UpdateSession {
     fn default() -> Self {
         Self {
             status: UpdateStatus::Idle,
-            info: None,
-            severity: Severity::Normal,
+            candidate: None,
             artifact: None,
             error: None,
         }
@@ -248,29 +255,13 @@ impl Default for UpdateSession {
 impl UpdateSession {
     /// 投影对外视图
     pub fn view(&self) -> UpdateView {
-        let info = |i: &Option<UpdateInfo>| i.clone();
         match self.status {
             UpdateStatus::Idle => UpdateView::Idle,
             UpdateStatus::Checking => UpdateView::Checking,
             UpdateStatus::UpToDate => UpdateView::UpToDate,
-            UpdateStatus::Available => match info(&self.info) {
-                Some(info) => UpdateView::Available {
-                    info,
-                    severity: self.severity,
-                },
-                None => UpdateView::UpToDate,
-            },
-            UpdateStatus::Downloading => match info(&self.info) {
-                Some(info) => UpdateView::Downloading { info },
-                None => UpdateView::Checking,
-            },
-            UpdateStatus::Downloaded => match info(&self.info) {
-                Some(info) => UpdateView::Downloaded {
-                    info,
-                    severity: self.severity,
-                },
-                None => UpdateView::UpToDate,
-            },
+            UpdateStatus::Available => self.candidate.clone().map_or(UpdateView::UpToDate, UpdateView::Available),
+            UpdateStatus::Downloading => self.candidate.clone().map_or(UpdateView::Checking, UpdateView::Downloading),
+            UpdateStatus::Downloaded => self.candidate.clone().map_or(UpdateView::UpToDate, UpdateView::Downloaded),
             // `status == Error` 不变量保证 `error` 为 `Some`
             UpdateStatus::Error => UpdateView::Error(
                 self.error
@@ -374,8 +365,10 @@ pub enum SkipReason {
     BelowFloor,
 }
 
-/// 放行的原因
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// 放行的原因，不可用于判断是否强制更新
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
 pub enum UpdateReason {
     /// 数字幅度达标
     Newer,
@@ -417,12 +410,12 @@ pub enum UpdateView {
     Checking,
     /// 已是最新版
     UpToDate,
-    /// 有可用更新，severity=critical 即强制更新，前端不应提供忽略/稍后
-    Available { info: UpdateInfo, severity: Severity },
-    /// 下载中，不带进度数字，实时进度经 download 通道窄帧推送
-    Downloading { info: UpdateInfo },
+    /// 有可用更新，`severity = critical` 即强制更新，前端不应提供忽略/稍后
+    Available(UpdateCandidate),
+    /// 下载中，实时进度经 download 通道窄帧推送
+    Downloading(UpdateCandidate),
     /// 已下载，待安装
-    Downloaded { info: UpdateInfo, severity: Severity },
+    Downloaded(UpdateCandidate),
     /// 出错，[`UpdateError`] 的 `message` 供展示；`type` 供前端决定重试按钮对应的命令
     Error(UpdateError),
 }
@@ -593,6 +586,55 @@ mod tests {
         for mode in modes {
             let found = payloads.get(mode).unwrap_or_else(|| panic!("{mode} 应有槽"));
             assert_eq!(found.file_name().as_deref(), Some(mode.slug()), "{mode}");
+        }
+    }
+
+    fn candidate(severity: Severity, reason: UpdateReason) -> UpdateCandidate {
+        UpdateCandidate {
+            info: UpdateInfo {
+                version: Version::new(0, 9, 0),
+                notes: None,
+                date: None,
+            },
+            severity,
+            reason,
+        }
+    }
+
+    /// 三个下载阶段都要带 severity + reason：下载期是「强制更新」最容易被漏掉的一段
+    #[test]
+    fn every_download_stage_carries_severity_and_reason() {
+        let stages = [UpdateStatus::Available, UpdateStatus::Downloading, UpdateStatus::Downloaded];
+        for status in stages {
+            let session = UpdateSession {
+                status,
+                candidate: Some(candidate(Severity::Critical, UpdateReason::Force)),
+                ..Default::default()
+            };
+            let json = serde_json::to_value(session.view()).expect("视图应可序列化");
+            assert_eq!(json["data"]["severity"], "critical", "{status:?}");
+            assert_eq!(json["data"]["reason"], "force", "{status:?}");
+        }
+    }
+
+    /// 缺候选时退化到最近的中性视图，不 panic
+    #[test]
+    fn missing_candidate_degrades_to_the_nearest_neutral_view() {
+        let cases = [
+            (UpdateStatus::Available, "upToDate"),
+            (UpdateStatus::Downloading, "checking"),
+            (UpdateStatus::Downloaded, "upToDate"),
+        ];
+        for (status, expected) in cases {
+            let json = serde_json::to_value(
+                UpdateSession {
+                    status,
+                    ..Default::default()
+                }
+                .view(),
+            )
+            .expect("视图应可序列化");
+            assert_eq!(json["status"], expected, "{status:?}");
         }
     }
 }

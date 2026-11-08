@@ -2,7 +2,9 @@
 
 use crate::common::constant::sys::{ARCH, OS};
 use crate::config::app_paths::AppMode;
-use crate::updater::model::{FoundUpdate, Policy, UpdateDecision, UpdateInfo, UpdateManifest, UpdateSource};
+use crate::updater::model::{
+    FoundUpdate, Policy, UpdateCandidate, UpdateDecision, UpdateInfo, UpdateManifest, UpdateSource,
+};
 use crate::updater::remote::{fetch, index, manifest};
 use crate::updater::urls::{manifest_url, versions_index_url};
 use crate::updater::{decide, paths};
@@ -47,7 +49,7 @@ fn validate(
             manifest.version
         ));
     }
-    match decide::decide(current, &manifest.version, policy, manifest.severity) {
+    let reason = match decide::decide(current, &manifest.version, policy, manifest.severity) {
         // 索引按同一套判定筛过，这里被拦说明两侧结论不一致（多半是发布端 severity 写错）
         UpdateDecision::Skip(reason) => {
             return Err(anyhow!(
@@ -55,22 +57,25 @@ fn validate(
                 manifest.version
             ))
         }
-        UpdateDecision::Update(_) => {}
-    }
+        UpdateDecision::Update(reason) => reason,
+    };
     let Some(artifact) = manifest.get_artifact(OS, ARCH, mode) else {
         tracing::warn!("更新清单 {} 未提供当前平台的产物（{OS} / {ARCH} / {mode}）", manifest.version);
         return Ok(None);
     };
 
     Ok(Some(FoundUpdate {
-        info: UpdateInfo {
-            version: manifest.version.clone(),
-            notes: manifest.release_notes.clone(),
-            date: manifest
-                .publish_date
-                .map(|d| crate::util::time_utils::ISO8601(&d).to_string()),
+        candidate: UpdateCandidate {
+            info: UpdateInfo {
+                version: manifest.version.clone(),
+                notes: manifest.release_notes.clone(),
+                date: manifest
+                    .publish_date
+                    .map(|d| crate::util::time_utils::ISO8601(&d).to_string()),
+            },
+            severity: manifest.severity,
+            reason,
         },
-        severity: manifest.severity,
         artifact,
     }))
 }
