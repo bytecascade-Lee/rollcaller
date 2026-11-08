@@ -6,7 +6,7 @@ use std::fmt;
 use ts_rs::TS;
 use url::Url;
 
-/// 发布清单：一个版本及其各平台载荷（`latest-{github|cnb|develop}.json`）
+/// 发布清单
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateManifest {
@@ -27,21 +27,9 @@ pub struct UpdateManifest {
 }
 
 impl UpdateManifest {
+    /// 取指定平台 / 架构 / 运行形态的载荷
     pub fn get_artifact(&self, os: enums::sys::OS, arch: enums::sys::Arch, app_mode: AppMode) -> Option<Artifact> {
-        let arch_map = match os {
-            enums::sys::OS::Windows => self.platforms.windows.as_ref()?,
-            _ => return None,
-        };
-        let payloads = match arch {
-            enums::sys::Arch::X86_64 => arch_map.x86_64.as_ref()?,
-            enums::sys::Arch::Arm64 => arch_map.arm64.as_ref()?,
-        };
-
-        match app_mode {
-            AppMode::Develop => payloads.develop.clone(),
-            AppMode::Portable => payloads.portable.clone(),
-            AppMode::Install(installer) => payloads.get(installer),
-        }
+        self.platforms.get(os)?.get(arch)?.get(app_mode).cloned()
     }
 }
 
@@ -50,6 +38,19 @@ impl UpdateManifest {
 #[serde(default)]
 pub struct ManifestPlatforms {
     pub windows: Option<ManifestArches>,
+    pub macos: Option<ManifestArches>,
+    pub linux: Option<ManifestArches>,
+}
+
+impl ManifestPlatforms {
+    /// 取某个平台的架构分组
+    pub fn get(&self, os: enums::sys::OS) -> Option<&ManifestArches> {
+        match os {
+            enums::sys::OS::Windows => self.windows.as_ref(),
+            enums::sys::OS::MacOS => self.macos.as_ref(),
+            enums::sys::OS::Linux => self.linux.as_ref(),
+        }
+    }
 }
 
 /// 架构分组
@@ -60,22 +61,42 @@ pub struct ManifestArches {
     pub arm64: Option<Payloads>,
 }
 
+impl ManifestArches {
+    /// 取某个架构的载荷分组
+    pub fn get(&self, arch: enums::sys::Arch) -> Option<&Payloads> {
+        match arch {
+            enums::sys::Arch::X86_64 => self.x86_64.as_ref(),
+            enums::sys::Arch::Arm64 => self.arm64.as_ref(),
+        }
+    }
+}
+
 /// 单架构下的载荷分组
 #[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize, TS)]
 #[serde(default)]
 pub struct Payloads {
+    pub msi: Option<Artifact>,
     pub nsis: Option<Artifact>,
+    pub dmg: Option<Artifact>,
+    pub rpm: Option<Artifact>,
+    pub deb: Option<Artifact>,
+    pub appimage: Option<Artifact>,
     pub portable: Option<Artifact>,
-    /// 开发环境直更载荷
     pub develop: Option<Artifact>,
 }
 
 impl Payloads {
-    /// 根据安装形态取载荷
-    fn get(&self, installer: Installer) -> Option<Artifact> {
-        match installer {
-            Installer::Nsis => self.nsis.clone(),
-            Installer::Msi | Installer::Dmg | Installer::Rpm | Installer::Deb | Installer::AppImage => None,
+    /// 按运行形态取载荷
+    pub fn get(&self, mode: AppMode) -> Option<&Artifact> {
+        match mode {
+            AppMode::Develop => self.develop.as_ref(),
+            AppMode::Portable => self.portable.as_ref(),
+            AppMode::Install(Installer::Msi) => self.msi.as_ref(),
+            AppMode::Install(Installer::Nsis) => self.nsis.as_ref(),
+            AppMode::Install(Installer::Dmg) => self.dmg.as_ref(),
+            AppMode::Install(Installer::Rpm) => self.rpm.as_ref(),
+            AppMode::Install(Installer::Deb) => self.deb.as_ref(),
+            AppMode::Install(Installer::AppImage) => self.appimage.as_ref(),
         }
     }
 }
@@ -381,4 +402,160 @@ pub enum UpdateError {
     Download(String),
     /// 安装失败 -> 重试 install，后端保留产物路径
     Install(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::common::enums::sys::{Arch, OS};
+    use std::collections::BTreeSet;
+
+    /// 三平台并存的一份清单：每个平台各带自己那几种载荷
+    const MULTI_PLATFORM: &str = r#"{
+      "version": "0.9.0",
+      "platforms": {
+        "windows": {
+          "x86_64": {
+            "nsis":     { "url": "https://example.com/win-x86_64-nsis.exe",      "sha256": "00", "signature": "s", "size": 1 },
+            "portable": { "url": "https://example.com/win-x86_64-portable.zip",  "sha256": "00", "signature": "s", "size": 1 },
+            "develop":  { "url": "https://example.com/win-x86_64-develop.zip",   "sha256": "00", "signature": "s", "size": 1 }
+          },
+          "arm64": {
+            "nsis":     { "url": "https://example.com/win-arm64-nsis.exe",       "sha256": "00", "signature": "s", "size": 1 }
+          }
+        },
+        "macos": {
+          "arm64": {
+            "dmg":      { "url": "https://example.com/mac-arm64.dmg",            "sha256": "00", "signature": "s", "size": 1 }
+          }
+        },
+        "linux": {
+          "x86_64": {
+            "deb":      { "url": "https://example.com/linux-x86_64.deb",         "sha256": "00", "signature": "s", "size": 1 },
+            "appimage": { "url": "https://example.com/linux-x86_64.AppImage",    "sha256": "00", "signature": "s", "size": 1 },
+            "develop":  { "url": "https://example.com/linux-x86_64-develop.tar.gz", "sha256": "00", "signature": "s", "size": 1 }
+          }
+        }
+      }
+    }"#;
+
+    fn parse(json: &str) -> UpdateManifest {
+        serde_json::from_str(json).expect("清单应可解析")
+    }
+
+    fn artifact(name: &str) -> Artifact {
+        Artifact {
+            url: Url::parse(&format!("https://example.com/{name}")).expect("URL 应合法"),
+            sha256: "00".repeat(32),
+            signature: "s".to_string(),
+            size: 1,
+        }
+    }
+
+    /// 每个平台/架构取到的都是自己那一段，不串台
+    #[test]
+    fn picks_the_payload_of_the_requested_platform() {
+        let manifest = parse(MULTI_PLATFORM);
+        let cases = [
+            (
+                OS::Windows,
+                Arch::X86_64,
+                AppMode::Install(Installer::Nsis),
+                "win-x86_64-nsis.exe",
+            ),
+            (OS::Windows, Arch::X86_64, AppMode::Portable, "win-x86_64-portable.zip"),
+            (OS::Windows, Arch::X86_64, AppMode::Develop, "win-x86_64-develop.zip"),
+            (
+                OS::Windows,
+                Arch::Arm64,
+                AppMode::Install(Installer::Nsis),
+                "win-arm64-nsis.exe",
+            ),
+            (OS::MacOS, Arch::Arm64, AppMode::Install(Installer::Dmg), "mac-arm64.dmg"),
+            (OS::Linux, Arch::X86_64, AppMode::Install(Installer::Deb), "linux-x86_64.deb"),
+            (
+                OS::Linux,
+                Arch::X86_64,
+                AppMode::Install(Installer::AppImage),
+                "linux-x86_64.AppImage",
+            ),
+            (OS::Linux, Arch::X86_64, AppMode::Develop, "linux-x86_64-develop.tar.gz"),
+        ];
+        for (os, arch, mode, expected) in cases {
+            let label = format!("{os} / {arch} / {mode}");
+            let found = manifest
+                .get_artifact(os, arch, mode)
+                .unwrap_or_else(|| panic!("{label} 应有产物"));
+            assert_eq!(found.file_name().as_deref(), Some(expected), "{label}");
+        }
+    }
+
+    /// 平台、架构、载荷任一缺失都返回 None，绝不回落到别的槽
+    #[test]
+    fn missing_platform_arch_or_payload_is_none() {
+        let manifest = parse(MULTI_PLATFORM);
+        assert!(manifest
+            .get_artifact(OS::MacOS, Arch::X86_64, AppMode::Install(Installer::Dmg))
+            .is_none());
+        assert!(manifest
+            .get_artifact(OS::Linux, Arch::Arm64, AppMode::Install(Installer::Deb))
+            .is_none());
+        assert!(manifest.get_artifact(OS::Windows, Arch::Arm64, AppMode::Develop).is_none());
+        assert!(manifest
+            .get_artifact(OS::Windows, Arch::X86_64, AppMode::Install(Installer::Msi))
+            .is_none());
+    }
+
+    /// 老清单（只有 windows、甚至没有 platforms）照常解析
+    #[test]
+    fn windows_only_manifest_still_parses() {
+        let manifest = parse(
+            r#"{"version":"0.8.0","platforms":{"windows":{"x86_64":{"nsis":
+               {"url":"https://example.com/win-nsis.exe","sha256":"00","signature":"s","size":1}}}}}"#,
+        );
+        assert!(manifest
+            .get_artifact(OS::Windows, Arch::X86_64, AppMode::Install(Installer::Nsis))
+            .is_some());
+        assert!(manifest
+            .get_artifact(OS::MacOS, Arch::Arm64, AppMode::Install(Installer::Dmg))
+            .is_none());
+        assert!(manifest.get_artifact(OS::Linux, Arch::X86_64, AppMode::Develop).is_none());
+
+        let bare = parse(r#"{"version":"0.8.0"}"#);
+        assert!(bare.get_artifact(OS::Windows, Arch::X86_64, AppMode::Develop).is_none());
+    }
+
+    /// 槽名 = `AppMode::slug()` = 发布端 `Kind.key`：改字段名却忘了改 slug、或加了槽却没接
+    /// `get`，都会在这里挂。
+    #[test]
+    fn payload_slots_mirror_app_mode_slugs() {
+        let payloads = Payloads {
+            nsis: Some(artifact("nsis")),
+            dmg: Some(artifact("dmg")),
+            deb: Some(artifact("deb")),
+            appimage: Some(artifact("appimage")),
+            portable: Some(artifact("portable")),
+            develop: Some(artifact("develop")),
+        };
+        let modes = [
+            AppMode::Develop,
+            AppMode::Portable,
+            AppMode::Install(Installer::Nsis),
+            AppMode::Install(Installer::Dmg),
+            AppMode::Install(Installer::Deb),
+            AppMode::Install(Installer::AppImage),
+        ];
+
+        let json = serde_json::to_value(&payloads).expect("载荷分组应可序列化");
+        let keys: BTreeSet<&str> = json.as_object().expect("应为对象").keys().map(String::as_str).collect();
+        let expected: BTreeSet<&str> = modes.iter().map(|mode| mode.slug()).collect();
+        assert_eq!(keys, expected, "槽名必须与 AppMode::slug() 一致");
+
+        for mode in modes {
+            let found = payloads.get(mode).unwrap_or_else(|| panic!("{mode} 应有槽"));
+            assert_eq!(found.file_name().as_deref(), Some(mode.slug()), "{mode}");
+        }
+        assert!(payloads.get(AppMode::Install(Installer::Msi)).is_none());
+        assert!(payloads.get(AppMode::Install(Installer::Rpm)).is_none());
+    }
 }
