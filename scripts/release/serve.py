@@ -5,7 +5,7 @@
 本地更新源 HTTP 服务
 
 服务固定监听 http://localhost:14652（与后端 DEVELOP 常量一致），只 serve
-一个构建目录。URL 与后端 `common/constant/update.rs` 的 DEVELOP 常量同构：
+一个构建目录。URL 与后端 `common/constant/updater` 的 DEVELOP 常量同构：
 
     GET /rollcaller/releases/latest/download/versions.json
     GET /rollcaller/releases/latest/download/latest-develop.json

@@ -4,7 +4,7 @@
 """
 自动更新 URL 构造
 
-与 `backend/src/common/constant/update.rs` 的 URL 模板一致：
+与 `backend/src/common/constant/updater` 的 URL 模板一致：
     GitHub   https://github.com/<GITHUB_REPO>
     CNB      https://cnb.cool/<CNB_REPO>
     DEVELOP  http://localhost:14652/rollcaller

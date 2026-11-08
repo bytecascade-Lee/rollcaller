@@ -1,6 +1,6 @@
 import {listen, type UnlistenFn} from "@tauri-apps/api/event";
-import * as UpdateCommand from "$commands/update";
-import {DOWNLOAD_PROGRESS_EVENT, UPDATE_VIEW_EVENT} from "$commands/update";
+import * as UpdateCommand from "$commands/updater";
+import {DOWNLOAD_PROGRESS_EVENT, UPDATE_VIEW_EVENT} from "$commands/updater";
 import type {DownloadProgress} from "$types/DownloadProgress";
 import type {UpdateView} from "$types/UpdateView";
 
