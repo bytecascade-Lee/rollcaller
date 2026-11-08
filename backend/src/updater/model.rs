@@ -530,8 +530,10 @@ mod tests {
     #[test]
     fn payload_slots_mirror_app_mode_slugs() {
         let payloads = Payloads {
+            msi: Some(artifact("msi")),
             nsis: Some(artifact("nsis")),
             dmg: Some(artifact("dmg")),
+            rpm: Some(artifact("rpm")),
             deb: Some(artifact("deb")),
             appimage: Some(artifact("appimage")),
             portable: Some(artifact("portable")),
@@ -540,8 +542,10 @@ mod tests {
         let modes = [
             AppMode::Develop,
             AppMode::Portable,
+            AppMode::Install(Installer::Msi),
             AppMode::Install(Installer::Nsis),
             AppMode::Install(Installer::Dmg),
+            AppMode::Install(Installer::Rpm),
             AppMode::Install(Installer::Deb),
             AppMode::Install(Installer::AppImage),
         ];
@@ -555,7 +559,5 @@ mod tests {
             let found = payloads.get(mode).unwrap_or_else(|| panic!("{mode} 应有槽"));
             assert_eq!(found.file_name().as_deref(), Some(mode.slug()), "{mode}");
         }
-        assert!(payloads.get(AppMode::Install(Installer::Msi)).is_none());
-        assert!(payloads.get(AppMode::Install(Installer::Rpm)).is_none());
     }
 }
