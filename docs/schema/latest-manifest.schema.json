@@ -83,15 +83,21 @@
             }
         },
         "payloads": {
-            "description": "同一架构下按安装形态分组，至少一种。槽名 = `AppMode::slug()` = 发布端 `Kind.key`，三处共用一套词表：nsis→Install(Nsis)、dmg→Install(Dmg)、deb→Install(Deb)、appimage→Install(AppImage)、portable→Portable、develop→Develop。`msi` / `rpm` 没有槽——发布端 `Kind` 未定义这两种载荷。**缺省某形态 = 该形态无产物**，客户端按运行形态取产物，取不到即视为「无更新」（例如 Develop 形态在该版本没有 develop 载荷时不会回退到 nsis）。",
+            "description": "同一架构下按安装形态分组，至少一种。槽名 = `AppMode::slug()` = 发布端 `Kind.key`，三处共用一套词表：msi→Install(Msi)、nsis→Install(Nsis)、dmg→Install(Dmg)、rpm→Install(Rpm)、deb→Install(Deb)、appimage→Install(AppImage)、portable→Portable、develop→Develop。**缺省某形态 = 该形态无产物**，客户端按运行形态取产物，取不到即视为「无更新」（例如 Develop 形态在该版本没有 develop 载荷时不会回退到 nsis）。",
             "type": "object",
             "additionalProperties": false,
             "minProperties": 1,
             "properties": {
+                "msi": {
+                    "$ref": "#/definitions/artifact"
+                },
                 "nsis": {
                     "$ref": "#/definitions/artifact"
                 },
                 "dmg": {
+                    "$ref": "#/definitions/artifact"
+                },
+                "rpm": {
                     "$ref": "#/definitions/artifact"
                 },
                 "deb": {
