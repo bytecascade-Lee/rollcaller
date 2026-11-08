@@ -11,9 +11,6 @@ use reqwest::Client;
 use semver::Version;
 
 /// 检查是否有可用更新（`Ok(None)` = 无更新）
-///
-/// `versions.json` 每次发布都新增条目，故每次都拉、不缓存
-/// 目标版本清单按"源 + 版本"寻址，命中缓存且摘要匹配时免网络（见 [`manifest::load`]）
 pub async fn check(
     client: &Client,
     source: UpdateSource,
@@ -50,14 +47,15 @@ fn validate(
             manifest.version
         ));
     }
-    match decide::evaluate(current, &manifest.version, policy, manifest.severity) {
-        UpdateDecision::Skip => {
+    match decide::decide(current, &manifest.version, policy, manifest.severity) {
+        // 索引按同一套判定筛过，这里被拦说明两侧结论不一致（多半是发布端 severity 写错）
+        UpdateDecision::Skip(reason) => {
             return Err(anyhow!(
-                "版本索引与清单不一致：{} 的清单标注的 severity 不足以放行本次更新",
+                "版本索引与清单不一致：{} 被最终判定拦下（{reason:?}）",
                 manifest.version
             ))
         }
-        UpdateDecision::Update => {}
+        UpdateDecision::Update(_) => {}
     }
     let Some(artifact) = manifest.get_artifact(OS, ARCH, mode) else {
         tracing::warn!("更新清单 {} 未提供当前平台的产物（{OS} / {ARCH} / {mode}）", manifest.version);

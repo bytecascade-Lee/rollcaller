@@ -343,14 +343,50 @@ pub enum Severity {
     Normal,
     /// 重要：豁免幅度门槛
     Important,
-    /// 紧急：无条件豁免门槛并强制更新
+    /// 紧急：豁免门槛，并可穿透「用户已关闭更新」
     Critical,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TS)]
+/// 更新判定的结论
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UpdateDecision {
-    Skip,
-    Update,
+    Skip(SkipReason),
+    Update(UpdateReason),
+}
+
+impl UpdateDecision {
+    /// 是否放行
+    pub fn is_update(&self) -> bool {
+        matches!(self, Self::Update(_))
+    }
+}
+
+/// 跳过的原因
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkipReason {
+    /// 幅度门槛为 `Never`
+    Disabled,
+    /// 稳定通道，目标版本是预发布
+    ChannelBlocked,
+    /// 目标版本不高于当前版本
+    NotNewer,
+    /// 数字幅度低于门槛
+    BelowFloor,
+}
+
+/// 放行的原因
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UpdateReason {
+    /// 数字幅度达标
+    Newer,
+    /// 预发布 -> 稳定版，门槛不适用，否则用户永远卡在预发布
+    PrereleaseEscape,
+    /// 预发布 -> 预发布，进通道时风险已接受，门槛不适用
+    PrereleaseProgression,
+    /// severity 为 `Important` / `Critical`，绕过幅度门槛
+    Exempt,
+    /// `Critical` 穿透了「用户已关闭更新」
+    Force,
 }
 
 /// 当前更新所处的阶段
@@ -452,7 +488,7 @@ mod tests {
         }
     }
 
-    /// 每个平台/架构取到的都是自己那一段，不串台
+    /// 每个平台/架构取各自的
     #[test]
     fn picks_the_payload_of_the_requested_platform() {
         let manifest = parse(MULTI_PLATFORM);
@@ -506,7 +542,7 @@ mod tests {
             .is_none());
     }
 
-    /// 老清单（只有 windows、甚至没有 platforms）照常解析
+    /// 旧清单（只有 windows、甚至没有 platforms）照常解析
     #[test]
     fn windows_only_manifest_still_parses() {
         let manifest = parse(
@@ -525,8 +561,7 @@ mod tests {
         assert!(bare.get_artifact(OS::Windows, Arch::X86_64, AppMode::Develop).is_none());
     }
 
-    /// 槽名 = `AppMode::slug()` = 发布端 `Kind.key`：改字段名却忘了改 slug、或加了槽却没接
-    /// `get`，都会在这里挂。
+    /// 槽名 = `AppMode::slug()` = 发布端 `Kind.key`
     #[test]
     fn payload_slots_mirror_app_mode_slugs() {
         let payloads = Payloads {

@@ -1,5 +1,5 @@
 use crate::updater::decide;
-use crate::updater::model::{HistoryVersion, Policy, UpdateDecision};
+use crate::updater::model::{HistoryVersion, Policy};
 use anyhow::{anyhow, Context};
 use semver::Version;
 
@@ -16,11 +16,8 @@ pub fn pick_target(
 ) -> anyhow::Result<Option<HistoryVersion>> {
     let mut newer: Vec<&HistoryVersion> = candidates.iter().filter(|hv| hv.version > *current).collect();
     newer.sort_by(|a, b| b.version.cmp(&a.version));
-    for hv in newer {
-        match decide::evaluate(current, &hv.version, policy, hv.severity) {
-            UpdateDecision::Update => return Ok(Some(hv.clone())),
-            UpdateDecision::Skip => continue,
-        }
-    }
-    Ok(None)
+    Ok(newer
+        .into_iter()
+        .find(|hv| decide::decide(current, &hv.version, policy, hv.severity).is_update())
+        .cloned())
 }

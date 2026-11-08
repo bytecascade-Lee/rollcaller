@@ -1,314 +1,406 @@
 //! 版本更新决策
-//!
-//! 策略语义为「最小可接受更新单元」（floor），而非依赖库场景的「最大容忍变化量」（cap）：
-//! 桌面软件没有 API 兼容包袱，用户关心的不是"变化太大"，而是"更新太频繁、每次都要确认/重启太烦"。
-//! 因此用户设定的等级表示：至少要有这么大的变化才值得更新，
-//! 低于门槛的更新被忽略（延迟聚合，等下一个达标的版本一次跳过去）。
 
-use crate::updater::model::{Policy, Severity, UpdateChannel, UpdateDecision, UpdateLevel};
+use crate::updater::model::{Policy, Severity, SkipReason, UpdateChannel, UpdateDecision, UpdateLevel, UpdateReason};
 use semver::Version;
-use std::cmp::Ordering;
 
-/// 变化幅度：升级路径中只比较主/次/补丁号（预发布标识不参与幅度分类）
+/// 更新判定的唯一入口
+pub fn decide(current: &Version, latest: &Version, policy: &Policy, severity: Severity) -> UpdateDecision {
+    fuse(verdict(current, latest, policy), severity)
+}
+
+/// 只认版本 × 策略的判定（severity 尚未参与）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum VersionChange {
-    /// 主版本号
-    Major,
-    /// 次版本号
-    Minor,
-    /// 补丁号
-    Patch,
+enum Verdict {
+    /// 被与 severity 无关的门禁挡住
+    /// 只可能是 `Disabled` / `ChannelBlocked` / `NotNewer`
+    Blocked(SkipReason),
+    /// 预发布 -> 稳定版，门槛不适用
+    PrereleaseEscape,
+    /// 预发布 -> 预发布，门槛不适用
+    PrereleaseProgression,
+    /// 数字幅度达标
+    FloorMet,
+    /// 数字幅度不足
+    BelowFloor,
 }
 
-/// 版本更新决策入口。
-///
-/// # 参数：
-/// - `current` / `latest`：当前版本与清单中的目标版本
-/// - `level`：幅度门槛
-/// - `channel`：发布阶段（Stable / Prerelease），只负责"预发布版本是否可见"的门禁
-///
-/// # 决策流程：
-/// 1. `level` 为 `Never` → `Skip`；
-/// 2. 稳定通道下 `latest` 为预发布 → `Skip`；
-/// 3. `latest <= current`（同版本或低于当前版本）→ `Skip`；
-/// 4. `current` 为预发布、`latest` 为稳定版（逃逸通道）→ `Update`；
-/// 5. `current`、`latest` 均为预发布（通道内递进）→ `Update`；
-/// 6. 其余（稳定→稳定，或稳定→预发布切换）→ 按 `level` 阈值判断数字变化幅度。
-pub fn decide(current: &Version, latest: &Version, level: UpdateLevel, channel: UpdateChannel) -> UpdateDecision {
-    // 1. level 为 Never：无条件跳过
-    if level == UpdateLevel::Never {
-        return UpdateDecision::Skip;
-    };
-
-    // 2. 通道门禁：稳定通道下 latest 为预发布版本 → 一律跳过，保证稳定通道用户不会接触到任何预发布版本
-    if channel == UpdateChannel::Stable && !latest.pre.is_empty() {
-        return UpdateDecision::Skip;
+/// 门禁按序关闭：通道 -> 方向 -> 策略 -> 预发布形态 -> 门槛
+fn verdict(current: &Version, latest: &Version, policy: &Policy) -> Verdict {
+    if channel_blocks(policy.channel, latest) {
+        return Verdict::Blocked(SkipReason::ChannelBlocked);
     }
-
-    // 3. 版本比较：同版本或低于当前版本一律跳过，仅更高版本进入升级决策
-    match latest.cmp(current) {
-        Ordering::Equal => UpdateDecision::Skip,
-        Ordering::Less => UpdateDecision::Skip,
-        Ordering::Greater => decide_upgrade(current, latest, level),
+    if !is_newer(current, latest) {
+        return Verdict::Blocked(SkipReason::NotNewer);
     }
-}
-
-/// 升级路径的决策：处理预发布的特殊形态（逃逸 / 递进）后，按幅度门槛（floor）判断
-fn decide_upgrade(current: &Version, latest: &Version, level: UpdateLevel) -> UpdateDecision {
-    let current_is_pre = !current.pre.is_empty();
-    let latest_is_pre = !latest.pre.is_empty();
-
-    // 4. 逃逸通道：预发布 → 稳定版，始终更新
-    if current_is_pre && !latest_is_pre {
-        return UpdateDecision::Update;
-    }
-    // 5. 通道内递进：预发布 → 预发布，跟随通道（不适用幅度门槛，风险已在进入通道时接受；通道门禁已在上游确保当前通道允许预发布）
-    if current_is_pre && latest_is_pre {
-        return UpdateDecision::Update;
-    }
-    // 6. 其余：稳定 → 稳定，或稳定 → 预发布的通道切换 → 按幅度门槛判断
-    let change = classify_numeric_change(current, latest);
-    if floor_satisfied(change, level) {
-        UpdateDecision::Update
-    } else {
-        UpdateDecision::Skip
-    }
-}
-
-/// 升级路径中的幅度分类：只比较主/次/补丁号。
-///
-/// 升级路径上数字必然不降；主/次/补丁号完全相同（仅预发布标识变化）的情况已被 decide_upgrade 的通道内递进分支接管，此处回退为 Patch 不会被执行到。
-fn classify_numeric_change(current: &Version, latest: &Version) -> VersionChange {
-    if latest.major > current.major {
-        VersionChange::Major
-    } else if latest.minor > current.minor {
-        VersionChange::Minor
-    } else {
-        VersionChange::Patch
-    }
-}
-
-/// floor 语义的允许表：变化幅度 ≥ 门槛则允许
-fn floor_satisfied(change: VersionChange, floor: UpdateLevel) -> bool {
-    use VersionChange::*;
-    match floor {
-        UpdateLevel::Patch => matches!(change, Patch | Minor | Major),
-        UpdateLevel::Minor => matches!(change, Minor | Major),
-        UpdateLevel::Major => matches!(change, Major),
-        UpdateLevel::Never => false,
-    }
-}
-
-/// 版本判定 + severity 融合
-///
-/// # severity 语义
-///
-/// | decide 返回 Skip 的原因 | normal | important | critical |
-/// |---|---|---|---|
-/// | 幅度不足 | 不通知 | **豁免 → 通知** | 豁免 → 通知 |
-/// | 用户关闭更新 | 不通知 | 不通知 | **穿透 → 通知（强制更新）** |
-/// | Stable 通道拦预发布 | 不豁免 | 不豁免 | 不豁免 |
-/// | 同版本 / 降级 | 不豁免 | 不豁免 | 不豁免 |
-///
-/// 实现方式：
-/// - 豁免 = 仅把幅度门槛临时降到 `Patch`（等价"无视幅度门槛"），
-///   其余门禁原样交给 `decide`——因此无需给 `decide` 增加 Skip 原因，
-///   也不破坏其纯 Copy 枚举形态。
-/// - 强制更新 = critical，即使 level=Never 也穿透放行。
-pub fn evaluate(current: &Version, latest: &Version, policy: &Policy, severity: Severity) -> UpdateDecision {
-    // 用户关闭更新（level=UpdateLevel::Never）：仅 critical（强制更新）穿透放行
     if policy.level == UpdateLevel::Never {
-        return if severity == Severity::Critical {
-            UpdateDecision::Update
-        } else {
-            UpdateDecision::Skip
-        };
+        return Verdict::Blocked(SkipReason::Disabled);
     }
-    // severity 豁免：normal 之外把幅度门槛降到 Patch，等价"无视幅度门槛"；
-    // 通道门禁 / 同版本 / 降级 / 逃逸 / 递进由 decide 原样保留
-    let level = if severity == Severity::Normal {
-        policy.level
+    if escape_to_stable(current, latest) {
+        return Verdict::PrereleaseEscape;
+    }
+    if prerelease_progression(current, latest) {
+        return Verdict::PrereleaseProgression;
+    }
+    if meets_floor(numeric_change(current, latest), policy.level) {
+        Verdict::FloorMet
     } else {
-        UpdateLevel::Patch
+        Verdict::BelowFloor
+    }
+}
+
+/// severity 融合
+fn fuse(verdict: Verdict, severity: Severity) -> UpdateDecision {
+    use UpdateDecision::{Skip, Update};
+    use UpdateReason::*;
+
+    match (verdict, severity) {
+        (Verdict::Blocked(SkipReason::Disabled), Severity::Critical) => Update(Force),
+        (Verdict::Blocked(reason), _) => Skip(reason),
+        (Verdict::BelowFloor, Severity::Normal) => Skip(SkipReason::BelowFloor),
+        (Verdict::BelowFloor, _) => Update(Exempt),
+        (Verdict::FloorMet, _) => Update(Newer),
+        (Verdict::PrereleaseEscape, _) => Update(PrereleaseEscape),
+        (Verdict::PrereleaseProgression, _) => Update(PrereleaseProgression),
+    }
+}
+
+/// 稳定通道只放行正式版
+fn channel_blocks(channel: UpdateChannel, latest: &Version) -> bool {
+    channel == UpdateChannel::Stable && is_prerelease(latest)
+}
+
+/// 只允许升级，不允许降级
+fn is_newer(current: &Version, latest: &Version) -> bool {
+    latest > current
+}
+
+/// 预发布 -> 稳定版：必须放行，否则用户永远卡在预发布
+fn escape_to_stable(current: &Version, latest: &Version) -> bool {
+    is_prerelease(current) && !is_prerelease(latest)
+}
+
+/// 预发布 -> 预发布：跟随通道，门槛不适用
+fn prerelease_progression(current: &Version, latest: &Version) -> bool {
+    is_prerelease(current) && is_prerelease(latest)
+}
+
+fn is_prerelease(version: &Version) -> bool {
+    !version.pre.is_empty()
+}
+
+/// 数字幅度：只比主/次/补丁号，预发布与 build 标识不参与分类
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NumericChange {
+    Major,
+    Minor,
+    Patch,
+    /// 三项数字全同，仅 build metadata 不同
+    Identical,
+}
+
+impl NumericChange {
+    /// 与 `Patch` 同档时，build metadata 发生变化则记为一次补丁级更新
+    fn rank(self) -> u8 {
+        match self {
+            NumericChange::Identical | NumericChange::Patch => 1,
+            NumericChange::Minor => 2,
+            NumericChange::Major => 3,
+        }
+    }
+}
+
+fn numeric_change(current: &Version, latest: &Version) -> NumericChange {
+    if latest.major > current.major {
+        NumericChange::Major
+    } else if latest.minor > current.minor {
+        NumericChange::Minor
+    } else if latest.patch > current.patch {
+        NumericChange::Patch
+    } else {
+        NumericChange::Identical
+    }
+}
+
+/// floor 语义，变化幅度 ≥ 门槛
+fn meets_floor(change: NumericChange, floor: UpdateLevel) -> bool {
+    let floor = match floor {
+        UpdateLevel::Patch => 1,
+        UpdateLevel::Minor => 2,
+        UpdateLevel::Major => 3,
+        // `Never` 已由上游 `Disabled` 挡下，此处只为穷尽
+        UpdateLevel::Never => return false,
     };
-    decide(current, latest, level, policy.channel)
+    change.rank() >= floor
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::updater::model::UpdateChannel::*;
-    use crate::updater::model::UpdateLevel::*;
-    use semver::Version;
+    use crate::updater::model::UpdateChannel::{Prerelease, Stable};
+    use crate::updater::model::UpdateLevel::{Major, Minor, Never, Patch};
+    use SkipReason::*;
+    use UpdateDecision::{Skip, Update};
+    use UpdateReason::{Exempt, Force, Newer, PrereleaseEscape, PrereleaseProgression};
 
     fn v(s: &str) -> Version {
-        Version::parse(s).unwrap()
+        Version::parse(s).expect("版本号应合法")
     }
 
-    /// 便捷断言：失败时打印全部参数，便于定位
-    fn assert_decide(current: &str, latest: &str, level: UpdateLevel, channel: UpdateChannel, expected: UpdateDecision) {
-        assert_eq!(
-            decide(&v(current), &v(latest), level, channel),
-            expected,
-            "decide(current={current}, latest={latest}, level={level:?}, channel={channel:?})"
-        );
+    /// 版本层判定（severity 固定 normal）
+    fn base(current: &str, latest: &str, level: UpdateLevel, channel: UpdateChannel) -> UpdateDecision {
+        decide(&v(current), &v(latest), &Policy { level, channel }, Severity::Normal)
     }
 
-    /// level 为 None 时无条件跳过：升级 / 同版本 / 预发布，任何通道都不放行
+    /// 完整判定（携带 severity）
+    fn full(current: &str, latest: &str, level: UpdateLevel, channel: UpdateChannel, severity: Severity) -> UpdateDecision {
+        decide(&v(current), &v(latest), &Policy { level, channel }, severity)
+    }
+
+    /// 预发布形态的三条谓词
     #[test]
-    fn level_none_disables_all_updates() {
-        for channel in [Stable, Prerelease] {
-            // 升级主版本
-            assert_decide("1.2.1", "2.0.0", Never, channel, UpdateDecision::Skip);
-            // 升级次版本
-            assert_decide("1.2.1", "1.3.0", Never, channel, UpdateDecision::Skip);
-            // 升级补丁
-            assert_decide("1.2.1", "1.2.2", Never, channel, UpdateDecision::Skip);
-            // 同版本
-            assert_decide("1.2.3", "1.2.3", Never, channel, UpdateDecision::Skip);
-            // 预发布通道切换
-            assert_decide("1.2.0", "1.3.0-rc.1", Never, channel, UpdateDecision::Skip);
-            // 预发布通道逃逸
-            assert_decide("1.2.0-rc.1", "1.2.0", Never, channel, UpdateDecision::Skip);
-            // 预发布通道递进
-            assert_decide("1.2.0-rc.1", "1.2.0-rc.2", Never, channel, UpdateDecision::Skip);
+    fn prerelease_predicates() {
+        let shapes = [
+            // current, latest, 逃逸, 递进
+            ("1.2.0-rc.1", "1.2.0", true, false),
+            ("1.2.0-rc.1", "1.3.0", true, false),
+            ("1.2.0-rc.1", "1.2.0-rc.2", false, true),
+            ("1.2.0", "1.3.0-rc.1", false, false),
+            ("1.2.0", "1.3.0", false, false),
+            ("1.2.0+b1", "1.2.0", false, false),
+        ];
+        for (current, latest, escape, progression) in shapes {
+            let (current, latest) = (v(current), v(latest));
+            assert_eq!(escape_to_stable(&current, &latest), escape, "{current} -> {latest}");
+            assert_eq!(
+                prerelease_progression(&current, &latest),
+                progression,
+                "{current} -> {latest}"
+            );
+        }
+
+        assert!(channel_blocks(Stable, &v("1.3.0-rc.1")));
+        assert!(!channel_blocks(Prerelease, &v("1.3.0-rc.1")));
+        assert!(!channel_blocks(Stable, &v("1.3.0")));
+    }
+
+    /// 幅度分类与 floor 表
+    #[test]
+    fn numeric_change_and_floor() {
+        assert_eq!(numeric_change(&v("1.2.1"), &v("2.0.0")), NumericChange::Major);
+        assert_eq!(numeric_change(&v("1.2.1"), &v("1.3.0")), NumericChange::Minor);
+        assert_eq!(numeric_change(&v("1.2.1"), &v("1.2.2")), NumericChange::Patch);
+        assert_eq!(numeric_change(&v("1.2.3+abc"), &v("1.2.3+bcd")), NumericChange::Identical);
+
+        let table = [
+            (NumericChange::Major, [true, true, true]),
+            (NumericChange::Minor, [true, true, false]),
+            (NumericChange::Patch, [true, false, false]),
+            (NumericChange::Identical, [true, false, false]),
+        ];
+        for (change, row) in table {
+            for (floor, expected) in [Patch, Minor, Major].into_iter().zip(row) {
+                assert_eq!(meets_floor(change, floor), expected, "{change:?} vs {floor:?}");
+            }
+            assert!(!meets_floor(change, Never), "{change:?} vs Never");
         }
     }
 
-    /// 稳定通道下 latest 为预发布 → 一律跳过：升级 / 同号稳定→预发布，与 level 无关
+    /// 用户关闭更新，前向的稳定版一律 `Disabled`
+    #[test]
+    fn disabled_blocks_forward_updates() {
+        for channel in [Stable, Prerelease] {
+            for (current, latest) in [
+                ("1.2.1", "2.0.0"),
+                ("1.2.1", "1.3.0"),
+                ("1.2.1", "1.2.2"),
+                ("1.2.0-rc.1", "1.2.0"),
+            ] {
+                assert_eq!(base(current, latest, Never, channel), Skip(Disabled), "{current} -> {latest}");
+            }
+        }
+    }
+
+    /// 硬门禁优先于「用户关闭更新」
+    #[test]
+    fn hard_gates_are_never_penetrated() {
+        for severity in [Severity::Important, Severity::Critical] {
+            // 稳定通道 + 预发布
+            assert_eq!(
+                full("1.2.0", "1.3.0-rc.1", Never, Stable, severity),
+                Skip(ChannelBlocked),
+                "{severity:?} 不应把预发布推给稳定通道"
+            );
+            // 降级与同版本
+            assert_eq!(full("2.0.0", "1.9.0", Never, Stable, severity), Skip(NotNewer));
+            assert_eq!(full("1.2.3", "1.2.3", Never, Stable, severity), Skip(NotNewer));
+        }
+    }
+
+    /// 稳定通道下 latest 是预发布 -> 一律拦截，与门槛无关
     #[test]
     fn stable_channel_blocks_prerelease() {
         for level in [Patch, Minor, Major] {
-            // 升级：稳定 → 预发布（通道切换被拦）
-            assert_decide("1.2.1", "1.3.0-rc.1", level, Stable, UpdateDecision::Skip);
-            // 预发布 → 预发布（递进也被拦：latest 是预发布即不可见）
-            assert_decide("1.2.0-rc.1", "1.2.0-rc.2", level, Stable, UpdateDecision::Skip);
-            // 同号稳定 → 预发布（semver 中 1.2.0-rc.1 < 1.2.0，latest 低于 current，门禁同样先拦）
-            assert_decide("1.2.0", "1.2.0-rc.1", level, Stable, UpdateDecision::Skip);
-        }
-    }
-
-    /// 版本完全相同：无论 level / channel，一律跳过
-    #[test]
-    fn equal_versions_always_skip() {
-        for level in [Patch, Minor, Major, Never] {
-            for channel in [Stable, Prerelease] {
-                assert_decide("1.2.3", "1.2.3", level, channel, UpdateDecision::Skip);
-                assert_decide("1.2.3-alpha", "1.2.3-alpha", level, channel, UpdateDecision::Skip);
+            for (current, latest) in [("1.2.1", "1.3.0-rc.1"), ("1.2.0-rc.1", "1.2.0-rc.2"), ("1.2.0", "1.2.0-rc.1")] {
+                assert_eq!(
+                    base(current, latest, level, Stable),
+                    Skip(ChannelBlocked),
+                    "{current} -> {latest}"
+                );
             }
         }
     }
 
-    /// 预发布 → 稳定版：始终更新，不适用幅度门槛（与 level 无关）
+    /// 同版本与降级，任何通道、任何门槛均跳过
     #[test]
-    fn escape_prerelease_to_stable_always_updates() {
+    fn equal_or_older_is_skipped() {
+        for channel in [Stable, Prerelease] {
+            for level in [Patch, Minor, Major] {
+                assert_eq!(
+                    base("1.2.3", "1.2.3", level, channel),
+                    Skip(NotNewer),
+                    "{channel:?} / {level:?}"
+                );
+                assert_eq!(
+                    base("2.0.0", "1.9.9", level, channel),
+                    Skip(NotNewer),
+                    "{channel:?} / {level:?}"
+                );
+            }
+        }
+    }
+
+    /// 预发布的两条路径绕过门槛，且原因可区分
+    #[test]
+    fn prerelease_paths_bypass_floor() {
         for level in [Patch, Minor, Major] {
             for channel in [Prerelease, Stable] {
-                // 同版本逃逸
-                assert_decide("1.2.0-rc.1", "1.2.0", level, channel, UpdateDecision::Update);
-                // 跨补丁逃逸
-                assert_decide("1.2.0-rc.1", "1.2.1", level, channel, UpdateDecision::Update);
-                // 跨次版本逃逸
-                assert_decide("1.2.0-rc.1", "1.3.0", level, channel, UpdateDecision::Update);
-                // 跨主版本逃逸
-                assert_decide("1.2.0-rc.1", "2.0.0", level, channel, UpdateDecision::Update);
+                for (current, latest) in [("1.2.0-rc.1", "1.2.0"), ("1.2.0-rc.1", "1.3.0"), ("1.2.0-rc.1", "2.0.0")] {
+                    assert_eq!(
+                        base(current, latest, level, channel),
+                        Update(PrereleaseEscape),
+                        "{current} -> {latest}"
+                    );
+                }
+            }
+            for (current, latest) in [
+                ("1.2.0-rc.1", "1.2.0-rc.2"),
+                ("1.2.0-rc.1", "1.2.1-rc.1"),
+                ("1.2.0-rc.1", "1.3.0-rc.1"),
+                ("1.2.0-alpha.2", "1.2.0-alpha.10"),
+            ] {
+                assert_eq!(
+                    base(current, latest, level, Prerelease),
+                    Update(PrereleaseProgression),
+                    "{current} -> {latest}"
+                );
             }
         }
     }
 
-    /// 预发布 → 预发布：跟随通道无条件更新，不适用幅度门槛（与 level 无关）
-    #[test]
-    fn prerelease_progression_skips_floor() {
-        for level in [Patch, Minor, Major] {
-            // 同号递进（rc.1 → rc.2）
-            assert_decide("1.2.0-rc.1", "1.2.0-rc.2", level, Prerelease, UpdateDecision::Update);
-            // 跨补丁递进
-            assert_decide("1.2.0-rc.1", "1.2.1-rc.1", level, Prerelease, UpdateDecision::Update);
-            // 跨次版本递进
-            assert_decide("1.2.0-rc.1", "1.3.0-rc.1", level, Prerelease, UpdateDecision::Update);
-            // 数字标识排序：alpha.2 → alpha.10 是升级（10 > 2，数字而非字典序）
-            assert_decide("1.2.0-alpha.2", "1.2.0-alpha.10", level, Prerelease, UpdateDecision::Update);
-        }
-    }
-
-    /// floor 全量表：3 种门槛 × 3 种数字变化（稳定 → 稳定）
+    /// floor 全量表，3 种门槛 × 3 种数字变化
     #[test]
     fn floor_matrix_stable_to_stable() {
-        // Patch 门槛：任何升级都更新
-        assert_decide("1.2.1", "1.2.2", Patch, Stable, UpdateDecision::Update);
-        assert_decide("1.2.1", "1.3.0", Patch, Stable, UpdateDecision::Update);
-        assert_decide("1.2.1", "2.0.0", Patch, Stable, UpdateDecision::Update);
-        // Minor 门槛：忽略补丁
-        assert_decide("1.2.1", "1.2.2", Minor, Stable, UpdateDecision::Skip);
-        assert_decide("1.2.1", "1.3.0", Minor, Stable, UpdateDecision::Update);
-        assert_decide("1.2.1", "2.0.0", Minor, Stable, UpdateDecision::Update);
-        // Major 门槛：仅主版本
-        assert_decide("1.2.1", "1.2.2", Major, Stable, UpdateDecision::Skip);
-        assert_decide("1.2.1", "1.3.0", Major, Stable, UpdateDecision::Skip);
-        assert_decide("1.2.1", "2.0.0", Major, Stable, UpdateDecision::Update);
-    }
-
-    /// 通道切换（稳定 → 预发布）：Prerelease 通道下仍按幅度门槛判断
-    #[test]
-    fn channel_switch_stable_to_prerelease_uses_floor() {
-        // 补丁级切换（1.2.1 → 1.2.2-rc.1）
-        assert_decide("1.2.1", "1.2.2-rc.1", Patch, Prerelease, UpdateDecision::Update);
-        assert_decide("1.2.1", "1.2.2-rc.1", Minor, Prerelease, UpdateDecision::Skip);
-        assert_decide("1.2.1", "1.2.2-rc.1", Major, Prerelease, UpdateDecision::Skip);
-        // 次版本级切换（1.2.1 → 1.3.0-rc.1）
-        assert_decide("1.2.1", "1.3.0-rc.1", Patch, Prerelease, UpdateDecision::Update);
-        assert_decide("1.2.1", "1.3.0-rc.1", Minor, Prerelease, UpdateDecision::Update);
-        assert_decide("1.2.1", "1.3.0-rc.1", Major, Prerelease, UpdateDecision::Skip);
-        // 主版本级切换（1.2.1 → 2.0.0-rc.1）
-        assert_decide("1.2.1", "2.0.0-rc.1", Patch, Prerelease, UpdateDecision::Update);
-        assert_decide("1.2.1", "2.0.0-rc.1", Minor, Prerelease, UpdateDecision::Update);
-        assert_decide("1.2.1", "2.0.0-rc.1", Major, Prerelease, UpdateDecision::Update);
-    }
-
-    /// semver crate 行为锁定：build metadata（+abc）是最后决胜键（规范偏离），
-    /// 同号不同 build 判为 Greater → 幅度分类为 Patch → 按门槛判断
-    #[test]
-    fn build_metadata_counts_as_patch_change() {
-        assert_decide("1.2.3+abc", "1.2.3+bcd", Patch, Stable, UpdateDecision::Update);
-        assert_decide("1.2.3+abc", "1.2.3+bcd", Minor, Stable, UpdateDecision::Skip);
-        // build metadata 不改变主/次/补丁幅度：1.2.3+abc → 1.2.4 仍是补丁升级
-        assert_decide("1.2.3+abc", "1.2.4", Patch, Stable, UpdateDecision::Update);
-        assert_decide("1.2.3+abc", "1.2.4", Minor, Stable, UpdateDecision::Skip);
-    }
-
-    /// floor_satisfied 全量组合表：3 种门槛 × 3 种变化幅度
-    #[test]
-    fn floor_satisfied_table() {
-        let cases: &[(VersionChange, UpdateLevel, bool)] = &[
-            // Patch 门槛：任何升级都允许
-            (VersionChange::Patch, Patch, true),
-            (VersionChange::Minor, Patch, true),
-            (VersionChange::Major, Patch, true),
-            // Minor 门槛：忽略补丁
-            (VersionChange::Patch, Minor, false),
-            (VersionChange::Minor, Minor, true),
-            (VersionChange::Major, Minor, true),
-            // Major 门槛：仅主版本
-            (VersionChange::Patch, Major, false),
-            (VersionChange::Minor, Major, false),
-            (VersionChange::Major, Major, true),
-        ];
-        for (change, floor, expected) in cases {
-            assert_eq!(
-                floor_satisfied(*change, *floor),
-                *expected,
-                "floor_satisfied(change={change:?}, floor={floor:?})"
-            );
+        for (latest, expected) in [
+            ("1.2.2", [Update(Newer), Skip(BelowFloor), Skip(BelowFloor)]),
+            ("1.3.0", [Update(Newer), Update(Newer), Skip(BelowFloor)]),
+            ("2.0.0", [Update(Newer), Update(Newer), Update(Newer)]),
+        ] {
+            for (level, expected) in [Patch, Minor, Major].into_iter().zip(expected) {
+                assert_eq!(
+                    base("1.2.1", latest, level, Stable),
+                    expected,
+                    "1.2.1 -> {latest} / {level:?}"
+                );
+            }
         }
     }
 
-    /// classify_numeric_change 的三个分支 + 同数字回退 Patch
+    /// 通道切换（稳定 -> 预发布）：Prerelease 通道下仍按门槛
     #[test]
-    fn classify_numeric_change_branches() {
-        assert_eq!(classify_numeric_change(&v("1.2.1"), &v("2.0.0")), VersionChange::Major);
-        assert_eq!(classify_numeric_change(&v("1.2.1"), &v("1.3.0")), VersionChange::Minor);
-        assert_eq!(classify_numeric_change(&v("1.2.1"), &v("1.2.2")), VersionChange::Patch);
-        // 主/次/补丁号完全相同（正常流程被递进分支接管，此处回退 Patch）
-        assert_eq!(classify_numeric_change(&v("1.2.3"), &v("1.2.3-beta")), VersionChange::Patch);
+    fn channel_switch_stable_to_prerelease_uses_floor() {
+        for (latest, expected) in [
+            ("1.2.2-rc.1", [Update(Newer), Skip(BelowFloor), Skip(BelowFloor)]),
+            ("1.3.0-rc.1", [Update(Newer), Update(Newer), Skip(BelowFloor)]),
+            ("2.0.0-rc.1", [Update(Newer), Update(Newer), Update(Newer)]),
+        ] {
+            for (level, expected) in [Patch, Minor, Major].into_iter().zip(expected) {
+                assert_eq!(
+                    base("1.2.1", latest, level, Prerelease),
+                    expected,
+                    "1.2.1 -> {latest} / {level:?}"
+                );
+            }
+        }
+    }
+
+    /// build metadata 是最后决胜键：`1.2.3+abc -> 1.2.3+bcd` 算补丁级
+    #[test]
+    fn build_metadata_is_patch_level() {
+        assert_eq!(base("1.2.3+abc", "1.2.3+bcd", Patch, Stable), Update(Newer));
+        assert_eq!(base("1.2.3+abc", "1.2.3+bcd", Minor, Stable), Skip(BelowFloor));
+        assert_eq!(base("1.2.3+abc", "1.2.4", Patch, Stable), Update(Newer));
+        assert_eq!(base("1.2.3+abc", "1.2.4", Minor, Stable), Skip(BelowFloor));
+    }
+
+    /// 融合矩阵：7 种基础判定 × 3 种 severity
+    #[test]
+    fn fuse_matrix() {
+        let rows: &[(Verdict, [UpdateDecision; 3])] = &[
+            (
+                Verdict::Blocked(ChannelBlocked),
+                [Skip(ChannelBlocked), Skip(ChannelBlocked), Skip(ChannelBlocked)],
+            ),
+            (Verdict::Blocked(NotNewer), [Skip(NotNewer), Skip(NotNewer), Skip(NotNewer)]),
+            (Verdict::Blocked(Disabled), [Skip(Disabled), Skip(Disabled), Update(Force)]),
+            (Verdict::BelowFloor, [Skip(BelowFloor), Update(Exempt), Update(Exempt)]),
+            (Verdict::FloorMet, [Update(Newer), Update(Newer), Update(Newer)]),
+            (Verdict::PrereleaseEscape, [Update(PrereleaseEscape); 3]),
+            (Verdict::PrereleaseProgression, [Update(PrereleaseProgression); 3]),
+        ];
+        for (verdict, row) in rows {
+            for (severity, want) in [Severity::Normal, Severity::Important, Severity::Critical]
+                .into_iter()
+                .zip(row)
+            {
+                assert_eq!(fuse(*verdict, severity), *want, "{verdict:?} × {severity:?}");
+            }
+        }
+    }
+
+    /// 不变量：任何组合下放行都意味着「严格更新」且未被通道拦截
+    #[test]
+    fn never_accepts_a_non_forward_or_hidden_version() {
+        let versions = [
+            "0.9.0",
+            "1.0.0",
+            "1.0.1",
+            "1.1.0",
+            "2.0.0",
+            "1.0.0-rc.1",
+            "1.1.0-rc.2",
+            "2.0.0-alpha.1",
+        ];
+        for current in versions {
+            for latest in versions {
+                for level in [Patch, Minor, Major, Never] {
+                    for channel in [Stable, Prerelease] {
+                        for severity in [Severity::Normal, Severity::Important, Severity::Critical] {
+                            let decision = full(current, latest, level, channel, severity);
+                            if !decision.is_update() {
+                                continue;
+                            }
+                            assert!(
+                                v(latest) > v(current),
+                                "{current} -> {latest} 被放行（{decision:?}），但目标版本并不更高"
+                            );
+                            assert!(
+                                channel == Prerelease || !is_prerelease(&v(latest)),
+                                "{current} -> {latest} 被放行（{decision:?}），但稳定通道不该看到预发布"
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 }

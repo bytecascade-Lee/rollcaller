@@ -10,8 +10,7 @@ use crate::config::app_paths::{current_mode, AppMode};
 use crate::state::http_client;
 use crate::updater::download::Cancelled;
 use model::{
-    Artifact, DownloadProgress, Policy, Severity, UpdateDecision, UpdateError, UpdateSession, UpdateSource, UpdateStatus,
-    UpdateView,
+    Artifact, DownloadProgress, Policy, Severity, UpdateError, UpdateSession, UpdateSource, UpdateStatus, UpdateView,
 };
 use semver::Version;
 use state::{DownloadSlot, UpdaterState};
@@ -178,7 +177,7 @@ impl DownloadPlan {
     /// 复核会话：策略仍放行、凭据齐全、能推出落点
     fn new(session: &UpdateSession, current: &Version) -> Result<Self, Refusal> {
         let info = session.info.as_ref().ok_or(Refusal::Incomplete)?;
-        if decide::evaluate(current, &info.version, &current_policy(), session.severity) != UpdateDecision::Update {
+        if !decide::decide(current, &info.version, &current_policy(), session.severity).is_update() {
             return Err(Refusal::SettingsChanged);
         }
         let artifact = session.artifact.clone().ok_or(Refusal::Incomplete)?;
