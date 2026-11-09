@@ -1,37 +1,19 @@
 <script lang="ts">
   import {onMount} from "svelte";
-  import {
-    CircleNotchIcon,
-    CloudArrowDownIcon,
-    CloudCheckIcon,
-    CloudIcon,
-    CloudWarningIcon,
-    CloudXIcon,
-  } from "phosphor-svelte";
   import MarkdownView from "$components/common/MarkdownView.svelte";
   import {AppInfoCommand} from "$commands";
-  import {updateStore} from "$stores/UpdateStore.svelte";
+  import {updateStore, updateUiStore} from "$stores";
+  import {UpdateOpen} from "$utils";
+  import type {UpdateView} from "$types";
 
-  let {autoCheck = true}: {autoCheck?: boolean} = $props();
-
-  // 单一数据源：后端裁剪视图（命令返回 / 广播同类型），组件只渲染，不推断阶段
+  // 单一数据源
   let view = $derived(updateStore.view);
-  let currentVersion = $state("");
-  let isVisible = $state(false);
-  let installing = $state(false);
-  let previousStatus = $state<string | null>(null);
-
-  // [TODO]：当前仅主窗口（标题栏）渲染本组件，autoCheck 亦只在此发生；
-  // 后期设置窗口加入"检查更新"入口时，重审多窗口各自的 autoCheck 触发与
-  // UpdateStore 多实例幂等订阅（后端广播本就喂全窗口）。
-
-  // 从 tagged union 里安全取展示字段
-  let info = $derived(
-    view.status === "available" || view.status === "downloading" || view.status === "downloaded"
-      ? view.data.info
-      : null,
+  /** 三态（available / downloading / downloaded）共用一个候选，字段一起取 */
+  let candidate = $derived(
+    view.status === "available" || view.status === "downloading" || view.status === "downloaded" ? view.data : null,
   );
-  let severity = $derived(view.status === "available" || view.status === "downloaded" ? view.data.severity : null);
+  let info = $derived(candidate?.info ?? null);
+  let severity = $derived(candidate?.severity ?? null);
   let errorMessage = $derived(view.status === "error" ? view.data.message : null);
   // 后端错误已合并为 { type, message }：type = 失败阶段 = 重试应调的命令
   let retry = $derived(view.status === "error" ? view.data.type : null);
@@ -42,28 +24,21 @@
   let hasTotal = $derived(total !== null && total > 0);
   let percent = $derived(total !== null && total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0);
 
-  // 状态变化时的自动弹窗：检查发现新版本 / 下载完成 / 下载或安装出错时主动提示。
-  // 唯独「检查失败」不弹：自动检查是开机就跑的动作（autoCheck），失败时弹窗平白打扰
-  // 用户，只留标题栏的叉子图标；用户点它仍可打开弹窗看到失败原因。
+  let currentVersion = $state("");
+  let installing = $state(false);
+
+  // 上一次视图的阶段，`null` = 启动恢复现场
+  let prevStatus: UpdateView["status"] | null = null;
+
   $effect(() => {
-    const s = view.status;
-    if (s === previousStatus) return;
-    const prev = previousStatus;
-    previousStatus = s;
-    // `retry` 即失败阶段（= 重试该调的命令）：只拦 "check"，下载/安装失败仍提示
-    const shouldAutoOpen =
-      (s === "available" && prev === "checking") ||
-      (s === "downloaded" && prev === "downloading") ||
-      (s === "error" && prev !== "error" && retry !== "check");
-    if (shouldAutoOpen) {
-      isVisible = true;
-    }
+    const next = view;
+    if (UpdateOpen.shouldAutoOpen(prevStatus, next)) updateUiStore.show();
+    prevStatus = next.status;
   });
 
-  async function checkForUpdates() {
+  function checkNow() {
     if (view.status === "checking" || view.status === "downloading") return;
-    isVisible = true;
-    await updateStore.check();
+    void updateStore.check();
   }
 
   async function download() {
@@ -73,7 +48,7 @@
 
   async function cancelDownload() {
     await updateStore.cancel();
-    isVisible = false;
+    updateUiStore.hide();
   }
 
   async function installAndRestart() {
@@ -93,65 +68,20 @@
   }
 
   onMount(async () => {
-    // 订阅广播 + 恢复现场（Idle 时自动检查一次）
-    await updateStore.init();
-    if (autoCheck && updateStore.view.status === "idle") {
-      await updateStore.check();
-    }
     const info = await AppInfoCommand.app_info();
     currentVersion = info.version;
   });
 </script>
 
-<!-- 标题栏图标：按视图状态切换 -->
-{#if view.status == "idle"}
-  <button aria-label="检查更新" class="icon-button" title="检查更新" onclick={checkForUpdates}>
-    <CloudIcon size="16" weight="bold" />
-  </button>
-{:else if view.status == "checking"}
-  <button aria-label="正在检查更新" class="icon-button" title="正在检查更新…">
-    <CircleNotchIcon size="16" style="animation: spin 1.5s linear infinite" weight="bold" />
-  </button>
-{:else if view.status == "available"}
-  <button aria-label="发现新版本" class="icon-button primary" title="发现新版本" onclick={() => (isVisible = true)}>
-    <CloudWarningIcon size="16" weight="bold" />
-  </button>
-{:else if view.status == "upToDate"}
-  <button aria-label="已是最新版本" class="icon-button" title="已是最新版本" onclick={() => (isVisible = true)}>
-    <CloudCheckIcon size="16" weight="bold" />
-  </button>
-{:else if view.status == "downloading"}
-  <button aria-label="正在下载更新" class="icon-button primary" title="正在下载更新" onclick={() => (isVisible = true)}>
-    <CloudArrowDownIcon
-      size="16"
-      style="animation: pulse 1.5s var(--transition-ease-in-out) infinite, blink 1.5s var(--transition-ease-in-out) infinite"
-      weight="bold"
-    />
-  </button>
-{:else if view.status == "downloaded"}
-  <button
-    aria-label="更新已就绪"
-    class="icon-button success"
-    title="更新已就绪，点击重启应用"
-    onclick={() => (isVisible = true)}
-  >
-    <CloudCheckIcon size="16" weight="bold" />
-  </button>
-{:else if view.status == "error"}
-  <button aria-label="更新出错" class="icon-button error" title="更新出错" onclick={() => (isVisible = true)}>
-    <CloudXIcon size="16" weight="bold" />
-  </button>
-{/if}
-
-{#if isVisible}
+{#if updateUiStore.open}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="overlay" onclick={() => (isVisible = false)}>
+  <div class="overlay" onclick={() => updateUiStore.hide()}>
     <div class="popup" onclick={(e) => e.stopPropagation()}>
       <div class="popup-header">
         <h3 class="text-title">
           {#if view.status == "checking"}
-            正在检查更新…
+            正在检查更新...
           {:else if view.status == "available"}
             发现新版本 v{info?.version}
           {:else if view.status == "upToDate"}
@@ -221,7 +151,7 @@
         <p class="text-content">当前版本 <b>{currentVersion}</b> 已是最新版本。</p>
       {/if}
 
-      <!-- 入口拒绝类错误（如开发模式）提示 -->
+      <!-- 入口拒绝类错误提示 -->
       {#if updateStore.lastError}
         <p class="text-content" style="margin-top: var(--space-xs); color: var(--color-error);">
           {updateStore.lastError}
@@ -229,7 +159,7 @@
       {/if}
 
       <div class="button-group">
-        <button class="button" onclick={() => (isVisible = false)} disabled={installing}>
+        <button class="button" onclick={() => updateUiStore.hide()} disabled={installing}>
           {#if view.status == "downloading"}
             后台下载
           {:else}
@@ -238,18 +168,18 @@
         </button>
 
         {#if view.status == "available"}
-          <button class="button warn" onclick={checkForUpdates}>重新检查</button>
+          <button class="button warn" onclick={checkNow}>重新检查</button>
           <button class="button yes" onclick={() => void download()}>下载</button>
         {:else if view.status == "downloading"}
           <button class="button warn" onclick={() => void cancelDownload()}>取消下载</button>
         {:else if view.status == "downloaded"}
           <button class="button yes" onclick={() => void installAndRestart()} disabled={installing}>
-            {installing ? "重启中…" : "重启并更新"}
+            {installing ? "重启中..." : "重启并更新"}
           </button>
         {:else if view.status == "error"}
           <button class="button warn" onclick={retryAction}>重试</button>
         {:else if view.status == "upToDate" || view.status == "idle"}
-          <button class="button yes" onclick={checkForUpdates}>检查更新</button>
+          <button class="button yes" onclick={checkNow}>检查更新</button>
         {/if}
       </div>
     </div>

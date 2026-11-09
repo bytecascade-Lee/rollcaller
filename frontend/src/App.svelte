@@ -29,6 +29,7 @@
   import type {AppInfo} from "$types";
   import {onMount} from "svelte";
   import AppTitleBar from "$components/app/AppTitlebar.svelte";
+  import UpdaterDialog from "$components/app/updater/UpdaterDialog.svelte";
   import {getCurrentWebviewWindow} from "@tauri-apps/api/webviewWindow";
   import {listen} from "@tauri-apps/api/event";
   import {nav} from "$routing/nav";
@@ -38,6 +39,7 @@
   import {HelpRoute} from "$routing/help/entries.generated";
   import {appNavigate} from "$routing/app/navigate";
   import {DateTimeUtils} from "$utils";
+  import {updateUiStore} from "$stores/UpdaterStore.svelte";
 
   let APP_INFO = $state<AppInfo | null>(null);
   const window = getCurrentWebviewWindow();
@@ -55,6 +57,8 @@
 
   onMount(() => {
     void AppInfoCommand.app_info().then((info) => (APP_INFO = info));
+    // 更新：订阅广播 + 恢复现场 + 空闲时自动检查一次
+    void updateUiStore.bootstrap();
 
     let disposeNav: (() => void) | null = null;
     let unlisten: (() => void) | null = null;
@@ -157,6 +161,9 @@
     </footer>
   {/if}
 </div>
+
+<!-- 更新弹窗挂在 shell 根：标题栏只留图标（`.titlebar` 的 user-select: none 也不再继承给它） -->
+<UpdaterDialog />
 
 <style>
   .shell {
