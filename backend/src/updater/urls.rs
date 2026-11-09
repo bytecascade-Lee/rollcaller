@@ -1,9 +1,5 @@
 //! 更新源的链接构造：源 + 版本 → URL
 //!
-//! # 唯一性
-//!
-//! 本模块是 Rust 侧**唯一**知道 Release 路径形状的地方，与发布端 `scripts/release/urls.py`
-//! 逐函数对应（两边各一份实现，靠 golden 测试与发布后自检防漂移，不做代码生成）：
 //!
 //! | 本模块                | Python               | 形状                                                  |
 //! |-----------------------|----------------------|-------------------------------------------------------|
@@ -11,30 +7,17 @@
 //! | [`versions_index_url`]| `versions_index_url` | `<base>/releases/latest/download/versions.json`       |
 //! | [`manifest_name`]     | `manifest_name`      | `latest-<slug>.json`                                  |
 //! | [`manifest_url`]      | `manifest_url`       | `<base>/releases/download/v<ver>/latest-<slug>.json`  |
-//!
-//! 唯一的单向差异是 [`updater_manifest_url`]：更新器在另一个仓库发布，Python 侧没有对应物。
-//!
-//! # CNB 的 `/-/`
-//!
-//! CNB 的 Release 直链必须带 `/-/` 段（`cnb.cool/<owner>/<repo>/-/releases/...`），漏掉就是
-//! HTTP 404 —— 0.8.4 / 0.8.5 两次发布的清单都因此错发过（产物本身在 `/-/` 下是 200）。
-//! 所以 `/-` 只写在 [`CNB_REPO`] 一处，其余路径全部经 [`base`] 拼装，不要再手写完整链接。
-//!
-//! # 版本段
-//!
-//! 一律 `v<语义化版本>`（[`Version`] 的 Display），与 Python 的 `Version.to_tag()` 逐字符一致。
-//! Develop 形态的版本自带 `+build` 元数据，也原样进 URL——本地联调服务按同一串比对。
 
 use crate::updater::model::UpdateSource;
 use semver::Version;
 
-/// GitHub 仓库页（Release 直链的基址，无结尾 `/`）
+/// GitHub 仓库页
 const GITHUB_REPO: &str = "https://github.com/bytecascade-Lee/rollcaller";
-/// CNB 仓库页：结尾的 `/-` 是 Release 路径的必需前缀，**不要删**
+/// CNB 仓库页，结尾的 `/-` 是 Release 路径的必需前缀
 const CNB_REPO: &str = "https://cnb.cool/ordinary-glory/rollcaller/-";
 /// 本地联调源，由 `scripts/release/serve.py` 起在同构路径上
 const DEVELOP_REPO: &str = "http://localhost:14652/rollcaller";
-/// 更新器仓库（与主仓库不同，故单独一条；同样需要 `/-`）
+/// 更新器仓库
 const UPDATER_REPO_CNB: &str = "https://cnb.cool/ordinary-glory/updater/-";
 
 /// 源的仓库基址（三类 URL 的公共前缀）
@@ -47,28 +30,16 @@ fn base(source: UpdateSource) -> &'static str {
 }
 
 /// 某个版本的产物直链：`<base>/releases/download/v<ver>/<name>`
-///
-/// `file_name` 同时是客户端落盘的产物名（`Artifact::file_name()` 取 url 最后一段），
-/// 所以发布侧必须让它自带版本 / 平台 / 架构。
-///
-/// # 例
-/// `asset_url(CNB, 0.8.6, "rollcaller-0.8.6-windows-x86_64-setup.exe")` →
-/// `https://cnb.cool/ordinary-glory/rollcaller/-/releases/download/v0.8.6/rollcaller-0.8.6-windows-x86_64-setup.exe`
 pub fn asset_url(source: UpdateSource, version: &Version, file_name: &str) -> String {
     format!("{}/releases/download/v{version}/{file_name}", base(source))
 }
 
 /// 版本索引直链：`<base>/releases/latest/download/versions.json`
-///
-/// 恒指向"当前 latest 的 Release"里的那一份，因此每次检查都要拉、不缓存。
 pub fn versions_index_url(source: UpdateSource) -> String {
     format!("{}/releases/latest/download/versions.json", base(source))
 }
 
 /// 清单文件名：`latest-github.json` / `latest-cnb.json` / `latest-develop.json`
-///
-/// 注意 `Local` 源的文件名是 `develop` 而不是 `local`——发布端 `Source.DEVELOP` 的取值即
-/// `develop`，两端必须逐字符一致。
 pub fn manifest_name(source: UpdateSource) -> &'static str {
     match source {
         UpdateSource::GitHub => "latest-github.json",
@@ -78,17 +49,11 @@ pub fn manifest_name(source: UpdateSource) -> &'static str {
 }
 
 /// 某个版本的清单直链：`<base>/releases/download/v<ver>/latest-<slug>.json`
-///
-/// 清单按版本寻址（不是 `latest/download`），因为它是"这一版发布了什么"的凭据。
 pub fn manifest_url(source: UpdateSource, version: &Version) -> String {
     asset_url(source, version, manifest_name(source))
 }
 
-/// 更新器清单直链（锁定版本）：`<updater>/releases/download/v<ver>/latest-cnb.json`
-///
-/// 更新器只有 CNB 一个源，且按 **tag** 取（不用 latest）——更新器侧解释我们写出的
-/// `config`，旧版会直接拒绝，故版本必须由调用方显式传入（通常传
-/// [`crate::updater::constant::UPDATER_VERSION`]）。
+/// 更新器清单直链：`<updater>/releases/download/v<ver>/latest-cnb.json`
 pub fn updater_manifest_url(version: &str) -> String {
     format!("{UPDATER_REPO_CNB}/releases/download/v{version}/latest-cnb.json")
 }
@@ -182,7 +147,7 @@ mod tests {
         );
     }
 
-    /// 所有构造出来的串都必须是合法 URL（防手滑写错分隔符）
+    /// 所有构造出来的串都必须是合法的 URL
     #[test]
     fn all_urls_parse() {
         let sources = [UpdateSource::GitHub, UpdateSource::CNB, UpdateSource::Local];

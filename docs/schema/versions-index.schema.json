@@ -1,0 +1,65 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Rollcaller 版本索引（versions.json）",
+    "description": "自动更新的版本索引，随每次发布以固定文件名 `versions.json` 挂到 Release 的 `releases/latest/download/` 下（本地联调源为 `http://localhost:14652/rollcaller`）。对齐 Rust 侧 `backend/src/updater/model.rs::HistoryVersion`（serde 默认命名）与发布侧 `scripts/common/entity/version_index.py`。**形态永久固定为裸数组**：0.8.0 起的客户端直接按 `Vec<HistoryVersion>` 解析，改成键值对会让所有老客户端在 check 阶段永久失败，且索引每次拉取、无法靠客户端重试恢复。可扩展性靠往条目里加字段（客户端对未知字段是忽略，故加字段安全；而 Release 脚本对未知字段是报错，避免 read→write 静默丢字段）。",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+            "version"
+        ],
+        "properties": {
+            "version": {
+                "description": "已发布的版本号（core 版本，不带前导 v、不带 +build）。客户端在 `(current, latest]` 区间内从高到低扫描，取首个被策略放行的版本作为目标版本，因此**每个条目都必须对应一个真实存在、且清单可取的 Release**——索引里多写一个尚未发布的版本，就会让落在该区间的客户端去取不存在的清单。发布脚本会剔除高于本次发布的条目。",
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-([0-9A-Za-z.-]+))?(?:\\+([0-9A-Za-z.-]+))?$"
+            },
+            "severity": {
+                "description": "严重级别，缺省按 normal。它是**索引侧**的预筛选依据（决定是否豁免幅度门槛、是否强制更新），清单里的 severity 是发布端的自述，客户端会复判二者一致。级别的唯一标定处是仓库的 `resources/update/versions.json`，`just bump` 要求本版本条目已存在。",
+                "enum": [
+                    "normal",
+                    "important",
+                    "critical"
+                ]
+            },
+            "manifests": {
+                "description": "各源清单的内容摘要。**缺省 = 老索引 / 未回填**，客户端对该源走 legacy 路径（缓存只判能否解析成 JSON）；某个源缺省 = 只有那个源没有摘要。三个键的取值与清单文件名 `latest-{source}.json`、缓存目录 `cache/update/{source}/` 的 slug 逐字符一致（`Local` 形态对应 `develop`）。",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "github": {
+                        "$ref": "#/definitions/digest"
+                    },
+                    "cnb": {
+                        "$ref": "#/definitions/digest"
+                    },
+                    "develop": {
+                        "$ref": "#/definitions/digest"
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "digest": {
+            "description": "单个源清单的摘要。摘要**必须按源分槽**：`latest-github.json` 与 `latest-cnb.json` 只有 url 的 host 不同，但 sha256 是逐字节的，两份文件必然两个摘要。摘要的对象是**清单的原始字节**（含其行尾），所以清单必须由发布链路写出且行尾固定 LF，不得用编辑器另存。",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "sha256"
+            ],
+            "properties": {
+                "sha256": {
+                    "description": "清单字节的 sha256 十六进制小写。客户端比对不上就删掉本地清单缓存并重新拉取——这正是「发布端覆盖上传修好的清单」能立刻生效的原因。",
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                },
+                "signature": {
+                    "description": "base64(minisign 签名文本)，即清单旁 `.sig` 文件的全文。**三个源都必填**：客户端 `verify_manifest` 会验签，缺失或不符即让本次检查失败；CI 的 `release.py` 与本地 `release_local` 都走同一个 `sign_and_digest`（本地发布同样要求 `TAURI_SIGNING_PRIVATE_KEY`）。⚠️ 索引自身未被签名之前它**不是信任锚**（能改索引的人也能一起换掉签名），价值在于与产物链路共用同一套 minisign 约定、并为「索引签名」预铺路。",
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

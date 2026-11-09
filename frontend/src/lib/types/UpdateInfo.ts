@@ -9,6 +9,6 @@ export type UpdateInfo = { version: string,
  */
 notes: string | null, 
 /**
- * publishDate（格式化后的字符串，供前端展示）
+ * publishDate
  */
 date: string | null, };

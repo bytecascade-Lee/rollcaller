@@ -1,41 +1,9 @@
-//! 下载产物的签名验证（minisign / Ed25519）与 sha256 完整性校验
+//! 产物与清单的签名验证（minisign / Ed25519）与 sha256 完整性校验。
 //!
-//! 同一套原语也用于**版本清单**字节（[`verify_manifest`]）：那边只强制 sha256，签名有则验——
-//! 清单签名在索引自身被签名之前不是信任锚，详见该函数的文档。
+//! # 双层 base64
 //!
-//! # 双层内容约定
-//!
-//! `manifest.signature` 与公钥文件 [`ROLLCALLER_UPDATE_PUBKEY`] 的原始内容都是 **base64(minisign 文本)**：
-//!
-//! - minisign 的 `.sig` 文件全文（含 `untrusted comment:` 头）经 base64 编码后存入 [`Artifact::signature`]；
-//! - minisign 的 `.pub` 文件全文经 base64 编码后作为公钥内容。
-//!
-//! 因此验签前必须先用 STANDARD base64 解码，得到 minisign 文本后再交给 `minisign-verify` 解析。
-//!
-//! 注意：tauri-cli ≥2.11 的 `signer generate/sign` **产出的 `.pub` / `.sig` 文件本身就已
-//! 是 base64(minisign 文本)**（与本模块约定的清单字段同格式），可直接复制/填入，无需再编码；
-//! 旧版 CLI 产出明文 minisign 文本，才需要手动 base64。参见下方互操作步骤。
-//!
-//! # 签名必填（fail closed）
-//!
-//! 走本模块组合入口（[`verify_artifact`] / [`verify_artifact_path`]）的产物**必须带签名**：
-//! `signature` 为空即拒绝，不再"空则跳过 minisign、只验 sha256"。
-//!
-//! 原因：清单（含其 `sha256` / `size` / `url`）本身没有认证，唯一能证明"这些字节确实是发布方
-//! 发布的"的东西就是 minisign 签名——没有私钥无法伪造。若允许空签名跳过验签，则一份被篡改的
-//! 清单（例如本地 `cache/update/{source}/{version}.json` 被改写、`signature` 清空）
-//! 就能把 `sha256` 换成攻击者自己的产物并一路通过校验，整条信任链失效。
-//!
-//! 因此"只验完整性"保留为**独立原语** [`verify_sha256`]，供确实无签名的调用方（Go updater
-//! 更新器：扁平清单、仅 sha256）直接使用，不再经由组合入口的空签名分支。
-//!
-//! # 互操作
-//!
-//! 1. 生成密钥对：`tauri signer generate --ci -p <密码> -w <名称>.key`，产出 `<名称>.key` 与 `<名称>.key.pub`；
-//! 2. 将 `<名称>.key.pub` 的**完整内容**（已是 base64(minisign 公钥文本)）赋值给 [`ROLLCALLER_UPDATE_PUBKEY`]；
-//! 3. 对产物签名：`tauri signer sign <文件> -f <名称>.key -p <密码>`，产出 `<文件>.sig`；
-//! 4. 将 `<文件>.sig` 的**完整内容**（已是 base64(minisign 签名文本)）填入清单的 `signature` 字段；
-//! 5. 运行互操作测试 `cargo test --lib service::update::verify::interop_with_tauri_signer` 验证（本机无 tauri CLI 时自动跳过并打印提示，此时可依上述步骤手动验证）。
+//! 清单 `signature` 与公钥内容都是 `base64(minisign 文本)`，需要先通过 base64 解码外层，
+//! 再交给 `minisign-verify` 解析。tauri-cli >= 2.11 的 `.pub` / `.sig` 本身就是该格式。
 
 use crate::common::ext::encode_ext::Base64Ext;
 use crate::common::ext::hash_ext::HashExt;
@@ -44,19 +12,18 @@ use crate::updater::model::{Artifact, ManifestDigest};
 use anyhow::anyhow;
 use std::path::Path;
 
-/// 与官方插件 verify_signature 逐行一致：先解 base64，再解析 minisign 文本并验证
-///
-/// - `release_signature`：base64(minisign 签名文本)，即 `Artifact.signature`
-/// - `pub_key_b64`：base64(minisign 公钥文本)，即 [`ROLLCALLER_UPDATE_PUBKEY`]
+/// 验签，先解外层 base64，再解析 minisign 文本
 pub fn verify_signature(data: &[u8], release_signature: &str, pub_key_b64: &str) -> anyhow::Result<()> {
     let public_key = minisign_verify::PublicKey::decode(
         &pub_key_b64
+            .trim()
             .base64_decode()
             .map_err(|e| anyhow!("签名公钥 base64 解码失败：{e} / {pub_key_b64}"))?,
     )
     .map_err(|e| anyhow!("minisign 公钥解析失败（外层解码后应为两行：untrusted comment 行 + 42 字节公钥 base64）：{e}"))?;
     let signature = minisign_verify::Signature::decode(
         &release_signature
+            .trim()
             .base64_decode()
             .map_err(|e| anyhow!("签名 base64 解码失败：{e} / {release_signature}"))?,
     )
@@ -66,7 +33,7 @@ pub fn verify_signature(data: &[u8], release_signature: &str, pub_key_b64: &str)
     Ok(())
 }
 
-/// sha256 十六进制（小写），与 `manifest.sha256` 比较
+/// sha256 十六进制，与 `manifest.sha256` 比较
 pub fn verify_sha256(data: &[u8], expected_hex: &str) -> anyhow::Result<()> {
     let actual = data.sha256();
     if actual != expected_hex.to_ascii_lowercase() {
@@ -75,90 +42,54 @@ pub fn verify_sha256(data: &[u8], expected_hex: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// 主包产物签名必填前置（fail closed）
-///
-/// `signature` 为空即拒绝。旧语义"空签名 = 该产物无签名、只验 sha256"已废弃——清单自身未经
-/// 认证，允许空签名等于把 `sha256` 的控制权交给任何能改写清单缓存的人；而签名没有私钥无法伪造，
-/// 因此"签名必填"是本模块唯一的真实性保证。详见模块文档「签名必填（fail closed）」。
-///
-/// 确实无签名的调用方（Go updater 更新器）请**直接使用** [`verify_sha256`]，
-/// 不要经由 [`verify_artifact`] / [`verify_artifact_path`]。
-fn ensure_signed(artifact: &Artifact) -> anyhow::Result<()> {
-    if artifact.signature.trim().is_empty() {
-        anyhow::bail!("清单缺少产物签名（signature 为空），拒绝校验：更新产物必须带 minisign 签名")
+/// 签名必填前置：空签名即拒绝（产物与清单同一档 fail closed）
+fn ensure_signed(signature: &str, what: &str) -> anyhow::Result<()> {
+    if signature.trim().is_empty() {
+        anyhow::bail!("{what}缺少 minisign 签名（signature 为空），拒绝校验")
     }
     Ok(())
 }
 
-/// 下载字节的统一校验入口（bytes 形态）：签名必填 → sha256（完整性）→ minisign 签名（真实性）
+/// 产物校验：签名必填 -> sha256 -> minisign
 pub fn verify_artifact(data: &[u8], artifact: &Artifact) -> anyhow::Result<()> {
-    ensure_signed(artifact)?;
+    ensure_signed(&artifact.signature, "更新产物")?;
     verify_sha256(data, &artifact.sha256)?;
     verify_signature(data, &artifact.signature, active_pubkey())?;
     Ok(())
 }
 
-/// 清单字节的校验入口：sha256 必验 → 有签名再验签
+/// 清单验签：签名必填（与产物同一档）
 ///
-/// 与 [`verify_artifact`] 的两点差异，都是刻意的：
-/// - **签名非必填**：清单签名在索引未被签名之前不是信任锚（能改索引的人也能换签名），
-///   它的作用是与产物链路共用一套约定、并为"索引签名"预铺路；而 sha256 覆盖的是
-///   "这份字节是不是索引所说的那份"，正是缓存自愈需要的那个问题。
-/// - **不复用 [`verify_artifact`]**：那边要 `Artifact`（url / size），语义是"下载产物"，
-///   硬套会让清单与产物的约束纠缠在一起。
+/// sha256 不在这里比——调用方对"摘要不符"的处理是宽松的（索引抄错不该阻断更新），
+/// 而签名验不过说明清单不是发布方给的，必须直接失败。
 pub fn verify_manifest(data: &[u8], digest: &ManifestDigest) -> anyhow::Result<()> {
-    verify_sha256(data, &digest.sha256)?;
-    if let Some(signature) = digest.signature.as_deref().filter(|s| !s.trim().is_empty()) {
-        verify_signature(data, signature, active_pubkey())?;
-    }
-    Ok(())
+    let signature = digest.signature.as_deref().unwrap_or_default();
+    ensure_signed(signature, "清单")?;
+    verify_signature(data, signature, active_pubkey())
 }
 
-/// 已落盘文件的统一校验入口（path 形态）：签名必填 → sha256 + minisign 签名
-///
-/// # 内存语义
-/// minisign-verify 仅支持整段字节（`&[u8]`），签名验证必须一次性读入文件；
-/// sha256因此也基于同一份字节整段计算（复用 [`verify_sha256`]，适配 `hash_ext`），
-/// 不再对文件自维护流式哈希——两种方式的峰值内存相同（都被签名步骤的整读决定）。
-///
-/// # 签名必填
-/// 空签名在 [`ensure_signed`] 处直接拒绝（fail closed）。需要"只验 sha256"的调用方
-/// 使用 [`verify_sha256`]——那是一条独立原语，不属于本入口的语义。
-///
-/// # 双重 base64
-/// [`Manifest.signature`] 与公钥文件内容均为 base64(minisign 文本)：
-/// 先经 [`Base64Ext::base64_decode`] 解外层，
-/// 再交 minisign-verify 解析内层文本
-/// 与官方插件行为一致，详见 [`verify_signature`]。
+/// 产物校验：签名必填 -> sha256 -> minisign
 pub fn verify_artifact_path(path: &Path, artifact: &Artifact) -> anyhow::Result<()> {
-    ensure_signed(artifact)?;
+    ensure_signed(&artifact.signature, "更新产物")?;
     let data = std::fs::read(path).map_err(|e| anyhow!("读取下载产物失败（{}）：{e}", path.display()))?;
     verify_sha256(&data, &artifact.sha256)?;
     verify_signature(&data, &artifact.signature, active_pubkey())?;
     Ok(())
 }
 
-/// 当前构建使用的验签公钥（base64(minisign 公钥文本)）
-///
-/// - **生产构建**：嵌入的正式公钥 [`ROLLCALLER_UPDATE_PUBKEY`]；
-/// - **测试构建**：改用进程内临时生成的测试密钥对（见 [`test_keys`]）——正式公钥对应的私钥
-///   不在代码库内，测试无法为它产出合法签名，若不替换，组合入口的成功路径将无法被单测覆盖。
+/// 当前构建的验签公钥
 #[cfg(not(test))]
 fn active_pubkey() -> &'static str {
     ROLLCALLER_UPDATE_PUBKEY
 }
 
-/// 测试构建：使用进程内临时测试公钥（详见 [`test_keys`]）
+/// 测试构建使用进程内临时测试公钥
 #[cfg(test)]
 fn active_pubkey() -> &'static str {
     test_keys::pubkey_b64()
 }
 
-/// 测试构建专用的进程内密钥对（不落盘、不写死私钥，规避私钥泄露进生产构建）
-///
-/// 生产构建不包含本模块（`#[cfg(test)]`）。作用：让 [`verify_artifact`] /
-/// [`verify_artifact_path`] 在单测中既能覆盖成功路径（用本密钥对真实签名），
-/// 又不依赖仓库外的正式私钥。
+/// 测试构建专用的进程内密钥对（不落盘、不写死私钥；`#[cfg(test)]` 不进生产构建）
 #[cfg(test)]
 pub(crate) mod test_keys {
     use base64::Engine;
@@ -173,8 +104,6 @@ pub(crate) mod test_keys {
 
     static KEYS: LazyLock<Keys> = LazyLock::new(|| {
         let pair = minisign::KeyPair::generate_unencrypted_keypair().expect("生成测试密钥对失败");
-        // minisign 0.7：sign(pk: Option<&PublicKey>, sk: &SecretKey, reader: Read, trusted, untrusted)，
-        // 恒定使用预哈希（对应 minisign-verify 的 verify(..., true)）
         let pub_text = pair.pk.to_box().expect("公钥转 PublicKeyBox 失败").into_string();
         Keys {
             pub_b64: base64::engine::general_purpose::STANDARD.encode(pub_text),
@@ -187,7 +116,7 @@ pub(crate) mod test_keys {
         &KEYS.pub_b64
     }
 
-    /// 用测试密钥对 `data` 签名，返回外层 base64(minisign 签名文本)——即 `Artifact.signature` 期望格式
+    /// 用测试密钥对 `data` 签名，返回外层 base64(minisign 签名文本)
     pub(crate) fn sign(data: &[u8]) -> String {
         let signature = minisign::sign(None, &KEYS.pair.sk, data, None, None).expect("测试签名失败");
         base64::engine::general_purpose::STANDARD.encode(signature.to_string())
@@ -202,13 +131,9 @@ mod tests {
     use sha2::Digest;
     use std::path::PathBuf;
 
-    /// 动态生成临时密钥对并对 data 签名，返回 (公钥外层 base64, 签名外层 base64)
-    ///
-    /// 不落盘、不写死任何私钥，规避私钥泄露进生产构建的风险。
+    /// 临时密钥对签名，返回 (公钥外层 base64, 签名外层 base64)
     fn sign_fixture(data: &[u8]) -> (String, String) {
         let key_pair = minisign::KeyPair::generate_unencrypted_keypair().expect("生成密钥对失败");
-        // minisign 0.7：sign(pk: Option<&PublicKey>, sk: &SecretKey, reader: Read, trusted, untrusted)，
-        // 恒定使用预哈希（对应 minisign-verify 的 verify(..., true)）
         let signature = minisign::sign(None, &key_pair.sk, data, None, None).expect("签名失败");
         let pub_text = key_pair.pk.to_box().expect("公钥转 PublicKeyBox 失败").into_string();
         let pub_b64 = base64::engine::general_purpose::STANDARD.encode(pub_text);
@@ -216,7 +141,7 @@ mod tests {
         (pub_b64, sig_b64)
     }
 
-    /// 构造 Artifact：用动态密钥对 data 签名，sha256 为 data 的真实哈希
+    /// 用临时密钥对（非当前构建的有效密钥）签名的产物
     fn make_artifact(data: &[u8]) -> Artifact {
         let (_, sig_b64) = sign_fixture(data);
         Artifact {
@@ -227,10 +152,7 @@ mod tests {
         }
     }
 
-    /// 构造 Artifact：用**当前构建的有效密钥对**（[`test_keys`]）签名，sha256 为 data 的真实哈希
-    ///
-    /// 组合入口（[`verify_artifact`] / [`verify_artifact_path`]）走 [`active_pubkey`]：
-    /// 生产是正式公钥、测试是 [`test_keys`]，故只有用 `test_keys` 签名才能覆盖成功路径。
+    /// 用当前构建的有效密钥对（[`test_keys`]）签名的产物——组合入口的成功路径只能靠它覆盖
     fn make_signed_artifact(data: &[u8]) -> Artifact {
         Artifact {
             url: "https://example.com/app.exe".parse().unwrap(),
@@ -295,53 +217,40 @@ mod tests {
         assert!(non_utf8.base64_decode().is_err());
     }
 
-    /// 清单摘要：只有 sha256 时通过（老/匿名清单的常规形态）
+    /// 清单签名必填：缺失或纯空白一律拒绝（与产物同一档 fail closed）
     #[test]
-    fn verify_manifest_accepts_sha256_only() {
+    fn verify_manifest_rejects_unsigned() {
         let data = br#"{"version":"0.8.6","platforms":{}}"#;
-        let digest = ManifestDigest {
+        let unsigned = ManifestDigest {
             sha256: hex::encode(sha2::Sha256::digest(data)),
             signature: None,
         };
-        verify_manifest(data, &digest).expect("sha256 正确应通过");
+        assert!(verify_manifest(data, &unsigned).is_err(), "缺签名应被拒绝");
 
-        // 空签名 / 纯空白等同于"无签名"，不能因为字段存在就误判为"要验签"
+        // 空签名 / 纯空白等同于"无签名"，不能因为字段存在就当成"有签名"
         let blank = ManifestDigest {
             signature: Some("  \n".to_string()),
-            ..digest.clone()
+            ..unsigned
         };
-        verify_manifest(data, &blank).expect("空白签名应视为无签名");
+        assert!(verify_manifest(data, &blank).is_err(), "空白签名应被拒绝");
     }
 
-    /// 清单摘要：有签名时必须验过（用当前构建的有效密钥对真实签名）
+    /// 清单签名：必须由当前构建的密钥对签出，别人的签名一律拒绝
     #[test]
-    fn verify_manifest_checks_signature_when_present() {
+    fn verify_manifest_requires_active_key_signature() {
         let data = br#"{"version":"0.8.6","platforms":{}}"#;
         let digest = ManifestDigest {
             sha256: hex::encode(sha2::Sha256::digest(data)),
             signature: Some(super::test_keys::sign(data)),
         };
-        verify_manifest(data, &digest).expect("正确签名应通过");
+        verify_manifest(data, &digest).expect("当前密钥的签名应通过");
 
-        // 摘要对但签名不属于当前公钥 → 拒绝（否则"有签名"就形同虚设）
         let (_, foreign_sig) = sign_fixture(data);
         let foreign = ManifestDigest {
             signature: Some(foreign_sig),
             ..digest
         };
-        assert!(verify_manifest(data, &foreign).is_err());
-    }
-
-    /// 清单摘要：sha256 不符即拒绝，且**先于**验签（sig 正确也不能救）
-    #[test]
-    fn verify_manifest_rejects_wrong_sha256() {
-        let data = br#"{"version":"0.8.6","platforms":{}}"#;
-        let digest = ManifestDigest {
-            sha256: "00".repeat(32),
-            signature: Some(super::test_keys::sign(data)),
-        };
-        let err = verify_manifest(data, &digest).expect_err("sha256 错误应被拒绝");
-        assert!(err.to_string().contains("sha256 不匹配"), "错误应指出来源: {err}");
+        assert!(verify_manifest(data, &foreign).is_err(), "异己签名应被拒绝");
     }
 
     #[test]
@@ -365,10 +274,7 @@ mod tests {
         verify_artifact(data, &artifact).expect("正确 sha256 + 有效签名应通过");
     }
 
-    /// 组合入口拒绝**无签名**产物（fail closed）
-    ///
-    /// 回归用例：清单缓存可被本地改写，若允许"空签名 = 只验 sha256"，改写者只要把 sha256
-    /// 换成自己产物的哈希即可让任意 exe 通过校验并被安装。
+    /// 组合入口拒绝无签名产物
     #[test]
     fn verify_artifact_rejects_unsigned() {
         let data = b"artifact bytes";
@@ -377,7 +283,7 @@ mod tests {
             ..make_signed_artifact(data)
         };
         let err = verify_artifact(data, &artifact).expect_err("空签名应被拒绝");
-        assert!(err.to_string().contains("缺少产物签名"), "错误应指出签名缺失: {err}");
+        assert!(err.to_string().contains("缺少 minisign 签名"), "错误应指出签名缺失: {err}");
 
         // 空白签名同样拒绝（避免 trim 前后不一致被绕过）
         let blank = Artifact {
@@ -407,23 +313,21 @@ mod tests {
     /// 无 tauri CLI 的环境自动跳过（打印提示），手动复现步骤见本模块文档。
     #[test]
     fn interop_with_tauri_signer() {
-        let tauri_cli_path = app_paths::resources_dir().join("tauri/cargo-tauri.exe");
+        let tauri_cli_path = app_paths::resources_dir().join(format!("tauri/cargo-tauri{}", std::env::consts::EXE_SUFFIX));
         let tauri_ok = std::process::Command::new(&tauri_cli_path)
             .arg("--version")
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
         if !tauri_cli_path.exists() || !tauri_ok {
-            eprintln!("[interop] 未检测到 tauri CLI，跳过互操作测试；手动步骤见 crate::service::update::verify 模块文档");
+            eprintln!("[interop] 未检测到 tauri CLI，跳过互操作测试；手动步骤见 crate::updater::verify 模块文档");
             return;
         }
 
         let dir = app_paths::temp_dir().join(format!("rollcaller-verify-interop-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap_or_else(|error| panic!("创建临时目录 {} 失败: {error}", dir.display()));
 
-        // 1. 生成密钥对（固定测试密码，非交互）
-        // 新版 tauri-cli（2.11）：generate 用 -p 密码 + -w 私钥输出文件 + --ci 免交互；
-        // 产出 {file}.key 与 {file}.key.pub（find_file_with_ext 按扩展名兜底兼容命名）
+        // 1. 生成密钥对
         let key_file = dir.join("interopkey.key");
         let status = std::process::Command::new(&tauri_cli_path)
             .args(["signer", "generate", "--ci", "-p", "test", "-w"])
@@ -436,8 +340,6 @@ mod tests {
         let data = b"interop payload for tauri signer";
         let data_file = dir.join("payload.bin");
         std::fs::write(&data_file, data).expect("写入 payload 失败");
-        // 新版 sign：FILE 为位置参数，-f 为私钥文件路径，-p 为密码。
-        // env 默认值与 -f 冲突——此处显式剥离，强制使用本测试自生成的密钥文件。
         let status = std::process::Command::new(tauri_cli_path)
             .env_remove("TAURI_SIGNING_PRIVATE_KEY")
             .env_remove("TAURI_SIGNING_PRIVATE_KEY_PASSWORD")
@@ -451,9 +353,7 @@ mod tests {
             .expect("执行 tauri signer sign 失败");
         assert!(status.success(), "tauri signer sign 退出码非 0");
 
-        // 3. 读取 .pub / .sig 并验证。
-        // 注意：新版 tauri-cli 直接输出 base64(minisign 文本) 的文件（与发布清单
-        // signature 字段同格式），此处文件内容即外层 base64，直接复用，不再二次编码。
+        // 3. 读取 .pub / .sig 并验证
         let pub_file = find_file_with_ext(&dir, "pub").expect("未找到 .pub 文件");
         let sig_file = find_file_with_ext(&dir, "sig").expect("未找到 .sig 文件");
         let pub_b64 = std::fs::read_to_string(&pub_file).map(|s| s.trim().to_string()).unwrap();

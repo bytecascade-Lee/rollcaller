@@ -1,65 +1,20 @@
 //! 目标版本清单：字节级解析 + 摘要可信的本地缓存
-//!
-//! # 为什么缓存需要摘要
-//!
-//! 缓存按 `cache/update/{slug}/{version}.json` 寻址（见 [`crate::updater::paths::manifest`]），
-//! 命中即免网络。旧实现只判"能否解析成 JSON"，于是**内容合法但事实错误**的缓存永远不会被推翻：
-//! v0.8.4 的 CNB 清单把 `/-/releases/` 漏成了 `/releases/`，发布端覆盖上传修好了线上文件，
-//! 但已经缓存过坏字节的客户端仍按缓存里的坏 url 取产物、每次 404。
-//!
-//! 摘要（`versions.json` 条目里的 `manifests[slug].sha256`）回答了"这份字节是不是该版本该有的
-//! 那份"，不符即删、回源重取——覆盖上传由此立刻对所有客户端生效。
-//!
-//! # 判定顺序
-//!
-//! ```text
-//! 缓存存在？
-//!   能解析 且（有摘要时）摘要匹配 → 直接用，零网络
-//!   否则                          → 删掉（自愈），回源
-//! 回源字节
-//!   解析失败 → Err（连 JSON 都不是，没有任何可继续的路径）
-//!   摘要不符 → 用，但**不写缓存**（见下）
-//!   通过     → 原子写缓存（tmp + rename）→ 返回
-//! ```
-//!
-//! "能否解析"必须参与缓存判定：摘要缺省（老索引 / 未回填）时，解析失败是**唯一**的自愈信号，
-//! 早期实现正是靠它清掉损坏的缓存，重排流程时不能丢。
-//!
-//! # 回源后仍不匹配为什么不报错
-//!
-//! 严格报错会把"发布端改了清单忘了改索引"升级成**所有老版本用户永久无法更新**——那正是本次
-//! 事故的同款伤害，只是换了个触发点。清单本身不含可执行内容，产物还要过签名必填的
-//! [`crate::updater::verify::verify_artifact`] 才会被安装；而"用、但不缓存"保证了自愈永远有效：
-//! 既然索引说这份字节不对，就不要把它固化成"下次也信"的东西。
-//!
-//! 若日后要改成严格模式，落点是本模块的一个布尔参数，不影响其它模块。
 
 use crate::updater::model::{ManifestDigest, UpdateManifest};
 use crate::updater::remote::fetch;
-use crate::updater::verify::verify_manifest;
+use crate::updater::verify::{verify_manifest, verify_sha256};
+use crate::util::fs_utils;
 use anyhow::{anyhow, Context};
 use reqwest::Client;
 use std::fs;
 use std::path::Path;
 
 /// 解析清单字节
-///
-/// 入参是**字节**而非 `&str`：调用方刚从 [`load`] 拿到的那份字节必须与算摘要 / 验签的是同一份
-/// （中间不做任何转码），否则等于给自己留一个 TOCTOU。
 pub fn parse_manifest(bytes: &[u8]) -> anyhow::Result<UpdateManifest> {
     serde_json::from_slice(bytes).context(anyhow!("清单格式不符合规范"))
 }
 
 /// 取目标版本清单字节：缓存优先，缓存不可信则删掉回源
-///
-/// # 参数
-/// - `client`：HTTP 客户端；
-/// - `url`：清单直链（由 [`crate::updater::urls::manifest_url`] 给出）；
-/// - `cache_path`：缓存落点（由 [`crate::updater::paths::manifest`] 给出）；
-/// - `expected`：索引里该源该版本的摘要；`None` = 老索引 / 未回填 ⇒ legacy 路径（只判能否解析）。
-///
-/// # 返回
-/// 清单的原始字节。调用方用 [`parse_manifest`] 解析，保证"校验的字节"与"使用的字节"是同一份。
 pub async fn load(
     client: &Client,
     url: &str,
@@ -80,54 +35,49 @@ pub async fn load(
     // 连 JSON 都不是 → 无可继续，直接暴露（与"摘要不符"区别对待）
     parse_manifest(&fetched)?;
 
-    if let Some(digest) = expected {
-        if let Err(error) = verify_manifest(&fetched, digest) {
-            tracing::warn!(
-                "更新清单与版本索引的摘要不符，本次使用但不写缓存（{url}，索引期望 {}）：{error}",
-                digest.sha256
-            );
-            return Ok(fetched);
-        }
+    let Some(digest) = expected else {
+        // 老索引没有摘要：能解析即可用（无从比对）
+        write_cache(cache_path, &fetched);
+        return Ok(fetched);
+    };
+
+    verify_manifest(&fetched, digest)?;
+
+    // 摘要不符多为索引抄错（签名已证明清单本身可信）→ 本次可用，但不固化进缓存
+    if let Err(error) = verify_sha256(&fetched, &digest.sha256) {
+        tracing::warn!(
+            "更新清单与版本索引的摘要不符，本次使用但不写缓存（{url}，索引期望 {}）：{error}",
+            digest.sha256
+        );
+        return Ok(fetched);
     }
 
-    if let Err(error) = write_atomic(cache_path, &fetched) {
-        // 缓存只是加速手段，写不进去不影响本次检查
-        tracing::warn!("写入更新清单缓存失败（{}）：{error}", cache_path.display());
-    }
+    write_cache(cache_path, &fetched);
     Ok(fetched)
 }
 
-/// 缓存字节是否可直接使用：能解析 **且**（有摘要时）摘要匹配
+/// 缓存字节是否可信：能解析 + 签名成立 + 摘要逐字匹配
 fn is_trusted(bytes: &[u8], expected: Option<&ManifestDigest>) -> anyhow::Result<()> {
     parse_manifest(bytes)?;
-    match expected {
-        Some(digest) => verify_manifest(bytes, digest),
-        None => Ok(()),
-    }
+    let Some(digest) = expected else {
+        return Ok(());
+    };
+    verify_manifest(bytes, digest)?;
+    verify_sha256(bytes, &digest.sha256)
 }
 
-/// 同卷原子写：先写 `*.tmp`，再 rename 覆盖
-///
-/// `fs::write` 是"截断 + 写"，崩在中间会留下半截文件。摘要校验虽然能把它判为"不符"再删掉，
-/// 但那是**多一次网络往返**换来的正确性；`tmp + rename` 三行代码，直接做掉。
-fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
+/// 缓存只是加速手段，写不进去不影响本次检查
+fn write_cache(path: &Path, bytes: &[u8]) {
+    if let Err(error) = fs_utils::write_atomic(path, bytes) {
+        tracing::warn!("写入更新清单缓存失败（{}）：{error}", path.display());
     }
-    let tmp = path.with_extension("json.tmp");
-    fs::write(&tmp, bytes)?;
-    // 同目录 rename 在同卷内原子；Windows 上 std 的实现是 MoveFileEx + REPLACE_EXISTING
-    if let Err(error) = fs::rename(&tmp, path) {
-        let _ = fs::remove_file(&tmp);
-        return Err(error);
-    }
-    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::app_paths;
+    use crate::updater::verify::test_keys;
     use sha2::{Digest, Sha256};
     use std::path::PathBuf;
     use std::thread::JoinHandle;
@@ -162,13 +112,24 @@ mod tests {
 
     /// 每个用例独占一个缓存路径（进程内测试目录本身已按进程随机）
     fn cache_path(tag: &str) -> PathBuf {
-        app_paths::temp_dir().join(format!("update/manifest-cache-{tag}.json"))
+        let path = app_paths::temp_dir().join(format!("update/manifest-cache-{tag}.json"));
+        // 目录由各写入点自建（`fs::write` 不创建父目录），这里同样不能假设它已存在
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        path
     }
 
     fn digest_of(bytes: &[u8]) -> ManifestDigest {
         ManifestDigest {
             sha256: hex::encode(Sha256::digest(bytes)),
             signature: None,
+        }
+    }
+
+    /// 用当前构建的有效密钥对签名的摘要（发布源真实形态）
+    fn signed_digest_of(bytes: &[u8]) -> ManifestDigest {
+        ManifestDigest {
+            signature: Some(test_keys::sign(bytes)),
+            ..digest_of(bytes)
         }
     }
 
@@ -180,11 +141,11 @@ mod tests {
         tauri::async_runtime::block_on(async {
             let path = cache_path("hit");
             fs::write(&path, BODY).unwrap();
-            let expected = digest_of(BODY);
+            let expected = signed_digest_of(BODY);
 
             let bytes = load(&Client::new(), UNREACHABLE, &path, Some(&expected))
                 .await
-                .expect("摘要匹配的缓存应直接命中");
+                .expect("摘要与签名都匹配的缓存应直接命中");
             assert_eq!(bytes, BODY);
             assert!(path.is_file(), "命中的缓存不应被删除");
             let _ = fs::remove_file(&path);
@@ -212,7 +173,7 @@ mod tests {
             let path = cache_path("stale");
             fs::write(&path, OTHER).unwrap();
             let server = MockServer::spawn(BODY.to_vec());
-            let expected = digest_of(BODY);
+            let expected = signed_digest_of(BODY);
 
             let bytes = load(&Client::new(), &server.url, &path, Some(&expected))
                 .await
@@ -247,7 +208,11 @@ mod tests {
         tauri::async_runtime::block_on(async {
             let path = cache_path("mismatch");
             let server = MockServer::spawn(BODY.to_vec());
-            let wrong = digest_of(OTHER); // 索引抄错 / 清单被覆盖上传后没重算索引
+            // 索引抄错：签名是这份字节的，sha256 却指向另一份
+            let wrong = ManifestDigest {
+                signature: Some(test_keys::sign(BODY)),
+                ..digest_of(OTHER)
+            };
 
             let bytes = load(&Client::new(), &server.url, &path, Some(&wrong))
                 .await
@@ -256,6 +221,52 @@ mod tests {
             assert!(!path.exists(), "摘要不符的字节不得固化进缓存");
 
             server.handle.join().unwrap();
+        });
+    }
+
+    /// 索引缺签名 → 检查直接失败，绝不"验不了就用"
+    #[test]
+    fn unsigned_manifest_is_rejected() {
+        tauri::async_runtime::block_on(async {
+            let path = cache_path("unsigned");
+            let server = MockServer::spawn(BODY.to_vec());
+            let expected = digest_of(BODY); // 只有摘要，没有签名
+
+            let error = load(&Client::new(), &server.url, &path, Some(&expected))
+                .await
+                .expect_err("缺签名应报错");
+            assert!(
+                format!("{error:#}").contains("缺少 minisign 签名"),
+                "错误应指出签名缺失: {error}"
+            );
+            assert!(!path.exists(), "验不过的清单不得写缓存");
+
+            server.handle.join().unwrap();
+        });
+    }
+
+    /// 签名对得上就落缓存，下次同一版本可直接离线命中
+    #[test]
+    fn signed_manifest_is_cached_and_reused_offline() {
+        tauri::async_runtime::block_on(async {
+            let path = cache_path("signed");
+            let server = MockServer::spawn(BODY.to_vec());
+            let expected = signed_digest_of(BODY);
+
+            let first = load(&Client::new(), &server.url, &path, Some(&expected))
+                .await
+                .expect("签名正确应通过");
+            assert_eq!(first, BODY);
+            assert!(path.is_file(), "验过的清单应落缓存");
+
+            // 第二次指向不可达地址：命中缓存才可能成功
+            let second = load(&Client::new(), UNREACHABLE, &path, Some(&expected))
+                .await
+                .expect("签名与摘要都在缓存里，应离线命中");
+            assert_eq!(second, BODY);
+
+            server.handle.join().unwrap();
+            let _ = fs::remove_file(&path);
         });
     }
 
@@ -282,11 +293,11 @@ mod tests {
     fn atomic_write_replaces_existing_and_leaves_no_tmp() {
         let dir = app_paths::temp_dir().join("update/atomic");
         let path = dir.join("0.8.6.json");
-        write_atomic(&path, OTHER).expect("首次写入应成功");
-        write_atomic(&path, BODY).expect("覆盖写入应成功");
+        fs_utils::write_atomic(&path, OTHER).expect("首次写入应成功");
+        fs_utils::write_atomic(&path, BODY).expect("覆盖写入应成功");
 
         assert_eq!(fs::read(&path).unwrap(), BODY, "应原子覆盖为最新字节");
-        assert!(!dir.join("0.8.6.json.tmp").exists(), "临时文件不应残留");
+        assert!(!fs_utils::tmp_path(&path).exists(), "临时文件不应残留");
         let _ = fs::remove_dir_all(&dir);
     }
 }

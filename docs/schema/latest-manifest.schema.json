@@ -39,14 +39,18 @@
             ]
         },
         "platforms": {
-            "description": "按操作系统的载荷分组。当前产品只支持 Windows（客户端 `UpdateManifest::get_artifact` 非 Windows 恒返回 None）。",
+            "description": "按操作系统的载荷分组，至少一个平台。三个键**结构同构**（同一套 arch → payloads），客户端模型 `ManifestPlatforms` 也把三平台并列成一个结构体：清单是跨平台的发布契约，解析全量、只取本机那一段；不用 `cfg` 按平台各写一份结构体。当前发布端只产出 windows。",
             "type": "object",
             "additionalProperties": false,
-            "required": [
-                "windows"
-            ],
+            "minProperties": 1,
             "properties": {
                 "windows": {
+                    "$ref": "#/definitions/arch"
+                },
+                "macos": {
+                    "$ref": "#/definitions/arch"
+                },
+                "linux": {
                     "$ref": "#/definitions/arch"
                 }
             }
@@ -79,12 +83,27 @@
             }
         },
         "payloads": {
-            "description": "同一架构下按安装形态分组，至少一种。形态与运行形态 `AppMode` 一一对应：nsis→Install(Nsis)、portable→Portable、develop→Develop。**缺省某形态 = 该形态无产物**，客户端按运行形态取产物，取不到即视为「无更新」（例如 Develop 形态在该版本没有 develop 载荷时不会回退到 nsis）。",
+            "description": "同一架构下按安装形态分组，至少一种。槽名 = `AppMode::slug()` = 发布端 `Kind.key`，三处共用一套词表：msi→Install(Msi)、nsis→Install(Nsis)、dmg→Install(Dmg)、rpm→Install(Rpm)、deb→Install(Deb)、appimage→Install(AppImage)、portable→Portable、develop→Develop。**缺省某形态 = 该形态无产物**，客户端按运行形态取产物，取不到即视为「无更新」（例如 Develop 形态在该版本没有 develop 载荷时不会回退到 nsis）。",
             "type": "object",
             "additionalProperties": false,
             "minProperties": 1,
             "properties": {
+                "msi": {
+                    "$ref": "#/definitions/artifact"
+                },
                 "nsis": {
+                    "$ref": "#/definitions/artifact"
+                },
+                "dmg": {
+                    "$ref": "#/definitions/artifact"
+                },
+                "rpm": {
+                    "$ref": "#/definitions/artifact"
+                },
+                "deb": {
+                    "$ref": "#/definitions/artifact"
+                },
+                "appimage": {
                     "$ref": "#/definitions/artifact"
                 },
                 "portable": {

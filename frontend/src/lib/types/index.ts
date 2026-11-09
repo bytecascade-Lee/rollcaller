@@ -23,7 +23,9 @@ export * from "./TtsMode"
 export * from "./TtsPhase"
 export * from "./TtsQueueItem"
 export * from "./Severity";
+export * from "./UpdateCandidate";
 export * from "./UpdateInfo";
+export * from "./UpdateReason";
 export * from "./UpdateView";
 export * from "./OS";
 export * from "./overlays"

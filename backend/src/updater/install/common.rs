@@ -1,77 +1,14 @@
-use crate::common::constant::sys::{ARCH, OS};
-use crate::state::http_client;
-use crate::updater::constant::UPDATER_VERSION;
-use crate::updater::model::Artifact;
-use crate::updater::paths;
-use crate::updater::urls;
-use crate::updater::verify::{verify_artifact, verify_sha256};
-use anyhow::{anyhow, Context};
+//! 安装器无关的公共能力：解压、Go 更新器 config 骨架。
+
+use crate::util::path_utils;
+use anyhow::anyhow;
+use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// 清单里属于当前平台的那一项（产物名 / sha256 / 字节数 / 签名都由清单给）
-fn platform_artifact(manifest: &serde_json::Value) -> anyhow::Result<Artifact> {
-    let os = OS.to_string().to_ascii_lowercase();
-    let arch = ARCH.to_string().to_ascii_lowercase();
-    let entry = &manifest[os.as_str()][arch.as_str()];
-    let url = entry["url"]
-        .as_str()
-        .ok_or_else(|| anyhow!("更新器清单缺少 {os}.{arch}.url：{manifest}"))?;
-    Ok(Artifact {
-        url: url.parse().context(anyhow!("更新器下载地址不是合法 URL：{url}"))?,
-        sha256: entry["sha256"]
-            .as_str()
-            .ok_or_else(|| anyhow!("更新器清单缺少 {os}.{arch}.sha256"))?
-            .to_string(),
-        // 更新器目前只发 sha256；清单哪天给出 signature，校验就自动改走“签名必验”
-        signature: entry["signature"].as_str().unwrap_or_default().to_string(),
-        size: entry["size"]
-            .as_u64()
-            .ok_or_else(|| anyhow!("更新器清单缺少 {os}.{arch}.size"))?,
-    })
-}
-
-/// 校验产物：有签名一并验，没有则只验 sha256
-fn verify_payload(bytes: &[u8], artifact: &Artifact) -> anyhow::Result<()> {
-    if artifact.signature.is_empty() {
-        verify_sha256(bytes, &artifact.sha256)
-    } else {
-        verify_artifact(bytes, artifact)
-    }
-}
-
-/// 文件名是否属于锁定版本（`updater-0.3.0-windows-x86_64.exe`）
-fn is_pinned_name(name: &str) -> bool {
-    name.contains(&format!("-{UPDATER_VERSION}-"))
-}
-
-/// 本地锁定版本的更新器（只看文件名里的版本段：不联网、不执行）
-pub(crate) fn updater_exe() -> Option<PathBuf> {
-    fs::read_dir(paths::updater_bin_dir())
-        .ok()?
-        .flatten()
-        .map(|entry| entry.path())
-        .find(|path| {
-            path.extension().and_then(|ext| ext.to_str()) == Some("exe")
-                && path.file_name().and_then(|name| name.to_str()).is_some_and(is_pinned_name)
-        })
-}
-
-/// 删掉缓存里除锁定产物以外的所有 exe
-fn discard_others(keep: &Path) {
-    let Some(entries) = keep.parent().and_then(|dir| fs::read_dir(dir).ok()) else {
-        return;
-    };
-    for path in entries.flatten().map(|entry| entry.path()) {
-        if path != keep && path.extension().and_then(|ext| ext.to_str()) == Some("exe") {
-            let _ = fs::remove_file(&path);
-        }
-    }
-}
-
 /// 解压 zip 到 `dest`；若 zip 内是单一顶层目录则返回该目录（解包一层），否则返回 `dest`
 ///
-/// 解压的路径穿越防护被移除，后续有这方面的话需要小心
+/// 路径与符号链接由 `zip` 的 `extract` 收敛在 `dest` 内（`enclosed_name` + 只允许指向目标目录内的链接）。
 pub(crate) fn extract_zip(zip_path: &Path, dest: &Path) -> anyhow::Result<PathBuf> {
     if dest.exists() {
         fs::remove_dir_all(dest).map_err(|e| anyhow!("清理解压目录失败（{}）：{e}", dest.display()))?;
@@ -93,138 +30,78 @@ pub(crate) fn extract_zip(zip_path: &Path, dest: &Path) -> anyhow::Result<PathBu
     }
 }
 
-/// 便携版更新器就绪（安装前 ensure；幂等）
+/// Go 更新器 config 的公共骨架：`version` / `runtime.log` / `wait` / `launch`
 ///
-/// 本地已有锁定版本 → 直接用，不联网；没有才拉该版本 tag 的清单，按清单下载 / 校验 / 落盘。
-/// 两条路径最后都把目录收敛到只剩锁定版本。触发点 = Portable / Develop 安装前的编排层异步段。
-#[cfg(target_os = "windows")]
-pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
-    // 1. 本地已有 → 直接复用（不拉清单）
-    if let Some(local) = updater_exe() {
-        discard_others(&local);
-        return Ok(local);
-    }
-
-    // 2. 拉锁定版本（tag）的清单
-    let text = http_client::client()
-        .get(urls::updater_manifest_url(UPDATER_VERSION))
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .context(anyhow!("拉取更新器清单失败：网络错误"))?
-        .error_for_status()
-        .context(anyhow!("拉取更新器清单失败：服务器返回错误状态"))?
-        .text()
-        .await
-        .context(anyhow!("拉取更新器清单失败：读取响应失败"))?;
-    let manifest: serde_json::Value = serde_json::from_str(&text).context(anyhow!("更新器清单不是合法 JSON"))?;
-
-    // 清单自报版本必须就是锁定的那个（tag 被重发时能立刻发现）
-    let version = manifest["version"].as_str().unwrap_or_default();
-    if version != UPDATER_VERSION {
-        anyhow::bail!("更新器清单版本不符：期望 {UPDATER_VERSION}，实际 {version:?}");
-    }
-    let artifact = platform_artifact(&manifest)?;
-    let file_name = artifact
-        .file_name()
-        .ok_or_else(|| anyhow!("更新器下载地址缺少文件名：{}", artifact.url))?;
-    let dest = paths::portable_updater_bin(&file_name);
-
-    // 3. 下载（体积小，内存收齐后整体校验再落盘）
-    let bytes = http_client::download()
-        .get(artifact.url.clone())
-        .send()
-        .await
-        .context(anyhow!("下载更新器失败：网络错误"))?
-        .error_for_status()
-        .context(anyhow!("下载更新器失败：服务器返回错误状态"))?
-        .bytes()
-        .await
-        .context(anyhow!("下载更新器失败：读取响应失败"))?;
-
-    if bytes.len() as u64 != artifact.size {
-        anyhow::bail!("更新器大小与清单不符：期望 {} 字节，实际 {} 字节", artifact.size, bytes.len());
-    }
-
-    verify_payload(&bytes, &artifact).context(anyhow!("更新器校验失败（锁定版本 {UPDATER_VERSION}）"))?;
-    if let Some(parent) = dest.parent() {
-        fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新器目录失败（{}）：{e}", parent.display()))?;
-    }
-    fs::write(&dest, bytes).map_err(|e| anyhow!("写入更新器失败（{}）：{e}", dest.display()))?;
-
-    // 4. 只留锁定版本
-    discard_others(&dest);
-    Ok(dest)
+/// 两种安装形态只有 `update` 与 `rollback` 不同，由各自的 `compose_config` 补上。
+/// `wait` 在 version 3 只认 `pids`（写 `pid` 会被 loader 拒绝）。
+pub(crate) fn base_config(pid: u32, log_file: &Path, launch_path: &Path, workspace: &Path) -> Value {
+    json!({
+        "version": 3,
+        "runtime": {
+            "headless": false,
+            "log": {
+                "file": path_utils::to_slash(log_file),
+                "level": {
+                    "console": "info",
+                    "file": "info",
+                },
+            },
+        },
+        "wait": {
+            "pids": [pid],
+            "timeout": 10000,
+            "forceKill": true,
+            "interval": 500,
+        },
+        "launch": {
+            "execution": {
+                "mode": "direct",
+                "path": path_utils::to_slash(launch_path),
+            },
+            "context": {
+                "workspace": path_utils::to_slash(workspace),
+                "args": [],
+                "env": {},
+            },
+            "lifecycle": {
+                "stayAlive": 0,
+                "captureOutput": false,
+                "captureFormat": "log",
+                "captureToFile": true,
+            },
+        },
+    })
 }
 
-/// 非 Windows 平台：便携版安装不可用，更新器亦无需下载
-#[cfg(not(target_os = "windows"))]
-pub async fn ensure_updater() -> anyhow::Result<PathBuf> {
-    anyhow::bail!("便携版安装仅支持 Windows")
+/// 写 config：补父目录 + pretty 输出（随后由更新器进程一次性读入）
+pub(crate) fn write_json(path: &Path, value: &Value) -> anyhow::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| anyhow!("创建更新配置目录失败（{}）：{e}", parent.display()))?;
+    }
+    let text = serde_json::to_string_pretty(value)?;
+    fs::write(path, text).map_err(|e| anyhow!("写入更新配置失败（{}）：{e}", path.display()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// 更新器清单按锁定版本的 tag 取，不用 latest
+    /// 骨架只含四段，且 `wait.pids` 是数组（version 3 不再认单个 `pid`）
     #[test]
-    fn updater_manifest_url_is_pinned_to_locked_version() {
-        let url = urls::updater_manifest_url(UPDATER_VERSION);
-        assert!(url.contains(&format!("/v{UPDATER_VERSION}/")), "tag 不符：{url}");
-        assert!(!url.contains("latest/download"), "不得退化成 latest：{url}");
-    }
-
-    /// 清单解析：取当前平台那一项，签名缺省为空（将来有则照抄）
-    #[test]
-    fn platform_artifact_follows_manifest() {
-        let os = OS.to_string().to_ascii_lowercase();
-        let arch = ARCH.to_string().to_ascii_lowercase();
-        let mut manifest = serde_json::json!({ "version": UPDATER_VERSION });
-        manifest[os.as_str()] = serde_json::json!({
-            arch.as_str(): {
-                "url": format!("https://example.com/updater-{UPDATER_VERSION}-{os}-{arch}.exe"),
-                "sha256": "a".repeat(64),
-                "size": 1234,
-            }
-        });
-
-        let artifact = platform_artifact(&manifest).expect("清单应有当前平台项");
-        assert_eq!(
-            artifact.file_name().unwrap(),
-            format!("updater-{UPDATER_VERSION}-{os}-{arch}.exe")
+    fn base_config_carries_shared_sections() {
+        let config = base_config(
+            4321,
+            Path::new("C:/app/logs/u/portable-update-1-to-2.log"),
+            Path::new("C:/app/rollcaller.exe"),
+            Path::new("C:/app"),
         );
-        assert_eq!(artifact.size, 1234);
-        assert!(artifact.signature.is_empty(), "清单没给签名时留空");
 
-        // 缺当前平台项 → 报错而不是拿空值去下载
-        assert!(platform_artifact(&serde_json::json!({ "version": UPDATER_VERSION })).is_err());
-    }
-
-    /// 本地判定：文件名里带锁定版本才算（改名/换平台都认），其他版本不算
-    #[test]
-    fn pinned_name_matches_only_locked_version() {
-        assert!(is_pinned_name("updater-0.3.0-windows-x86_64.exe"));
-        assert!(is_pinned_name(&format!("updater-{UPDATER_VERSION}-macos-arm64")));
-        assert!(!is_pinned_name("updater-0.2.0-windows-x86_64.exe"));
-        assert!(!is_pinned_name("updater-windows-x86_64.exe"));
-    }
-
-    /// 只留锁定产物：其他 exe 删掉，非 exe 不动
-    #[test]
-    fn discard_others_keeps_only_pinned() {
-        let dir = std::env::temp_dir().join(format!("rollcaller-updaters-{}", &uuid::Uuid::new_v4().to_string()[..8]));
-        std::fs::create_dir_all(&dir).expect("创建临时目录");
-        let keep = dir.join("updater-0.3.0-windows-x86_64.exe");
-        std::fs::write(&keep, b"keep").unwrap();
-        std::fs::write(dir.join("updater-0.2.0-windows-x86_64.exe"), b"old").unwrap();
-        std::fs::write(dir.join("leftover.part"), b"part").unwrap();
-
-        discard_others(&keep);
-
-        assert!(keep.is_file(), "锁定产物必须保留");
-        assert!(!dir.join("updater-0.2.0-windows-x86_64.exe").exists(), "旧版本必须删除");
-        assert!(dir.join("leftover.part").exists(), "非 exe 不归本函数管");
-        std::fs::remove_dir_all(&dir).ok();
+        assert_eq!(config["version"], 3);
+        assert_eq!(config["wait"]["pids"][0], 4321);
+        assert_eq!(config["runtime"]["log"]["file"], "C:/app/logs/u/portable-update-1-to-2.log");
+        assert_eq!(config["launch"]["execution"]["path"], "C:/app/rollcaller.exe");
+        assert_eq!(config["launch"]["context"]["workspace"], "C:/app");
+        assert_eq!(config["launch"]["context"]["args"], json!([]));
+        assert!(config["update"].is_null(), "update 由各形态自行补齐");
     }
 }

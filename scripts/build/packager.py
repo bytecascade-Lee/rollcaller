@@ -27,8 +27,8 @@ class PackageError(Exception):
 
 
 def asset_name(version: Version, target: Target, kind: Kind) -> str:
-    """产物文件名：rollcaller-<version>-<os>-<arch>-<role><extension>"""
-    return f"rollcaller-{version}-{target.os}-{target.arch}-{kind.role}{kind.suffix(target.os)}"
+    """产物文件名：rollcaller-<version>-<os>-<arch>-<style><extension>"""
+    return f"rollcaller-{version}-{target.os}-{target.arch}-{kind.style}{kind.suffix(target.os)}"
 
 
 def produce(version: Version, target: Target, kind: Kind) -> Path:

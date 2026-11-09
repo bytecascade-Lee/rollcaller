@@ -1,13 +1,12 @@
 use crate::common::enums;
 use crate::config::app_paths::{AppMode, Installer};
-use crate::updater::constant::{DEFAULT_UPDATE_CHANNEL, DEFAULT_UPDATE_LEVEL};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use ts_rs::TS;
 use url::Url;
 
-/// 自定义更新清单：描述一个可发布版本及其各平台载荷
+/// 发布清单
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateManifest {
@@ -28,29 +27,30 @@ pub struct UpdateManifest {
 }
 
 impl UpdateManifest {
+    /// 取指定平台 / 架构 / 运行形态的载荷
     pub fn get_artifact(&self, os: enums::sys::OS, arch: enums::sys::Arch, app_mode: AppMode) -> Option<Artifact> {
-        let arch_map = match os {
-            enums::sys::OS::Windows => self.platforms.windows.as_ref()?,
-            _ => return None,
-        };
-        let payloads = match arch {
-            enums::sys::Arch::X86_64 => arch_map.x86_64.as_ref()?,
-            enums::sys::Arch::Arm64 => arch_map.arm64.as_ref()?,
-        };
-
-        match app_mode {
-            AppMode::Develop => payloads.develop.clone(),
-            AppMode::Portable => payloads.portable.clone(),
-            AppMode::Install(installer) => payloads.get(installer),
-        }
+        self.platforms.get(os)?.get(arch)?.get(app_mode).cloned()
     }
 }
 
-/// 系统分组
+/// 平台分组
 #[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize, TS)]
 #[serde(default)]
 pub struct ManifestPlatforms {
     pub windows: Option<ManifestArches>,
+    pub macos: Option<ManifestArches>,
+    pub linux: Option<ManifestArches>,
+}
+
+impl ManifestPlatforms {
+    /// 取某个平台的架构分组
+    pub fn get(&self, os: enums::sys::OS) -> Option<&ManifestArches> {
+        match os {
+            enums::sys::OS::Windows => self.windows.as_ref(),
+            enums::sys::OS::MacOS => self.macos.as_ref(),
+            enums::sys::OS::Linux => self.linux.as_ref(),
+        }
+    }
 }
 
 /// 架构分组
@@ -61,28 +61,42 @@ pub struct ManifestArches {
     pub arm64: Option<Payloads>,
 }
 
+impl ManifestArches {
+    /// 取某个架构的载荷分组
+    pub fn get(&self, arch: enums::sys::Arch) -> Option<&Payloads> {
+        match arch {
+            enums::sys::Arch::X86_64 => self.x86_64.as_ref(),
+            enums::sys::Arch::Arm64 => self.arm64.as_ref(),
+        }
+    }
+}
+
 /// 单架构下的载荷分组
 #[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize, TS)]
 #[serde(default)]
 pub struct Payloads {
-    /// NSIS 安装包
+    pub msi: Option<Artifact>,
     pub nsis: Option<Artifact>,
-    /// 便携版 zip
+    pub dmg: Option<Artifact>,
+    pub rpm: Option<Artifact>,
+    pub deb: Option<Artifact>,
+    pub appimage: Option<Artifact>,
     pub portable: Option<Artifact>,
-    /// 开发环境直更载荷（debug exe，产物文件名见 `DEVELOP_UPDATE_BIN_NAME`）
     pub develop: Option<Artifact>,
 }
 
 impl Payloads {
-    /// 按安装形态取载荷
-    ///
-    /// 清单里没有该形态的槽位时返回 `None` —— 即"该形态在本版本无产物"，
-    /// 按契约视为无更新（不回退到 nsis）。
-    fn get(&self, installer: Installer) -> Option<Artifact> {
-        match installer {
-            Installer::Nsis => self.nsis.clone(),
-            // 清单暂无这些形态的槽位：取不到即「该版本无该形态产物」⇒ 无更新
-            Installer::Msi | Installer::Dmg | Installer::Rpm | Installer::Deb | Installer::AppImage => None,
+    /// 按运行形态取载荷
+    pub fn get(&self, mode: AppMode) -> Option<&Artifact> {
+        match mode {
+            AppMode::Develop => self.develop.as_ref(),
+            AppMode::Portable => self.portable.as_ref(),
+            AppMode::Install(Installer::Msi) => self.msi.as_ref(),
+            AppMode::Install(Installer::Nsis) => self.nsis.as_ref(),
+            AppMode::Install(Installer::Dmg) => self.dmg.as_ref(),
+            AppMode::Install(Installer::Rpm) => self.rpm.as_ref(),
+            AppMode::Install(Installer::Deb) => self.deb.as_ref(),
+            AppMode::Install(Installer::AppImage) => self.appimage.as_ref(),
         }
     }
 }
@@ -94,17 +108,14 @@ pub struct Artifact {
     pub url: Url,
     /// 十六进制小写 sha256
     pub sha256: String,
-    /// base64(minisign 签名文本)，即 .sig 文件全文
+    /// base64 编码后的 signature
     pub signature: String,
     /// 字节数
     pub size: u64,
 }
 
 impl Artifact {
-    /// 从发布 url 提取产物正式文件名（url 最后一段）
-    ///
-    /// url 以 `/` 结尾或无文件名段时返回 `None`——清单不合法，由调用方在
-    /// 进入下载 / 就绪探测前报错，不在公共方法内 panic。
+    /// 产物正式文件名
     pub fn file_name(&self) -> Option<String> {
         self.url
             .path_segments()
@@ -114,10 +125,7 @@ impl Artifact {
     }
 }
 
-/// 用户更新策略，判定输入的统一载体
-///
-/// `level` 为 `None` 表示用户关闭了所有更新
-/// `channel` 只在 `level` 非 `None` 时有意义
+/// 用户更新策略
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, TS)]
 pub struct Policy {
     /// 幅度门槛
@@ -129,44 +137,36 @@ pub struct Policy {
 impl Default for Policy {
     fn default() -> Policy {
         Policy {
-            level: DEFAULT_UPDATE_LEVEL,
-            channel: DEFAULT_UPDATE_CHANNEL,
+            level: UpdateLevel::Patch,
+            channel: UpdateChannel::Stable,
         }
     }
 }
 
+/// 版本索引条目
 #[derive(Debug, Clone, Deserialize, Serialize, TS)]
 pub struct HistoryVersion {
     #[ts(type = "string")]
     pub version: Version,
-    /// 缺省视为 normal（老索引未标定时兼容，语义与 manifest 的 severity 默认一致）
+    /// 默认为 normal
     #[serde(default)]
     pub severity: Severity,
-    /// 各源清单的内容摘要；缺省 = 老索引 / 未回填 ⇒ 该源走 legacy 路径（只判能否解析）
+    /// 各源清单摘要
     #[serde(default)]
     pub manifests: ManifestDigests,
 }
 
 /// 单个源清单的摘要
-///
-/// 清单是**逐源**独立的：`latest-github.json` 与 `latest-cnb.json` 只有 url 的 host 不同，
-/// 但 sha256 是逐字节的，所以两份文件必然两个摘要，不能共用。
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, TS)]
 pub struct ManifestDigest {
-    /// 十六进制小写 sha256（必填：缺摘要就走 legacy，不存在"空字符串摘要"的中间态）
+    /// 十六进制小写 sha256
     pub sha256: String,
-    /// base64(minisign 签名文本)，即清单旁 `.sig` 文件全文；缺省 = 只验完整性
-    ///
-    /// ⚠️ 索引自身未被签名之前，本字段**不是信任锚**：能改索引的人也能把它一起换掉。
-    /// 它的价值是与产物链路共用同一套 minisign 约定、并为"索引签名"预铺路。
+    /// base64 编码后的 signature
     #[serde(default)]
     pub signature: Option<String>,
 }
 
 /// 三个源各自的清单摘要
-///
-/// 用 struct-of-option 而不是 map：JSON 键是固定的三个 slug，结构体让"缺哪个源"在类型上
-/// 可见，也避免 map 键的 serde 歧义。JSON 形状为 `{"github": {...}, "cnb": {...}, "develop": {...}}`。
 #[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize, TS)]
 #[serde(default)]
 pub struct ManifestDigests {
@@ -185,7 +185,6 @@ impl ManifestDigests {
         }
     }
 
-    /// 三个源都无摘要（老索引 / 未回填）
     pub fn is_empty(&self) -> bool {
         self.github.is_none() && self.cnb.is_none() && self.develop.is_none()
     }
@@ -199,59 +198,46 @@ pub struct UpdateInfo {
     pub version: Version,
     /// releaseNotes
     pub notes: Option<String>,
-    /// publishDate（格式化后的字符串，供前端展示）
+    /// publishDate
     pub date: Option<String>,
 }
 
-/// 一次成功的检查命中：展示信息 + 下载凭据（`service/update/check` 的内部结果）
-///
-/// 由编排层拆包：展示信息（`info`）投影到快照展示；`artifact` / `severity`
-/// 与展示信息一并写入后端会话（[`UpdateSession`]），供 download 消费与复核。
-pub struct FoundUpdate {
-    /// 展示信息（version / notes / date）
+/// 一个候选更新的全部展示字段
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+pub struct UpdateCandidate {
     pub info: UpdateInfo,
-    /// 严重程度（组装对外结果 / 下载复核依赖；critical 即强制更新）
     pub severity: Severity,
-    /// 批准下载的产物（download 消费）
+    pub reason: UpdateReason,
+}
+
+/// 一次成功的检查命中
+pub struct FoundUpdate {
+    pub candidate: UpdateCandidate,
     pub artifact: Artifact,
 }
 
 /// 下载进度的通用载体
-///
-/// 一份载荷多处复用：download 域每 chunk 的回调参数、state 原子槽
-/// （[`crate::updater::state::DownloadSlot`]）的写入口与快照、以及 download 通道
-/// 的窄进度事件帧——三处的语义都是"瞬时进度"，与持久会话事实（info /
-/// severity / artifact）解耦。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, TS)]
 #[ts(export)]
 pub struct DownloadProgress {
     /// 已下载字节数
     #[ts(type = "number")]
     pub downloaded: u64,
-    /// 总字节数（来自 Content-Length，未知时为 None）
+    /// 总字节数
     #[ts(type = "number | null")]
     pub total: Option<u64>,
 }
 
-/// 后端权威会话（Tauri manage 注入，跨命令共享）
-///
-/// 持凭据（`artifact`）与展示所需事实，仅为后端内部状态，不 Serialize、不导出；
-/// 对外只经 [`UpdateSession::view`] 投影为裁剪的 [`UpdateView`]。
-/// 产物路径与当前版本基线**不入会话**：产物路径由凭据经 paths 现推（磁盘为事实源），
-/// 基线版本由命令层从 `package_info` 每次传入。
-/// 进度**不入会话**（瞬时态，见 [`DownloadProgress`]）：落在 state 的原子槽，仅供
-/// download 通道窄帧消费，不与凭据等持久事实混存。
+/// 后端权威更新会话
 #[derive(Debug, Clone)]
 pub struct UpdateSession {
-    /// 当前所处阶段
     pub status: UpdateStatus,
-    /// 目标更新信息（展示）
-    pub info: Option<UpdateInfo>,
-    /// 严重程度（下载复核 / 展示；critical 即强制）
-    pub severity: Severity,
-    /// 已批准下载的产物凭据（download 消费；check 命中后写入）
+    /// `Available` / `Downloading` / `Downloaded` 时必为 `Some`，与 `status` 同锁写入
+    pub candidate: Option<UpdateCandidate>,
+    /// 已批准下载的产物凭据
     pub artifact: Option<Artifact>,
-    /// 错误（`status == Error` 时必 `Some`，与状态同锁写入）
+    /// `status == Error` 时必为 `Some`，与状态同锁写入
     pub error: Option<UpdateError>,
 }
 
@@ -259,8 +245,7 @@ impl Default for UpdateSession {
     fn default() -> Self {
         Self {
             status: UpdateStatus::Idle,
-            info: None,
-            severity: Severity::Normal,
+            candidate: None,
             artifact: None,
             error: None,
         }
@@ -268,32 +253,16 @@ impl Default for UpdateSession {
 }
 
 impl UpdateSession {
-    /// 投影对外展示视图（丢弃凭据，只带当前阶段必要的展示字段）
+    /// 投影对外视图
     pub fn view(&self) -> UpdateView {
-        let info = |i: &Option<UpdateInfo>| i.clone();
         match self.status {
             UpdateStatus::Idle => UpdateView::Idle,
             UpdateStatus::Checking => UpdateView::Checking,
             UpdateStatus::UpToDate => UpdateView::UpToDate,
-            UpdateStatus::Available => match info(&self.info) {
-                Some(info) => UpdateView::Available {
-                    info,
-                    severity: self.severity,
-                },
-                None => UpdateView::UpToDate,
-            },
-            UpdateStatus::Downloading => match info(&self.info) {
-                Some(info) => UpdateView::Downloading { info },
-                None => UpdateView::Checking,
-            },
-            UpdateStatus::Downloaded => match info(&self.info) {
-                Some(info) => UpdateView::Downloaded {
-                    info,
-                    severity: self.severity,
-                },
-                None => UpdateView::UpToDate,
-            },
-            // `status == Error` 不变量保证 `error` 为 `Some`；兜底仅供防御（不应触发）
+            UpdateStatus::Available => self.candidate.clone().map_or(UpdateView::UpToDate, UpdateView::Available),
+            UpdateStatus::Downloading => self.candidate.clone().map_or(UpdateView::Checking, UpdateView::Downloading),
+            UpdateStatus::Downloaded => self.candidate.clone().map_or(UpdateView::UpToDate, UpdateView::Downloaded),
+            // `status == Error` 不变量保证 `error` 为 `Some`
             UpdateStatus::Error => UpdateView::Error(
                 self.error
                     .clone()
@@ -303,7 +272,6 @@ impl UpdateSession {
     }
 }
 
-// `CNB` 是平台专有名称（cnb.cool），缩写不拆成 `Cnb`
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, TS)]
 pub enum UpdateSource {
@@ -324,15 +292,7 @@ impl fmt::Display for UpdateSource {
 }
 
 impl UpdateSource {
-    /// 源的小写标识（`github` / `cnb` / `develop`）
-    ///
-    /// 这是**同一个源的唯一外部名字**，三处必须逐字符一致，全部由本函数产出：
-    /// - 清单文件名：`latest-{slug}.json`（见 [`crate::updater::urls::manifest_name`]）；
-    /// - 清单缓存目录：`cache/update/{slug}/`（见 [`crate::updater::paths::manifest`]）；
-    /// - 版本索引里 `manifests` 的键（发布端 `Source` 的 `StrEnum` 取值即这三串）。
-    ///
-    /// 注意 `Local` 的 slug 是 `develop`（对齐发布端 `Source.DEVELOP`），不是 `local`；
-    /// [`fmt::Display`] 只用于日志，不要拿它拼路径或文件名。
+    /// 更新源的小写标识
     pub fn slug(&self) -> &'static str {
         match self {
             UpdateSource::GitHub => "github",
@@ -342,16 +302,7 @@ impl UpdateSource {
     }
 }
 
-/// 幅度门槛：最少需要多大的数字变化才触发更新。
-///
-/// 由 `UpdateLevel` 承载：`None` 表示禁止所有更新。
-///
-/// | 门槛 | 1.2.1→1.2.2 | 1.2.1→1.3.0 | 1.2.1→2.0.0 |
-/// |---|---|---|---|
-/// | Major | 跳过 | 跳过 | 更新 |
-/// | Minor | 跳过 | 更新 | 更新 |
-/// | Patch | 更新 | 更新 | 更新 |
-/// | Never | 跳过 | 跳过 | 跳过 |
+/// 幅度门槛，最少需要多大的数字变化才触发更新
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, TS)]
 pub enum UpdateLevel {
     /// 仅主版本
@@ -364,14 +315,7 @@ pub enum UpdateLevel {
     Never,
 }
 
-/// 发布渠道：决定版本列表的可见性。
-///
-/// - **Stable**：只接收稳定版。latest 为预发布版本时一律跳。
-/// - **Prerelease**：接收预发布版本，且预发布相关路径有两条特殊规则：
-///   - 「预发布 → 预发布」是**通道内递进**（如 1.2.0-rc.1 → 1.2.0-rc.2）：进入通道时风险已被接受，跟随通道、不再询问，**不适用幅度门槛**；
-///   - 「预发布 → 稳定版」是**逃逸通道**（如 1.2.0-rc.1 → 1.2.0）：始终更新，不适用幅度门槛与通道，否则用户会永远卡在预发布版本上。
-///
-/// 而「稳定版 → 预发布」是**通道切换**（如 1.2.0 → 1.3.0-rc.1）：需要通道为 Prerelease才可见，且仍按幅度门槛判断。
+/// 发布渠道：决定预发布版本是否可见
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, TS)]
 pub enum UpdateChannel {
     /// 正式版
@@ -385,96 +329,312 @@ pub enum UpdateChannel {
 #[ts(export)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
-    /// 普通更新：受用户设置的更新策略约束
+    /// 普通：受用户策略约束
     #[default]
     Normal,
-    /// 重要更新：豁免用户的幅度门槛，通知所有用户
+    /// 重要：豁免幅度门槛
     Important,
-    /// 紧急更新：豁免用户的幅度门槛并强制更新，如不升级则无法使用
+    /// 紧急：豁免门槛，并可穿透「用户已关闭更新」
     Critical,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, TS)]
+/// 更新判定的结论
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UpdateDecision {
-    /// 不更新
-    Skip,
-    /// 更新
-    Update,
+    Skip(SkipReason),
+    Update(UpdateReason),
 }
 
-/// 安装形态，前端展示用（序列化为 `"nsis"` | `"portable"`，命令契约）
+impl UpdateDecision {
+    /// 是否放行
+    pub fn is_update(&self) -> bool {
+        matches!(self, Self::Update(_))
+    }
+}
+
+/// 跳过的原因
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkipReason {
+    /// 幅度门槛为 `Never`
+    Disabled,
+    /// 稳定通道，目标版本是预发布
+    ChannelBlocked,
+    /// 目标版本不高于当前版本
+    NotNewer,
+    /// 数字幅度低于门槛
+    BelowFloor,
+}
+
+/// 放行的原因，不可用于判断是否强制更新
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
-#[serde(rename_all = "lowercase")]
-pub enum UpdateKind {
-    /// NSIS 安装包
-    Nsis,
-    /// 便携版 zip
-    Portable,
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub enum UpdateReason {
+    /// 数字幅度达标
+    Newer,
+    /// 预发布 -> 稳定版，门槛不适用，否则用户永远卡在预发布
+    PrereleaseEscape,
+    /// 预发布 -> 预发布，进通道时风险已接受，门槛不适用
+    PrereleaseProgression,
+    /// severity 为 `Important`，豁免幅度门槛，但仍考虑用户的「已关闭更新」
+    Exempt,
+    /// severity 为 `Critical`，强制放行本会被拦的更新
+    Force,
 }
 
-/// 当前更新所处的阶段（对外快照的阶段标记）
-///
-/// 状态机由后端推进、以快照返回，前端 store 只做镜像。序列化为小写驼峰
-/// （`"idle"` / `"checking"` / `"upToDate"` / `"available"` / `"downloading"` /
-/// `"downloaded"` / `"error"`），供前端直接消费。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, TS)]
-#[serde(rename_all = "camelCase")]
+/// 当前更新所处的阶段
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum UpdateStatus {
-    /// 初始：尚未检查
     #[default]
     Idle,
-    /// 检查进行中（防重入：此阶段拒绝再次 check）
+    /// 检查中，防重入
     Checking,
-    /// 检查完，无可用更新
     UpToDate,
-    /// 有可用更新（severity=critical 即强制更新，前端不应提供忽略/稍后）
+    /// 有可用更新
     Available,
-    /// 下载中（防重入：此阶段拒绝再次 check/download）
+    /// 下载中，防重入
     Downloading,
-    /// 已下载待安装
     Downloaded,
-    /// 出错（恢复入口见 [`UpdateError`]，变体即"重试该调哪个命令"）
+    /// 出错，变体即"重试该调哪个命令"
     Error,
 }
 
-/// 对外展示视图：命令返回值与广播的**统一裁剪契约**
-///
-/// 每个变体只携带该阶段前端真正需要渲染的字段；凭据（artifact、产物路径等）
-/// 一律留在后端会话里，不出现于此。`status` 为 tag、载荷在 `data` 中，
-/// 前端 store 对"命令返回"与"广播事件"用同一个类型与同一个 apply 逻辑。
+/// 对外展示视图
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[serde(tag = "status", content = "data", rename_all = "camelCase")]
 pub enum UpdateView {
-    /// 空闲（尚未检查 / 无会话）
+    /// 空闲：尚未检查 / 无会话
     Idle,
-    /// 检查进行中
+    /// 正在检查
     Checking,
-    /// 检查完，已是最新版
+    /// 已是最新版
     UpToDate,
-    /// 有可用更新（severity=critical 即强制更新，前端不应提供忽略/稍后）
-    Available { info: UpdateInfo, severity: Severity },
-    /// 下载中（纯状态：不带进度数字，实时进度经 download 通道窄帧推送）
-    Downloading { info: UpdateInfo },
-    /// 已下载待安装
-    Downloaded { info: UpdateInfo, severity: Severity },
-    /// 出错（[`UpdateError`] 的 `message` 供展示；`type` 供前端决定重试按钮对应的命令）
+    /// 有可用更新，`severity = critical` 即强制更新，前端不应提供忽略/稍后
+    Available(UpdateCandidate),
+    /// 下载中，实时进度经 download 通道窄帧推送
+    Downloading(UpdateCandidate),
+    /// 已下载，待安装
+    Downloaded(UpdateCandidate),
+    /// 出错，[`UpdateError`] 的 `message` 供展示；`type` 供前端决定重试按钮对应的命令
     Error(UpdateError),
 }
 
-/// 更新失败（带载荷的错误枚举，对外视图与后端会话直接携带）
-///
-/// 变体身份 = "失败发生在哪一步 / 重试该调哪个命令"，载荷 = 展示文案。
-/// 序列化为 `{ "type": "check" | "download" | "install", "message": "..." }`，
-/// 前端据 `type` 决定重试按钮对应的命令，`message` 展示。
+/// 更新失败
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[ts(export)]
 #[serde(tag = "type", content = "message", rename_all = "camelCase")]
 pub enum UpdateError {
-    /// 检查失败 → 重试 check
+    /// 检查失败 -> 重试 check
     Check(String),
-    /// 下载失败 → 重试 download（后端保留凭据）
+    /// 下载失败 -> 重试 download，后端保留凭据
     Download(String),
-    /// 安装失败 → 重试 install（后端保留产物路径）
+    /// 安装失败 -> 重试 install，后端保留产物路径
     Install(String),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::common::enums::sys::{Arch, OS};
+    use std::collections::BTreeSet;
+
+    /// 三平台并存的一份清单：每个平台各带自己那几种载荷
+    const MULTI_PLATFORM: &str = r#"{
+      "version": "0.9.0",
+      "platforms": {
+        "windows": {
+          "x86_64": {
+            "nsis":     { "url": "https://example.com/win-x86_64-nsis.exe",      "sha256": "00", "signature": "s", "size": 1 },
+            "portable": { "url": "https://example.com/win-x86_64-portable.zip",  "sha256": "00", "signature": "s", "size": 1 },
+            "develop":  { "url": "https://example.com/win-x86_64-develop.zip",   "sha256": "00", "signature": "s", "size": 1 }
+          },
+          "arm64": {
+            "nsis":     { "url": "https://example.com/win-arm64-nsis.exe",       "sha256": "00", "signature": "s", "size": 1 }
+          }
+        },
+        "macos": {
+          "arm64": {
+            "dmg":      { "url": "https://example.com/mac-arm64.dmg",            "sha256": "00", "signature": "s", "size": 1 }
+          }
+        },
+        "linux": {
+          "x86_64": {
+            "deb":      { "url": "https://example.com/linux-x86_64.deb",         "sha256": "00", "signature": "s", "size": 1 },
+            "appimage": { "url": "https://example.com/linux-x86_64.AppImage",    "sha256": "00", "signature": "s", "size": 1 },
+            "develop":  { "url": "https://example.com/linux-x86_64-develop.tar.gz", "sha256": "00", "signature": "s", "size": 1 }
+          }
+        }
+      }
+    }"#;
+
+    fn parse(json: &str) -> UpdateManifest {
+        serde_json::from_str(json).expect("清单应可解析")
+    }
+
+    fn artifact(name: &str) -> Artifact {
+        Artifact {
+            url: Url::parse(&format!("https://example.com/{name}")).expect("URL 应合法"),
+            sha256: "00".repeat(32),
+            signature: "s".to_string(),
+            size: 1,
+        }
+    }
+
+    /// 每个平台/架构取各自的
+    #[test]
+    fn picks_the_payload_of_the_requested_platform() {
+        let manifest = parse(MULTI_PLATFORM);
+        let cases = [
+            (
+                OS::Windows,
+                Arch::X86_64,
+                AppMode::Install(Installer::Nsis),
+                "win-x86_64-nsis.exe",
+            ),
+            (OS::Windows, Arch::X86_64, AppMode::Portable, "win-x86_64-portable.zip"),
+            (OS::Windows, Arch::X86_64, AppMode::Develop, "win-x86_64-develop.zip"),
+            (
+                OS::Windows,
+                Arch::Arm64,
+                AppMode::Install(Installer::Nsis),
+                "win-arm64-nsis.exe",
+            ),
+            (OS::MacOS, Arch::Arm64, AppMode::Install(Installer::Dmg), "mac-arm64.dmg"),
+            (OS::Linux, Arch::X86_64, AppMode::Install(Installer::Deb), "linux-x86_64.deb"),
+            (
+                OS::Linux,
+                Arch::X86_64,
+                AppMode::Install(Installer::AppImage),
+                "linux-x86_64.AppImage",
+            ),
+            (OS::Linux, Arch::X86_64, AppMode::Develop, "linux-x86_64-develop.tar.gz"),
+        ];
+        for (os, arch, mode, expected) in cases {
+            let label = format!("{os} / {arch} / {mode}");
+            let found = manifest
+                .get_artifact(os, arch, mode)
+                .unwrap_or_else(|| panic!("{label} 应有产物"));
+            assert_eq!(found.file_name().as_deref(), Some(expected), "{label}");
+        }
+    }
+
+    /// 平台、架构、载荷任一缺失都返回 None，绝不回落到别的槽
+    #[test]
+    fn missing_platform_arch_or_payload_is_none() {
+        let manifest = parse(MULTI_PLATFORM);
+        assert!(manifest
+            .get_artifact(OS::MacOS, Arch::X86_64, AppMode::Install(Installer::Dmg))
+            .is_none());
+        assert!(manifest
+            .get_artifact(OS::Linux, Arch::Arm64, AppMode::Install(Installer::Deb))
+            .is_none());
+        assert!(manifest.get_artifact(OS::Windows, Arch::Arm64, AppMode::Develop).is_none());
+        assert!(manifest
+            .get_artifact(OS::Windows, Arch::X86_64, AppMode::Install(Installer::Msi))
+            .is_none());
+    }
+
+    /// 旧清单（只有 windows、甚至没有 platforms）照常解析
+    #[test]
+    fn windows_only_manifest_still_parses() {
+        let manifest = parse(
+            r#"{"version":"0.8.0","platforms":{"windows":{"x86_64":{"nsis":
+               {"url":"https://example.com/win-nsis.exe","sha256":"00","signature":"s","size":1}}}}}"#,
+        );
+        assert!(manifest
+            .get_artifact(OS::Windows, Arch::X86_64, AppMode::Install(Installer::Nsis))
+            .is_some());
+        assert!(manifest
+            .get_artifact(OS::MacOS, Arch::Arm64, AppMode::Install(Installer::Dmg))
+            .is_none());
+        assert!(manifest.get_artifact(OS::Linux, Arch::X86_64, AppMode::Develop).is_none());
+
+        let bare = parse(r#"{"version":"0.8.0"}"#);
+        assert!(bare.get_artifact(OS::Windows, Arch::X86_64, AppMode::Develop).is_none());
+    }
+
+    /// 槽名 = `AppMode::slug()` = 发布端 `Kind.key`
+    #[test]
+    fn payload_slots_mirror_app_mode_slugs() {
+        let payloads = Payloads {
+            msi: Some(artifact("msi")),
+            nsis: Some(artifact("nsis")),
+            dmg: Some(artifact("dmg")),
+            rpm: Some(artifact("rpm")),
+            deb: Some(artifact("deb")),
+            appimage: Some(artifact("appimage")),
+            portable: Some(artifact("portable")),
+            develop: Some(artifact("develop")),
+        };
+        let modes = [
+            AppMode::Develop,
+            AppMode::Portable,
+            AppMode::Install(Installer::Msi),
+            AppMode::Install(Installer::Nsis),
+            AppMode::Install(Installer::Dmg),
+            AppMode::Install(Installer::Rpm),
+            AppMode::Install(Installer::Deb),
+            AppMode::Install(Installer::AppImage),
+        ];
+
+        let json = serde_json::to_value(&payloads).expect("载荷分组应可序列化");
+        let keys: BTreeSet<&str> = json.as_object().expect("应为对象").keys().map(String::as_str).collect();
+        let expected: BTreeSet<&str> = modes.iter().map(|mode| mode.slug()).collect();
+        assert_eq!(keys, expected, "槽名必须与 AppMode::slug() 一致");
+
+        for mode in modes {
+            let found = payloads.get(mode).unwrap_or_else(|| panic!("{mode} 应有槽"));
+            assert_eq!(found.file_name().as_deref(), Some(mode.slug()), "{mode}");
+        }
+    }
+
+    fn candidate(severity: Severity, reason: UpdateReason) -> UpdateCandidate {
+        UpdateCandidate {
+            info: UpdateInfo {
+                version: Version::new(0, 9, 0),
+                notes: None,
+                date: None,
+            },
+            severity,
+            reason,
+        }
+    }
+
+    /// 三个下载阶段都要带 severity + reason：下载期是「强制更新」最容易被漏掉的一段
+    #[test]
+    fn every_download_stage_carries_severity_and_reason() {
+        let stages = [UpdateStatus::Available, UpdateStatus::Downloading, UpdateStatus::Downloaded];
+        for status in stages {
+            let session = UpdateSession {
+                status,
+                candidate: Some(candidate(Severity::Critical, UpdateReason::Force)),
+                ..Default::default()
+            };
+            let json = serde_json::to_value(session.view()).expect("视图应可序列化");
+            assert_eq!(json["data"]["severity"], "critical", "{status:?}");
+            assert_eq!(json["data"]["reason"], "force", "{status:?}");
+        }
+    }
+
+    /// 缺候选时退化到最近的中性视图，不 panic
+    #[test]
+    fn missing_candidate_degrades_to_the_nearest_neutral_view() {
+        let cases = [
+            (UpdateStatus::Available, "upToDate"),
+            (UpdateStatus::Downloading, "checking"),
+            (UpdateStatus::Downloaded, "upToDate"),
+        ];
+        for (status, expected) in cases {
+            let json = serde_json::to_value(
+                UpdateSession {
+                    status,
+                    ..Default::default()
+                }
+                .view(),
+            )
+            .expect("视图应可序列化");
+            assert_eq!(json["status"], expected, "{status:?}");
+        }
+    }
 }

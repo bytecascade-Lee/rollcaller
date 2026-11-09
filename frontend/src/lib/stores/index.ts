@@ -3,3 +3,4 @@ export * from "./helpStore.svelte";
 export * from "./recordStore.svelte";
 export * from "./studentStore.svelte";
 export * from "./TtsStore.svelte";
+export * from "./UpdaterStore.svelte";

@@ -1,36 +1,9 @@
-//! 下载更新产物：流式下载到临时文件（.part）→ 校验 → 重命名为正式文件名
+//! 下载更新产物：流式写入 `.part` → 校验 → 重命名为正式产物。
 //!
-//! # 落盘策略（域自包含，不接收路径参数）
+//! 下载中的文件使用 `{随机uuid}.part` 命名、非可执行扩展名，且与正式产物分居两个目录，
+//! 只有通过校验的字节才会以正式文件名出现，失败或取消即全量重下。
 //!
-//! 本领域**不感知也不接收任何路径参数**：part 工作区由 [`paths::part`] 生成（随机
-//! uuid、落 `temp/downloads/`）；正式产物落点由 `artifact.file_name()`（url 最后一段）
-//! 与 [`paths::package`] 现推（`temp/update/packages/`）。目录布局收口于 [`paths`]，
-//! 领域只负责"流到 part → 校验 → rename"。
-//! 下载物先完整写入随机 `.part`——无信息量的名字、非可执行扩展名，顺序与内容不可被
-//! 外部按文件名推断；完整写盘并校验**通过后**才 `rename` 为正式文件名。
-//! 正式落点一定是已验证字节；校验失败 / 取消即删除 `.part`，磁盘上从不出现"未验证的正式产物"。
-//!
-//! # 传输与超时
-//!
-//! 使用 [`http_client::download`]：**不设整体超时**，只设连接超时与空闲读超时。
-//!
-//! 暂时**不实现断点续传**，下载失败或取消即全量重下。具体平台能力如下：
-//! - **GitHub**：**支持断点续传**。
-//!   请求原始下载链接（如 `https://github.com/owner/repo/releases/download/...` ）会返回 **302 重定向**，
-//!   最终指向 `release-assets.githubusercontent.com`（Azure CDN）。该 CDN 响应头包含 `Accept-Ranges: bytes`，
-//!   明确支持 `Range` 请求。若在重试时重新请求原始链接（自动跟随重定向获取新令牌）并携带 `Range` 头，
-//!   即可实现从断点处续传。
-//! - **CNB**：**不支持断点续传**。
-//!   经实测，即使客户端携带 `Range: bytes=0-99` 请求头，服务端仍返回 `HTTP 200 OK` 及完整的文件内容
-//!   （`Content-Length` 为全量大小），而非 `206 Partial Content`。因此在该平台上下载中断后无法续传。
-//!
-//! 未来如果需要扩展，可在 `Github` 上实现多线程下载及断点续传策略。
-//!
-//! # 校验
-//!
-//! 校验逻辑在 [`verify_artifact_path`]：整体验签入口**签名必填**（fail closed）——
-//! 先过签名必填，再 sha256 必验，最后 minisign 签名验证（双重 base64 处理见该模块）。
-//! 仅需 sha256 的 Go updater（更新器）**不走本入口**，改直接调用 `verify::verify_sha256`。
+//! 暂时不做断点续传（CNB 无 `Range` 支持）
 
 use crate::state::http_client;
 use crate::updater::model::{Artifact, DownloadProgress};
@@ -42,40 +15,32 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// 流式下载 `artifact.url`，校验后重命名为正式产物并返回其路径
+/// 用户取消下载
 ///
-/// # 参数
-/// - `artifact`：下载凭据（url 为下载源，同时决定正式产物名 = url 最后一段；
-///   sha256 / signature 供落盘后整体校验）。
-/// - `cancel`：取消信号（前端 `cancel` 命令置位），下载中途发现置位 → 清理 `.part`
-///   并返回错误（文案 `CANCELLED`，前端可据此静默回到可重下状态）。
-/// - `on_progress`：进度回调（每 chunk 上报）。
+/// 用类型而非错误文案传递：编排层据 `downcast_ref` 回到可重下状态，改文案不会破协议。
+#[derive(Debug)]
+pub struct Cancelled;
+
+impl std::fmt::Display for Cancelled {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("下载已取消")
+    }
+}
+
+impl std::error::Error for Cancelled {}
+
+/// 流式下载 `artifact.url`，校验后落为正式产物并返回其路径
 ///
-/// # 落点
-/// - part 工作区：`paths::part()`（随机 uuid，落 `temp/downloads/`）；
-/// - 正式产物：`paths::package(artifact.file_name()?)`（落 `temp/update/packages/`）。
-///
-/// # 流程
-/// 1. 正式产物已存在 → 先整体验签：通过即视为已下载（幂等返回），失败则删除待重下；
-/// 2. 下载全程写入 `.part`（每 chunk 写盘、上报进度、检查 `cancel`）；
-/// 3. 下载完成对 `.part` 整读校验（签名必填 → sha256 必验 → minisign 签名验证），
-///    失败删除 `.part`；
-/// 4. 校验通过 `rename` 为正式产物（跨目录，同 temp 卷内原子；同名残留已在步骤 1 处理）。
-///
-/// # 取消
-/// 下载完成后置位无效——产物已落盘，由调用方的取消流程另行删除。
+/// 正式产物已存在且验签通过时幂等返回；卸载后置位的取消不再生效，彼时产物已落盘，由调用方另行删除。
 pub async fn download(
     artifact: &Artifact,
     cancel: &AtomicBool,
     mut on_progress: impl FnMut(DownloadProgress),
 ) -> anyhow::Result<PathBuf> {
     let part_path = paths::part();
+    let final_path = paths::package_of(artifact)?;
 
-    let file_name = artifact
-        .file_name()
-        .ok_or_else(|| anyhow!("下载地址缺少文件名: {}", artifact.url))?;
-    let final_path = paths::package(&file_name);
-    // 0. 确保 part 与 final 的父目录存在（分居两目录，均可能尚未创建）
+    // part 与 final 分居两个目录，父目录都可能尚未创建
     if let Some(parent) = part_path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建下载工作目录失败（{}）：{e}", parent.display()))?;
     }
@@ -83,7 +48,7 @@ pub async fn download(
         std::fs::create_dir_all(parent).map_err(|e| anyhow!("创建产物目录失败（{}）：{e}", parent.display()))?;
     }
 
-    // 1. final 残留已就绪：校验通过直接返回（不重复下载）；失败删除重下
+    // 同名残留，验签通过即复用，否则删掉重下
     if final_path.exists() {
         match verify_artifact_path(&final_path, artifact) {
             Ok(_) => return Ok(final_path),
@@ -92,7 +57,6 @@ pub async fn download(
         }
     }
 
-    // 2. 请求下载源
     let response = http_client::download()
         .get(artifact.url.as_str())
         .send()
@@ -110,7 +74,7 @@ pub async fn download(
         if cancel.load(Ordering::Relaxed) {
             drop(file);
             let _ = std::fs::remove_file(&part_path);
-            return Err(anyhow!("CANCELLED"));
+            return Err(anyhow::Error::new(Cancelled));
         }
         file.write_all(&chunk)
             .map_err(|e| anyhow!("写入临时下载文件 {} 失败：{e}", part_path.display()))?;
@@ -119,13 +83,13 @@ pub async fn download(
     }
     drop(file);
 
-    // 4. 校验（verify 模块 path 入口：整读后 sha256 + 可选签名）；失败删除 .part
+    // 校验失败即删 .part，磁盘上不留未验证的字节
     verify_artifact_path(&part_path, artifact).map_err(|e| {
         let _ = std::fs::remove_file(&part_path);
         e.context(anyhow!("下载内容校验失败，已删除。"))
     })?;
 
-    // 5. rename 为正式名（前面已处理同名残留，此处无需再判断）
+    // 同卷跨目录 rename 原子；同名残留在前面已处理
     std::fs::rename(&part_path, &final_path).map_err(|e| {
         anyhow!(
             "重命名下载产物失败（{} → {}）：{e}",
@@ -136,9 +100,9 @@ pub async fn download(
     Ok(final_path)
 }
 
-/// 就绪锚点判定：产物文件存在 → 先以 size 短路（不符视为损坏清除）→ 再整体验签
+/// 就绪锚点判定：产物文件存在 -> 先以 size 短路 -> 再整体验签
 ///
-/// 返回 `Some(路径)` 表示"已下载待安装"（可跳过下载直接安装）；
+/// 返回 `Some(路径)` 表示"已下载待安装"；
 /// 不存在 / 校验失败均返回 `None`，且校验失败或 size 不符时清除文件待重下。
 pub fn ready(path: &Path, artifact: &Artifact) -> Option<PathBuf> {
     if !path.is_file() {
@@ -279,7 +243,10 @@ mod tests {
             let err = download(&artifact_for(&server.url, &body, None), &cancel, |_| {})
                 .await
                 .expect_err("置位取消应报错");
-            assert!(err.to_string().contains("CANCELLED"), "取消文案应可识别: {err}");
+            assert!(
+                err.downcast_ref::<Cancelled>().is_some(),
+                "应以 Cancelled 类型报告取消: {err}"
+            );
             assert!(!expect_package_path("cancel").exists(), "取消后不应留下正式产物");
 
             server.handle.join().unwrap();
@@ -324,7 +291,7 @@ mod tests {
 
             let err = download(&artifact, &cancel, |_| {}).await.expect_err("空签名应被拒绝");
             assert!(
-                err.chain().any(|c| c.to_string().contains("缺少产物签名")),
+                err.chain().any(|c| c.to_string().contains("缺少 minisign 签名")),
                 "错误链应指出签名缺失: {err:?}"
             );
             assert!(!expect_package_path("unsigned").exists(), "签名缺失不得留下正式产物");

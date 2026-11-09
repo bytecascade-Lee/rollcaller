@@ -7,4 +7,4 @@ export * as RollcallCommand from "./rollcall";
 export * as TtsCommand from "./tts";
 export * as ImportCommand from "./import";
 export * as NavCommand from "./nav";
-export * as UpdateCommand from "./update";
+export * as UpdateCommand from "./updater";
