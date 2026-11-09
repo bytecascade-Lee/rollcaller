@@ -93,7 +93,8 @@
   });
 </script>
 
-<div class="shell">
+<!-- 弹窗开着时整个 shell 变 inert：焦点与点击都进不到背景，等于给模态上了原生焦点陷阱 -->
+<div class="shell" inert={updateUiStore.open}>
   <div class="titlebar-slot">
     <AppTitleBar {window} />
   </div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import {onMount} from "svelte";
+  import {onMount, tick} from "svelte";
   import MarkdownView from "$components/common/MarkdownView.svelte";
   import {AppInfoCommand} from "$commands";
   import {updateStore, updateUiStore} from "$stores";
@@ -23,9 +23,32 @@
   let total = $derived(progress.total);
   let hasTotal = $derived(total !== null && total > 0);
   let percent = $derived(total !== null && total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0);
+  /** 强制更新：critical 的候选，弹窗不给任何关闭手段 */
+  let forced = $derived(updateUiStore.forced);
+
+  /**
+   * 解释性文案：`reason` 的用武之地——它说明「这条更新为什么被放行」
+   *
+   * 只解释用户可能想不通的那两种：critical 为什么不能跳过、「重要」为什么绕过了门槛。
+   * `reason = "newer"` 的 important 不需要解释（本来就没忽略什么），只显示徽标。
+   */
+  let hint = $derived.by(() => {
+    if (!candidate) return null;
+    if (candidate.severity === "critical") {
+      return candidate.reason === "force"
+        ? "此更新为紧急更新，已忽略你设置的版本更新门槛，必须完成安装后才能继续使用。"
+        : "此更新为紧急更新，必须完成安装后才能继续使用。";
+    }
+    if (candidate.severity === "important" && candidate.reason === "exempt") {
+      return "此更新被标记为「重要」，已忽略你设置的版本更新门槛。";
+    }
+    return null;
+  });
 
   let currentVersion = $state("");
   let installing = $state(false);
+  let dialogEl = $state<HTMLDivElement | null>(null);
+  let primaryEl = $state<HTMLButtonElement | null>(null);
 
   // 上一次视图的阶段，`null` = 启动恢复现场
   let prevStatus: UpdateView["status"] | null = null;
@@ -35,6 +58,19 @@
     if (UpdateOpen.shouldAutoOpen(prevStatus, next)) updateUiStore.show();
     prevStatus = next.status;
   });
+
+  // 打开时把焦点放进弹窗：优先主按钮，没有主按钮（如下载中）就落在弹窗本身。
+  // 背景的不可聚焦由 `App.svelte` 的 `inert` 保证，这里只负责"进来"。
+  $effect(() => {
+    if (!updateUiStore.open) return;
+    void tick().then(() => (primaryEl ?? dialogEl)?.focus());
+  });
+
+  /** Esc 关闭；强制更新期间 `hide()` 是 no-op，所以这里不用再判一次 */
+  function onKeydown(event: KeyboardEvent) {
+    if (event.key !== "Escape" || !updateUiStore.open) return;
+    updateUiStore.hide();
+  }
 
   function checkNow() {
     if (view.status === "checking" || view.status === "downloading") return;
@@ -73,13 +109,23 @@
   });
 </script>
 
+<svelte:window onkeydown={onKeydown} />
+
 {#if updateUiStore.open}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="overlay" onclick={() => updateUiStore.hide()}>
-    <div class="popup" onclick={(e) => e.stopPropagation()}>
+    <div
+      aria-labelledby="updater-dialog-title"
+      aria-modal="true"
+      bind:this={dialogEl}
+      class="popup"
+      onclick={(e) => e.stopPropagation()}
+      role="dialog"
+      tabindex="-1"
+    >
       <div class="popup-header">
-        <h3 class="text-title">
+        <h3 class="text-title" id="updater-dialog-title">
           {#if view.status == "checking"}
             正在检查更新...
           {:else if view.status == "available"}
@@ -103,6 +149,10 @@
         {/if}
       </div>
 
+      {#if hint && (view.status == "available" || view.status == "downloaded")}
+        <p class="text-content hint">{hint}</p>
+      {/if}
+
       {#if view.status == "available"}
         <span class="text-content">发布于：{info?.date}</span>
         <div class="changelog">
@@ -111,7 +161,14 @@
       {:else if view.status == "downloading"}
         {#if hasTotal}
           <div class="progress">
-            <div class="progress-bar">
+            <div
+              aria-label="下载进度"
+              aria-valuemax="100"
+              aria-valuemin="0"
+              aria-valuenow={percent}
+              class="progress-bar"
+              role="progressbar"
+            >
               <div class="progress-fill" style:width="{percent}%"></div>
             </div>
             <span class="progress-text">{percent}%</span>
@@ -130,12 +187,15 @@
             </p>
           {/if}
         {/if}
+        {#if forced}
+          <p class="text-content hint">更新中，无法取消。</p>
+        {/if}
       {:else if view.status == "downloaded"}
         <p class="text-content">
           新版本 v{info?.version} 已下载完成，点击「重启并更新」应用更新（应用将自动关闭并重新打开）。
         </p>
       {:else if view.status == "error"}
-        <div class="text-content" style="color: var(--color-error)">{errorMessage}</div>
+        <div aria-live="polite" class="text-content" style="color: var(--color-error)">{errorMessage}</div>
         <p class="text-content" style="margin-top: var(--space-xs);">
           {#if retry == "check"}
             检查更新失败，可重试。
@@ -159,27 +219,50 @@
       {/if}
 
       <div class="button-group">
-        <button class="button" onclick={() => updateUiStore.hide()} disabled={installing}>
-          {#if view.status == "downloading"}
-            后台下载
-          {:else}
-            关闭
+        {#if forced}
+          <!-- 强制更新：没有关闭 / 重新检查 / 取消，只有把更新做完这一条路 -->
+          {#if view.status == "available"}
+            <button bind:this={primaryEl} class="button yes" onclick={() => void download()}>立即更新</button>
+          {:else if view.status == "downloaded"}
+            <button
+              bind:this={primaryEl}
+              class="button yes"
+              disabled={installing}
+              onclick={() => void installAndRestart()}
+            >
+              {installing ? "重启中..." : "重启并更新"}
+            </button>
           {/if}
-        </button>
-
-        {#if view.status == "available"}
-          <button class="button warn" onclick={checkNow}>重新检查</button>
-          <button class="button yes" onclick={() => void download()}>下载</button>
-        {:else if view.status == "downloading"}
-          <button class="button warn" onclick={() => void cancelDownload()}>取消下载</button>
-        {:else if view.status == "downloaded"}
-          <button class="button yes" onclick={() => void installAndRestart()} disabled={installing}>
-            {installing ? "重启中..." : "重启并更新"}
+        {:else}
+          <button class="button" disabled={installing} onclick={() => updateUiStore.hide()}>
+            {#if view.status == "downloading"}
+              后台下载
+            {:else if view.status == "downloaded"}
+              稍后
+            {:else}
+              关闭
+            {/if}
           </button>
-        {:else if view.status == "error"}
-          <button class="button warn" onclick={retryAction}>重试</button>
-        {:else if view.status == "upToDate" || view.status == "idle"}
-          <button class="button yes" onclick={checkNow}>检查更新</button>
+
+          {#if view.status == "available"}
+            <button class="button warn" onclick={checkNow}>重新检查</button>
+            <button bind:this={primaryEl} class="button yes" onclick={() => void download()}>下载</button>
+          {:else if view.status == "downloading"}
+            <button class="button warn" onclick={() => void cancelDownload()}>取消下载</button>
+          {:else if view.status == "downloaded"}
+            <button
+              bind:this={primaryEl}
+              class="button yes"
+              disabled={installing}
+              onclick={() => void installAndRestart()}
+            >
+              {installing ? "重启中..." : "重启并更新"}
+            </button>
+          {:else if view.status == "error"}
+            <button bind:this={primaryEl} class="button warn" onclick={retryAction}>重试</button>
+          {:else if view.status == "upToDate" || view.status == "idle"}
+            <button bind:this={primaryEl} class="button yes" onclick={checkNow}>检查更新</button>
+          {/if}
         {/if}
       </div>
     </div>
@@ -208,6 +291,10 @@
 
   .severity-badge.important {
     background: var(--color-warn);
+  }
+
+  .hint {
+    color: var(--text-color-secondary);
   }
 
   .changelog {

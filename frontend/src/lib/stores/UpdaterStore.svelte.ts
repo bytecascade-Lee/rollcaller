@@ -3,6 +3,7 @@ import * as UpdateCommand from "$commands/updater";
 import {DOWNLOAD_PROGRESS_EVENT, UPDATE_VIEW_EVENT} from "$commands/updater";
 import type {DownloadProgress} from "$types/DownloadProgress";
 import type {UpdateView} from "$types/UpdateView";
+import {UpdateOpen} from "$utils";
 
 /**
  * 更新状态 store
@@ -113,16 +114,28 @@ export class UpdateUiStore {
     return this.#open;
   }
 
+  /** 是否处于强制更新（critical）：界面不给任何关闭手段 */
+  get forced() {
+    return UpdateOpen.isForced(updateStore.view);
+  }
+
   /** 打开 / 关闭 / 翻转 */
   show() {
     this.#open = true;
   }
 
+  /** 关闭；强制更新期间是 no-op——退出只有「立即更新 / 重启并更新」两条路 */
   hide() {
+    if (this.forced) return;
     this.#open = false;
   }
 
   toggle() {
+    // 强制更新期间点标题栏图标不会把弹窗收起来
+    if (this.forced) {
+      this.#open = true;
+      return;
+    }
     this.#open = !this.#open;
   }
 

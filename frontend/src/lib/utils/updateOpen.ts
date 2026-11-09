@@ -22,6 +22,18 @@ export function shouldAutoOpen(prev: UpdateView["status"] | null, next: UpdateVi
   return false;
 }
 
+/**
+ * 是否处于「强制更新」：界面必须留在弹窗里，不给关闭 / 取消 / 后台
+ *
+ * 判据是 `severity === "critical"`，**不是** `reason === "force"`——`level = Patch` + critical 的更新
+ * 会得到 `reason = "newer"`，却仍须强制（`force` 只表示 severity 是放行的必要条件）。
+ *
+ * `error` 一律不算强制：强制不等于把用户困在死循环里，失败必须能退出或重试。
+ */
+export function isForced(view: UpdateView): boolean {
+  return hasCandidate(view) && view.data.severity === "critical";
+}
+
 /** 带候选更新的三种状态：它们描述的是同一个候选，字段一起走 */
 function hasCandidate(
   view: UpdateView,

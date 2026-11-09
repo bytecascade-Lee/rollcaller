@@ -3,7 +3,7 @@ import {test} from "vitest";
 
 import type {Severity} from "$types/Severity";
 import type {UpdateView} from "$types/UpdateView";
-import {shouldAutoOpen} from "$utils/updateOpen";
+import {isForced, shouldAutoOpen} from "$utils/updateOpen";
 
 /**
  * 弹窗自动打开的规则只有一条：**critical 的候选更新**会打断用户，其余一律只改标题栏图标。
@@ -62,4 +62,43 @@ test("中性阶段不弹", () => {
   assert.equal(shouldAutoOpen("idle", {status: "checking"}), false);
   assert.equal(shouldAutoOpen("checking", {status: "upToDate"}), false);
   assert.equal(shouldAutoOpen("upToDate", {status: "upToDate"}), false);
+});
+
+/**
+ * 强制更新：界面不给关闭 / 取消 / 后台。
+ *
+ * 判据必须是 `severity`，因为 `reason = "force"` 只表示「critical 且 severity 是放行的必要条件」：
+ * `level = Patch` + critical 会得到 `reason = "newer"`，却仍须强制。
+ */
+test("强制更新只看 severity：critical 的三态都算，reason 是 newer 也算", () => {
+  assert.equal(isForced(available("critical")), true);
+  assert.equal(isForced(downloading("critical")), true);
+  assert.equal(isForced(downloaded("critical")), true);
+  assert.equal(
+    isForced({
+      status: "available",
+      data: {...candidateData("critical"), reason: "newer"},
+    }),
+    true,
+  );
+});
+
+test("normal / important 不强制，哪怕 reason = force", () => {
+  assert.equal(isForced(available("normal")), false);
+  assert.equal(isForced(downloading("important")), false);
+  assert.equal(
+    isForced({
+      status: "available",
+      data: {...candidateData("important"), reason: "force"},
+    }),
+    false,
+  );
+});
+
+test("error 永远不强制：强制不等于把用户困在死循环里", () => {
+  assert.equal(isForced(error("check")), false);
+  assert.equal(isForced(error("download")), false);
+  assert.equal(isForced(error("install")), false);
+  assert.equal(isForced({status: "idle"}), false);
+  assert.equal(isForced({status: "upToDate"}), false);
 });
