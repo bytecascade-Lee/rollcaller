@@ -5,11 +5,9 @@
 uv 命令封装
 """
 
-import subprocess
 from pathlib import Path
 
-from cli import _process
-from cli._version import version_string
+from cli._tool import Tool
 from common.constant.paths import PROJECT_BASE_DIR
 from common.logger import warning
 
@@ -25,33 +23,19 @@ class UvError(Exception):
     pass
 
 
-def _run(
-    args: list[str],
-    *,
-    cwd: Path | None = None,
-    timeout: float | int | None = LOCK_TIMEOUT,
-    capture: bool = True,
-    allow: tuple[int, ...] = (),
-) -> subprocess.CompletedProcess[str]:
-    """执行 uv 命令，失败统一包成 UvError"""
-    cwd = cwd or PROJECT_BASE_DIR
-    try:
-        return _process.run(["uv", *args], cwd=cwd, timeout=timeout, capture=capture, allow=allow)
-    except _process.ProcessError as error:
-        if error.not_found:
-            raise UvError("未找到 'uv'，请安装后加入 PATH") from error
-        raise UvError(str(error)) from error
-
-
-def version() -> str | None:
-    """`uv --version` 里的版本号；输出认不出时返回 None"""
-    return version_string(str(_run(["--version"]).stdout))
+TOOL = Tool(
+    "uv",
+    UvError,
+    cwd=PROJECT_BASE_DIR,
+    timeout=LOCK_TIMEOUT,
+    hint="请安装 uv 并加入 PATH：https://docs.astral.sh/uv/getting-started/installation/",
+)
 
 
 def lock(cwd: Path | None = None) -> None:
     """执行 `uv lock` 刷新 uv.lock，失败只警告，锁文件滞后不该阻断构建"""
     try:
-        _ = _run(["lock"], cwd=cwd)
+        _ = TOOL.run(["lock"], cwd=cwd)
     except UvError as error:
         warning(f"uv lock 未完成，uv.lock 可能滞后: {error}")
 
@@ -63,7 +47,7 @@ def lock_check(cwd: Path | None = None) -> bool:
     :return: True 表示锁文件是最新的；False 表示需要重新 `uv lock`
     """
     # 锁过期时 uv 以 1 退出，故把 1 列入预期退出码，其余照常抛错
-    result = _run(["lock", "--check"], cwd=cwd, allow=(1,))
+    result = TOOL.run(["lock", "--check"], cwd=cwd, allow=(1,))
     return result.returncode == 0
 
 
@@ -75,4 +59,4 @@ def sync_frozen(cwd: Path | None = None) -> None:
 
     :raise UvError: 同步失败
     """
-    _ = _run(["sync", "--frozen"], cwd=cwd, timeout=SYNC_TIMEOUT, capture=False)
+    _ = TOOL.run(["sync", "--frozen"], cwd=cwd, timeout=SYNC_TIMEOUT, capture=False)

@@ -3,13 +3,15 @@
 
 """
 basedpyright 命令封装
+
+与 ruff 一样随 dev 组安装进项目虚拟环境：从当前解释器同目录取可执行文件，
+不依赖 PATH，也不受 IDE 自带的语言服务器影响。
 """
 
-import subprocess
 import sys
 from pathlib import Path
 
-from cli import _process
+from cli._tool import Tool
 from common.constant.paths import PROJECT_BASE_DIR
 
 # 冷启动要拉起内嵌的 node
@@ -20,18 +22,17 @@ class BasedpyrightError(Exception):
     """basedpyright 无法启动，或检查发现类型错误"""
 
 
-def _run(args: list[str], *, cwd: Path | None = None, capture: bool = False) -> subprocess.CompletedProcess[str]:
-    """执行 basedpyright 命令，失败统一包成 BasedpyrightError；报告默认直接进控制台"""
-    cwd = cwd or PROJECT_BASE_DIR
-    try:
-        program = _process.resolve("basedpyright", search_dir=Path(sys.executable).parent)
-        return _process.run([program, *args], cwd=cwd, timeout=RUN_TIMEOUT, capture=capture)
-    except _process.ProcessError as error:
-        if error.not_found:
-            raise BasedpyrightError("未在当前虚拟环境找到 'basedpyright'，请执行 `just setup` 同步依赖") from error
-        raise BasedpyrightError(str(error)) from error
+TOOL = Tool(
+    "basedpyright",
+    BasedpyrightError,
+    cwd=PROJECT_BASE_DIR,
+    timeout=RUN_TIMEOUT,
+    capture=False,
+    search_dir=Path(sys.executable).parent,
+    hint="请执行 `just setup` 同步依赖（basedpyright 随 dev 组依赖安装）",
+)
 
 
-def typecheck(*, cwd: Path | None = None) -> None:
-    """按照 pyproject.toml 中的 [tool.basedpyright] 执行类型检查，等级为 `error`"""
-    _ = _run(["--level", "error"], cwd=cwd)
+def typecheck() -> None:
+    """按照 pyproject.toml 中的 [tool.basedpyright] 执行类型检查"""
+    _ = TOOL.run(["--level", "error"])

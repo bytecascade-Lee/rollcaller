@@ -10,13 +10,13 @@ GitHub CLI 操作模块，封装常用 gh 命令 / REST 请求，返回结构化
 
 import json
 import re
-import subprocess
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
 from cli import _process
+from cli._tool import Tool
 
 DEFAULT_TIMEOUT = 120
 UPLOAD_TIMEOUT = 1800
@@ -37,35 +37,30 @@ class GhAuthError(GhError):
     pass
 
 
-def _run(args: list[str], *, timeout: float | int, text: bool = True) -> subprocess.CompletedProcess[Any]:
-    """
-    执行 gh 命令并返回 CompletedProcess
-
-    :param args: gh 子命令及其参数，如 ["auth", "status"]
-    :param timeout: 超时秒数
-    :param text: True 返回 str，False 返回原始 bytes
-
-    :raise GhError: 未找到 gh 命令，或命令超时，或命令执行失败
-    :raise GhAuthError: HTTP 401，或 auth 子命令本身失败
-    """
-    try:
-        return _process.run(["gh", *args], timeout=timeout, text=text)
-    except _process.ProcessError as error:
-        # 401 是凭据问题，任何调用点都应立刻可见；403 可能是限流，不并进来
-        if args[:2] == ["auth", "status"] or http_status_from_text(error.detail) == 401:
-            raise GhAuthError(f"gh 鉴权失败: {error.detail or error}") from error
-        raise GhError(str(error)) from error
+def _translate(args: Sequence[str], failure: _process.ProcessError) -> Exception | None:
+    """401 是凭据问题，任何调用点都应立刻可见；403 可能是限流，不并进来"""
+    if args[:2] == ["auth", "status"] or http_status_from_text(failure.detail) == 401:
+        return GhAuthError(f"gh 鉴权失败: {failure.detail or failure}")
+    return None
 
 
-def stdout(args: list[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> str:
+TOOL = Tool(
+    "gh",
+    GhError,
+    timeout=DEFAULT_TIMEOUT,
+    hint="请安装 GitHub CLI 并加入 PATH：https://cli.github.com/",
+    translate=_translate,
+)
+
+
+def stdout(args: Sequence[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> str:
     """执行 gh 命令，返回 utf-8 解码并 strip 后的 stdout"""
-    result = _run(args, timeout=timeout)
-    return str(result.stdout).strip()
+    return TOOL.text(args, timeout=timeout)
 
 
-def stdout_bytes(args: list[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> bytes:
+def stdout_bytes(args: Sequence[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> bytes:
     """执行 gh 命令，返回原始字节 stdout"""
-    return _run(args, timeout=timeout, text=False).stdout
+    return TOOL.bytes(args, timeout=timeout)
 
 
 def auth() -> None:

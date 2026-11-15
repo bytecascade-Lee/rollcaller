@@ -7,14 +7,15 @@ CNB CLI 操作模块，封装常用 cnb 命令，返回结构化数据
 
 import json
 import re
-import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from cli import _process
+from cli._tool import Tool
 from common.logger import info, warning
 
 DEFAULT_TIMEOUT = 120
@@ -50,36 +51,25 @@ def _redact(text: str) -> str:
     return _URL_RE.sub("<redacted-url>", text)
 
 
-def _run(args: list[str], *, timeout: float | int, text: bool = True) -> subprocess.CompletedProcess[Any]:
-    """
-    执行 cnb 命令并返回 CompletedProcess
-
-    :param args: cnb 子命令及其参数，如 ["auth", "status"]
-    :param timeout: 超时秒数
-    :param text: True 返回 str，False 返回原始 bytes
-    """
-    try:
-        return _process.run(["cnb", *args], timeout=timeout, text=text)
-    except _process.ProcessError as error:
-        if error.not_found:
-            raise CnbError("未找到 cnb 命令，请先安装 @cnbcool/cnb-cli 并加入 PATH") from error
-        if error.timed_out:
-            reason = f"超时（{timeout}s）"
-        elif error.returncode is None:
-            reason = "无法启动"
-        else:
-            reason = f"退出码 {error.returncode}"
-        detail = _redact(error.detail)
-        raise CnbError(f"cnb {' '.join(args)} 失败（{reason}）" + (f": {detail}" if detail else "")) from error
+def _translate(args: Sequence[str], failure: _process.ProcessError) -> Exception | None:
+    """cnb 会把上传凭据写进 URL 的 path 段，错误消息里的链接必须整条打码"""
+    if failure.not_found:
+        return None  # 交给默认的缺失提示
+    return CnbError(_redact(str(failure)))
 
 
-def stdout(args: list[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> str:
-    result = _run(args, timeout=timeout)
-    return str(result.stdout).strip()
+TOOL = Tool(
+    "cnb",
+    CnbError,
+    timeout=DEFAULT_TIMEOUT,
+    hint="请安装 @cnbcool/cnb-cli 并加入 PATH",
+    translate=_translate,
+)
 
 
-def stdout_byts(args: list[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> bytes:
-    return _run(args, timeout=timeout, text=False).stdout
+def stdout(args: Sequence[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> str:
+    """执行 cnb 命令，返回 utf-8 解码并 strip 后的 stdout"""
+    return TOOL.text(args, timeout=timeout)
 
 
 def auth() -> None:
