@@ -72,9 +72,9 @@ check-fe:
 check-be target:
     cd {{ backend_dir }} && cargo check --target {{ target }}
 
-# 后端格式化
-fmt:
-    cd {{ backend_dir }} && cargo fmt
+# 格式化全部代码：前端 Prettier、后端 rustfmt、脚本 ruff format
+format:
+    {{ uv }} run python {{ scripts_dir }}/format.py
 
 # 脚本工具
 

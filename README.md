@@ -161,7 +161,7 @@ cd frontend && pnpm install --frozen-lockfile && cd ..
 | 启动开发环境     | `just dev x86_64-pc-windows-msvc`         | `uv run scripts/dev.py -t x86_64-pc-windows-msvc`                                        |
 | 仅前端开发服务器 | `just dev-fe`                             | `cd frontend && pnpm dev`                                                                |
 | 类型检查         | `just check x86_64-pc-windows-msvc`       | `cd frontend && pnpm check`、`cd backend && cargo check --target x86_64-pc-windows-msvc` |
-| 格式化           | `just fmt`                                | `cd backend && cargo fmt`                                                                |
+| 格式化           | `just format`                             | `uv run scripts/format.py`                                                               |
 | 测试             | `just test x86_64-pc-windows-msvc`        | `uv run scripts/test.py -t x86_64-pc-windows-msvc`                                       |
 | 仅前端测试       | `just test-fe`                            | `cd frontend && pnpm test`                                                               |
 | 导出变更         | `just export`                             | `uv run scripts/tool/export_git_diff.py`                                                 |
