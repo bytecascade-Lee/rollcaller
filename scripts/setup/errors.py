@@ -5,7 +5,7 @@
 环境准备异常
 """
 
-from cli import cargo, git, just, node, pnpm, rustc, uv
+from cli import cargo, git, node, pnpm, rustc, uv
 
 
 class EnvError(Exception):
@@ -16,7 +16,6 @@ class EnvError(Exception):
 CLI_ERRORS: tuple[type[Exception], ...] = (
     cargo.CargoError,
     git.GitError,
-    just.JustError,
     node.NodeError,
     pnpm.PnpmError,
     rustc.RustcError,
