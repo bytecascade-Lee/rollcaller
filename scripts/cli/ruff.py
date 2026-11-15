@@ -11,7 +11,7 @@ ruff 随 dev 组安装进项目虚拟环境，不在 PATH 上：从当前解释�
 import sys
 from pathlib import Path
 
-from cli._tool import Timeout, Tool
+from cli.tool import Timeout, Tool
 from common.constant.paths import PROJECT_BASE_DIR
 
 

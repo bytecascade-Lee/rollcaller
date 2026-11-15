@@ -22,8 +22,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from cli import git
-from cli._tool import Timeout
 from cli.git import TOOL
+from cli.tool import Timeout
 from common.constant.paths import DOCS_DIR
 from common.logger import error, info, success
 from util import fs

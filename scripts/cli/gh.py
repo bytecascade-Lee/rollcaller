@@ -16,7 +16,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 from cli import _process
-from cli._tool import Timeout, Tool
+from cli.tool import Timeout, Tool
 
 PAGE_SIZE = 100
 MAX_PAGES = 100

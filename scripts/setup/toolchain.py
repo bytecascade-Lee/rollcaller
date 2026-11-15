@@ -6,7 +6,7 @@
 """
 
 from cli import cargo, git, just, node, pnpm, rustc, uv
-from cli._tool import Tool
+from cli.tool import Tool
 from common.entity.version import Version, VersionError
 from common.logger import info
 

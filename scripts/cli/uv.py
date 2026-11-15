@@ -7,7 +7,7 @@ uv 命令封装
 
 from pathlib import Path
 
-from cli._tool import Timeout, Tool
+from cli.tool import Timeout, Tool
 from common.constant.paths import PROJECT_BASE_DIR
 from common.logger import warning
 

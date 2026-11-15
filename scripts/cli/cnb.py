@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from cli import _process
-from cli._tool import Timeout, Tool
+from cli.tool import Timeout, Tool
 from common.logger import info, warning
 
 # 预签名 PUT 用 urllib 的 socket 读超时，与子进程的总时长不是一回事
