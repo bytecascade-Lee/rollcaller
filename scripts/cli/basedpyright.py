@@ -32,6 +32,6 @@ def _run(args: list[str], *, cwd: Path | None = None, capture: bool = False) -> 
         raise BasedpyrightError(str(error)) from error
 
 
-def check(*, cwd: Path | None = None) -> None:
+def typecheck(*, cwd: Path | None = None) -> None:
     """按照 pyproject.toml 中的 [tool.basedpyright] 执行类型检查，等级为 `error`"""
     _ = _run(["--level", "error"], cwd=cwd)

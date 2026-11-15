@@ -62,7 +62,7 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
     _ = gate.ensure(target, Action.CHECK, host=rustc.host_target())
 
     info("检查前端格式")
-    pnpm.format_check()
+    pnpm.format(check=True)
     if is_interrupted():
         return 0
 
@@ -72,17 +72,17 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
         return 0
 
     info("检查前端类型")
-    pnpm.check()
+    pnpm.typecheck()
     if is_interrupted():
         return 0
 
     info("检查后端格式")
-    cargo.fmt_check()
+    cargo.format(check=True)
     if is_interrupted():
         return 0
 
     info("检查后端 lint")
-    cargo.clippy(target)
+    cargo.lint(target)
     if is_interrupted():
         return 0
 
@@ -92,17 +92,17 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
         return 0
 
     info("检查脚本格式")
-    ruff.format_check()
+    ruff.format(check=True)
     if is_interrupted():
         return 0
 
     info("检查脚本 lint")
-    ruff.check()
+    ruff.lint()
     if is_interrupted():
         return 0
 
     info("检查脚本类型")
-    basedpyright.check()
+    basedpyright.typecheck()
 
     success("前后端检查通过")
     return 0
