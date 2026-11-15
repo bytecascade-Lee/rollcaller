@@ -5,7 +5,7 @@
 工具链体检
 """
 
-from cli import cargo, git, just, node, pnpm, rustc, uv
+from cli import cargo, git, node, pnpm, rustc, uv
 from cli.tool import Tool
 from common.entity.version import Version, VersionError
 from common.logger import info
@@ -23,7 +23,6 @@ def _require(tool: Tool, minimum: str) -> Expectation[Tool]:
 REQUIREMENTS: tuple[Expectation[Tool], ...] = (
     _require(git.TOOL, "2.30.0"),
     _require(uv.TOOL, "0.5.0"),
-    _require(just.TOOL, "1.0.0"),
     _require(node.TOOL, "22.0.0"),
     _require(pnpm.TOOL, "11.0.0"),
     _require(rustc.TOOL, "1.80.0"),
