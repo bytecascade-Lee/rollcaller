@@ -4,13 +4,10 @@
 """
 tauri signer sign 封装
 
-签名密钥统一从环境变量读取：
+签名密钥统一从环境变量读取，缺失即报错退出：
 
     TAURI_SIGNING_PRIVATE_KEY           # 私钥内容
     TAURI_SIGNING_PRIVATE_KEY_PASSWORD  # 私钥密码
-
-缺失即报错退出。
-
 """
 
 import os
@@ -37,7 +34,22 @@ def check_env() -> None:
 
 
 def sign(file: Path) -> Path:
-    """对文件做 minisign 签名，返回生成的 `.sig` 路径"""
+    """签名并保留伴生文件 `.sig`，返回其路径"""
+    signature_file = _sign_to_file(file)
+    success(f"已生成签名文件 {str(signature_file)!r}")
+    return signature_file
+
+
+def signature(file: Path) -> str:
+    """签名并只返回字符串，立刻删除伴生文件 `.sig`"""
+    signature_file = _sign_to_file(file)
+    text = signature_file.read_text(encoding="ascii").strip()
+    signature_file.unlink(missing_ok=True)
+    return text
+
+
+def _sign_to_file(file: Path) -> Path:
+    """调用 tauri 生成伴生 `.sig` 并确认非空"""
     if not file.is_file():
         raise SignError(f"待签名的文件 {str(file)!r} 不存在")
     check_env()
@@ -47,5 +59,4 @@ def sign(file: Path) -> Path:
         raise SignError(f"签名文件 {str(signature_file)!r} 未生成")
     if not signature_file.read_bytes().strip():
         raise SignError(f"签名文件 {str(signature_file)!r} 内容为空")
-    success(f"已生成签名文件 {str(signature_file)!r}")
     return signature_file
