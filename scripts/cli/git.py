@@ -6,13 +6,10 @@ Git 操作模块：封装常用 git 命令，返回结构化数据
 """
 
 import os
-import subprocess
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any
 
-from cli import _process
-from cli._version import version_string
+from cli._tool import Tool
 from common.constant.paths import PROJECT_BASE_DIR
 from common.logger import debug
 
@@ -28,49 +25,17 @@ class GitError(Exception):
     """git 命令操作失败，未找到 git 命令，或命令超时，或命令执行失败"""
 
 
-def _run(
-    args: Sequence[str],
-    *,
-    cwd: Path | None = None,
-    timeout: float | int = DEFAULT_TIMEOUT,
-    allow: tuple[int, ...] = (0,),
-    text: bool = True,
-    env: Mapping[str, str] | None = None,
-) -> subprocess.CompletedProcess[Any]:
-    """
-    执行 git 命令并返回 CompletedProcess
-
-    统一加 `--no-pager` 与 `core.quotepath=false`，并固定 `LC_ALL=C`（输出可解析）、
-    关闭终端交互提示（凭据缺失时快速失败而不是挂在子进程里）。
-
-    :param args: git 子命令及其参数，如 ["rev-parse", "HEAD"]
-    :param cwd: 工作目录，缺省 PROJECT_BASE_DIR
-    :param timeout: 超时秒数
-    :param allow: 额外允许的退出码，例如 `rev-parse --verify` 的 1 表示对象不存在
-    :param text: True 返回 str，False 返回原始 bytes
-    :param env: 完整环境变量映射
-
-    :raise GitError: 未找到 git 命令，或命令超时，或命令执行失败
-    """
-    base = dict(os.environ) if env is None else dict(env)
-    base["LC_ALL"] = "C"
-    base["GIT_TERMINAL_PROMPT"] = "0"
-    try:
-        return _process.run(
-            ["git", "--no-pager", "-c", "core.quotepath=false", *args],
-            cwd=cwd or PROJECT_BASE_DIR,
-            env=base,
-            timeout=timeout,
-            text=text,
-            allow=allow,
-        )
-    except _process.ProcessError as error:
-        raise GitError(str(error)) from error
-
-
-def _text(result: subprocess.CompletedProcess[Any]) -> str:
-    """CompletedProcess.stdout -> 字符串并 strip；非法字节已在 cli.process 中替换为 U+FFFD"""
-    return str(result.stdout).strip()
+# 统一加 `--no-pager` 与 `core.quotepath=false`，并固定 `LC_ALL=C`（输出可解析）、
+# 关闭终端交互提示（凭据缺失时快速失败而不是挂在子进程里）。
+TOOL = Tool(
+    "git",
+    GitError,
+    cwd=PROJECT_BASE_DIR,
+    timeout=DEFAULT_TIMEOUT,
+    prefix=("--no-pager", "-c", "core.quotepath=false"),
+    env={"LC_ALL": "C", "GIT_TERMINAL_PROMPT": "0"},
+    hint="请安装 Git 并加入 PATH：https://git-scm.com/downloads",
+)
 
 
 def _paths(paths: Iterable[str | Path]) -> list[str]:
@@ -80,22 +45,17 @@ def _paths(paths: Iterable[str | Path]) -> list[str]:
 
 def stdout(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int = DEFAULT_TIMEOUT) -> str:
     """执行 git 命令，返回 utf-8 解码并 strip 后的 stdout"""
-    return _text(_run(args, cwd=cwd, timeout=timeout))
+    return TOOL.text(args, cwd=cwd, timeout=timeout)
 
 
 def stdout_bytes(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int = DEFAULT_TIMEOUT) -> bytes:
     """执行 git 命令，返回未解码的 stdout（blob 可能是二进制）"""
-    return _run(args, cwd=cwd, timeout=timeout, text=False).stdout
-
-
-def version() -> str | None:
-    """`git --version` 里的版本号；输出认不出时返回 None"""
-    return version_string(stdout(["--version"]))
+    return TOOL.bytes(args, cwd=cwd, timeout=timeout)
 
 
 def is_repo(cwd: Path | None = None) -> bool:
     """检查当前目录是否在 Git 仓库中"""
-    result = _run(["rev-parse", "--git-dir"], cwd=cwd, allow=(128,))
+    result = TOOL.run(["rev-parse", "--git-dir"], cwd=cwd, allow=(128,))
     return result.returncode == 0
 
 
@@ -106,10 +66,10 @@ def rev_parse(ref: str, *, cwd: Path | None = None) -> str:
 
 def try_rev_parse(ref: str, *, cwd: Path | None = None) -> str | None:
     """同 rev_parse，但 ref 不存在时返回 None"""
-    result = _run(["rev-parse", "--verify", "--quiet", ref], cwd=cwd, allow=(1,))
+    result = TOOL.run(["rev-parse", "--verify", "--quiet", ref], cwd=cwd, allow=(1,))
     if result.returncode != 0:
         return None
-    return _text(result) or None
+    return str(result.stdout).strip() or None
 
 
 def head_hash(*, cwd: Path | None = None) -> str:
@@ -119,10 +79,10 @@ def head_hash(*, cwd: Path | None = None) -> str:
 
 def current_branch(*, cwd: Path | None = None) -> str | None:
     """当前分支名；detached HEAD（含 tag 检出）返回 None"""
-    result = _run(["symbolic-ref", "--quiet", "--short", "HEAD"], cwd=cwd, allow=(1,))
+    result = TOOL.run(["symbolic-ref", "--quiet", "--short", "HEAD"], cwd=cwd, allow=(1,))
     if result.returncode != 0:
         return None
-    return _text(result) or None
+    return str(result.stdout).strip() or None
 
 
 def commit_count(*, cwd: Path | None = None) -> int:
@@ -148,10 +108,10 @@ def commit_unix_time(ref: str = "HEAD", *, cwd: Path | None = None) -> int:
 def remote_url(name: str = "origin", *, cwd: Path | None = None) -> str | None:
     """远端 URL；该远端不存在返回 None"""
     # git 用退出码 2 表示 no such remote
-    result = _run(["remote", "get-url", name], cwd=cwd, allow=(2, 128))
+    result = TOOL.run(["remote", "get-url", name], cwd=cwd, allow=(2, 128))
     if result.returncode != 0:
         return None
-    return _text(result) or None
+    return str(result.stdout).strip() or None
 
 
 def set_config(key: str, value: str, *, cwd: Path | None = None) -> None:
@@ -161,15 +121,15 @@ def set_config(key: str, value: str, *, cwd: Path | None = None) -> None:
 
 def unset_config(key: str, *, cwd: Path | None = None) -> None:
     """删除仓库级配置；该键本来就不存在时也算成功（`git config --unset` 以 5 退出）"""
-    _ = _run(["config", "--local", "--unset", key], cwd=cwd, allow=(5,))
+    _ = TOOL.run(["config", "--local", "--unset", key], cwd=cwd, allow=(5,))
 
 
 def get_config(key: str, *, cwd: Path | None = None) -> str | None:
     """读取仓库级配置，未设置返回 None"""
-    result = _run(["config", "--local", "--get", key], cwd=cwd, allow=(1,))
+    result = TOOL.run(["config", "--local", "--get", key], cwd=cwd, allow=(1,))
     if result.returncode != 0:
         return None
-    return _text(result) or None
+    return str(result.stdout).strip() or None
 
 
 def tags(pattern: str = "*", *, cwd: Path | None = None) -> list[str]:
@@ -211,12 +171,12 @@ def status_porcelain(paths: Iterable[str | Path], *, cwd: Path | None = None) ->
 
 def diff_names(paths: Iterable[str | Path], *, against: str = "HEAD", cwd: Path | None = None) -> list[str]:
     """相对 against 有改动的路径清单，空列表表示无差异"""
-    result = _run(
+    result = TOOL.run(
         ["diff", "--name-only", "--exit-code", against, "--", *_paths(paths)],
         cwd=cwd,
         allow=(0, 1),
     )
-    return [line for line in _text(result).splitlines() if line.strip()]
+    return [line for line in str(result.stdout).strip().splitlines() if line.strip()]
 
 
 def untracked_names(paths: Iterable[str | Path], *, cwd: Path | None = None) -> list[str]:
@@ -257,7 +217,7 @@ def commit(message: str, *, env: Mapping[str, str] | None = None, cwd: Path | No
     `env` 是**追加**的提交身份（`GIT_AUTHOR_*` / `GIT_COMMITTER_*`）：在当前环境上叠加，
     `_run` 是替换语义，直接透传会让 git 丢掉 HOME 里的用户配置。
     """
-    _ = _run(["commit", "-m", message], cwd=cwd, env={**os.environ, **env} if env else None)
+    _ = TOOL.run(["commit", "-m", message], cwd=cwd, env={**os.environ, **env} if env else None)
 
 
 def push_branch(branch: str, *, remote: str = "origin", force: bool = False, cwd: Path | None = None) -> None:

@@ -3,15 +3,18 @@
 
 """
 ruff 命令封装
+
+ruff 随 dev 组安装进项目虚拟环境，不在 PATH 上：从当前解释器同目录取可执行文件，
+保证「谁在跑脚本，就用谁的那一份工具」，与 uv.lock 锁定的版本严格一致。
 """
 
-import subprocess
 import sys
 from pathlib import Path
 
-from cli import _process
+from cli._tool import Tool
 from common.constant.paths import PROJECT_BASE_DIR
 
+# 全仓 94 个文件、单次 0.1 秒量级，冷缓存留足余量
 RUN_TIMEOUT = 120
 
 
@@ -19,27 +22,26 @@ class RuffError(Exception):
     """ruff 无法启动，或检查发现违规"""
 
 
-def _run(args: list[str], *, cwd: Path | None = None, capture: bool = False) -> subprocess.CompletedProcess[str]:
-    """执行 ruff 命令，失败统一包成 RuffError；诊断默认进控制台"""
-    cwd = cwd or PROJECT_BASE_DIR
-    try:
-        program = _process.resolve("ruff", search_dir=Path(sys.executable).parent)
-        return _process.run([program, *args], cwd=cwd, timeout=RUN_TIMEOUT, capture=capture)
-    except _process.ProcessError as error:
-        if error.not_found:
-            raise RuffError("未在当前虚拟环境找到 'ruff'，请执行 `just setup` 同步依赖") from error
-        raise RuffError(str(error)) from error
+TOOL = Tool(
+    "ruff",
+    RuffError,
+    cwd=PROJECT_BASE_DIR,
+    timeout=RUN_TIMEOUT,
+    capture=False,
+    search_dir=Path(sys.executable).parent,
+    hint="请执行 `just setup` 同步依赖（ruff 随 dev 组安装）",
+)
 
 
-def lint(*, cwd: Path | None = None) -> None:
+def lint() -> None:
     """按照 pyproject.toml 中的 [tool.ruff] 执行 lint 检查"""
-    _ = _run(["check"], cwd=cwd)
+    _ = TOOL.run(["check"])
 
 
-def format(*, check: bool = False, cwd: Path | None = None) -> None:
+def format(*, check: bool = False) -> None:
     """
-    按照 pyproject.toml 中的 [tool.ruff] 执行格式化（检查）
+    按照 pyproject.toml 中的 [tool.ruff] 格式化
 
     :param check: True 时只检查不写文件
     """
-    _ = _run(["format", *(["--check"] if check else [])], cwd=cwd)
+    _ = TOOL.run(["format", *(["--check"] if check else [])])

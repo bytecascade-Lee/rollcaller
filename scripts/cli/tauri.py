@@ -6,11 +6,10 @@
 """
 
 import json
-from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from cli import _process
+from cli._tool import Tool
 from common.constant.paths import FRONTEND_NODE_DIR, PROJECT_BASE_DIR
 from common.entity.target import Target
 from common.enums.profile import Profile
@@ -22,18 +21,16 @@ class TauriError(Exception):
 
 BIN_DIR = FRONTEND_NODE_DIR / ".bin"
 
-
-def _run(args: Sequence[str], env: dict[str, str] | None = None) -> None:
-    """在仓库根目录下执行一条 tauri 命令；启动失败或退出码非 0 抛出 TauriError"""
-    try:
-        binary = _process.resolve("tauri", search_dir=BIN_DIR)
-    except _process.ProcessError:
-        raise TauriError(f"未在 {str(BIN_DIR)!r} 下找到 tauri-cli；请先在 frontend/ 下执行 pnpm install") from None
-
-    try:
-        _ = _process.run([binary, *args], cwd=PROJECT_BASE_DIR, env=env, capture=False, timeout=None)
-    except _process.ProcessError as error:
-        raise TauriError(str(error)) from error
+# tauri-cli 只在 frontend/node_modules/.bin 下，不查 PATH；dev/build 可能跑很久，不设超时
+TOOL = Tool(
+    "tauri",
+    TauriError,
+    cwd=PROJECT_BASE_DIR,
+    timeout=None,
+    capture=False,
+    search_dir=BIN_DIR,
+    hint="请先在 frontend/ 下执行 pnpm install（tauri-cli 在 node_modules/.bin 下）",
+)
 
 
 def dev(target: Target, wait_frontend: bool = False) -> None:
@@ -41,7 +38,7 @@ def dev(target: Target, wait_frontend: bool = False) -> None:
     args = ["dev", "--target", target.triple]
     if not wait_frontend:
         args.append("--no-dev-server-wait")
-    _run(args)
+    _ = TOOL.run(args)
 
 
 def build(
@@ -71,7 +68,7 @@ def build(
     if profile not in (Profile.RELEASE, Profile.DEBUG):
         # 自定义档位只能透传给 cargo；tauri-cli 会解析它来定位产物目录
         args += ["--", "--profile", profile.value]
-    _run(args, env=env)
+    _ = TOOL.run(args, env=env)
 
 
 def sign(path: Path) -> None:
@@ -80,4 +77,4 @@ def sign(path: Path) -> None:
         if not path.is_file():
             raise TauriError(f"待签名文件的路径 {path!r} 既不是绝对路径、也定位不到文件，请传递绝对路径")
         path = path.resolve()
-    _run(["signer", "sign", str(path)])
+    _ = TOOL.run(["signer", "sign", str(path)])
