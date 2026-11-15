@@ -39,6 +39,8 @@ from enum import Enum, auto
 from pathlib import Path, PurePosixPath
 
 from cli import git
+from cli._tool import Timeout
+from cli.git import TOOL
 from common.constant.paths import DOCS_DIR, PROJECT_BASE_DIR
 from common.logger import debug, error, info, success, warning
 from util.fs import sanitize_filename
@@ -193,7 +195,7 @@ def _list_changes(diff_args: Sequence[str], selectors: Sequence[str]) -> list[Ch
     args = ["diff", *diff_args, "--name-status", "-z", "-M"]
     if selectors:
         args += ["--", *selectors]
-    out = git.stdout(args, cwd=PROJECT_BASE_DIR)
+    out = TOOL.text(args, cwd=PROJECT_BASE_DIR, timeout=Timeout.NORMAL)
     if not out:
         return []
 
@@ -255,16 +257,15 @@ def _normalize_selectors(raw: Sequence[str]) -> list[str]:
 
 def _patch_of(diff_args: Sequence[str], paths: Sequence[str], context: int) -> str:
     """取本文件的 unified diff；重命名要同时传新旧路径，否则 git 会退化成「新增+删除」"""
-    return git.stdout(
-        ["diff", *diff_args, f"-U{context}", "--no-color", "-M", "--", *paths],
-        cwd=PROJECT_BASE_DIR,
-    )
+    args = ["diff", *diff_args, f"-U{context}", "--no-color", "-M", "--", *paths]
+    return TOOL.text(args, cwd=PROJECT_BASE_DIR, timeout=Timeout.NORMAL)
 
 
 def _count_untracked() -> int:
     """未跟踪文件数（只用于日志说明它们被忽略了）"""
     try:
-        out = git.stdout(["ls-files", "--others", "--exclude-standard", "-z"], cwd=PROJECT_BASE_DIR)
+        args = ["ls-files", "--others", "--exclude-standard", "-z"]
+        out = TOOL.text(args, cwd=PROJECT_BASE_DIR, timeout=Timeout.NORMAL)
     except git.GitError:
         return 0
     return len([f for f in out.split("\0") if f]) if out else 0

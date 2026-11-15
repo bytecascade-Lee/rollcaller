@@ -22,6 +22,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from cli import git
+from cli._tool import Timeout
+from cli.git import TOOL
 from common.constant.paths import DOCS_DIR
 from common.logger import error, info, success
 from util import fs
@@ -97,7 +99,8 @@ def _require_ref(ref: str, flag: str) -> str:
 
 def _latest_tag() -> str | None:
     """按创建时间取最新标签；仓库没有标签时返回 None"""
-    output = git.stdout(["tag", "--sort=-creatordate"])
+    args = ["tag", "--sort=-creatordate"]
+    output = TOOL.text(args, cwd=None, timeout=Timeout.NORMAL)
     return output.splitlines()[0] if output else None
 
 
@@ -141,14 +144,13 @@ def _log_commits(start: str, end: str) -> list[Commit]:
     # %H=完整 hash  %ct=committer 时间(Unix 秒)  %s=标题  %b=正文
     # %an=作者名    %ae=作者邮箱
     # \x00 分隔字段，\x01 分隔提交
-    output = git.stdout(
-        [
-            "log",
-            range_spec,
-            "--pretty=format:%H%x00%ct%x00%s%x00%b%x00%an%x00%ae%x01",
-            "--reverse",
-        ]
-    )
+    args = [
+        "log",
+        range_spec,
+        "--pretty=format:%H%x00%ct%x00%s%x00%b%x00%an%x00%ae%x01",
+        "--reverse",
+    ]
+    output = TOOL.text(args, cwd=None, timeout=Timeout.NORMAL)
     if not output:
         return []
 

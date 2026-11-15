@@ -37,6 +37,8 @@ from pathlib import Path
 from typing import Any
 
 from cli import gh, git
+from cli._tool import Timeout
+from cli.gh import TOOL
 from common.constant.paths import RELEASE_DIR
 from common.constant.repo import GITHUB_REPO, REMOTE
 from common.logger import error, info, success, warning
@@ -315,7 +317,8 @@ def _download_run_log(repo: str, run_id: int, dest: Path) -> None:
 
     :raise gh.GhError: 下载失败、内容不是 zip，或 zip 无法解析
     """
-    data = gh.stdout_bytes(["api", gh.api_path(repo, f"actions/runs/{run_id}/logs")])
+    args = ["api", gh.api_path(repo, f"actions/runs/{run_id}/logs")]
+    data = TOOL.bytes(args, timeout=Timeout.NETWORK)
     if not data.startswith(b"PK\x03\x04"):
         raise gh.GhError(f"run {run_id} 的日志下载结果不是有效的 zip（可能尚未生成完整日志）")
     dest.parent.mkdir(parents=True, exist_ok=True)
