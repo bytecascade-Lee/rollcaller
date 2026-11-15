@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import override
 
 
 class Severity(StrEnum):
@@ -11,7 +12,7 @@ class Severity(StrEnum):
         return Severity.NORMAL
 
     @classmethod
-    def values(cls) -> tuple[str]:
+    def values(cls) -> tuple[str, ...]:
         return tuple(severity.value for severity in cls)
 
     @property
@@ -26,21 +27,25 @@ class Severity(StrEnum):
             case _ as unreachable:
                 raise AssertionError(unreachable)
 
+    @override
     def __lt__(self, other):
         if isinstance(other, Severity):
             return self._rank < other._rank
         return NotImplemented
 
+    @override
     def __le__(self, other):
         if isinstance(other, Severity):
             return self._rank <= other._rank
         return NotImplemented
 
+    @override
     def __gt__(self, other):
         if isinstance(other, Severity):
             return self._rank > other._rank
         return NotImplemented
 
+    @override
     def __ge__(self, other):
         if isinstance(other, Severity):
             return self._rank >= other._rank

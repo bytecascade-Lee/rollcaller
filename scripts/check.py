@@ -15,7 +15,7 @@
 import argparse
 import re
 import sys
-from typing import Callable
+from collections.abc import Callable
 
 from cli import basedpyright, cargo, pnpm, ruff, rustc
 from common import gate
@@ -47,7 +47,8 @@ def _check_entry_points() -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="检查入口：前端格式 / lint / 类型，以及后端编译")
-    parser.add_argument("-t", "--target", required=True, metavar="TRIPLE", help="完整 Rust 目标三元组")
+
+    _ = parser.add_argument("-t", "--target", required=True, metavar="TRIPLE", help="完整 Rust 目标三元组")
 
     return parser.parse_args()
 

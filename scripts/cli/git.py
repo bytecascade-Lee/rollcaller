@@ -7,8 +7,9 @@ Git 操作模块：封装常用 git 命令，返回结构化数据
 
 import os
 import subprocess
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
+from typing import Any
 
 from cli import _process
 from cli._version import version_string
@@ -27,9 +28,15 @@ class GitError(Exception):
     """git 命令操作失败，未找到 git 命令，或命令超时，或命令执行失败"""
 
 
-def _run(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int = DEFAULT_TIMEOUT,
-         allow: tuple[int, ...] = (0,), text: bool = True,
-         env: Mapping[str, str] | None = None) -> subprocess.CompletedProcess:
+def _run(
+    args: Sequence[str],
+    *,
+    cwd: Path | None = None,
+    timeout: float | int = DEFAULT_TIMEOUT,
+    allow: tuple[int, ...] = (0,),
+    text: bool = True,
+    env: Mapping[str, str] | None = None,
+) -> subprocess.CompletedProcess[Any]:
     """
     执行 git 命令并返回 CompletedProcess
 
@@ -61,7 +68,7 @@ def _run(args: Sequence[str], *, cwd: Path | None = None, timeout: float | int =
         raise GitError(str(error)) from error
 
 
-def _text(result: subprocess.CompletedProcess) -> str:
+def _text(result: subprocess.CompletedProcess[Any]) -> str:
     """CompletedProcess.stdout -> 字符串并 strip；非法字节已在 cli.process 中替换为 U+FFFD"""
     return str(result.stdout).strip()
 
@@ -149,12 +156,12 @@ def remote_url(name: str = "origin", *, cwd: Path | None = None) -> str | None:
 
 def set_config(key: str, value: str, *, cwd: Path | None = None) -> None:
     """写入仓库级配置"""
-    stdout(["config", "--local", key, value], cwd=cwd)
+    _ = stdout(["config", "--local", key, value], cwd=cwd)
 
 
 def unset_config(key: str, *, cwd: Path | None = None) -> None:
     """删除仓库级配置；该键本来就不存在时也算成功（`git config --unset` 以 5 退出）"""
-    _run(["config", "--local", "--unset", key], cwd=cwd, allow=(5,))
+    _ = _run(["config", "--local", "--unset", key], cwd=cwd, allow=(5,))
 
 
 def get_config(key: str, *, cwd: Path | None = None) -> str | None:
@@ -173,17 +180,17 @@ def tags(pattern: str = "*", *, cwd: Path | None = None) -> list[str]:
 
 def create_tag(tag: str, message: str, *, cwd: Path | None = None) -> None:
     """在 HEAD 上创建附注 tag（`-a -m`）"""
-    stdout(["tag", "-a", tag, "-m", message], cwd=cwd)
+    _ = stdout(["tag", "-a", tag, "-m", message], cwd=cwd)
 
 
 def rename_remote(old: str, new: str, *, cwd: Path | None = None) -> None:
     """重命名远端；git 会一并改写 `branch.<name>.remote` 与远程跟踪引用"""
-    stdout(["remote", "rename", old, new], cwd=cwd)
+    _ = stdout(["remote", "rename", old, new], cwd=cwd)
 
 
 def add_remote(name: str, url: str, *, cwd: Path | None = None) -> None:
     """新增远端；不 fetch，跟踪引用等第一次 `git fetch <name>` 才建立"""
-    stdout(["remote", "add", name, url], cwd=cwd)
+    _ = stdout(["remote", "add", name, url], cwd=cwd)
 
 
 def remotes(*, cwd: Path | None = None) -> list[str]:
@@ -220,10 +227,12 @@ def untracked_names(paths: Iterable[str | Path], *, cwd: Path | None = None) -> 
 
 def checkout_paths(paths: Iterable[str | Path], *, cwd: Path | None = None) -> None:
     """丢弃工作区给定路径的改动"""
-    stdout(["checkout", "--", *_paths(paths)], cwd=cwd)
+    _ = stdout(["checkout", "--", *_paths(paths)], cwd=cwd)
 
 
-def checkout_branch(branch: str, *, start_point: str | None = None, force: bool = False, cwd: Path | None = None) -> None:
+def checkout_branch(
+    branch: str, *, start_point: str | None = None, force: bool = False, cwd: Path | None = None
+) -> None:
     """
     切换分支
 
@@ -234,12 +243,12 @@ def checkout_branch(branch: str, *, start_point: str | None = None, force: bool 
     args = ["checkout", "-B" if force else "-b", branch]
     if start_point is not None:
         args.append(start_point)
-    stdout(args, cwd=cwd)
+    _ = stdout(args, cwd=cwd)
 
 
 def add(paths: Iterable[str | Path], *, cwd: Path | None = None) -> None:
     """暂存指定路径"""
-    stdout(["add", "--", *_paths(paths)], cwd=cwd)
+    _ = stdout(["add", "--", *_paths(paths)], cwd=cwd)
 
 
 def commit(message: str, *, env: Mapping[str, str] | None = None, cwd: Path | None = None) -> None:
@@ -248,14 +257,13 @@ def commit(message: str, *, env: Mapping[str, str] | None = None, cwd: Path | No
     `env` 是**追加**的提交身份（`GIT_AUTHOR_*` / `GIT_COMMITTER_*`）：在当前环境上叠加，
     `_run` 是替换语义，直接透传会让 git 丢掉 HOME 里的用户配置。
     """
-    _run(["commit", "-m", message], cwd=cwd, env={**os.environ, **env} if env else None)
+    _ = _run(["commit", "-m", message], cwd=cwd, env={**os.environ, **env} if env else None)
 
 
-def push_branch(branch: str, *, remote: str = "origin", force: bool = False,
-                cwd: Path | None = None) -> None:
+def push_branch(branch: str, *, remote: str = "origin", force: bool = False, cwd: Path | None = None) -> None:
     """推送分支到远端"""
     args = ["push", *(["--force"] if force else []), remote, f"refs/heads/{branch}:refs/heads/{branch}"]
-    stdout(args, cwd=cwd, timeout=PUSH_TIMEOUT)
+    _ = stdout(args, cwd=cwd, timeout=PUSH_TIMEOUT)
 
 
 def show_blob(ref: str, path: str, *, cwd: Path | None = None) -> bytes | None:

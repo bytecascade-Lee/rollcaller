@@ -14,7 +14,7 @@
 
 import argparse
 import sys
-from typing import Callable
+from collections.abc import Callable
 
 from cli import cargo, git, pnpm, rustc
 from codegen import (
@@ -33,7 +33,8 @@ from util.sigint import graceful_sigint, never_interrupted
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="测试入口：刷新生成物后依次执行后端与前端测试")
-    parser.add_argument("-t", "--target", required=True, metavar="TRIPLE", help="完整 Rust 目标三元组")
+
+    _ = parser.add_argument("-t", "--target", required=True, metavar="TRIPLE", help="完整 Rust 目标三元组")
 
     return parser.parse_args()
 
@@ -44,7 +45,7 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
     target = Target(rustc.resolve_triple(args.target))
     info(f"当前目标三元组为 {target.triple!r}")
 
-    gate.ensure(target, Action.TEST, host=rustc.host_target())
+    _ = gate.ensure(target, Action.TEST, host=rustc.host_target())
 
     generate_all()
 
@@ -74,14 +75,14 @@ if __name__ == "__main__":
         try:
             sys.exit(main(is_interrupted=is_interrupted))
         except (
-                CodegenError,
-                GeneratedNotCommittedError,
-                gate.GateError,
-                git.GitError,
-                pnpm.PnpmError,
-                rustc.RustcError,
-                cargo.CargoError,
-                UnsupportedTargetError,
+            CodegenError,
+            GeneratedNotCommittedError,
+            gate.GateError,
+            git.GitError,
+            pnpm.PnpmError,
+            rustc.RustcError,
+            cargo.CargoError,
+            UnsupportedTargetError,
         ) as e:
             if not is_interrupted():
                 error(f"测试失败: {e}")

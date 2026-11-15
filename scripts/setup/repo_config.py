@@ -29,9 +29,7 @@ LOCAL_GIT_CONFIG: tuple[tuple[str, str], ...] = (
 )
 
 # 旧策略遗留、必须从仓库级移除的键
-LEGACY_GIT_CONFIG: tuple[str, ...] = (
-    "merge.ff",
-)
+LEGACY_GIT_CONFIG: tuple[str, ...] = ("merge.ff",)
 
 
 def problems() -> list[str]:
@@ -47,9 +45,7 @@ def problems() -> list[str]:
     for key in LEGACY_GIT_CONFIG:
         actual = git.get_config(key)
         if actual is not None:
-            result.append(
-                f"git 配置 {key}={actual!r} 是全局旧策略，应在仓库级移除；执行 `just setup` 清理"
-            )
+            result.append(f"git 配置 {key}={actual!r} 是全局旧策略，应在仓库级移除；执行 `just setup` 清理")
     return result
 
 

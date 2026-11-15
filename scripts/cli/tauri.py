@@ -6,8 +6,9 @@
 """
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
+from typing import Any
 
 from cli import _process
 from common.constant.paths import FRONTEND_NODE_DIR, PROJECT_BASE_DIR
@@ -30,7 +31,7 @@ def _run(args: Sequence[str], env: dict[str, str] | None = None) -> None:
         raise TauriError(f"未在 {str(BIN_DIR)!r} 下找到 tauri-cli；请先在 frontend/ 下执行 pnpm install") from None
 
     try:
-        _process.run([binary, *args], cwd=PROJECT_BASE_DIR, env=env, capture=False, timeout=None)
+        _ = _process.run([binary, *args], cwd=PROJECT_BASE_DIR, env=env, capture=False, timeout=None)
     except _process.ProcessError as error:
         raise TauriError(str(error)) from error
 
@@ -43,8 +44,14 @@ def dev(target: Target, wait_frontend: bool = False) -> None:
     _run(args)
 
 
-def build(target: Target, *, profile: Profile = Profile.RELEASE,
-          bundle: bool = True, config: dict | None = None, env: dict[str, str] | None = None) -> None:
+def build(
+    target: Target,
+    *,
+    profile: Profile = Profile.RELEASE,
+    bundle: bool = True,
+    config: dict[str, Any] | None = None,
+    env: dict[str, str] | None = None,
+) -> None:
     """执行 `tauri build --target <triple>` [--debug] [--no-bundle] [--config <json>] [-- --profile <profile>]
 
     :param target: 待构建的 Target 目标

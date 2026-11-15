@@ -47,7 +47,9 @@ def publish(repo: str, version: Version, tag: str, notes_file: Path, files: Sequ
     prerelease = version.is_prerelease()
     title = str(version)
     info(
-        f"repo: {repo!r} | version: {str(version)!r} | tag: {tag!r} | title: {title!r} | draft: {draft!r} | prerelease: {prerelease!r}")
+        f"repo: {repo!r} | version: {str(version)!r} | tag: {tag!r} | title: {title!r}"
+        f" | draft: {draft!r} | prerelease: {prerelease!r}"
+    )
 
     try:
         exists = gh.release_exists(repo, tag)
@@ -57,7 +59,8 @@ def publish(repo: str, version: Version, tag: str, notes_file: Path, files: Sequ
     if exists:
         try:
             gh.edit_release(
-                repo, tag,
+                repo,
+                tag,
                 title=title,
                 notes_file=notes_file,
                 draft=draft,
@@ -71,7 +74,8 @@ def publish(repo: str, version: Version, tag: str, notes_file: Path, files: Sequ
 
     try:
         gh.create_release(
-            repo, tag,
+            repo,
+            tag,
             title=title,
             notes_file=notes_file,
             draft=draft,

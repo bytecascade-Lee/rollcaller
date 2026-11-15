@@ -19,7 +19,7 @@ class RustcError(Exception):
     """rustc 调用失败"""
 
 
-def _run(args: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess:
+def _run(args: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     """执行 rustc 命令，失败抛 RustcError；rustc 的输出都要读，故恒捕获"""
     cwd = cwd or BACKEND_DIR
     try:

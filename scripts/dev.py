@@ -13,7 +13,7 @@
 
 import argparse
 import sys
-from typing import Callable
+from collections.abc import Callable
 
 from cli import git, rustc, tauri
 from codegen import CodegenError, generate_all
@@ -26,7 +26,9 @@ from util.sigint import graceful_sigint, never_interrupted
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="开发环境入口：生成代码，然后执行 tauri dev")
-    parser.add_argument("-t", "--target", required=True, metavar="TRIPLE", help="完整 Rust 目标三元组")
+
+    _ = parser.add_argument("-t", "--target", required=True, metavar="TRIPLE", help="完整 Rust 目标三元组")
+
     return parser.parse_args()
 
 
@@ -36,7 +38,7 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> None:
     target = Target(rustc.resolve_triple(args.target))
     info(f"当前目标三元组为 {target.triple!r}")
 
-    gate.ensure(target, Action.BUILD, host=rustc.host_target())
+    _ = gate.ensure(target, Action.BUILD, host=rustc.host_target())
 
     generate_all()
 
@@ -52,12 +54,12 @@ if __name__ == "__main__":
         try:
             main(is_interrupted=is_interrupted)
         except (
-                CodegenError,
-                gate.GateError,
-                git.GitError,
-                rustc.RustcError,
-                tauri.TauriError,
-                UnsupportedTargetError,
+            CodegenError,
+            gate.GateError,
+            git.GitError,
+            rustc.RustcError,
+            tauri.TauriError,
+            UnsupportedTargetError,
         ) as e:
             if not is_interrupted():
                 error(f"开发环境启动失败: {e}")

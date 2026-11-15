@@ -20,8 +20,9 @@ class PnpmError(Exception):
     """pnpm 命令无法启动或执行失败"""
 
 
-def _run(args: list[str], *, cwd: Path | None = None, timeout: float | int = RUN_TIMEOUT,
-         capture: bool = True) -> subprocess.CompletedProcess:
+def _run(
+    args: list[str], *, cwd: Path | None = None, timeout: float | int = RUN_TIMEOUT, capture: bool = True
+) -> subprocess.CompletedProcess[str]:
     """执行 pnpm 命令，失败统一包成 PnpmError"""
     cwd = cwd or FRONTEND_DIR
     try:
@@ -39,24 +40,24 @@ def version() -> str | None:
 
 def install(*, cwd: Path | None = None) -> None:
     """按 lockfile 安装前端依赖"""
-    _run(["install", "--frozen-lockfile"], cwd=cwd, capture=False)
+    _ = _run(["install", "--frozen-lockfile"], cwd=cwd, capture=False)
 
 
 def test(*, cwd: Path | None = None) -> None:
     """运行前端单元测试（`package.json` 的 test 脚本），输出直接进控制台"""
-    _run(["test"], cwd=cwd, capture=False)
+    _ = _run(["test"], cwd=cwd, capture=False)
 
 
 def lint(*, cwd: Path | None = None) -> None:
     """运行 ESLint（`package.json` 的 lint 脚本），输出直接进控制台"""
-    _run(["lint"], cwd=cwd, capture=False)
+    _ = _run(["lint"], cwd=cwd, capture=False)
 
 
 def check(*, cwd: Path | None = None) -> None:
     """运行 svelte-check 类型检查（`package.json` 的 check 脚本），输出直接进控制台"""
-    _run(["check"], cwd=cwd, capture=False)
+    _ = _run(["check"], cwd=cwd, capture=False)
 
 
 def format_check(*, cwd: Path | None = None) -> None:
     """检查格式是否符合 Prettier（`format:check` 脚本），不写文件"""
-    _run(["format:check"], cwd=cwd, capture=False)
+    _ = _run(["format:check"], cwd=cwd, capture=False)

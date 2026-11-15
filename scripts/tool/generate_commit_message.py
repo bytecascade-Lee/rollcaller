@@ -16,10 +16,10 @@
 
 import argparse
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Sequence
 
 from cli import git
 from common.constant.paths import DOCS_DIR
@@ -70,16 +70,19 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         """,
     )
     parser.add_argument(
-        "-a", "--all",
+        "-a",
+        "--all",
         action="store_true",
         help="生成所有提交 (--root..HEAD)，忽略 -s/-e",
     )
     parser.add_argument(
-        "-s", "--start",
+        "-s",
+        "--start",
         help="起始标签/commit (不包含自身)",
     )
     parser.add_argument(
-        "-e", "--end",
+        "-e",
+        "--end",
         help="结束标签/commit (包含自身)",
     )
     return parser.parse_args(argv)
@@ -128,20 +131,24 @@ def _resolve_range(start: str | None, end: str | None, *, all_commits: bool) -> 
 
 def _log_commits(start: str, end: str) -> list[Commit]:
     """读取 (start, end] 区间的提交，按时间升序"""
-    if start == "root":
-        range_spec = "--root" if end == "HEAD" else end
-    else:
+    if start != "root":
         range_spec = f"{start}..{end}"
+    elif end == "HEAD":
+        range_spec = "--root"
+    else:
+        range_spec = end
 
     # %H=完整 hash  %ct=committer 时间(Unix 秒)  %s=标题  %b=正文
     # %an=作者名    %ae=作者邮箱
     # \x00 分隔字段，\x01 分隔提交
-    output = git.stdout([
-        "log",
-        range_spec,
-        "--pretty=format:%H%x00%ct%x00%s%x00%b%x00%an%x00%ae%x01",
-        "--reverse",
-    ])
+    output = git.stdout(
+        [
+            "log",
+            range_spec,
+            "--pretty=format:%H%x00%ct%x00%s%x00%b%x00%an%x00%ae%x01",
+            "--reverse",
+        ]
+    )
     if not output:
         return []
 
@@ -157,7 +164,7 @@ def _log_commits(start: str, end: str) -> list[Commit]:
         commits.append(
             Commit(
                 commit_hash=commit_hash.strip(),
-                commit_time=datetime.fromtimestamp(int(ts), tz=timezone.utc),
+                commit_time=datetime.fromtimestamp(int(ts), tz=UTC),
                 subject=subject,
                 body=body,
                 author=author,
@@ -187,13 +194,14 @@ def _render_commit(commit: Commit) -> str:
 def _render_markdown(commits: Sequence[Commit], start: str, end: str) -> str:
     """生成 Markdown 内容"""
     generated_at = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
-    lines = ["# 提交日志\n\n",
-             f"**生成时间**: {generated_at}  \n",
-             f"**当前分支**: {git.current_branch()}  \n",
-             f"**版本范围**: {start} → {end}  \n",
-             f"**提交总数**: {len(commits)}\n",
-             "\n---\n"
-             ]
+    lines = [
+        "# 提交日志\n\n",
+        f"**生成时间**: {generated_at}  \n",
+        f"**当前分支**: {git.current_branch()}  \n",
+        f"**版本范围**: {start} → {end}  \n",
+        f"**提交总数**: {len(commits)}\n",
+        "\n---\n",
+    ]
 
     if not commits:
         lines.append("\n## 无提交\n")

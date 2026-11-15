@@ -57,7 +57,8 @@ class Kind(Enum):
         """该载荷在指定系统上的扩展名，系统不匹配时抛 KindOSError"""
         if os not in self.oses:
             raise KindOSError(
-                f"载荷 {self.key!r} 不支持 {os.value!r}，当前仅支持 {join_repr(o.value for o in self.oses)}")
+                f"载荷 {self.key!r} 不支持 {os.value!r}，当前仅支持 {join_repr(o.value for o in self.oses)}"
+            )
         return self.extensions[os]
 
     def __str__(self) -> str:

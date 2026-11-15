@@ -10,8 +10,8 @@
 
 import tarfile
 import zipfile
+from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import Iterator, Sequence
 
 from build.builder import release_dir
 from common.constant.paths import RESOURCES_FILES
@@ -50,11 +50,16 @@ def _produce_setup(version: Version, target: Target, kind: Kind) -> Path:
     if not setup_dir.is_dir():
         raise PackageError(f"路径 {str(setup_dir)!r} 不存在或不是一个目录")
 
-    setups = [p for p in setup_dir.iterdir()
-              if p.is_file() and not p.name.startswith(".") and p.name.endswith(kind.suffix(target.os))]
+    setups = [
+        p
+        for p in setup_dir.iterdir()
+        if p.is_file() and not p.name.startswith(".") and p.name.endswith(kind.suffix(target.os))
+    ]
     if len(setups) != 1:
         names = [repr(path.name) for path in setups]
-        raise PackageError(f"目录 {str(setup_dir)!r} 下应恰好有一个 bundler 产物，但实际有 {len(setups)} 个，分别为 {names!r}")
+        raise PackageError(
+            f"目录 {str(setup_dir)!r} 下应恰好有一个 bundler 产物，但实际有 {len(setups)} 个，分别为 {names!r}"
+        )
     dest = setup_dir / asset_name(version, target, kind)
     # 使用 replace，存在时强制覆盖
     return setups[0].replace(dest)
@@ -69,7 +74,9 @@ def _archive_recipe(target: Target, kind: Kind) -> tuple[Path, tuple[str, ...]]:
     if kind is Kind.DEVELOP and target.os in (OS.WINDOWS, OS.LINUX):
         return release_dir(target, profile=Profile.DEVELOP), (exe,)
 
-    raise PackageError(f"载荷 {str(kind)!r} 在 {target.os.value!r} 上没有归档配方，请确认 Kind.oses 与 packager 配方表一致")
+    raise PackageError(
+        f"载荷 {str(kind)!r} 在 {target.os.value!r} 上没有归档配方，请确认 Kind.oses 与 packager 配方表一致"
+    )
 
 
 def _produce_archive(base_dir: Path, resources: Sequence[str], version: Version, target: Target, kind: Kind) -> Path:

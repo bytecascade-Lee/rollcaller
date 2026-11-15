@@ -4,9 +4,10 @@
 """
 自动更新清单实体
 """
+
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from common.entity.version import Version
 from common.enums.arch import Arch
@@ -80,7 +81,7 @@ class Manifest:
         # publish_date
         if (not isinstance(self.publish_date, datetime)) or (self.publish_date.tzinfo is None):
             raise ManifestError("publish_date 必须是带时区的 datetime")
-        object.__setattr__(self, "publish_date", self.publish_date.astimezone(timezone.utc))
+        object.__setattr__(self, "publish_date", self.publish_date.astimezone(UTC))
 
         # severity
         if not isinstance(self.severity, Severity):

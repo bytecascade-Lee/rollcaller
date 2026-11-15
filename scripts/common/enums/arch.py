@@ -4,12 +4,14 @@
 """
 CPU 架构类型
 """
+
 import platform
 from enum import StrEnum
 
 
 class ArchTypeError(Exception):
     """arch 无法解析：未识别的CPU 架构类型"""
+
     pass
 
 
@@ -29,7 +31,7 @@ class Arch(StrEnum):
         return None
 
     @classmethod
-    def current(cls) -> Arch:
+    def current(cls) -> "Arch":
         """本机 CPU 架构"""
         machine = platform.machine()
         arch = cls.parse(machine)

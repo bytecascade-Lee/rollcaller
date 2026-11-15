@@ -8,9 +8,10 @@
 from pathlib import Path
 from types import ModuleType
 
-from common.constant.paths import DEVELOP_DATA_DIR, LOCAL_RELEASE_DIR, CI_CD_RELEASE_DIR
+from common.constant.paths import CI_CD_RELEASE_DIR, DEVELOP_DATA_DIR, LOCAL_RELEASE_DIR
 from common.logger import info, success
 from util.fs import relative_path
+
 from . import cargo_config, dependencies, remotes, repo_config, toolchain, uv_index
 from .errors import CLI_ERRORS, EnvError
 

@@ -32,10 +32,10 @@ from common.enums.mode import Mode
 from common.enums.severity import Severity
 from common.enums.source import Source
 from common.logger import error, info, warning
-from release import assets as release_assets, urls, serve
+from release import assets as release_assets
 from release import cnb as cnb_release
 from release import github as github_release
-from release import latest_manifest, local, release_notes, versions_index
+from release import latest_manifest, local, release_notes, serve, urls, versions_index
 from util.sigint import graceful_sigint
 from util.str_format import join_repr
 
@@ -47,20 +47,23 @@ class ReleaseError(Exception):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="发布入口")
 
-    parser.add_argument("-v", "--version", required=True, metavar="VERSION", help="语义化版本号")
-    parser.add_argument("-m", "--mode", required=True, choices=Mode.values(), help="发布模式")
-    parser.add_argument("-s", "--severity", choices=Severity.values(), help="严重级别")
-    parser.add_argument("--draft", action="store_true", help="是否草稿模式发布")
-    parser.add_argument("-r", "--rate", type=int, default=serve.DEFAULT_RATE_KB, metavar="KBPS",
-                        help="本地更新服务限速 KB/s")
+    _ = parser.add_argument("-v", "--version", required=True, metavar="VERSION", help="语义化版本号")
+    _ = parser.add_argument("-m", "--mode", required=True, choices=Mode.values(), help="发布模式")
+    _ = parser.add_argument("-s", "--severity", choices=Severity.values(), help="严重级别")
+    _ = parser.add_argument("--draft", action="store_true", help="是否草稿模式发布")
+    _ = parser.add_argument(
+        "-r", "--rate", type=int, default=serve.DEFAULT_RATE_KB, metavar="KBPS", help="本地更新服务限速 KB/s"
+    )
 
     return parser.parse_args()
 
 
 def sign_and_digest(path: Path) -> ManifestDigest:
     """对清单签名并算摘要"""
-    return ManifestDigest(sha256=hasher.sha256(path).read_text(encoding="ascii").strip(),
-                          signature=signer.sign(path).read_text(encoding="ascii").strip())
+    return ManifestDigest(
+        sha256=hasher.sha256(path).read_text(encoding="ascii").strip(),
+        signature=signer.sign(path).read_text(encoding="ascii").strip(),
+    )
 
 
 def release_local(version: Version, severity: Severity, rate: int) -> None:
@@ -107,7 +110,7 @@ def release_ci(version: Version, draft: bool) -> None:
         severity = current.severity
 
     notes_path = ASSETS_DIR / "RELEASE_NOTES.md"
-    notes_path.write_text(notes, encoding="utf-8", newline="\n")
+    _ = notes_path.write_text(notes, encoding="utf-8", newline="\n")
 
     manifests = {
         source: latest_manifest.write(
@@ -127,8 +130,9 @@ def release_ci(version: Version, draft: bool) -> None:
     tag = version.to_tag()
 
     github_release.ensure_tag(GITHUB_REPO, tag, sha)
-    github_release.publish(GITHUB_REPO, version, tag, notes_path, [*binaries, manifests[Source.GITHUB], index_path],
-                           draft=draft)
+    github_release.publish(
+        GITHUB_REPO, version, tag, notes_path, [*binaries, manifests[Source.GITHUB], index_path], draft=draft
+    )
 
     cnb_release.ensure_tag(CNB_REPO, tag, sha)
     cnb_release.publish(CNB_REPO, version, tag, notes_path, [*binaries, manifests[Source.CNB], index_path], draft=draft)
@@ -162,24 +166,24 @@ if __name__ == "__main__":
         try:
             sys.exit(main())
         except (
-                ReleaseError,
-                VersionError,
-                git.GitError,
-                local.LocalReleaseError,
-                release_assets.AssetDiscoveryError,
-                latest_manifest.ManifestError,
-                hasher.Sha256Error,
-                signer.SignError,
-                tauri.TauriError,
-                serve.ServeError,
-                release_notes.ReleaseNotesNotFound,
-                release_notes.ReleaseNotesAmbiguous,
-                release_notes.ReleaseNotesSectionEmpty,
-                versions_index.VersionIndexError,
-                github_release.GithubReleaseError,
-                cnb_release.CnbReleaseError,
-                gh.GhError,
-                cnb_cli.CnbError,
+            ReleaseError,
+            VersionError,
+            git.GitError,
+            local.LocalReleaseError,
+            release_assets.AssetDiscoveryError,
+            latest_manifest.ManifestError,
+            hasher.Sha256Error,
+            signer.SignError,
+            tauri.TauriError,
+            serve.ServeError,
+            release_notes.ReleaseNotesNotFound,
+            release_notes.ReleaseNotesAmbiguous,
+            release_notes.ReleaseNotesSectionEmpty,
+            versions_index.VersionIndexError,
+            github_release.GithubReleaseError,
+            cnb_release.CnbReleaseError,
+            gh.GhError,
+            cnb_cli.CnbError,
         ) as e:
             if not is_interrupted():
                 error(f"发布失败: {e}")
