@@ -60,10 +60,7 @@ def parse_args() -> argparse.Namespace:
 
 def sign_and_digest(path: Path) -> ManifestDigest:
     """对清单签名并算摘要"""
-    return ManifestDigest(
-        sha256=hasher.sha256(path).read_text(encoding="ascii").strip(),
-        signature=signer.sign(path).read_text(encoding="ascii").strip(),
-    )
+    return ManifestDigest(sha256=hasher.digest(path), signature=signer.signature(path))
 
 
 def release_local(version: Version, severity: Severity, rate: int) -> None:

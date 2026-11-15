@@ -5,7 +5,9 @@
 依赖与脚本导入钩子
 """
 
+import hashlib
 import shutil
+from pathlib import Path
 
 from cli import cargo, pnpm, uv
 from common.constant.paths import (
@@ -18,16 +20,20 @@ from util.fs import relative_path
 
 from .errors import EnvError
 
+HOOK_PATH = VENV_DIR / "sitecustomize.py"
+
 
 def problems() -> list[str]:
-    """检查依赖与导入钩子是否就位"""
+    """检查依赖与导入钩子是否就位，且钩子与模板内容一致"""
     result: list[str] = []
     if not FRONTEND_NODE_DIR.is_dir():
         result.append(f"前端依赖未安装: {relative_path(FRONTEND_NODE_DIR)} 不存在；执行 `just setup`")
     if not VENV_DIR.is_dir():
         result.append(f"Python 虚拟环境未创建: {relative_path(VENV_DIR)} 不存在；执行 `just setup`")
-    elif not (VENV_DIR / "sitecustomize.py").is_file():
-        result.append(f"脚本导入钩子缺失: {relative_path(VENV_DIR / 'sitecustomize.py')}；执行 `just setup` 重新复制")
+    elif not HOOK_PATH.is_file():
+        result.append(f"脚本导入钩子缺失: {relative_path(HOOK_PATH)}；执行 `just setup` 重新复制")
+    elif _digest(HOOK_PATH) != _digest(SITECUSTOMIZE_TEMPLATE_PATH):
+        result.append(f"脚本导入钩子与模板不一致: {relative_path(HOOK_PATH)}；执行 `just setup` 覆盖")
     if not result:
         info(f"依赖与导入钩子就位: {relative_path(FRONTEND_NODE_DIR)}、{relative_path(VENV_DIR)}")
     return result
@@ -69,12 +75,22 @@ def _sync_python() -> None:
 
 
 def _install_hook() -> None:
-    """把被追踪的模板复制进虚拟环境"""
+    """把被追踪的模板复制进虚拟环境；内容一致就不动，模板改了就覆盖"""
     if not VENV_DIR.is_dir():
         raise EnvError(f"虚拟环境目录 {relative_path(VENV_DIR)} 不存在，uv sync 未成功")
-    target = VENV_DIR / "sitecustomize.py"
     try:
-        shutil.copyfile(SITECUSTOMIZE_TEMPLATE_PATH, target)
+        if HOOK_PATH.is_file() and _digest(HOOK_PATH) == _digest(SITECUSTOMIZE_TEMPLATE_PATH):
+            info(f"脚本导入钩子已是最新: {relative_path(HOOK_PATH)}")
+            return
+        shutil.copyfile(SITECUSTOMIZE_TEMPLATE_PATH, HOOK_PATH)
     except OSError as error:
         raise EnvError(f"复制脚本导入钩子失败: {error}") from error
-    info(f"已更新脚本导入钩子: {relative_path(target)}")
+    info(f"已更新脚本导入钩子: {relative_path(HOOK_PATH)}")
+
+
+def _digest(path: Path) -> str:
+    """文件内容的 sha256；钩子是几百字节的小文本，整读即可"""
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError as error:
+        raise EnvError(f"读取 {relative_path(path)} 失败: {error}") from error
