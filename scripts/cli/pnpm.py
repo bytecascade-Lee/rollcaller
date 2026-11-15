@@ -53,11 +53,15 @@ def lint(*, cwd: Path | None = None) -> None:
     _ = _run(["lint"], cwd=cwd, capture=False)
 
 
-def check(*, cwd: Path | None = None) -> None:
+def typecheck(*, cwd: Path | None = None) -> None:
     """运行 svelte-check 类型检查（`package.json` 的 check 脚本），输出直接进控制台"""
     _ = _run(["check"], cwd=cwd, capture=False)
 
 
-def format_check(*, cwd: Path | None = None) -> None:
-    """检查格式是否符合 Prettier（`format:check` 脚本），不写文件"""
-    _ = _run(["format:check"], cwd=cwd, capture=False)
+def format(*, check: bool = False, cwd: Path | None = None) -> None:
+    """
+    格式化前端：写文件走 `format` 脚本，只检查走 `format:check` 脚本
+
+    :param check: True 时只检查不写文件
+    """
+    _ = _run(["format:check" if check else "format"], cwd=cwd, capture=False)

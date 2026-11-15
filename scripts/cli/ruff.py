@@ -3,9 +3,6 @@
 
 """
 ruff 命令封装
-
-ruff 随 dev 组安装进项目虚拟环境，不在 PATH 上：从当前解释器同目录取可执行文件，
-保证「谁在跑脚本，就用谁的那一份工具」，与 uv.lock 锁定的版本严格一致。
 """
 
 import subprocess
@@ -34,11 +31,15 @@ def _run(args: list[str], *, cwd: Path | None = None, capture: bool = False) -> 
         raise RuffError(str(error)) from error
 
 
-def check(*, cwd: Path | None = None) -> None:
+def lint(*, cwd: Path | None = None) -> None:
     """按照 pyproject.toml 中的 [tool.ruff] 执行 lint 检查"""
     _ = _run(["check"], cwd=cwd)
 
 
-def format_check(*, cwd: Path | None = None) -> None:
-    """按照 pyproject.toml 中的 [tool.ruff] 检查格式，不写文件"""
-    _ = _run(["format", "--check"], cwd=cwd)
+def format(*, check: bool = False, cwd: Path | None = None) -> None:
+    """
+    按照 pyproject.toml 中的 [tool.ruff] 执行格式化（检查）
+
+    :param check: True 时只检查不写文件
+    """
+    _ = _run(["format", *(["--check"] if check else [])], cwd=cwd)

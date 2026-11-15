@@ -55,18 +55,7 @@ def test(target: Target, *, lib_only: bool = False, cwd: Path | None = None) -> 
     _ = cargo(["test", "--locked", "--target", target.triple, *(["--lib"] if lib_only else [])], cwd=cwd)
 
 
-def check(target: Target, *, lib: bool = False, cwd: Path | None = None) -> None:
-    """
-    只编译不链接：`cargo check --locked --target <triple> [--lib]`
-
-    :param target: 编译的编译目标
-    :param lib: 只检查 lib，不处理 bin / test / example
-    :param cwd: 工作目录，缺省后端目录
-    """
-    _ = cargo(["check", "--locked", "--target", target.triple, *(["--lib"] if lib else [])], cwd=cwd)
-
-
-def clippy(target: Target, *, cwd: Path | None = None) -> None:
+def lint(target: Target, *, cwd: Path | None = None) -> None:
     """
     后端 lint：`cargo clippy --locked --target <triple> --all-targets -- -D clippy::all`
 
@@ -84,9 +73,14 @@ def clippy(target: Target, *, cwd: Path | None = None) -> None:
         raise
 
 
-def fmt_check(cwd: Path | None = None) -> None:
-    """检查格式：`cargo fmt --check`"""
-    _ = cargo(["fmt", "--check"], cwd=cwd)
+def format(*, check: bool = False, cwd: Path | None = None) -> None:
+    """
+    格式化后端：`cargo fmt [--check]`
+
+    :param check: True 时只检查不写文件
+    :param cwd: 工作目录，缺省后端目录
+    """
+    _ = cargo(["fmt", *(["--check"] if check else [])], cwd=cwd)
 
 
 def version() -> str | None:
