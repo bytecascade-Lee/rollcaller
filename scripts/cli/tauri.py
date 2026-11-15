@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from cli._tool import Timeout, Tool
+from cli.tool import Timeout, Tool
 from common.constant.paths import FRONTEND_NODE_DIR, PROJECT_BASE_DIR
 from common.entity.target import Target
 from common.enums.profile import Profile

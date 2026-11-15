@@ -39,8 +39,8 @@ from enum import Enum, auto
 from pathlib import Path, PurePosixPath
 
 from cli import git
-from cli._tool import Timeout
 from cli.git import TOOL
+from cli.tool import Timeout
 from common.constant.paths import DOCS_DIR, PROJECT_BASE_DIR
 from common.logger import debug, error, info, success, warning
 from util.fs import sanitize_filename

@@ -37,8 +37,8 @@ from pathlib import Path
 from typing import Any
 
 from cli import gh, git
-from cli._tool import Timeout
 from cli.gh import TOOL
+from cli.tool import Timeout
 from common.constant.paths import RELEASE_DIR
 from common.constant.repo import GITHUB_REPO, REMOTE
 from common.logger import error, info, success, warning

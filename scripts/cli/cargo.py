@@ -7,7 +7,7 @@ cargo 命令封装
 
 from pathlib import Path
 
-from cli._tool import Timeout, Tool
+from cli.tool import Timeout, Tool
 from common.constant.paths import BACKEND_DIR
 from common.entity.target import Target
 
