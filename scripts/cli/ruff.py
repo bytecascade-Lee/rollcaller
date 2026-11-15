@@ -11,11 +11,8 @@ ruff 随 dev 组安装进项目虚拟环境，不在 PATH 上：从当前解释�
 import sys
 from pathlib import Path
 
-from cli._tool import Tool
+from cli._tool import Timeout, Tool
 from common.constant.paths import PROJECT_BASE_DIR
-
-# 全仓 94 个文件、单次 0.1 秒量级，冷缓存留足余量
-RUN_TIMEOUT = 120
 
 
 class RuffError(Exception):
@@ -26,7 +23,7 @@ TOOL = Tool(
     "ruff",
     RuffError,
     cwd=PROJECT_BASE_DIR,
-    timeout=RUN_TIMEOUT,
+    timeout=Timeout.NORMAL,
     capture=False,
     search_dir=Path(sys.executable).parent,
     hint="请执行 `just setup` 同步依赖（ruff 随 dev 组安装）",
@@ -44,4 +41,5 @@ def format(*, check: bool = False) -> None:
 
     :param check: True 时只检查不写文件
     """
-    _ = TOOL.run(["format", *(["--check"] if check else [])])
+    args = ["format", *(["--check"] if check else [])]
+    _ = TOOL.run(args)

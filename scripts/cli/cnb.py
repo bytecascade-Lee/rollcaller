@@ -15,11 +15,11 @@ from pathlib import Path
 from typing import Any
 
 from cli import _process
-from cli._tool import Tool
+from cli._tool import Timeout, Tool
 from common.logger import info, warning
 
-DEFAULT_TIMEOUT = 120
-UPLOAD_TIMEOUT = 1800
+# 预签名 PUT 用 urllib 的 socket 读超时，与子进程的总时长不是一回事
+UPLOAD_SOCKET_TIMEOUT = 1800
 # 各接口表示「不存在」的 errcode 并不统一：
 #   git get-tag                 -> 2004002
 #   releases get-release-by-tag -> 404
@@ -61,21 +61,17 @@ def _translate(args: Sequence[str], failure: _process.ProcessError) -> Exception
 TOOL = Tool(
     "cnb",
     CnbError,
-    timeout=DEFAULT_TIMEOUT,
+    timeout=Timeout.NETWORK,
     hint="请安装 @cnbcool/cnb-cli 并加入 PATH",
     translate=_translate,
 )
 
 
-def stdout(args: Sequence[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> str:
-    """执行 cnb 命令，返回 utf-8 解码并 strip 后的 stdout"""
-    return TOOL.text(args, timeout=timeout)
-
-
 def auth() -> None:
     """检查 cnb 登录状态"""
     try:
-        _ = stdout(["status"])
+        args = ["status"]
+        _ = TOOL.text(args, timeout=Timeout.NETWORK)
     except CnbError as e:
         raise CnbAuthError(f"cnb 未通过鉴权: {e}，请先 cnb login，或在环境中注入 CNB_TOKEN。") from e
 
@@ -90,7 +86,8 @@ def call(args: list[str]) -> Any:
         CnbApiError: data 含 errcode（标签 / 版本不存在等）
         CnbError: 命令失败或输出无法解析为 JSON
     """
-    raw = stdout([*args, "--verbose"])
+    args = [*args, "--verbose"]
+    raw = TOOL.text(args, timeout=Timeout.NETWORK)
     try:
         body = json.loads(raw)
     except json.JSONDecodeError as error:
@@ -326,7 +323,7 @@ def _confirm_upload(repo: str, release_id: str, verify_url: str) -> None:
     )
 
 
-def upload_release_asset(repo: str, release_id: str, path: Path, *, timeout: float = UPLOAD_TIMEOUT) -> None:
+def upload_release_asset(repo: str, release_id: str, path: Path, *, timeout: float = UPLOAD_SOCKET_TIMEOUT) -> None:
     """
     上传附件到版本：申请预签名 URL → PUT 文件 → 确认上传。
 

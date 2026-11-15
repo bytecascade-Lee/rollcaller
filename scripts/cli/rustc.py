@@ -7,7 +7,7 @@ rustc 命令封装
 
 from functools import cache
 
-from cli._tool import Tool
+from cli._tool import Timeout, Tool
 from common.constant.paths import BACKEND_DIR
 from common.entity.target import Target, UnsupportedTargetError
 
@@ -20,6 +20,7 @@ TOOL = Tool(
     "rustc",
     RustcError,
     cwd=BACKEND_DIR,
+    timeout=Timeout.QUERY,
     hint="请安装 Rust 工具链并加入 PATH：https://rustup.rs/",
 )
 

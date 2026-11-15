@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from cli._tool import Tool
+from cli._tool import Timeout, Tool
 from common.constant.paths import FRONTEND_NODE_DIR, PROJECT_BASE_DIR
 from common.entity.target import Target
 from common.enums.profile import Profile
@@ -21,12 +21,12 @@ class TauriError(Exception):
 
 BIN_DIR = FRONTEND_NODE_DIR / ".bin"
 
-# tauri-cli 只在 frontend/node_modules/.bin 下，不查 PATH；dev/build 可能跑很久，不设超时
+# tauri-cli 只在 frontend/node_modules/.bin 下，不查 PATH；build 是长任务，dev 常驻另行不限时
 TOOL = Tool(
     "tauri",
     TauriError,
     cwd=PROJECT_BASE_DIR,
-    timeout=None,
+    timeout=Timeout.EXTENDED,
     capture=False,
     search_dir=BIN_DIR,
     hint="请先在 frontend/ 下执行 pnpm install（tauri-cli 在 node_modules/.bin 下）",
@@ -38,7 +38,7 @@ def dev(target: Target, wait_frontend: bool = False) -> None:
     args = ["dev", "--target", target.triple]
     if not wait_frontend:
         args.append("--no-dev-server-wait")
-    _ = TOOL.run(args)
+    _ = TOOL.run(args, timeout=None)
 
 
 def build(
@@ -77,4 +77,4 @@ def sign(path: Path) -> None:
         if not path.is_file():
             raise TauriError(f"待签名文件的路径 {path!r} 既不是绝对路径、也定位不到文件，请传递绝对路径")
         path = path.resolve()
-    _ = TOOL.run(["signer", "sign", str(path)])
+    _ = TOOL.run(["signer", "sign", str(path)], timeout=Timeout.NORMAL)

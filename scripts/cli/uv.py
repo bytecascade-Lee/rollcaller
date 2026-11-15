@@ -7,14 +7,9 @@ uv 命令封装
 
 from pathlib import Path
 
-from cli._tool import Tool
+from cli._tool import Timeout, Tool
 from common.constant.paths import PROJECT_BASE_DIR
 from common.logger import warning
-
-# 首次解析全部依赖可能较慢，给足时间
-LOCK_TIMEOUT = 300
-# 首次同步需要下载解释器与全部依赖
-SYNC_TIMEOUT = 900
 
 
 class UvError(Exception):
@@ -27,7 +22,7 @@ TOOL = Tool(
     "uv",
     UvError,
     cwd=PROJECT_BASE_DIR,
-    timeout=LOCK_TIMEOUT,
+    timeout=Timeout.NORMAL,
     hint="请安装 uv 并加入 PATH：https://docs.astral.sh/uv/getting-started/installation/",
 )
 
@@ -52,11 +47,5 @@ def lock_check(cwd: Path | None = None) -> bool:
 
 
 def sync_frozen(cwd: Path | None = None) -> None:
-    """
-    执行 `uv sync --frozen`：严格按 uv.lock 安装，绝不改写锁文件
-
-    frozen 也跳过「锁与项目是否同步」的检查，所以调用方要先用 `lock_check()` 自行判断。
-
-    :raise UvError: 同步失败
-    """
-    _ = TOOL.run(["sync", "--frozen"], cwd=cwd, timeout=SYNC_TIMEOUT, capture=False)
+    """执行 `uv sync --frozen`"""
+    _ = TOOL.run(["sync", "--frozen"], cwd=cwd, timeout=Timeout.NETWORK, capture=False)
