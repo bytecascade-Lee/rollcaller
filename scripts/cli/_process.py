@@ -29,6 +29,7 @@ class ProcessError(Exception):
         stderr: str = "",
         timed_out: bool = False,
         not_found: bool = False,
+        timeout: float | int | None = None,
     ) -> None:
         """
         外部进程无法启动、超时，或退出码不在允许集合内。
@@ -39,6 +40,7 @@ class ProcessError(Exception):
         :param stderr: 捕获到的标准错误；capture=False 时为空串
         :param timed_out: 是否因超时被终止
         :param not_found: 是否连可执行文件都没找到
+        :param timeout: 本次的超时秒数，仅用于把「等了多久」写进超时消息
         """
         if not argv:
             raise ValueError("argv 不能为空")
@@ -48,6 +50,7 @@ class ProcessError(Exception):
         self.stderr = stderr
         self.timed_out = timed_out
         self.not_found = not_found
+        self.timeout = timeout
         super().__init__(self._describe())
 
     @property
@@ -60,7 +63,8 @@ class ProcessError(Exception):
         if self.not_found:
             return f"未找到可执行文件 {self.argv[0]!r}，请确认已安装并加入 PATH"
         if self.timed_out:
-            return f"{command!r} 执行超时{detail}"
+            waited = f"{self.timeout:g}s" if self.timeout is not None else ""
+            return f"{command!r} 执行超时{waited}{detail}"
         return f"{command!r} 失败，退出码为 {self.returncode}{detail}"
 
     @override
@@ -168,6 +172,7 @@ def run(
         raise ProcessError(
             argv,
             timed_out=True,
+            timeout=timeout,
             stdout=_as_text(error.stdout),
             stderr=_as_text(error.stderr),
         ) from error

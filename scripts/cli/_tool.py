@@ -10,14 +10,27 @@ import re
 import subprocess
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
+from enum import IntEnum
 from pathlib import Path
 from typing import Any
 
 from cli import _process
 
-DEFAULT_TIMEOUT = 120
-# 区分「调用方未传 timeout」与「显式不限时」
-_UNSET_TIMEOUT: Any = object()
+
+class Timeout(IntEnum):
+    """外部命令的超时档位（秒）"""
+
+    # 瞬时查询
+    QUERY = 30
+    # 本地常规操作
+    NORMAL = 60
+    # 网络往返
+    NETWORK = 180
+    # 长任务
+    EXTENDED = 1800
+
+
+TimeoutOverride = Timeout | float | int | None
 
 _VERSION_RE = re.compile(r"(\d+(?:\.\d+){0,2})")
 
@@ -44,7 +57,7 @@ class Tool:
     :param error: 本工具的错误类型，构造签名是 (message)
     :param hint: 找不到可执行文件时的可操作提示，如安装方式或链接；空串则用 ProcessError 原文
     :param cwd: 缺省工作目录；None 表示继承调用方
-    :param timeout: 缺省超时秒数；None 表示不限时
+    :param timeout: 缺省超时档位
     :param capture: 缺省是否捕获输出；长任务设 False 让输出直接进控制台
     :param search_dir: 只在指定目录里找可执行文件
     :param prefix: 每次调用都排在参数前面的固定 argv
@@ -56,7 +69,7 @@ class Tool:
     error: type[Exception]
     hint: str = ""
     cwd: Path | None = None
-    timeout: float | int | None = DEFAULT_TIMEOUT
+    timeout: Timeout = Timeout.NORMAL
     capture: bool = True
     search_dir: Path | None = None
     prefix: tuple[str, ...] = ()
@@ -68,7 +81,7 @@ class Tool:
         args: Sequence[str],
         *,
         cwd: Path | None = None,
-        timeout: float | int | None = _UNSET_TIMEOUT,
+        timeout: TimeoutOverride = None,
         capture: bool | None = None,
         allow: Collection[int] = (),
         env: Mapping[str, str] | None = None,
@@ -79,7 +92,7 @@ class Tool:
 
         :param args: 子命令与参数，如 ["fetch", "--locked"]
         :param cwd: 工作目录
-        :param timeout: 覆盖描述符里的超时；传 None 表示本次不限时
+        :param timeout: 覆盖描述符里的档位；None 表示沿用描述符默认值
         :param capture: 覆盖描述符里的捕获策略；None 表示沿用描述符
         :param allow: 额外允许的退出码，0 恒允许
         :param env: 本次调用的环境变量，**替换**语义；描述符里的 env 仍会叠加其上
@@ -89,7 +102,7 @@ class Tool:
             return _process.run(
                 [self.program, *self.prefix, *args],
                 cwd=cwd or self.cwd,
-                timeout=self.timeout if timeout is _UNSET_TIMEOUT else timeout,
+                timeout=self.timeout if timeout is None else timeout,
                 env=_merged_env(self.env, env),
                 capture=self.capture if capture is None else capture,
                 allow=allow,
@@ -104,7 +117,7 @@ class Tool:
         args: Sequence[str],
         *,
         cwd: Path | None = None,
-        timeout: float | int | None = _UNSET_TIMEOUT,
+        timeout: TimeoutOverride = None,
         allow: Collection[int] = (),
         env: Mapping[str, str] | None = None,
     ) -> str:
@@ -117,7 +130,7 @@ class Tool:
         args: Sequence[str],
         *,
         cwd: Path | None = None,
-        timeout: float | int | None = _UNSET_TIMEOUT,
+        timeout: TimeoutOverride = None,
         allow: Collection[int] = (),
         env: Mapping[str, str] | None = None,
     ) -> bytes:
@@ -126,7 +139,7 @@ class Tool:
 
     def version(self) -> str | None:
         """返回 `--version` 中的版本号；无法从输出中提取时返回 None"""
-        match = _VERSION_RE.search(self.text(["--version"]))
+        match = _VERSION_RE.search(self.text(["--version"], timeout=Timeout.QUERY))
         return match.group(1) if match else None
 
     def _to_error(self, args: Sequence[str], failure: _process.ProcessError) -> Exception:
