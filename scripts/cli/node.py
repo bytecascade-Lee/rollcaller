@@ -5,11 +5,8 @@
 node 命令封装
 """
 
-from cli._tool import Tool
+from cli._tool import Timeout, Tool
 from common.constant.paths import PROJECT_BASE_DIR
-
-# 单条 node 命令的最大超时时长（秒）
-RUN_TIMEOUT = 60
 
 
 class NodeError(Exception):
@@ -20,6 +17,6 @@ TOOL = Tool(
     "node",
     NodeError,
     cwd=PROJECT_BASE_DIR,
-    timeout=RUN_TIMEOUT,
+    timeout=Timeout.QUERY,
     hint="请安装 Node.js 并加入 PATH：https://nodejs.org/",
 )

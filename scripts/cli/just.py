@@ -5,11 +5,8 @@
 just 命令封装
 """
 
-from cli._tool import Tool
+from cli._tool import Timeout, Tool
 from common.constant.paths import PROJECT_BASE_DIR
-
-# 单条 just 命令的最大超时时长（秒）
-RUN_TIMEOUT = 300
 
 
 class JustError(Exception):
@@ -20,6 +17,6 @@ TOOL = Tool(
     "just",
     JustError,
     cwd=PROJECT_BASE_DIR,
-    timeout=RUN_TIMEOUT,
+    timeout=Timeout.NORMAL,
     hint="请安装 just 并加入 PATH：https://just.systems/man/en/installation.html",
 )

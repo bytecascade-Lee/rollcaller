@@ -7,11 +7,8 @@ pnpm 命令封装
 
 from pathlib import Path
 
-from cli._tool import Tool
+from cli._tool import Timeout, Tool
 from common.constant.paths import FRONTEND_DIR
-
-# 单条 pnpm 命令的最大超时时长（秒）
-RUN_TIMEOUT = 900
 
 
 class PnpmError(Exception):
@@ -22,14 +19,14 @@ TOOL = Tool(
     "pnpm",
     PnpmError,
     cwd=FRONTEND_DIR,
-    timeout=RUN_TIMEOUT,
+    timeout=Timeout.NORMAL,
     hint="请安装 pnpm 并加入 PATH：https://pnpm.io/installation",
 )
 
 
 def install(*, cwd: Path | None = None) -> None:
     """按 lockfile 安装前端依赖"""
-    _ = TOOL.run(["install", "--frozen-lockfile"], cwd=cwd, capture=False)
+    _ = TOOL.run(["install", "--frozen-lockfile"], cwd=cwd, timeout=Timeout.EXTENDED, capture=False)
 
 
 def test(*, cwd: Path | None = None) -> None:
