@@ -10,7 +10,7 @@ import shutil
 import subprocess
 from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, override
 
 from common.logger import debug
 
@@ -63,9 +63,11 @@ class ProcessError(Exception):
             return f"{command!r} 执行超时{detail}"
         return f"{command!r} 失败，退出码为 {self.returncode}{detail}"
 
+    @override
     def __reduce__(self):
         return self.__class__, (self.argv,), self.__dict__
 
+    @override
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.args = (self._describe(),)
@@ -111,12 +113,12 @@ def _candidate_names(program: str) -> tuple[str, ...]:
     return *[program + suffix for suffix in _WINDOWS_SUFFIXES], program
 
 
-def build_argv(argv: Sequence[str]) -> list[str]:
+def build_argv(argv: Sequence[str], *, search_dir: Path | None = None) -> list[str]:
     """把逻辑 argv 中的 program 解析成真实路径"""
     if not argv:
         raise ValueError("argv 不能为空")
     program, *rest = argv
-    return [resolve(program), *rest]
+    return [resolve(program, search_dir=search_dir), *rest]
 
 
 def run(
@@ -129,6 +131,7 @@ def run(
     text: bool = True,
     stdin: int | None = None,
     allow: Collection[int] = (),
+    search_dir: Path | None = None,
 ) -> subprocess.CompletedProcess[Any]:
     """执行外部命令
 
@@ -140,11 +143,12 @@ def run(
     :param text:    True 按 utf-8 解码为 str，False 返回原始 bytes
     :param stdin: 默认继承；CI 传 subprocess.DEVNULL
     :param allow:   **额外**允许的退出码；0 恒允许（"对象不存在"这类约定俗成的非零码放这里）
+    :param search_dir: 只在指定目录里解析 program；None 表示走系统 PATH
 
     :raise ProcessError: 无法启动、超时，或退出码既不是 0 也不在 allow 内
     """
     debug(f"执行: {' '.join(argv)}（cwd={cwd or 'INHERIT'}）")
-    exec_argv = build_argv(argv)
+    exec_argv = build_argv(argv, search_dir=search_dir)
 
     kwargs: dict[str, Any] = {"cwd": cwd, "env": env, "check": False, "stdin": stdin}
     if text:
