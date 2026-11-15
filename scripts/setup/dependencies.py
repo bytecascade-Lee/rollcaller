@@ -3,9 +3,6 @@
 
 """
 依赖与脚本导入钩子
-
-按照 lockfile：
-    安装前端依赖 -> 下载 Rust 依赖 -> 同步 Python 虚拟环境 -> 复制 sitecustomize.py 模板到虚拟环境
 """
 
 import shutil
