@@ -16,14 +16,14 @@
 import argparse
 import shutil
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
-from build import builder, hasher, packager, signer, version_files, metadata
+from build import builder, hasher, metadata, packager, signer, version_files
 from cli import git, rustc, tauri
 from codegen import CodegenError, generate_all
 from common import gate, support
-from common.constant.paths import LOCAL_RELEASE_DIR, ASSETS_DIR
+from common.constant.paths import ASSETS_DIR, LOCAL_RELEASE_DIR
 from common.entity.target import Target, UnsupportedTargetError
 from common.entity.version import Version, VersionError
 from common.enums.action import Action
@@ -43,9 +43,9 @@ class BuildError(Exception):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="构建入口：构建 -> 打包 -> 汇总 -> 签名 + sha256")
 
-    parser.add_argument("-v", "--version", required=True, metavar="VERSION", help="语义化版本号")
-    parser.add_argument("-t", "--target", required=True, metavar="TRIPLE", help="完整 Rust 目标三元组")
-    parser.add_argument("-m", "--mode", required=True, choices=Mode.values(), help="构建模式")
+    _ = parser.add_argument("-v", "--version", required=True, metavar="VERSION", help="语义化版本号")
+    _ = parser.add_argument("-t", "--target", required=True, metavar="TRIPLE", help="完整 Rust 目标三元组")
+    _ = parser.add_argument("-m", "--mode", required=True, choices=Mode.values(), help="构建模式")
 
     return parser.parse_args()
 
@@ -53,10 +53,7 @@ def parse_args() -> argparse.Namespace:
 def package(version: Version, target: Target, build_mode: Mode) -> list[Path]:
     """按支持表查表，按 Kind 声明顺序产出该目标在指定模式下的载荷"""
     declared = support.kinds(target)
-    kinds = [
-        kind for kind in Kind
-        if kind in declared and (build_mode == Mode.LOCAL or not kind.local_only)
-    ]
+    kinds = [kind for kind in Kind if kind in declared and (build_mode == Mode.LOCAL or not kind.local_only)]
     return [packager.produce(version, target, kind) for kind in kinds]
 
 
@@ -74,8 +71,8 @@ def collect(artifacts: list[Path], out_dir: Path) -> list[Path]:
 def sign_and_hash(artifacts: list[Path]) -> None:
     """对产物逐个签名并计算 sha256"""
     for artifact in artifacts:
-        signer.sign(artifact)
-        hasher.sha256(artifact)
+        _ = signer.sign(artifact)
+        _ = hasher.sha256(artifact)
         info(f"已对 {str(artifact)!r} 签名并计算 sha256")
 
 
@@ -87,7 +84,7 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
     mode = Mode(args.mode)
 
     action = Action.RELEASE if mode == Mode.CI else Action.BUILD
-    gate.ensure(target, action, host=rustc.host_target())
+    _ = gate.ensure(target, action, host=rustc.host_target())
 
     signer.check_env()
 
@@ -107,9 +104,9 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
         # 2 代码生成
         generate_all()
         # 3 执行构建
-        builder.build(target, env=None)
+        _ = builder.build(target, env=None)
         if mode == Mode.LOCAL and target.os in Kind.DEVELOP.oses:
-            builder.build(target, profile=Profile.DEVELOP, bundle=False, config=SKIP_FRONTEND_BUILD, env=None)
+            _ = builder.build(target, profile=Profile.DEVELOP, bundle=False, config=SKIP_FRONTEND_BUILD, env=None)
         # 4 生成各种包
         artifacts = package(version, target, build_mode=mode)
     finally:
@@ -135,18 +132,18 @@ if __name__ == "__main__":
         try:
             sys.exit(main(is_interrupted=is_interrupted))
         except (
-                BuildError,
-                CodegenError,
-                VersionError,
-                gate.GateError,
-                git.GitError,
-                rustc.RustcError,
-                signer.SignError,
-                tauri.TauriError,
-                packager.PackageError,
-                version_files.VersionFileError,
-                KindOSError,
-                UnsupportedTargetError
+            BuildError,
+            CodegenError,
+            VersionError,
+            gate.GateError,
+            git.GitError,
+            rustc.RustcError,
+            signer.SignError,
+            tauri.TauriError,
+            packager.PackageError,
+            version_files.VersionFileError,
+            KindOSError,
+            UnsupportedTargetError,
         ) as e:
             if not is_interrupted():
                 error(f"构建失败: {e}")

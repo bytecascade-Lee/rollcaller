@@ -13,9 +13,11 @@ from common.constant.paths import (
     CARGO_CONFIG_DIR,
     CARGO_CONFIG_PATH,
     CARGO_CONFIG_TEMPLATE_PATH,
-    TS_RS_PATHS, )
+    TS_RS_PATHS,
+)
 from common.logger import info
 from util.fs import relative_path
+
 from .errors import EnvError
 
 EXPORT_KEY = "TS_RS_EXPORT_DIR"
@@ -39,11 +41,14 @@ def problems() -> list[str]:
 
     export_dir = _export_dir(variables.get(EXPORT_KEY))
     if export_dir is None:
-        return [f"{label} 的 {EXPORT_KEY} 缺失或写法无法识别，可参照 "
-                f"{relative_path(CARGO_CONFIG_TEMPLATE_PATH)} 里的写法"]
+        return [
+            f"{label} 的 {EXPORT_KEY} 缺失或写法无法识别，可参照 {relative_path(CARGO_CONFIG_TEMPLATE_PATH)} 里的写法"
+        ]
     if export_dir != TS_RS_PATHS.resolve():
-        return [f"{label} 的 {EXPORT_KEY} 指向 {str(export_dir)!r}，"
-                f"应配置为 '../{relative_path(TS_RS_PATHS)}'；否则类型会被导出到别处"]
+        return [
+            f"{label} 的 {EXPORT_KEY} 指向 {str(export_dir)!r}，"
+            f"应配置为 '../{relative_path(TS_RS_PATHS)}'；否则类型会被导出到别处"
+        ]
 
     database = variables.get(DATABASE_KEY)
     if not isinstance(database, str) or not database.strip():

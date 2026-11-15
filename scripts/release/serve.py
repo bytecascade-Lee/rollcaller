@@ -54,8 +54,7 @@ def validate_dir(serve_dir: Path) -> None:
     missing = [name for name in REQUIRED_FILES if not (serve_dir / name).is_file()]
     if missing:
         raise ServeError(
-            f"目录 {str(serve_dir)!r} 缺少必要文件: {join_repr(missing)}；"
-            f"请先完成本地发布写入清单与版本索引"
+            f"目录 {str(serve_dir)!r} 缺少必要文件: {join_repr(missing)}；请先完成本地发布写入清单与版本索引"
         )
 
 
@@ -73,6 +72,7 @@ def rate_desc(rate_kb: int) -> str:
     if rate_kb <= 0:
         return "unlimited (--rate 0)"
     chunk, delay = throttle_plan(rate_kb)
+    assert delay is not None  # rate_kb > 0 时必有限速节奏
     return f"{rate_kb} KB/s (1024-based; chunk {chunk} B, tick {delay * 1000:.1f} ms)"
 
 

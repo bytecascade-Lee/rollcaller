@@ -11,8 +11,9 @@ GitHub CLI 操作模块，封装常用 gh 命令 / REST 请求，返回结构化
 import json
 import re
 import subprocess
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Any
+from typing import Any
 from urllib.parse import urlencode
 
 from cli import _process
@@ -26,15 +27,17 @@ _HTTP_STATUS_RE = re.compile(r"HTTP\s+(\d{3})")
 
 class GhError(Exception):
     """gh 操作失败的基类"""
+
     pass
 
 
 class GhAuthError(GhError):
     """gh 未登录或缺少凭据"""
+
     pass
 
 
-def _run(args: list[str], *, timeout: float | int, text: bool = True) -> subprocess.CompletedProcess:
+def _run(args: list[str], *, timeout: float | int, text: bool = True) -> subprocess.CompletedProcess[Any]:
     """
     执行 gh 命令并返回 CompletedProcess
 
@@ -108,7 +111,7 @@ def api_get_or_none(repo: str, endpoint: str, params: dict[str, Any] | None = No
         raise
 
 
-def api_pages(repo: str, endpoint: str, list_key: str, params: dict[str, Any] | None = None) -> list[dict]:
+def api_pages(repo: str, endpoint: str, list_key: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """
     自动翻页拉取列表型响应中的数组字段
 
@@ -119,7 +122,7 @@ def api_pages(repo: str, endpoint: str, list_key: str, params: dict[str, Any] | 
 
     :raise GhError: 分页超过 MAX_PAGES，表表明接口语义变化或服务端异常
     """
-    items: list[dict] = []
+    items: list[dict[str, Any]] = []
     for page in range(1, MAX_PAGES + 1):
         body = api_get(repo, endpoint, {**(params or {}), "per_page": PAGE_SIZE, "page": page})
         chunk = body.get(list_key) if isinstance(body, dict) else None
@@ -171,10 +174,15 @@ def create_release(
 ) -> None:
     """创建 Release，附件随创建一并上传（tag 须已存在）"""
     args = [
-        "release", "create", tag,
-        "--repo", repo,
-        "--title", title,
-        "--notes-file", str(notes_file),
+        "release",
+        "create",
+        tag,
+        "--repo",
+        repo,
+        "--title",
+        title,
+        "--notes-file",
+        str(notes_file),
     ]
     if draft:
         args.append("--draft")
@@ -199,14 +207,21 @@ def edit_release(
     draft / prerelease 都显式传布尔值：重跑时若上一轮是草稿 / 预发布、本轮要转正，
     需要 `--draft=false` / `--prerelease=false` 把状态改回来（两个方向都幂等）。
     """
-    stdout([
-        "release", "edit", tag,
-        "--repo", repo,
-        "--title", title,
-        "--notes-file", str(notes_file),
-        "--draft" if draft else "--draft=false",
-        "--prerelease" if prerelease else "--prerelease=false",
-    ])
+    stdout(
+        [
+            "release",
+            "edit",
+            tag,
+            "--repo",
+            repo,
+            "--title",
+            title,
+            "--notes-file",
+            str(notes_file),
+            "--draft" if draft else "--draft=false",
+            "--prerelease" if prerelease else "--prerelease=false",
+        ]
+    )
 
 
 def upload_release_assets(repo: str, tag: str, files: Iterable[Path]) -> None:
@@ -219,14 +234,22 @@ def upload_release_assets(repo: str, tag: str, files: Iterable[Path]) -> None:
 
 def pr_open_numbers(repo: str, head: str) -> list[int]:
     """该 head 分支上处于打开状态的 PR 编号；没有则返回空列表"""
-    output = stdout([
-        "pr", "list",
-        "--repo", repo,
-        "--head", head,
-        "--state", "open",
-        "--json", "number",
-        "--limit", str(PAGE_SIZE),
-    ])
+    output = stdout(
+        [
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--head",
+            head,
+            "--state",
+            "open",
+            "--json",
+            "number",
+            "--limit",
+            str(PAGE_SIZE),
+        ]
+    )
     if not output:
         return []
     try:
@@ -240,14 +263,22 @@ def pr_open_numbers(repo: str, head: str) -> list[int]:
 
 def pr_create(repo: str, head: str, base: str, title: str, body: str) -> str:
     """创建 PR，返回 gh 打印的 PR 地址；同 head/base 已有打开 PR 时 gh 会报错"""
-    return stdout([
-        "pr", "create",
-        "--repo", repo,
-        "--head", head,
-        "--base", base,
-        "--title", title,
-        "--body", body,
-    ])
+    return stdout(
+        [
+            "pr",
+            "create",
+            "--repo",
+            repo,
+            "--head",
+            head,
+            "--base",
+            base,
+            "--title",
+            title,
+            "--body",
+            body,
+        ]
+    )
 
 
 def http_status(error: GhError) -> int | None:

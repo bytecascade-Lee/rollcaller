@@ -37,7 +37,7 @@ class ManifestDigest:
     signature: str | None = None
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, object]) -> "ManifestDigest":
+    def from_dict(cls, data: object) -> "ManifestDigest":
         """从版本索引条目的 manifests.<source> 构造"""
         if not isinstance(data, Mapping):
             raise ValueError(f"清单摘要不是对象: {data!r}")
@@ -135,8 +135,6 @@ class VersionIndex:
         payload: dict[str, object] = {"version": str(self.version), "severity": str(self.severity)}
         if self.manifests:
             payload["manifests"] = {
-                source.value: self.manifests[source].to_dict()
-                for source in _MANIFEST_ORDER
-                if source in self.manifests
+                source.value: self.manifests[source].to_dict() for source in _MANIFEST_ORDER if source in self.manifests
             }
         return payload

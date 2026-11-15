@@ -33,7 +33,7 @@ def find(full_version: Version) -> LocalBuild:
 
     core = str(full_version).split("+", 1)[0]
     candidates = sorted(path.name for path in LOCAL_RELEASE_DIR.glob(f"{core}+*") if path.is_dir())
-    hint = (f"现有同核心版本目录: {candidates!r}" if candidates else f"{str(LOCAL_RELEASE_DIR)!r} 下没有同核心版本的目录")
+    hint = f"现有同核心版本目录: {candidates!r}" if candidates else f"{str(LOCAL_RELEASE_DIR)!r} 下没有同核心版本的目录"
     raise LocalReleaseError(
         f"未找到本地构建目录 {str(directory)!r}。\n"
         f"如果构建后切换过分支或产生过新提交，full 版本会变化，请重新构建；{hint}"

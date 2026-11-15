@@ -6,5 +6,5 @@ class Mode(StrEnum):
     CI = "ci"
 
     @classmethod
-    def values(cls) -> tuple[str]:
+    def values(cls) -> tuple[str, ...]:
         return tuple(mode.value for mode in cls)

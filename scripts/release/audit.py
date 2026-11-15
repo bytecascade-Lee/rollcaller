@@ -21,6 +21,7 @@ import re
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import Any
 
 from common.constant.paths import BACKEND_DIR
 from common.entity.version import Version
@@ -100,7 +101,7 @@ def check_signature(signature: str, key_id: str) -> str | None:
     return None
 
 
-def artifact_urls(manifest: dict) -> Iterator[tuple[str, str]]:
+def artifact_urls(manifest: dict[str, Any]) -> Iterator[tuple[str, str]]:
     """遍历清单里的全部产物：(路径标签, url)"""
     platforms = manifest.get("platforms")
     if not isinstance(platforms, dict):
@@ -117,8 +118,9 @@ def artifact_urls(manifest: dict) -> Iterator[tuple[str, str]]:
                     yield f"{os_name}/{arch}/{kind}", url
 
 
-def check_version(source: Source, entry: VersionIndex, digest: ManifestDigest | None, key_id: str,
-                  timeout: int) -> list[Failure]:
+def check_version(
+    source: Source, entry: VersionIndex, digest: ManifestDigest | None, key_id: str, timeout: int
+) -> list[Failure]:
     """校验一个（源, 版本），返回失败项"""
     label = str(entry.version)
     failures: list[Failure] = []
@@ -169,8 +171,14 @@ def check_version(source: Source, entry: VersionIndex, digest: ManifestDigest | 
     return failures
 
 
-def check_source(source: Source, want: Version | None, key_id: str, timeout: int, retry: int,
-                 local_entries: list[VersionIndex] | None = None) -> list[Failure]:
+def check_source(
+    source: Source,
+    want: Version | None,
+    key_id: str,
+    timeout: int,
+    retry: int,
+    local_entries: list[VersionIndex] | None = None,
+) -> list[Failure]:
     """校验一个源：先取索引（给了 `local_entries` 就用仓库索引），再逐版本校验"""
     if local_entries is not None:
         entries = local_entries
@@ -188,8 +196,9 @@ def check_source(source: Source, want: Version | None, key_id: str, timeout: int
     return failures
 
 
-def remote_entries(source: Source, want: Version | None, retry: int,
-                   timeout: int) -> tuple[list[VersionIndex] | None, str | None]:
+def remote_entries(
+    source: Source, want: Version | None, retry: int, timeout: int
+) -> tuple[list[VersionIndex] | None, str | None]:
     """拉线上版本索引"""
     url = urls.versions_index_url(source)
     reason = "取不到线上索引"

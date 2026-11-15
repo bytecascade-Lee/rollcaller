@@ -8,9 +8,9 @@
 import os
 import shutil
 import subprocess
-from collections.abc import Collection
+from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from common.logger import debug
 
@@ -20,10 +20,16 @@ _ALL_WINDOWS_SUFFIXES = _WINDOWS_SUFFIXES + (".com",)
 
 
 class ProcessError(Exception):
-
-    def __init__(self, argv: Sequence[str], *, return_code: int | None = None,
-                 stdout: str = "", stderr: str = "",
-                 timed_out: bool = False, not_found: bool = False) -> None:
+    def __init__(
+        self,
+        argv: Sequence[str],
+        *,
+        return_code: int | None = None,
+        stdout: str = "",
+        stderr: str = "",
+        timed_out: bool = False,
+        not_found: bool = False,
+    ) -> None:
         """
         外部进程无法启动、超时，或退出码不在允许集合内。
 
@@ -113,9 +119,17 @@ def build_argv(argv: Sequence[str]) -> list[str]:
     return [resolve(program), *rest]
 
 
-def run(argv: Sequence[str], *, cwd: Path | None = None, timeout: float | int | None = None,
-        env: Mapping[str, str] | None = None, capture: bool = True, text: bool = True,
-        stdin: int | None = None, allow: Collection[int] = ()) -> subprocess.CompletedProcess[Any]:
+def run(
+    argv: Sequence[str],
+    *,
+    cwd: Path | None = None,
+    timeout: float | int | None = None,
+    env: Mapping[str, str] | None = None,
+    capture: bool = True,
+    text: bool = True,
+    stdin: int | None = None,
+    allow: Collection[int] = (),
+) -> subprocess.CompletedProcess[Any]:
     """执行外部命令
 
     :param argv:    逻辑 argv，如 ["git", "rev-parse", "HEAD"]

@@ -75,8 +75,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="按档位推算下一个版本号，并在 master 上打发布 tag")
     parser.add_argument("kind", choices=("major", "minor", "patch", "prerelease"), help="版本档位")
     parser.add_argument("--serial", action="store_true", help="prerelease 档内序号 +1，如 alpha.1 -> alpha.2")
-    parser.add_argument("--base", choices=("major", "minor", "patch"), default="patch",
-                        help="稳定版进入预发布时的基线，默认 patch")
+    parser.add_argument(
+        "--base", choices=("major", "minor", "patch"), default="patch", help="稳定版进入预发布时的基线，默认 patch"
+    )
     parser.add_argument("--dry-run", action="store_true", help="只打印将要打的 tag，不创建")
 
     args = parser.parse_args()
@@ -139,8 +140,10 @@ def _ensure_master_in_sync() -> None:
 
     head = git.head_hash()
     if remote != head:
-        raise BumpError(f"本地 master {head[git.ABBREVIATED_HASH_SLICE]} 与 "
-                        f"{ref} {remote[git.ABBREVIATED_HASH_SLICE]} 不一致，请先同步")
+        raise BumpError(
+            f"本地 master {head[git.ABBREVIATED_HASH_SLICE]} 与 "
+            f"{ref} {remote[git.ABBREVIATED_HASH_SLICE]} 不一致，请先同步"
+        )
 
 
 def _ensure_tag_absent(tag: str) -> None:

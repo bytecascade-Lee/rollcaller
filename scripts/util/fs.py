@@ -11,9 +11,7 @@ _WIN_ILLEGAL_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f\s]+')
 
 # Windows 保留设备名（不区分大小写，且带扩展名同样被保留，如 CON.txt）
 _WIN_RESERVED_NAMES = frozenset(
-    ["CON", "PRN", "AUX", "NUL"]
-    + [f"COM{i}" for i in range(1, 10)]
-    + [f"LPT{i}" for i in range(1, 10)]
+    ["CON", "PRN", "AUX", "NUL"] + [f"COM{i}" for i in range(1, 10)] + [f"LPT{i}" for i in range(1, 10)]
 )
 
 
@@ -57,5 +55,5 @@ def relative_path(pathname: Path, relative_to: Path = PROJECT_BASE_DIR) -> str:
     """把路径转成相对 `relative_to`（默认项目根）的 POSIX 路径；不在其下时原样返回"""
     try:
         return Path(pathname).resolve().relative_to(relative_to).as_posix()
-    except (ValueError, OSError):
+    except ValueError, OSError:
         return str(pathname)

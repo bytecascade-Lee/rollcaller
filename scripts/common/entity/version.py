@@ -22,7 +22,9 @@ class Version(semver.Version):
 
     @classmethod
     @override
-    def parse(cls, version: str, optional_minor_and_patch: bool = False, erase_build_metadata: bool = False) -> "Version":
+    def parse(  # pyright: ignore[reportIncompatibleMethodOverride]
+        cls, version: str, optional_minor_and_patch: bool = False, erase_build_metadata: bool = False
+    ) -> "Version":
         s = version.strip().lower()
         if s.startswith("v"):
             s = s[1:]
@@ -31,10 +33,7 @@ class Version(semver.Version):
 
         base = cls.sanitize_base_partition(base)
 
-        if sep and (not erase_build_metadata):
-            s = f"{base}+{cls.sanitize_build_partition(build)}"
-        else:
-            s = base
+        s = f"{base}+{cls.sanitize_build_partition(build)}" if sep and not erase_build_metadata else base
 
         try:
             return super().parse(s, optional_minor_and_patch=optional_minor_and_patch)

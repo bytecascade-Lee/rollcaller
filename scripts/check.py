@@ -5,7 +5,7 @@
 检查入口
 
 顺序执行：
-    脚本入口 -> 后端格式 -> 前端格式 -> 前端 lint -> 前端类型 -> 后端 lint（clippy）
+    前端格式 -> 前端 lint -> 前端类型 -> 后端格式 -> 后端 lint -> 脚本入口 -> 脚本格式 -> 脚本 lint -> 脚本类型
 
 用法:
     uv run ./scripts/check.py -t x86_64-pc-windows-msvc
@@ -15,9 +15,9 @@
 import argparse
 import re
 import sys
-from typing import Callable
+from collections.abc import Callable
 
-from cli import cargo, pnpm, rustc
+from cli import basedpyright, cargo, pnpm, ruff, rustc
 from common import gate
 from common.constant.paths import SCRIPTS_DIR
 from common.entity.target import Target, UnsupportedTargetError
@@ -47,7 +47,8 @@ def _check_entry_points() -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="检查入口：前端格式 / lint / 类型，以及后端编译")
-    parser.add_argument("-t", "--target", required=True, metavar="TRIPLE", help="完整 Rust 目标三元组")
+
+    _ = parser.add_argument("-t", "--target", required=True, metavar="TRIPLE", help="完整 Rust 目标三元组")
 
     return parser.parse_args()
 
@@ -58,17 +59,7 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
     target = Target(rustc.resolve_triple(args.target))
     info(f"当前目标三元组为 {target.triple!r}")
 
-    gate.ensure(target, Action.CHECK, host=rustc.host_target())
-
-    info("检查脚本入口")
-    _check_entry_points()
-    if is_interrupted():
-        return 0
-
-    info("检查后端格式")
-    cargo.fmt_check()
-    if is_interrupted():
-        return 0
+    _ = gate.ensure(target, Action.CHECK, host=rustc.host_target())
 
     info("检查前端格式")
     pnpm.format_check()
@@ -85,8 +76,33 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
     if is_interrupted():
         return 0
 
-    info(f"检查后端 lint")
+    info("检查后端格式")
+    cargo.fmt_check()
+    if is_interrupted():
+        return 0
+
+    info("检查后端 lint")
     cargo.clippy(target)
+    if is_interrupted():
+        return 0
+
+    info("检查脚本入口")
+    _check_entry_points()
+    if is_interrupted():
+        return 0
+
+    info("检查脚本格式")
+    ruff.format_check()
+    if is_interrupted():
+        return 0
+
+    info("检查脚本 lint")
+    ruff.check()
+    if is_interrupted():
+        return 0
+
+    info("检查脚本类型")
+    basedpyright.check()
 
     success("前后端检查通过")
     return 0
@@ -97,12 +113,14 @@ if __name__ == "__main__":
         try:
             sys.exit(main(is_interrupted=is_interrupted))
         except (
-                gate.GateError,
-                CheckError,
-                pnpm.PnpmError,
-                cargo.CargoError,
-                rustc.RustcError,
-                UnsupportedTargetError,
+            gate.GateError,
+            CheckError,
+            basedpyright.BasedpyrightError,
+            pnpm.PnpmError,
+            cargo.CargoError,
+            ruff.RuffError,
+            rustc.RustcError,
+            UnsupportedTargetError,
         ) as e:
             if not is_interrupted():
                 error(f"检查失败: {e}")

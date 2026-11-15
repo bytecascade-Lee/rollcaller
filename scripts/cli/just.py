@@ -20,8 +20,9 @@ class JustError(Exception):
     """just 命令无法启动或执行失败"""
 
 
-def _run(args: list[str], *, cwd: Path | None = None, timeout: float | int = RUN_TIMEOUT,
-         capture: bool = True) -> subprocess.CompletedProcess:
+def _run(
+    args: list[str], *, cwd: Path | None = None, timeout: float | int = RUN_TIMEOUT, capture: bool = True
+) -> subprocess.CompletedProcess[str]:
     """执行 just 命令，失败统一包成 JustError"""
     cwd = cwd or PROJECT_BASE_DIR
     try:

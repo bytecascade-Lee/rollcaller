@@ -27,13 +27,18 @@ from util.str_format import join_repr
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="把线上清单的 sha256 回填进仓库版本索引")
-    parser.add_argument("-v", "--version", nargs="+", metavar="VERSION", help="只处理这些版本")
-    parser.add_argument("-s", "--source", nargs="+", choices=Source.values(), metavar="SOURCE", help="只处理这些源")
-    parser.add_argument("-i", "--index", metavar="PATH", default=str(VERSIONS_INDEX_SOURCE_PATH), help="待回填的索引文件")
-    parser.add_argument("--check", action="store_true", help="只报告差异，不写文件；有差异则以 1 退出")
-    parser.add_argument("--pr", action="store_true", help="回填后提交到 bot 分支并开 PR")
-    parser.add_argument("-t", "--timeout", type=int, default=backfill.DEFAULT_TIMEOUT, metavar="SECONDS",
-                        help="单次请求超时秒数")
+
+    _ = parser.add_argument("-v", "--version", nargs="+", metavar="VERSION", help="只处理这些版本")
+    _ = parser.add_argument("-s", "--source", nargs="+", choices=Source.values(), metavar="SOURCE", help="只处理这些源")
+    _ = parser.add_argument(
+        "-i", "--index", metavar="PATH", default=str(VERSIONS_INDEX_SOURCE_PATH), help="待回填的索引文件"
+    )
+    _ = parser.add_argument("--check", action="store_true", help="只报告差异，不写文件；有差异则以 1 退出")
+    _ = parser.add_argument("--pr", action="store_true", help="回填后提交到 bot 分支并开 PR")
+    _ = parser.add_argument(
+        "-t", "--timeout", type=int, default=backfill.DEFAULT_TIMEOUT, metavar="SECONDS", help="单次请求超时秒数"
+    )
+
     return parser.parse_args()
 
 
@@ -48,6 +53,8 @@ def main() -> int:
     if args.pr and (wanted is None or len(wanted) != 1):
         error("--pr 需要且只需要一个 -v 版本")
         return 1
+    # --pr 时 wanted 已保证恰好一个元素,提前取出
+    pr_version = wanted[0] if args.pr and wanted is not None else None
 
     sources = [Source(value) for value in (args.source or [s.value for s in backfill.DIGEST_SOURCES])]
     index_path = Path(args.index)
@@ -78,14 +85,14 @@ def main() -> int:
         return 1
 
     try:
-        versions_index.write(index_path, merged)
+        _ = versions_index.write(index_path, merged)
     except OSError as e:
         error(f"写入 {index_path} 失败: {e}")
         return 1
 
-    if args.pr:
+    if pr_version is not None:
         try:
-            backfill.propose(wanted[0], index_path, merged)
+            backfill.propose(pr_version, index_path, merged)
         except (backfill.BackfillError, github.GithubReleaseError, git.GitError) as e:
             error(f"开 PR 失败: {e}")
             return 1

@@ -28,6 +28,7 @@
 import hashlib
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from cli import git
 from common.constant.paths import PROJECT_BASE_DIR
@@ -54,7 +55,7 @@ class BackfillError(Exception):
     """回填过程中发现线上与仓库不一致，或数据取不到"""
 
 
-def snapshot(entries: Sequence[VersionIndex]) -> dict[str, dict]:
+def snapshot(entries: Sequence[VersionIndex]) -> dict[str, dict[str, Any]]:
     """按版本号取序列化快照，用来判断"到底改没改"（与文件里的书写顺序无关）"""
     return {str(entry.version): entry.to_dict() for entry in entries}
 
@@ -99,8 +100,7 @@ def live_entries(source: Source, wanted: Sequence[Version], timeout: int) -> lis
     return entries
 
 
-def digest_of(source: Source, version: Version, published: ManifestDigest | None,
-              timeout: int) -> ManifestDigest:
+def digest_of(source: Source, version: Version, published: ManifestDigest | None, timeout: int) -> ManifestDigest:
     """按线上清单字节算摘要，并与线上索引里的值交叉核对"""
     url = urls.manifest_url(source, version)
     status, body = fetch.request(url, timeout=timeout)
@@ -121,8 +121,9 @@ def digest_of(source: Source, version: Version, published: ManifestDigest | None
     return ManifestDigest(sha256=actual, signature=published.signature)
 
 
-def collect(entries: Sequence[VersionIndex], sources: Sequence[Source],
-            wanted: Sequence[Version] | None, timeout: int) -> list[VersionIndex]:
+def collect(
+    entries: Sequence[VersionIndex], sources: Sequence[Source], wanted: Sequence[Version] | None, timeout: int
+) -> list[VersionIndex]:
     """重算各源摘要，返回回填后的完整条目列表
 
     纯计算：不写文件、不碰 git。`wanted` 之外的条目原样带回。
@@ -142,7 +143,8 @@ def collect(entries: Sequence[VersionIndex], sources: Sequence[Source],
             live = versions_index.find(published[source], entry.version)
             manifests[source] = digest_of(source, entry.version, live.manifests.get(source) if live else None, timeout)
         refreshed[str(entry.version)] = VersionIndex(
-            version=entry.version, severity=entry.severity, manifests=manifests)
+            version=entry.version, severity=entry.severity, manifests=manifests
+        )
 
     return [refreshed.get(str(entry.version), entry) for entry in entries]
 
@@ -170,8 +172,7 @@ def _pull_request_body(version: Version, entries: Sequence[VersionIndex]) -> str
     )
 
 
-def propose(version: Version, index_path: Path, entries: Sequence[VersionIndex], *,
-            base: str = "develop") -> None:
+def propose(version: Version, index_path: Path, entries: Sequence[VersionIndex], *, base: str = "develop") -> None:
     """提交回填结果并开 PR
 
     **只有 `--pr` 会走到这里，且它是本模块唯一改 git 状态的路径。** 三条自我约束：
@@ -186,10 +187,7 @@ def propose(version: Version, index_path: Path, entries: Sequence[VersionIndex],
     except ValueError:
         relative = index_path.as_posix()
 
-    others = [
-        line for line in git.tracked_changes().splitlines()
-        if line.strip() and not line.endswith(relative)
-    ]
+    others = [line for line in git.tracked_changes().splitlines() if line.strip() and not line.endswith(relative)]
     if others:
         raise BackfillError(f"--pr 要求工作区只有 {relative!r} 有改动，实际还有：{'；'.join(others)}")
 
@@ -199,7 +197,7 @@ def propose(version: Version, index_path: Path, entries: Sequence[VersionIndex],
     git.push_branch(branch, force=True)
     success(f"已推送分支 {branch}")
 
-    github.ensure_pull_request(
+    _ = github.ensure_pull_request(
         GITHUB_REPO,
         branch,
         base,

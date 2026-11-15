@@ -12,6 +12,7 @@ from types import ModuleType
 from cli import git
 from common.logger import info
 from util.str_format import join_repr
+
 from . import build_info, routing_entries
 
 
@@ -40,7 +41,7 @@ def generate_all() -> None:
             module.generate()
         except Exception as error:
             raise CodegenError(f"{name} 失败: {error}") from error
-    info(f"代码生成完成")
+    info("代码生成完成")
 
 
 def ensure_committed(paths: Sequence[Path], *, label: str) -> None:
@@ -48,6 +49,4 @@ def ensure_committed(paths: Sequence[Path], *, label: str) -> None:
     names = [*git.diff_names(paths), *git.untracked_names(paths)]
     if not names:
         return
-    raise GeneratedNotCommittedError(
-        f"{label} 有 {len(names)} 个文件未提交: {join_repr(names)}；先提交再继续"
-    )
+    raise GeneratedNotCommittedError(f"{label} 有 {len(names)} 个文件未提交: {join_repr(names)}；先提交再继续")

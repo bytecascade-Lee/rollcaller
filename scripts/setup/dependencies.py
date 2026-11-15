@@ -18,6 +18,7 @@ from common.constant.paths import (
 )
 from common.logger import info
 from util.fs import relative_path
+
 from .errors import EnvError
 
 
@@ -29,8 +30,7 @@ def problems() -> list[str]:
     if not VENV_DIR.is_dir():
         result.append(f"Python 虚拟环境未创建: {relative_path(VENV_DIR)} 不存在；执行 `just setup`")
     elif not (VENV_DIR / "sitecustomize.py").is_file():
-        result.append(f"脚本导入钩子缺失: {relative_path(VENV_DIR / 'sitecustomize.py')}；"
-                      f"执行 `just setup` 重新复制")
+        result.append(f"脚本导入钩子缺失: {relative_path(VENV_DIR / 'sitecustomize.py')}；执行 `just setup` 重新复制")
     if not result:
         info(f"依赖与导入钩子就位: {relative_path(FRONTEND_NODE_DIR)}、{relative_path(VENV_DIR)}")
     return result

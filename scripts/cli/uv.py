@@ -21,11 +21,18 @@ SYNC_TIMEOUT = 900
 
 class UvError(Exception):
     """uv 无法启动，或失败原因不是调用方预期的"""
+
     pass
 
 
-def _run(args: list[str], *, cwd: Path | None = None, timeout: float | int | None = LOCK_TIMEOUT,
-         capture: bool = True, allow: tuple[int, ...] = ()) -> subprocess.CompletedProcess:
+def _run(
+    args: list[str],
+    *,
+    cwd: Path | None = None,
+    timeout: float | int | None = LOCK_TIMEOUT,
+    capture: bool = True,
+    allow: tuple[int, ...] = (),
+) -> subprocess.CompletedProcess[str]:
     """执行 uv 命令，失败统一包成 UvError"""
     cwd = cwd or PROJECT_BASE_DIR
     try:
@@ -44,7 +51,7 @@ def version() -> str | None:
 def lock(cwd: Path | None = None) -> None:
     """执行 `uv lock` 刷新 uv.lock，失败只警告，锁文件滞后不该阻断构建"""
     try:
-        _run(["lock"], cwd=cwd)
+        _ = _run(["lock"], cwd=cwd)
     except UvError as error:
         warning(f"uv lock 未完成，uv.lock 可能滞后: {error}")
 
@@ -68,4 +75,4 @@ def sync_frozen(cwd: Path | None = None) -> None:
 
     :raise UvError: 同步失败
     """
-    _run(["sync", "--frozen"], cwd=cwd, timeout=SYNC_TIMEOUT, capture=False)
+    _ = _run(["sync", "--frozen"], cwd=cwd, timeout=SYNC_TIMEOUT, capture=False)

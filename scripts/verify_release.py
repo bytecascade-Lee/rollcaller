@@ -26,15 +26,26 @@ from release import audit, versions_index
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="发布后自检：线上清单 / 版本索引的一致性")
     parser.add_argument("-v", "--version", metavar="VERSION", help="只校验该版本（缺省校验索引里的全部版本）")
-    parser.add_argument("-s", "--source", nargs="+", choices=Source.values(), metavar="SOURCE",
-                        help=f"只校验这些源（缺省 {' '.join((Source.GITHUB.value, Source.CNB.value))}）")
-    parser.add_argument("-t", "--timeout", type=int, default=audit.DEFAULT_TIMEOUT, metavar="SECONDS",
-                        help="单次请求超时秒数")
-    parser.add_argument("--retry", type=int, default=3, metavar="N",
-                        help="线上索引里还没有目标版本时最多尝试几次（默认 3）")
-    parser.add_argument("-i", "--index", metavar="PATH",
-                        help="用这份本地版本索引（如 resources/update/versions.json）代替线上索引，"
-                             "用来在发布前验证回填的摘要")
+    parser.add_argument(
+        "-s",
+        "--source",
+        nargs="+",
+        choices=Source.values(),
+        metavar="SOURCE",
+        help=f"只校验这些源（缺省 {' '.join((Source.GITHUB.value, Source.CNB.value))}）",
+    )
+    parser.add_argument(
+        "-t", "--timeout", type=int, default=audit.DEFAULT_TIMEOUT, metavar="SECONDS", help="单次请求超时秒数"
+    )
+    parser.add_argument(
+        "--retry", type=int, default=3, metavar="N", help="线上索引里还没有目标版本时最多尝试几次（默认 3）"
+    )
+    parser.add_argument(
+        "-i",
+        "--index",
+        metavar="PATH",
+        help="用这份本地版本索引（如 resources/update/versions.json）代替线上索引，用来在发布前验证回填的摘要",
+    )
     return parser.parse_args()
 
 

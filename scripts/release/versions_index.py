@@ -85,8 +85,12 @@ def write(path: Path, entries: Sequence[VersionIndex]) -> Path:
     return path
 
 
-def merge(entries: Sequence[VersionIndex], version: Version, severity: Severity,
-          manifests: Mapping[Source, ManifestDigest] | None = None) -> list[VersionIndex]:
+def merge(
+    entries: Sequence[VersionIndex],
+    version: Version,
+    severity: Severity,
+    manifests: Mapping[Source, ManifestDigest] | None = None,
+) -> list[VersionIndex]:
     """合并本次版本，相同版本的 severity / manifests 被替换，其余条目原样保留"""
     existing = find(entries, version)
     merged_manifests = manifests if manifests is not None else (existing.manifests if existing else {})

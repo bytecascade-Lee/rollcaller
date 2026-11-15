@@ -33,7 +33,7 @@ class OS(StrEnum):
         return None
 
     @classmethod
-    def current(cls) -> OS:
+    def current(cls) -> "OS":
         """本机操作系统"""
         if os.name == "nt":
             return cls.WINDOWS

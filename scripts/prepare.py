@@ -28,8 +28,10 @@ from util.sigint import graceful_sigint
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="CI 准备：版本与发布说明校验、构建矩阵生成")
-    parser.add_argument("-v", "--version", required=True, metavar="VERSION", help="发布版本号")
-    parser.add_argument("--draft", action="store_true", help="草稿发布，跳过发布说明校验")
+
+    _ = parser.add_argument("-v", "--version", required=True, metavar="VERSION", help="发布版本号")
+    _ = parser.add_argument("--draft", action="store_true", help="草稿发布，跳过发布说明校验")
+
     return parser.parse_args()
 
 
@@ -39,7 +41,7 @@ def write_output(key: str, value: str) -> None:
         warning(f"未设置 GITHUB_OUTPUT，跳过对键值对 '{key}={value}' 输出的写入")
         return
     with open(output_file, "a", encoding="utf-8") as file:
-        file.write(f"{key}={value}\n")
+        _ = file.write(f"{key}={value}\n")
         info(f"追加 GitHub 输出内容 '{key}={value}' 到 {str(output_file)!r}")
 
 
@@ -51,7 +53,7 @@ def main() -> int:
     write_output("version", str(version))
 
     if args.draft:
-        info(f"草稿模式，跳过发布说明的检查")
+        info("草稿模式，跳过发布说明的检查")
         write_output("draft", "true")
     else:
         notes = release_notes.extract(version)
@@ -70,11 +72,11 @@ if __name__ == "__main__":
         try:
             sys.exit(main())
         except (
-                VersionError,
-                MatrixError,
-                ReleaseNotesNotFound,
-                ReleaseNotesAmbiguous,
-                ReleaseNotesSectionEmpty,
+            VersionError,
+            MatrixError,
+            ReleaseNotesNotFound,
+            ReleaseNotesAmbiguous,
+            ReleaseNotesSectionEmpty,
         ) as e:
             if not is_interrupted():
                 error(f"准备失败: {e}")

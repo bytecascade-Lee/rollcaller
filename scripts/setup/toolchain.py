@@ -5,12 +5,13 @@
 工具链体检
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from cli import cargo, git, just, node, pnpm, rustc, uv
 from common.entity.version import Version, VersionError
 from common.logger import info
+
 from .errors import CLI_ERRORS
 
 

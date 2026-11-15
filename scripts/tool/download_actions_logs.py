@@ -31,9 +31,10 @@ import re
 import sys
 import time
 import zipfile
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Any
 
 from cli import gh, git
 from common.constant.paths import RELEASE_DIR
@@ -52,9 +53,9 @@ class LogsError(Exception):
 # ANSI 转义：CSI（ESC [ …）、OSC（ESC ] …）与其余双字节转义。只匹配 ASCII 控制序列，
 # 因此在 bytes 上替换不会切坏 UTF-8 多字节字符。
 _ANSI_RE = re.compile(
-    rb"\x1b\[[0-9;?]*[ -/]*[@-~]"           # CSI：ESC [ 参数 中间字节 终止字节
+    rb"\x1b\[[0-9;?]*[ -/]*[@-~]"  # CSI：ESC [ 参数 中间字节 终止字节
     rb"|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC：ESC ] … BEL 或 ST（含超链接）
-    rb"|\x1b[@-Z\\-_]"                      # 其余双字节转义
+    rb"|\x1b[@-Z\\-_]"  # 其余双字节转义
 )
 
 
@@ -112,24 +113,33 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--workflow", action="append", default=[], metavar="NAME",
+        "--workflow",
+        action="append",
+        default=[],
+        metavar="NAME",
         help="只处理指定显示名的 workflow（如 Release），可重复传参；缺省为全部",
     )
     parser.add_argument(
-        "--since", metavar="YYYY-MM-DD",
+        "--since",
+        metavar="YYYY-MM-DD",
         help="只处理该日期（含）之后触发的 run",
     )
     parser.add_argument(
-        "--include-running", action="store_true",
+        "--include-running",
+        action="store_true",
         help="包含未完成的 run（默认只下 status=completed）",
     )
     parser.add_argument(
-        "--include-gh-runs", action="store_true",
+        "--include-gh-runs",
+        action="store_true",
         help="也处理 GitHub 内部自动 workflow 的 run（如 Dependency Graph），默认跳过",
     )
     parser.add_argument("--limit", type=int, help="只取最近 N 条 run（仓库维度）")
     parser.add_argument(
-        "--interval", type=float, default=0.2, metavar="SEC",
+        "--interval",
+        type=float,
+        default=0.2,
+        metavar="SEC",
         help="每次下载间隔秒数，避免触发限流（默认 0.2）",
     )
     parser.add_argument("--force", action="store_true", help="覆盖已存在的 zip")
@@ -159,21 +169,19 @@ def _resolve_repo() -> str:
                 warning(f"{repo} 不是规范仓库 {GITHUB_REPO}，下载到的是这个仓库自己的运行记录")
             return repo
 
-    raise LogsError(
-        "无法确定目标仓库：请设置 GITHUB_REPOSITORY 环境变量，"
-        "或为本仓库配置 github / origin 远端"
-    )
+    raise LogsError("无法确定目标仓库：请设置 GITHUB_REPOSITORY 环境变量，或为本仓库配置 github / origin 远端")
 
 
 # GitHub API 薄封装：调用点都在本工具，cli.gh 只提供 api_get / api_pages 原语
 
-def _list_runs(repo: str, limit: int | None = None) -> list[dict]:
+
+def _list_runs(repo: str, limit: int | None = None) -> list[dict[str, Any]]:
     """枚举仓库全部 workflow run，最新在前，自动翻页"""
     items = gh.api_pages(repo, "actions/runs", "workflow_runs")
     return items[:limit] if limit is not None else items
 
 
-def _list_workflows(repo: str) -> list[dict]:
+def _list_workflows(repo: str) -> list[dict[str, Any]]:
     """枚举仓库全部 workflow"""
     return gh.api_pages(repo, "actions/workflows", "workflows")
 
@@ -186,12 +194,11 @@ def _list_dir_names(repo: str, path: str) -> list[str]:
     if not isinstance(items, list):
         raise gh.GhError(f"gh api contents/{path} 返回结构不是数组")
     return [
-        item["name"] for item in items
-        if isinstance(item, dict) and item.get("type") == "file" and item.get("name")
+        item["name"] for item in items if isinstance(item, dict) and item.get("type") == "file" and item.get("name")
     ]
 
 
-def _real_workflow_ids(repo: str, workflows: Sequence[dict]) -> set[int] | None:
+def _real_workflow_ids(repo: str, workflows: Sequence[dict[str, Any]]) -> set[int] | None:
     """返回 `.github/workflows` 下真实文件的 workflow id 集合；无法判定时返回 None
 
     workflows API 也包含 GitHub 内部自动 workflow（如 Dependency Graph，其 run 的
@@ -199,7 +206,6 @@ def _real_workflow_ids(repo: str, workflows: Sequence[dict]) -> set[int] | None:
     的真实文件做白名单最稳；目录读不到 / 为空 / 与 API 路径无交集时退化为「不过滤」，
     由调用方保留全部 run 并告警。
     """
-    all_ids = {w["id"] for w in workflows if w.get("id") is not None}
     try:
         names = set(_list_dir_names(repo, ".github/workflows"))
     except gh.GhError as e:
@@ -217,7 +223,7 @@ def _real_workflow_ids(repo: str, workflows: Sequence[dict]) -> set[int] | None:
     return real_ids
 
 
-def _to_run(payload: dict, names: dict[int, str]) -> Run | None:
+def _to_run(payload: dict[str, Any], names: dict[int, str]) -> Run | None:
     """把 API 的 run 对象转成 Run；缺 id / run_number 时返回 None"""
     run_id = payload.get("id")
     number = payload.get("run_number")
@@ -225,11 +231,12 @@ def _to_run(payload: dict, names: dict[int, str]) -> Run | None:
         return None
 
     workflow_id = payload.get("workflow_id")
+    known_id = workflow_id if isinstance(workflow_id, int) else None
     return Run(
         id=run_id,
         number=number,
-        workflow_id=workflow_id if isinstance(workflow_id, int) else None,
-        display=names.get(workflow_id) or payload.get("name") or "unknown",
+        workflow_id=known_id,
+        display=(names.get(known_id) if known_id is not None else None) or payload.get("name") or "unknown",
         status=str(payload.get("status") or ""),
         created_at=str(payload.get("created_at") or ""),
     )
@@ -241,9 +248,7 @@ def _should_include(run: Run, args: argparse.Namespace) -> bool:
         return False
     if not args.include_running and run.status != "completed":
         return False
-    if args.since and run.created_at[:10] < args.since:
-        return False
-    return True
+    return not (args.since and run.created_at[:10] < args.since)
 
 
 def _group(runs: Sequence[Run]) -> dict[str, list[Run]]:
@@ -280,8 +285,10 @@ def _select_runs(repo: str, args: argparse.Namespace) -> list[Run]:
         runs.append(run)
 
     if skipped_internal:
-        info(f"跳过 {skipped_internal} 条 GitHub 内部自动 workflow 的 run"
-             f"（如 Dependency Graph，可用 --include-gh-runs 放开）")
+        info(
+            f"跳过 {skipped_internal} 条 GitHub 内部自动 workflow 的 run"
+            f"（如 Dependency Graph，可用 --include-gh-runs 放开）"
+        )
 
     if args.workflow:
         info(f"已过滤 workflow: {', '.join(args.workflow)}")
@@ -356,8 +363,10 @@ def _download_groups(repo: str, groups: dict[str, list[Run]], args: argparse.Nam
             if args.interval > 0:
                 time.sleep(args.interval)
 
-        info(f"--- {wf_name}: 下载 {stats['downloaded']} / 跳过 {stats['skipped']}"
-             f" / 过期 {stats['expired']} / 失败 {stats['failed']} ---")
+        info(
+            f"--- {wf_name}: 下载 {stats['downloaded']} / 跳过 {stats['skipped']}"
+            f" / 过期 {stats['expired']} / 失败 {stats['failed']} ---"
+        )
         for key in totals:
             totals[key] += stats[key]
     return totals

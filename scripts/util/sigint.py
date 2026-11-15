@@ -9,8 +9,8 @@ Ctrl+C 在控制台是广播，同一次按键会被每个进程各响应一次�
 
 import signal
 import sys
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import Callable, Iterator
 
 from common.logger import warning
 
