@@ -24,7 +24,7 @@ from codegen import (
     generate_all,
 )
 from common import gate
-from common.constant.paths import FRONTEND_ROUTING_ENTRIES_PATHS, TS_RS_PATHS
+from common.constant.paths import FRONTEND_ROUTING_ENTRIES_PATHS, THIRD_PARTY_NOTICES_PATH, TS_RS_PATHS
 from common.entity.target import Target, UnsupportedTargetError
 from common.enums.action import Action
 from common.logger import error, info, success
@@ -54,6 +54,7 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
         return 0
 
     ensure_committed(FRONTEND_ROUTING_ENTRIES_PATHS, label="代码生成的入口表")
+    ensure_committed((THIRD_PARTY_NOTICES_PATH,), label="第三方许可证清单，依赖变动后需要重新生成")
 
     info(f"运行后端测试（{target.triple}）")
     # lib 测试会顺带执行 ts-rs 的导出测试，把类型写回 frontend/src/lib/types
