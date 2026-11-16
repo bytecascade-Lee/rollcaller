@@ -1,12 +1,11 @@
 import os
-from pathlib import Path
 
 from cli import git
 
 
-def ref_name(*, cwd: Path | None = None) -> str:
+def ref_name() -> str:
     github_ref_type = os.environ.get("GITHUB_REF_TYPE")
-    current_branch = git.current_branch(cwd=cwd)
+    current_branch = git.current_branch()
     github_ref_name = os.environ.get("GITHUB_REF_NAME")
     if github_ref_type == "tag" or not current_branch:
         return "detached"
@@ -15,9 +14,9 @@ def ref_name(*, cwd: Path | None = None) -> str:
     return current_branch
 
 
-def build_metadata(*, cwd: Path | None = None) -> str | None:
+def build_metadata() -> str | None:
     """获取构建信息字符串：<ref_name>.<提交总数>.<短哈希>"""
-    name = ref_name(cwd=cwd)
-    count = git.commit_count(cwd=cwd)
-    _hash = git.head_hash(cwd=cwd)[git.ABBREVIATED_HASH_SLICE]
+    name = ref_name()
+    count = git.commit_count()
+    _hash = git.head_hash()[git.ABBREVIATED_HASH_SLICE]
     return f"{name}.{count}.{_hash}"
