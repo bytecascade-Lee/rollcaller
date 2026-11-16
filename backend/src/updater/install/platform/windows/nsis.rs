@@ -64,7 +64,7 @@ pub fn install(exec_path: PathBuf, opts: NsisOptions) -> anyhow::Result<()> {
     }
 
     let args = build_nsis_args(&opts);
-    tracing::debug!("Executing updater {:?} with parameters: {:?}", &exec_path, args);
+    tracing::debug!(exec = %exec_path.display(), args = ?args, "启动 NSIS 安装器");
 
     let file = encode_wide(&exec_path);
     let parameters = encode_wide(&args);

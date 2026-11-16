@@ -14,6 +14,7 @@ use semver::Version;
 use state::{DownloadSlot, UpdaterState};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
+use tracing::{debug, info, warn};
 
 pub mod check;
 pub mod constant;
@@ -60,6 +61,7 @@ pub async fn check(
         AppMode::Develop => UpdateSource::Local,
         AppMode::Portable | AppMode::Install(_) => UpdateSource::CNB,
     };
+    info!(current = %current_version, source = ?source, mode = %mode.slug(), "检查更新");
     let outcome = check::check(http_client::client(), source, current_version, &policy, mode).await;
 
     // 锁外磁盘探测：命中即恢复为 Downloaded（可跳过下载直接安装），损坏则清除待重下
@@ -72,8 +74,22 @@ pub async fn check(
 
     let found = match outcome {
         Ok(found) => found,
-        Err(e) => return state.fail(UpdateError::Check(e.to_string())),
+        Err(e) => {
+            // 网络 / 索引 / 清单失败都折叠成 `Error(Check)` 视图、不走 `Err` 出口，
+            // 所以必须在这里留痕 —— 否则"为什么没弹出更新"永远查不出原因
+            warn!(error = %format!("{e:#}"), "检查更新失败");
+            return state.fail(UpdateError::Check(e.to_string()));
+        }
     };
+    match &found {
+        Some(found) => info!(
+            version = %found.candidate.info.version,
+            severity = ?found.candidate.severity,
+            ready = ready.is_some(),
+            "发现可用更新"
+        ),
+        None => info!("已是最新版本"),
+    }
     state.mutate(|s| {
         match found {
             Some(found) => {
@@ -109,6 +125,7 @@ pub async fn download(
     on_progress: impl Fn(&DownloadProgress),
 ) -> Result<UpdateView, String> {
     if state.session().status == UpdateStatus::Downloaded {
+        debug!("产物已在本地，跳过下载");
         return Ok(state.view());
     }
     enter_downloading(state)?;
@@ -120,20 +137,40 @@ pub async fn download(
         }
         Err(Refusal::Incomplete) => return Err("更新凭据不完整，请重新执行 check".to_string()),
     };
+    let version = plan.version.clone();
     if plan.is_ready() {
+        debug!(version = %version, "磁盘上已有校验通过的产物，跳过下载");
         return state.enter(UpdateStatus::Downloaded);
     }
 
     // 确认真正进入下载：先广播迁移帧，再流式下载
     on_view(&state.view());
+    info!(
+        version = %version,
+        size = plan.artifact.size,
+        url = %plan.artifact.url,
+        "开始下载更新包"
+    );
+    let started = Instant::now();
     let result = plan.run(state.slot(), on_progress).await;
+    // 进度槽在 `finish()` 里清零，累计字节要先取出来
+    let bytes = state.slot().snapshot().downloaded;
     state.slot().finish();
 
     match result {
-        Ok(()) => state.enter(UpdateStatus::Downloaded),
+        Ok(()) => {
+            info!(version = %version, bytes, elapsed_ms = started.elapsed().as_millis(), "下载完成");
+            state.enter(UpdateStatus::Downloaded)
+        }
         // 用户取消不算错误：回 Available，保留 info 与凭据可重下
-        Err(e) if e.downcast_ref::<Cancelled>().is_some() => state.enter(UpdateStatus::Available),
-        Err(e) => state.fail(UpdateError::Download(e.to_string())),
+        Err(e) if e.downcast_ref::<Cancelled>().is_some() => {
+            info!(version = %version, bytes, elapsed_ms = started.elapsed().as_millis(), "下载已取消");
+            state.enter(UpdateStatus::Available)
+        }
+        Err(e) => {
+            warn!(version = %version, bytes, error = %format!("{e:#}"), "下载失败");
+            state.fail(UpdateError::Download(e.to_string()))
+        }
     }
 }
 
@@ -165,6 +202,8 @@ enum Refusal {
 
 /// 一次下载的全部输入：复核过的凭据 + 落点
 struct DownloadPlan {
+    /// 目标版本，只用于日志 —— 产品路径由 `artifact` 现推，版本不参与任何判定
+    version: Version,
     artifact: Artifact,
     path: PathBuf,
 }
@@ -178,7 +217,11 @@ impl DownloadPlan {
         }
         let artifact = session.artifact.clone().ok_or(Refusal::Incomplete)?;
         let path = paths::package_of(&artifact).map_err(|_| Refusal::Incomplete)?;
-        Ok(Self { artifact, path })
+        Ok(Self {
+            version: candidate.info.version.clone(),
+            artifact,
+            path,
+        })
     }
 
     /// 磁盘是事实源：产物就绪即跳过下载（不跳过验签）
@@ -210,12 +253,16 @@ pub fn cancel(state: &UpdaterState) -> Result<UpdateView, String> {
     if session.status == UpdateStatus::Downloaded {
         if let Some(artifact) = session.artifact.as_ref() {
             if let Ok(path) = paths::package_of(artifact) {
-                let _ = std::fs::remove_file(path);
+                match std::fs::remove_file(&path) {
+                    Ok(()) => info!(path = %path.display(), "已放弃下载好的更新包"),
+                    Err(e) => warn!(path = %path.display(), "删除更新包失败：{e}"),
+                }
             }
         }
         return state.enter(UpdateStatus::Available);
     }
     if session.status == UpdateStatus::Downloading {
+        info!("已请求取消下载");
         state.slot().request_cancel();
     }
     Ok(state.view())
@@ -240,16 +287,21 @@ pub async fn install(state: &UpdaterState, current_version: &Version) -> Result<
         .map(|c| c.info.version.clone())
         .ok_or_else(|| "目标版本缺失，请重新 check".to_string())?;
 
+    let mode = current_mode();
+    info!(from = %current_version, to = %target, mode = %mode.slug(), "开始安装更新");
+
     if let Err(message) = verify_downloaded(&path, &artifact) {
+        warn!(path = %path.display(), "安装前验签失败：{message}");
         return state.fail(UpdateError::Download(message));
     }
 
     // 更新器准备失败属安装阶段问题：重试 install 会重跑 ensure
-    let mode = current_mode();
     if let Err(e) = install::ensure_updater(mode).await {
+        warn!(error = %format!("{e:#}"), "更新器准备失败");
         return state.fail(UpdateError::Install(format!("更新器准备失败：{e}")));
     }
     if let Err(e) = install::launch(mode, &path, current_version, &target) {
+        warn!(error = %format!("{e:#}"), "启动安装器失败");
         return state.fail(UpdateError::Install(e.to_string()));
     }
 
