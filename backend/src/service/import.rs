@@ -1,7 +1,7 @@
 use crate::common::entity::import::SheetPreview;
 use crate::common::entity::student::Student;
 use crate::common::enums::student::StudentBatchCreateResult;
-use crate::service::student_service;
+use crate::service::student;
 use anyhow::anyhow;
 use calamine::{Data, Range, Reader, Sheets};
 use rbatis::RBatis;
@@ -92,5 +92,5 @@ pub async fn import(
     }
 
     info!(sheet = %sheet_name, parsed = students.len(), "解析工作表");
-    student_service::batch_create(rb, students, decisions).await
+    student::batch_create(rb, students, decisions).await
 }
