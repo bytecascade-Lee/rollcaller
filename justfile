@@ -36,9 +36,13 @@ dev-fe:
 build ver target:
     {{ uv }} run python {{ scripts_dir }}/build.py -v {{ ver }} -t {{ target }} -m local
 
-# 本地出包后驻留更新服务，需先 build 同一版本
+# 本地出包：构建目录 → 清单 + 版本索引（不驻留），需先 build 同一版本
 release ver severity:
     {{ uv }} run python {{ scripts_dir }}/release.py -v {{ ver }} -s {{ severity }} -m local
+
+# 本地更新源：把一个构建目录 serve 成 Develop 源，用法: just serve [目录名] [-r KBPS]；无参取最新且完整的构建
+serve *args:
+    {{ uv }} run python {{ scripts_dir }}/serve.py {{ args }}
 
 # 仅构建前端
 build-fe:
