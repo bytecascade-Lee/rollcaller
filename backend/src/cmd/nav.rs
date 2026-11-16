@@ -14,9 +14,11 @@
 //! 里；目标前端挂载后自己会取一次——**这次取走本身就是就绪信号**（一个动作同时表达了
 //! "我起来了"和"把东西给我"），比额外维护一个 ready 标志少一个状态。
 
+use crate::cmd::ipc_err;
 use crate::state::nav::{NavState, PendingNav};
 use crate::windows;
 use crate::windows::common::WindowKind;
+use anyhow::anyhow;
 use serde_json::Value;
 use tauri::{Emitter, Manager};
 
@@ -35,11 +37,11 @@ const ROUTE_PREFIX: &str = "#/";
 /// 再发唤醒事件——否则用户在后台窗口里看到内容变了却毫无感知。
 #[tauri::command]
 pub async fn nav_open(app: tauri::AppHandle, route: String, payload: Option<Value>) -> Result<(), String> {
-    let host = host_of(&route).ok_or_else(|| format!("invalid route: {route}"))?;
+    let host = host_of(&route).ok_or_else(|| ipc_err("nav_open", anyhow!("非法路由：{route}")))?;
     // host 在这里一次性解析成窗口枚举：后续建窗、投递、发事件都用它，不再比字符串
-    let window = WindowKind::from_host(host).ok_or_else(|| format!("unknown window host: {host}"))?;
+    let window = WindowKind::from_host(host).ok_or_else(|| ipc_err("nav_open", anyhow!("未知窗口名：{host}")))?;
 
-    let created = windows::open_by_host(&app, window).map_err(|e| e.to_string())?;
+    let created = windows::open_by_host(&app, window).map_err(|e| ipc_err("nav_open", e))?;
     app.state::<NavState>().put(window, PendingNav { route, payload });
 
     if !created {

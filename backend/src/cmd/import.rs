@@ -1,3 +1,4 @@
+use crate::cmd::ipc_err;
 use crate::common::entity::import::SheetPreview;
 use crate::common::enums::student::StudentBatchCreateResult;
 use crate::database::database_pool;
@@ -9,7 +10,7 @@ use std::path::Path;
 #[tauri::command]
 pub async fn preview_excel(file_path: String) -> Result<Vec<SheetPreview>, String> {
     let path = Path::new(&file_path);
-    import_service::preview(path).map_err(|e| e.to_string())
+    import_service::preview(path).map_err(|e| ipc_err("preview_excel", e))
 }
 
 /// 导入 Excel 文件
@@ -28,9 +29,9 @@ pub async fn import_excel(
     name_column: usize,
     decisions: HashMap<String, bool>,
 ) -> Result<StudentBatchCreateResult, String> {
-    let rb = database_pool::database().await.map_err(|e| e.to_string())?;
+    let rb = database_pool::database().await.map_err(|e| ipc_err("import_excel", e))?;
     let path = Path::new(&file_path);
     import_service::import(&rb, path, &sheet_name, header_rows, student_no_column, name_column, decisions)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| ipc_err("import_excel", e))
 }
