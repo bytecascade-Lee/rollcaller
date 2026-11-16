@@ -96,7 +96,7 @@ pub fn prune(dir: &Path, policy: &Policy) -> Report {
         let size = metadata.len();
         let modified = metadata.modified().unwrap_or(now);
 
-        // 不删除本次会话正在写的文件
+        // 删除字节为 0 的文件。调用方需确保先执行删除，再初始化日志系统
         if size == 0 {
             match fs::remove_file(entry.path()) {
                 Ok(()) => report.removed_empty += 1,
