@@ -18,6 +18,7 @@ pub async fn update(rb: &RBatis, attendance_status: AttendanceStatus) -> anyhow:
         attendance_status.remark.as_deref(),
     )
     .await?;
+    tx.commit().await?;
     Ok(())
 }
 
