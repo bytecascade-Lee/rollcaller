@@ -75,6 +75,7 @@ pub async fn run() {
             crate::cmd::rollcall::pick,
             crate::cmd::import::preview_excel,
             crate::cmd::import::import_excel,
+            crate::cmd::logger::logger_set_level,
             crate::cmd::export::student_export,
             crate::cmd::export::record_export,
             crate::cmd::tts::tts_cloud_model,
