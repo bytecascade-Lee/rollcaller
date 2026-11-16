@@ -13,18 +13,30 @@ use std::time::{Duration, SystemTime};
 /// 不删到刚好等于上限，否则下次启动立刻又超限，会变成"每次启动均删除"的抖动
 const TARGET_RATIO: u64 = 3;
 
+/// 一天的秒数，供保留期表达式使用
+const DAY: u64 = 24 * 60 * 60;
+
 /// 回收策略
 ///
-/// 当前由 [`crate::logger`] 里的常量构造，日后可由设置界面覆盖。
-#[derive(Clone, Copy, Debug)]
-pub struct Policy {
+/// 文本日志由 [`crate::logger::policy::LoggerPolicy`] 携带
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RetentionPolicy {
     /// 文件年龄超过它即删除
     pub max_age: Duration,
     /// 目录总占用上限，超过后从最旧的文件开始删
     pub max_total: u64,
 }
 
-impl Policy {
+impl RetentionPolicy {
+    /// 文本日志：保留 60 天，总量上限 32 MiB
+    ///
+    /// 按预设的一月约 250 KB，32 MiB 是 128 倍余量，
+    /// 预防某处逐帧写日志等畸形增长，而非日常配额
+    pub const TEXT: Self = Self::new(Duration::from_secs(60 * DAY), 32 * 1024 * 1024);
+
+    /// 遥测日志：同样保留 60 天，上限取文本的一半（只收 `ERROR`，量极小）
+    pub const TELEMETRY: Self = Self::new(Duration::from_secs(60 * DAY), 16 * 1024 * 1024);
+
     pub const fn new(max_age: Duration, max_total: u64) -> Self {
         Self { max_age, max_total }
     }
@@ -69,7 +81,7 @@ struct Candidate {
 /// 按策略清理一个目录
 ///
 /// 顺序是 空文件 -> 超龄 -> 超量
-pub fn prune(dir: &Path, policy: &Policy) -> Report {
+pub fn prune(dir: &Path, policy: &RetentionPolicy) -> Report {
     let mut report = Report::default();
 
     if let Err(e) = fs::create_dir_all(dir) {
@@ -197,7 +209,7 @@ mod tests {
         let empty = write(&dir, "2026-11-01.log", 0);
         let kept = write(&dir, "2026-11-08.log", 16);
 
-        let report = prune(&dir, &Policy::new(days(60), 1 << 20));
+        let report = prune(&dir, &RetentionPolicy::new(days(60), 1 << 20));
 
         assert_eq!(report.removed_empty, 1, "{report:?}");
         assert!(!empty.exists(), "0 字节文件应被删除");
@@ -213,7 +225,7 @@ mod tests {
         backdate(&old, days(61));
         backdate(&fresh, days(59));
 
-        let report = prune(&dir, &Policy::new(days(60), 1 << 20));
+        let report = prune(&dir, &RetentionPolicy::new(days(60), 1 << 20));
 
         assert_eq!(report.removed_expired, 1, "{report:?}");
         assert!(!old.exists(), "61 天前的文件应被删除");
@@ -233,7 +245,7 @@ mod tests {
         backdate(&newest, Duration::from_secs(3600));
 
         // 上限 2048 ⇒ 目标 1536：3072 要删到 ≤1536，即删掉最旧的两个
-        let report = prune(&dir, &Policy::new(days(60), 2048));
+        let report = prune(&dir, &RetentionPolicy::new(days(60), 2048));
 
         assert_eq!(report.removed_oversize, 2, "{report:?}");
         assert!(!oldest.exists() && !middle.exists(), "最旧的两个应被删除");
@@ -247,7 +259,7 @@ mod tests {
         let dir = scratch("single");
         let only = write(&dir, "current.log", 4096);
 
-        let report = prune(&dir, &Policy::new(days(60), 1024));
+        let report = prune(&dir, &RetentionPolicy::new(days(60), 1024));
 
         assert_eq!(report.removed_oversize, 0, "{report:?}");
         assert!(only.exists(), "唯一的文件不得删除");
@@ -261,7 +273,7 @@ mod tests {
         fs::create_dir_all(&nested).unwrap();
         let inner = write(&nested, "deep.log", 0);
 
-        let report = prune(&dir, &Policy::new(days(60), 1 << 20));
+        let report = prune(&dir, &RetentionPolicy::new(days(60), 1 << 20));
 
         assert_eq!(report.removed(), 0, "不得递归进子目录：{report:?}");
         assert!(inner.exists(), "子目录里的文件不该被碰");
@@ -276,7 +288,7 @@ mod tests {
         file.set_times(fs::FileTimes::new().set_modified(SystemTime::now() + days(1)))
             .unwrap();
 
-        let report = prune(&dir, &Policy::new(days(60), 1 << 20));
+        let report = prune(&dir, &RetentionPolicy::new(days(60), 1 << 20));
 
         assert_eq!(report.removed(), 0, "{report:?}");
         assert!(path.exists());
@@ -285,7 +297,7 @@ mod tests {
     #[test]
     fn missing_directory_is_created_and_left_empty() {
         let dir = scratch("missing").join("nested");
-        let report = prune(&dir, &Policy::new(days(60), 1 << 20));
+        let report = prune(&dir, &RetentionPolicy::new(days(60), 1 << 20));
 
         assert_eq!(report.removed(), 0);
         assert!(report.failures.is_empty(), "{report:?}");

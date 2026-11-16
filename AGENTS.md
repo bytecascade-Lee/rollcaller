@@ -43,7 +43,7 @@ User action → Svelte component → invoke("command_name", args)
 | `backend/src/common/enums/`   | Result enums for complex operations                                   |
 | `backend/src/database/`       | DB pool singleton + migration bootstrap                               |
 | `backend/src/config/`         | App paths, build info                                                 |
-| `backend/src/logger/`         | Log assembly, line format, retention                                  |
+| `backend/src/logger/`         | Log assembly, line format, policy (level + retention), retention      |
 | `backend/src/util/`           | Serde helpers, YAML flatten, time utils                               |
 | `backend/capabilities/`       | Tauri permission model                                                |
 | `backend/resources/`          | Bundled configs, DB migrations                                        |
