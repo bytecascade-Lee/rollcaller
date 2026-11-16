@@ -11,6 +11,7 @@ use crate::updater::{decide, paths};
 use anyhow::anyhow;
 use reqwest::Client;
 use semver::Version;
+use tracing::{debug, warn};
 
 /// 检查是否有可用更新（`Ok(None)` = 无更新）
 pub async fn check(
@@ -22,8 +23,10 @@ pub async fn check(
 ) -> anyhow::Result<Option<FoundUpdate>> {
     let index_text = fetch::fetch_json_text(client, &versions_index_url(source)).await?;
     let candidates = index::parse_index(&index_text)?;
+    debug!(count = candidates.len(), source = ?source, "已拉取版本索引");
 
     let Some(target) = index::pick_target(current, &candidates, policy)? else {
+        debug!("索引里没有满足渠道与门槛的版本");
         return Ok(None);
     };
 
@@ -60,7 +63,7 @@ fn validate(
         UpdateDecision::Update(reason) => reason,
     };
     let Some(artifact) = manifest.get_artifact(OS, ARCH, mode) else {
-        tracing::warn!("更新清单 {} 未提供当前平台的产物（{OS} / {ARCH} / {mode}）", manifest.version);
+        warn!("更新清单 {} 未提供当前平台的产物（{OS} / {ARCH} / {mode}）", manifest.version);
         return Ok(None);
     };
 

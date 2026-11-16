@@ -7,7 +7,7 @@ use rbatis::executor::Executor;
 use rbatis::RBatis;
 use rbs::value;
 use std::collections::HashMap;
-use tracing::debug;
+use tracing::{debug, info};
 
 /// 创建单个学生
 ///
@@ -62,8 +62,8 @@ pub async fn create(rb: &RBatis, student: Student, decision: Option<bool>) -> an
         Some(exist) => {
             //* 3.1.1 未删除
             if !exist.is_deleted {
-                // 正常业务分支：前端会展示"学号被占用"，不是异常，不该占 WARN
-                debug!(student_no = %exist.student_no, "学号已被活跃记录占用，等待用户处理");
+                // 教师会看到"学号被占用"的提示，是"为什么加不进去"的唯一线索 ⇒ INFO
+                info!(student_no = %exist.student_no, name = %exist.name, "学号已被活跃记录占用");
                 tx.rollback().await?;
                 return Ok(StudentSingleCreateResult::ActiveExists(exist.clone()));
             }
@@ -72,6 +72,7 @@ pub async fn create(rb: &RBatis, student: Student, decision: Option<bool>) -> an
             if exist.name == student.name {
                 student_repo::restore(&mut tx, vec![exist.id]).await?;
                 tx.commit().await?;
+                debug!(id = exist.id, student_no = %student.student_no, "恢复已删除的学生");
                 //~ 此处的查询可不必，只需要将exist的is_deleted设为false，deleted_at设为None即可
                 let vec = StudentTable::select_by_map(rb, value! {"id": exist.id}).await?;
                 return Ok(StudentSingleCreateResult::Restore(vec.into_iter().next().unwrap()));
@@ -84,11 +85,14 @@ pub async fn create(rb: &RBatis, student: Student, decision: Option<bool>) -> an
                         student_repo::update_name(&mut tx, exist.id, &student.name).await?;
                         student_repo::restore(&mut tx, vec![exist.id]).await?;
                         tx.commit().await?;
+                        debug!(id = exist.id, student_no = %student.student_no, name = %student.name, "覆写并恢复已删除的学生");
                         //~ 此处的查询可不必，只需要将exist的name设为新值即可
                         let vec = StudentTable::select_by_map(rb, value! {"id": exist.id}).await?;
                         Ok(StudentSingleCreateResult::Override(vec.into_iter().next().unwrap()))
                     } else {
                         //* 3.1.4 用户禁止覆写
+                        // 用户的显式决定，事后复盘要能回答"这条为什么没变"
+                        info!(student_no = %student.student_no, name = %student.name, "用户拒绝覆写，保留原记录");
                         tx.rollback().await?;
                         Ok(StudentSingleCreateResult::Retain(exist.clone()))
                     }
@@ -96,11 +100,7 @@ pub async fn create(rb: &RBatis, student: Student, decision: Option<bool>) -> an
                 //* 3.1.5 未明确传递是否覆写
                 None => {
                     // 正常业务分支：要弹出冲突面板让教师决策，不是异常
-                    debug!(
-                        student_no = %student.student_no,
-                        name = %student.name,
-                        "已删除记录与新记录姓名不同，等待用户决策"
-                    );
+                    info!(student_no = %student.student_no, name = %student.name, "已删除记录与新记录姓名不同，等待用户决策");
                     tx.rollback().await?;
                     Ok(StudentSingleCreateResult::Conflict(exist.clone()))
                 }
@@ -116,6 +116,7 @@ pub async fn create(rb: &RBatis, student: Student, decision: Option<bool>) -> an
             let result = Student::insert(&tx, &student).await?;
             let id = result.last_insert_id.as_i64().ok_or_else(|| anyhow!("插入失败"))?;
             tx.commit().await?;
+            debug!(id, student_no = %student.student_no, name = %student.name, "创建学生");
             let vec = StudentTable::select_by_map(rb, value! {"id": id}).await?;
             Ok(StudentSingleCreateResult::Insert(vec.into_iter().next().unwrap()))
         }
@@ -221,6 +222,7 @@ pub async fn batch_create(
         i += 1;
     }
     if !duplicates.is_empty() {
+        info!(count = duplicates.len(), "输入存在重复学号，批量创建未执行");
         return Ok(StudentBatchCreateResult::DuplicateInput(duplicates));
     }
 
@@ -234,6 +236,7 @@ pub async fn batch_create(
     if existing.is_empty() {
         Student::insert_batch(&tx, &students, students.len() as u64).await?;
         tx.commit().await?;
+        info!(count = students.len(), "批量创建完成（全部新增）");
         let inserted_students = StudentTable::select_by_map(rb, value! {"student_no": student_nos}).await?;
         return Ok(StudentBatchCreateResult::Insert(inserted_students));
     }
@@ -268,11 +271,13 @@ pub async fn batch_create(
     // 如果有冲突，直接返回
     if !conflicts.is_empty() {
         tx.rollback().await?;
+        info!(count = conflicts.len(), "存在活跃记录，批量创建已中止");
         return Ok(StudentBatchCreateResult::Conflict(conflicts));
     }
 
     // 如果有未决策的，也返回
     let mut require_decide = Vec::new();
+    let mut dropped = 0usize;
     for (student, st) in to_decide {
         match decisions.get(&st.student_no) {
             None => require_decide.push(st),
@@ -280,13 +285,15 @@ pub async fn batch_create(
                 if *decision {
                     to_override.push((student, st));
                 } else {
-                    // 丢弃该值
+                    // 用户选择保留原记录，不再恢复
+                    dropped += 1;
                 }
             }
         }
     }
     if !require_decide.is_empty() {
         tx.rollback().await?;
+        info!(count = require_decide.len(), "存在待确认的覆写，批量创建已中止");
         return Ok(StudentBatchCreateResult::DecisionRequired(require_decide));
     }
 
@@ -319,6 +326,13 @@ pub async fn batch_create(
     let override_students = StudentTable::select_by_map(rb, value! {"id": override_ids}).await?;
 
     let mut result = Vec::with_capacity(inserted_students.len() + restored_students.len() + override_students.len());
+    info!(
+        inserted = inserted_students.len(),
+        restored = restored_students.len(),
+        overridden = override_students.len(),
+        dropped,
+        "批量创建完成"
+    );
     result.extend(inserted_students);
     result.extend(restored_students);
     result.extend(override_students);
@@ -352,10 +366,12 @@ pub async fn update(rb: &RBatis, student: Student) -> anyhow::Result<StudentSing
     if let Some(conflict) = existing.into_iter().next().filter(|matched| matched.id != id) {
         // 存在且id不同，表示有不同的id占用了该学号
         tx.rollback().await?;
+        info!(student_no = %student.student_no, "学号被其它记录占用，更新中止");
         Ok(StudentSingleUpdate::Conflict(conflict))
     } else {
         Student::update_by_map(&tx, &student, value! {"id": id}).await?;
         tx.commit().await?;
+        debug!(id, student_no = %student.student_no, name = %student.name, "更新学生");
         Ok(StudentSingleUpdate::Update(
             StudentTable::select_by_map(rb, value! {"id": id})
                 .await?
@@ -368,16 +384,20 @@ pub async fn update(rb: &RBatis, student: Student) -> anyhow::Result<StudentSing
 
 /// 删除学生
 pub async fn delete(rb: &RBatis, ids: Vec<i64>) -> anyhow::Result<()> {
+    let count = ids.len();
     let mut tx = rb.acquire_begin().await?;
     student_repo::delete(&mut tx, ids).await?;
     tx.commit().await?;
+    info!(count, "删除学生（软删除）");
     Ok(())
 }
 
 /// 恢复学生
 pub async fn restore(rb: &RBatis, ids: Vec<i64>) -> anyhow::Result<()> {
+    let count = ids.len();
     let mut tx = rb.acquire_begin().await?;
     student_repo::restore(&mut tx, ids).await?;
     tx.commit().await?;
+    info!(count, "恢复学生");
     Ok(())
 }

@@ -14,6 +14,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use tracing::debug;
 
 /// 用户取消下载
 ///
@@ -51,9 +52,15 @@ pub async fn download(
     // 同名残留，验签通过即复用，否则删掉重下
     if final_path.exists() {
         match verify_artifact_path(&final_path, artifact) {
-            Ok(_) => return Ok(final_path),
-            Err(_) => std::fs::remove_file(&final_path)
-                .map_err(|e| anyhow!("删除残留的错误文件 {} 失败：{e}", final_path.display()))?,
+            Ok(_) => {
+                debug!(path = %final_path.display(), "复用磁盘上校验通过的产物");
+                return Ok(final_path);
+            }
+            Err(_) => {
+                debug!(path = %final_path.display(), "残留产物校验失败，删除后重下");
+                std::fs::remove_file(&final_path)
+                    .map_err(|e| anyhow!("删除残留的错误文件 {} 失败：{e}", final_path.display()))?;
+            }
         }
     }
 

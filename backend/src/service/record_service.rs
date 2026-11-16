@@ -2,6 +2,7 @@ use crate::common::entity::record::{Record, RollcallRecord};
 use crate::repo::record_repo;
 use anyhow::anyhow;
 use rbatis::RBatis;
+use tracing::{debug, info};
 
 /// 查询最近 100 条点名记录（含学生姓名、学号）
 pub async fn list_all(rb: &RBatis) -> anyhow::Result<Vec<RollcallRecord>> {
@@ -14,6 +15,12 @@ pub async fn list_all(rb: &RBatis) -> anyhow::Result<Vec<RollcallRecord>> {
 pub async fn create(rb: &RBatis, record: Record) -> anyhow::Result<RollcallRecord> {
     let result = Record::insert(rb, &record).await?;
     let id = result.last_insert_id.as_i64().ok_or_else(|| anyhow!("插入失败"))?;
+    debug!(
+        id,
+        student_id = record.student_id,
+        status = record.attendance_status,
+        "创建点名记录"
+    );
     let mut tx = rb.acquire_begin().await?;
     let records = record_repo::select_by_ids(&mut tx, vec![id]).await?;
     tx.commit().await?;
@@ -26,14 +33,15 @@ pub async fn update(
     attendance_status: i8,
     remark: String,
 ) -> anyhow::Result<Vec<RollcallRecord>> {
+    let count = ids.len();
     let mut tx = rb.acquire_begin().await?;
     let result = record_repo::update(&mut tx, &ids, attendance_status, &remark).await?;
-    let len = ids.len() as u64;
-    if result.rows_affected != len {
+    if result.rows_affected != count as u64 {
         tx.rollback().await?;
-        return Err(anyhow!("影响行不正确：应为{len}，实为{0}，已回滚", result.rows_affected));
+        return Err(anyhow!("影响行不正确：应为{count}，实为{0}，已回滚", result.rows_affected));
     }
     tx.commit().await?;
+    info!(count, status = attendance_status, "批量更新考勤（状态 + 备注）");
     let mut select_tx = rb.acquire_begin().await?;
     let records = record_repo::select_by_ids(&mut select_tx, ids).await?;
     select_tx.commit().await?;
@@ -45,14 +53,15 @@ pub async fn update_attendance_status(
     ids: Vec<i64>,
     attendance_status: i8,
 ) -> anyhow::Result<Vec<RollcallRecord>> {
+    let count = ids.len();
     let mut tx = rb.acquire_begin().await?;
     let result = record_repo::update_attendance_status(&mut tx, &ids, attendance_status).await?;
-    let len = ids.len() as u64;
-    if result.rows_affected != len {
+    if result.rows_affected != count as u64 {
         tx.rollback().await?;
-        return Err(anyhow!("影响行不正确：应为{len}，实为{0}，已回滚", result.rows_affected));
+        return Err(anyhow!("影响行不正确：应为{count}，实为{0}，已回滚", result.rows_affected));
     }
     tx.commit().await?;
+    info!(count, status = attendance_status, "批量更新考勤状态");
     let mut select_tx = rb.acquire_begin().await?;
     let records = record_repo::select_by_ids(&mut select_tx, ids).await?;
     select_tx.commit().await?;
@@ -60,14 +69,15 @@ pub async fn update_attendance_status(
 }
 
 pub async fn update_remark(rb: &RBatis, ids: Vec<i64>, remark: String) -> anyhow::Result<Vec<RollcallRecord>> {
+    let count = ids.len();
     let mut tx = rb.acquire_begin().await?;
     let result = record_repo::update_remark(&mut tx, &ids, &remark).await?;
-    let len = ids.len() as u64;
-    if result.rows_affected != len {
+    if result.rows_affected != count as u64 {
         tx.rollback().await?;
-        return Err(anyhow!("影响行不正确：应为{len}，实为{0}，已回滚", result.rows_affected));
+        return Err(anyhow!("影响行不正确：应为{count}，实为{0}，已回滚", result.rows_affected));
     }
     tx.commit().await?;
+    info!(count, length = remark.chars().count(), "批量更新备注");
     let mut select_tx = rb.acquire_begin().await?;
     let records = record_repo::select_by_ids(&mut select_tx, ids).await?;
     select_tx.commit().await?;

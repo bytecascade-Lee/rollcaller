@@ -6,11 +6,14 @@ use rbatis::RBatis;
 use rbs::value;
 use rust_xlsxwriter::{Format, FormatAlign, Workbook};
 use std::path::Path;
+use std::time::Instant;
+use tracing::info;
 
 pub async fn export_students(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow::Result<()> {
     if ids.is_empty() {
         return Err(anyhow!("长度为0，没有待导出的学生。"));
     }
+    let started = Instant::now();
     let students = Student::select_by_map(rb, value! {"id": ids}).await?;
     let mut workbook = Workbook::new();
     let header_format = Format::new()
@@ -39,6 +42,13 @@ pub async fn export_students(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow:
     worksheet.set_column_width(1, 16)?;
     worksheet.set_column_width(2, 10)?;
     workbook.save(path).context("保存失败")?;
+    info!(
+        kind = "students",
+        rows = students.len(),
+        path = %path.display(),
+        elapsed_ms = started.elapsed().as_millis(),
+        "导出完成"
+    );
 
     Ok(())
 }
@@ -47,6 +57,7 @@ pub async fn export_records(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow::
     if ids.is_empty() {
         return Err(anyhow!("长度为0，没有待导出的历史记录。"));
     }
+    let started = Instant::now();
     let mut tx = rb.acquire_begin().await?;
     let records = record_repo::select_by_ids(&mut tx, ids).await?;
     let mut workbook = Workbook::new();
@@ -94,6 +105,14 @@ pub async fn export_records(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow::
     worksheet.set_column_width(4, 36)?;
     worksheet.set_column_width(5, 48)?;
     workbook.save(path).context("保存失败")?;
+    // 导出是唯一带本地时区转换的路径，"导到哪了"是最高频的追问
+    info!(
+        kind = "records",
+        rows = records.len(),
+        path = %path.display(),
+        elapsed_ms = started.elapsed().as_millis(),
+        "导出完成"
+    );
 
     Ok(())
 }
