@@ -43,6 +43,11 @@ def typecheck() -> None:
     _ = TOOL.run(["check"], capture=False)
 
 
+def licenses() -> str:
+    """生产依赖的许可证清单，JSON 格式：`pnpm licenses list --prod --json`"""
+    return TOOL.text(["licenses", "list", "--prod", "--json"])
+
+
 def format(*, check: bool = False) -> None:
     """
     格式化前端：写文件走 `format` 脚本，只检查走 `format:check` 脚本
