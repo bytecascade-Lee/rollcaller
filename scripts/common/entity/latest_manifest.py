@@ -14,6 +14,7 @@ from common.enums.arch import Arch
 from common.enums.kind import Kind
 from common.enums.os import OS
 from common.enums.severity import Severity
+from common.enums.source import Source
 
 
 class ManifestError(Exception):
@@ -111,3 +112,8 @@ class Manifest:
                     # payload
                     if not isinstance(payload, Payload):
                         raise ManifestError(f"'platforms.{os.value}.{arch.value}.{kind}' 必须是 Payload: {payload!r}")
+
+    @staticmethod
+    def name(source: Source) -> str:
+        """清单文件名：latest-github.json / latest-cnb.json / latest-develop.json"""
+        return f"latest-{source.value}.json"
