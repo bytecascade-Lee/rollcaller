@@ -38,8 +38,8 @@ where
         Timer.format_time(&mut writer)?;
         writer.write_str(" ")?;
 
-        let tag = format!("[{}]", level_name(meta.level()));
-        styled(&mut writer, level_color(meta.level()), &format!("{tag:<10}"))?;
+        let tag = format!("[{}]", meta.level().name());
+        styled(&mut writer, meta.level().color(), &format!("{tag:<10}"))?;
         writer.write_str(" ")?;
 
         // 只写线程名足以区分线程
@@ -69,34 +69,41 @@ where
     }
 }
 
+trait LevelInfo {
+    /// 级别名称
+    fn name(&self) -> &'static str;
+    /// 级别配色
+    fn color(&self) -> &'static str;
+}
+
+impl LevelInfo for tracing::Level {
+    fn name(&self) -> &'static str {
+        match *self {
+            tracing::Level::ERROR => "ERROR",
+            tracing::Level::WARN => "WARNING",
+            tracing::Level::INFO => "INFO",
+            tracing::Level::DEBUG => "DEBUG",
+            tracing::Level::TRACE => "TRACE",
+        }
+    }
+
+    fn color(&self) -> &'static str {
+        match *self {
+            tracing::Level::ERROR => "\x1b[31m", // 红
+            tracing::Level::WARN => "\x1b[33m",  // 黄
+            tracing::Level::INFO => "\x1b[32m",  // 绿
+            tracing::Level::DEBUG => "\x1b[34m", // 蓝
+            tracing::Level::TRACE => "\x1b[35m", // 紫
+        }
+    }
+}
+
 /// 输出一段可能带色的文本
 fn styled(writer: &mut Writer<'_>, style: &str, text: &str) -> fmt::Result {
     if writer.has_ansi_escapes() {
         write!(writer, "{style}{text}{RESET}")
     } else {
         writer.write_str(text)
-    }
-}
-
-/// 级别名称
-fn level_name(level: &tracing::Level) -> &'static str {
-    match *level {
-        tracing::Level::ERROR => "ERROR",
-        tracing::Level::WARN => "WARNING",
-        tracing::Level::INFO => "INFO",
-        tracing::Level::DEBUG => "DEBUG",
-        tracing::Level::TRACE => "TRACE",
-    }
-}
-
-/// 级别配色
-fn level_color(level: &tracing::Level) -> &'static str {
-    match *level {
-        tracing::Level::ERROR => "\x1b[31m", // 红
-        tracing::Level::WARN => "\x1b[33m",  // 黄
-        tracing::Level::INFO => "\x1b[32m",  // 绿
-        tracing::Level::DEBUG => "\x1b[34m", // 蓝
-        tracing::Level::TRACE => "\x1b[35m", // 紫
     }
 }
 
@@ -223,9 +230,9 @@ mod tests {
 
     #[test]
     fn level_names() {
-        assert_eq!(level_name(&tracing::Level::WARN), "WARNING");
-        assert_eq!(level_name(&tracing::Level::ERROR), "ERROR");
-        assert_eq!(level_name(&tracing::Level::INFO), "INFO");
+        assert_eq!(tracing::Level::WARN.name(), "WARNING");
+        assert_eq!(tracing::Level::ERROR.name(), "ERROR");
+        assert_eq!(tracing::Level::INFO.name(), "INFO");
     }
 
     #[test]
