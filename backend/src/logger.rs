@@ -22,8 +22,8 @@ pub type LevelHandle = reload::Handle<LevelFilter, Registry>;
 /// 运行期可改的文件层句柄
 static LEVEL_HANDLE: OnceLock<Option<LevelHandle>> = OnceLock::new();
 
-/// 文本日志目录
-pub fn text_dir() -> PathBuf {
+/// 文件日志目录
+pub fn file_dir() -> PathBuf {
     app_paths::logs_dir().join("f")
 }
 
@@ -42,7 +42,7 @@ pub fn build(policy: &LoggerPolicy) -> (impl Subscriber, Option<LevelHandle>) {
     #[cfg(not(debug_assertions))]
     let console_level = LevelFilter::INFO;
 
-    build_at(&text_dir(), policy, crate::console::has_output().then_some(console_level))
+    build_at(&file_dir(), policy, crate::console::has_output().then_some(console_level))
 }
 
 /// [`build`] 的可测试部分
@@ -130,7 +130,7 @@ pub fn init() {
     // 回收必须在 `build()` 之前，appender 一旦构造就会创建 0 字节当期文件，
     // 之后回收会把它当空文件删掉；而 Rust 在 Windows 上采用 `FILE_SHARE_DELETE`
     // 的方式打开文件，删除会成功，但后续写入静默丢失。
-    let text_report = retention::prune(&text_dir(), &policy.retention);
+    let text_report = retention::prune(&file_dir(), &policy.retention);
     let telemetry_report = retention::prune(&telemetry_dir(), &RetentionPolicy::TELEMETRY);
 
     let (subscriber, level_handle) = build(&policy);
@@ -145,7 +145,7 @@ pub fn init() {
 
     tracing::info!(
         level = %policy.level,
-        dir = %text_dir().display(),
+        dir = %file_dir().display(),
         "日志已就绪"
     );
 
