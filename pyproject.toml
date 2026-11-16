@@ -25,7 +25,7 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 ignore = ["UP037"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["build", "cli", "codegen", "common", "prepare", "release", "setup", "util"]
+known-first-party = ["build", "cli", "codegen", "common", "prepare", "release", "serve", "setup", "util"]
 
 [tool.basedpyright]
 include = ["scripts"]
