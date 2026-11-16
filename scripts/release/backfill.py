@@ -33,6 +33,7 @@ from typing import Any
 from cli import git
 from common.constant.paths import PROJECT_BASE_DIR
 from common.constant.repo import GITHUB_REPO
+from common.constant.updater import VERSIONS_INDEX_FILENAME
 from common.entity.version import Version
 from common.entity.version_index import ManifestDigest, VersionIndex
 from common.enums.source import Source
@@ -88,7 +89,7 @@ def live_entries(source: Source, wanted: Sequence[Version], timeout: int) -> lis
 
     for version in missing:
         fallback = _fetch_index(
-            urls.asset_url(source, version, versions_index.FILENAME),
+            urls.asset_url(source, version, VERSIONS_INDEX_FILENAME),
             f"[{source.value}] {version} 的版本索引",
             timeout,
         )
