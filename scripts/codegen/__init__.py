@@ -13,7 +13,7 @@ from cli import git
 from common.logger import info
 from util.str_format import join_repr
 
-from . import build_info, routing_entries
+from . import build_info, routing_entries, third_party_licenses
 
 
 class CodegenError(Exception):
@@ -24,8 +24,8 @@ class GeneratedNotCommittedError(Exception):
     """生成物与 HEAD 不一致：quality-gate 跑 test.py 时就会失败"""
 
 
-# 顺序即执行顺序
-GENERATORS: tuple[ModuleType, ...] = (build_info, routing_entries)
+# 顺序即执行顺序：许可证清单要先落盘，routing_entries 才知道有这篇文档
+GENERATORS: tuple[ModuleType, ...] = (build_info, third_party_licenses, routing_entries)
 
 
 def generate_all() -> None:

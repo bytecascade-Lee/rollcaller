@@ -88,6 +88,7 @@ FRONTEND_APP_ENTRIES_PATH = FRONTEND_ROUTING_DIR / "app" / "entries.generated.ts
 FRONTEND_HELP_ENTRIES_PATH = FRONTEND_ROUTING_DIR / "help" / "entries.generated.ts"
 FRONTEND_ROUTING_ENTRIES_PATHS = (FRONTEND_APP_ENTRIES_PATH, FRONTEND_HELP_ENTRIES_PATH)
 TS_RS_PATHS = FRONTEND_DIR / "src" / "lib" / "types"
+THIRD_PARTY_NOTICES_PATH = RESOURCES_DIR / "help" / "third-party-licenses" / "third-party-licenses-zh-CN.md"
 BACKEND_TARGET_DIR = BACKEND_DIR / "target"
 BACKEND_BUILD_INFO_PATH = BACKEND_DIR / "gen" / "build" / "build_info.json"
 # cargo 的本地环境配置：模板纳入版本控制，真实文件由 setup 复制出来，不进仓库

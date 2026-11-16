@@ -88,6 +88,10 @@
             "title": "开源许可证",
             "parentId": "about"
         },
+        "third-party-licenses": {
+            "title": "第三方许可证",
+            "parentId": "about"
+        },
         "README.md": {
             "title": "自述文件",
             "parentId": "about"
@@ -108,6 +112,6 @@
         "students": ["add-student", "batch-import", "edit-student", "delete-student", "export-student"],
         "records": ["edit-record", "export-record"],
         "ui": ["app-window", "help-window"],
-        "about": ["README.md", "CHANGELOG.md", "RELEASE_NOTES.md", "LICENSE"]
+        "about": ["README.md", "CHANGELOG.md", "RELEASE_NOTES.md", "LICENSE", "third-party-licenses"]
     }
 }

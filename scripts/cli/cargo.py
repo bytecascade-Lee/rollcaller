@@ -71,3 +71,13 @@ def format(*, check: bool = False) -> None:
     """
     args = ["fmt", *(["--check"] if check else [])]
     _ = TOOL.run(args)
+
+
+def licenses(target: Target) -> str:
+    """
+    导出依赖元数据，JSON 格式：`cargo metadata --format-version 1 --offline --locked --filter-platform <triple>`
+
+    :param target: 只保留目标平台需要的依赖
+    """
+    args = ["metadata", "--format-version", "1", "--offline", "--locked", "--filter-platform", target.triple]
+    return TOOL.text(args)
