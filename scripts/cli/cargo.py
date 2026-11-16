@@ -5,8 +5,6 @@
 cargo 命令封装
 """
 
-from pathlib import Path
-
 from cli.tool import Timeout, Tool
 from common.constant.paths import BACKEND_DIR
 from common.entity.target import Target
@@ -31,48 +29,45 @@ TOOL = Tool(
 )
 
 
-def fetch(cwd: Path | None = None) -> None:
+def fetch() -> None:
     """下载后端依赖：`cargo fetch --locked`"""
     args = ["fetch", "--locked"]
-    _ = TOOL.run(args, cwd=cwd, timeout=Timeout.NETWORK)
+    _ = TOOL.run(args, timeout=Timeout.NETWORK)
 
 
-def test(target: Target, *, lib_only: bool = False, cwd: Path | None = None) -> None:
+def test(target: Target, *, lib_only: bool = False) -> None:
     """
     运行后端测试：`cargo test --locked --target <triple> [--lib]`
 
     :param target: 测试的编译目标，产物落在 target/<triple> 下
     :param lib_only: 只运行 lib 单测，供 ts-rs 导出类型时使用
-    :param cwd: 工作目录，缺省后端目录
     """
     args = ["test", "--locked", "--target", target.triple, *(["--lib"] if lib_only else [])]
-    _ = TOOL.run(args, cwd=cwd, timeout=Timeout.EXTENDED)
+    _ = TOOL.run(args, timeout=Timeout.EXTENDED)
 
 
-def lint(target: Target, *, cwd: Path | None = None) -> None:
+def lint(target: Target) -> None:
     """
     后端 lint：`cargo clippy --locked --target <triple> --all-targets -- -D clippy::all`
 
     :param target: lint 的编译目标
-    :param cwd: 工作目录，缺省后端目录
 
     :raise CargoError: clippy 组件缺失时给出安装提示
     """
     args = ["clippy", "--locked", "--target", target.triple, CLIPPY_ALL_TARGETS, "--", "-D", CLIPPY_DENY]
     try:
-        _ = TOOL.run(args, cwd=cwd, timeout=Timeout.EXTENDED)
+        _ = TOOL.run(args, timeout=Timeout.EXTENDED)
     except CargoError as error:
         if "no such command" in str(error) or "not installed" in str(error):
             raise CargoError("未找到 'cargo-clippy'，请执行 'rustup component add clippy' 安装") from error
         raise
 
 
-def format(*, check: bool = False, cwd: Path | None = None) -> None:
+def format(*, check: bool = False) -> None:
     """
     格式化后端：`cargo fmt [--check]`
 
     :param check: True 时只检查不写文件
-    :param cwd: 工作目录，缺省后端目录
     """
     args = ["fmt", *(["--check"] if check else [])]
-    _ = TOOL.run(args, cwd=cwd)
+    _ = TOOL.run(args)
