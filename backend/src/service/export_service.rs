@@ -58,8 +58,11 @@ pub async fn export_records(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow::
         return Err(anyhow!("长度为0，没有待导出的历史记录。"));
     }
     let started = Instant::now();
+
     let mut tx = rb.acquire_begin().await?;
     let records = record_repo::select_by_ids(&mut tx, ids).await?;
+    tx.commit().await?;
+
     let mut workbook = Workbook::new();
     let header_format = Format::new()
         .set_align(FormatAlign::Center)
