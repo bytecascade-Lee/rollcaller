@@ -100,7 +100,7 @@ def _require_ref(ref: str, flag: str) -> str:
 def _latest_tag() -> str | None:
     """按创建时间取最新标签；仓库没有标签时返回 None"""
     args = ["tag", "--sort=-creatordate"]
-    output = TOOL.text(args, cwd=None, timeout=Timeout.NORMAL)
+    output = TOOL.text(args, timeout=Timeout.NORMAL)
     return output.splitlines()[0] if output else None
 
 
@@ -150,7 +150,7 @@ def _log_commits(start: str, end: str) -> list[Commit]:
         "--pretty=format:%H%x00%ct%x00%s%x00%b%x00%an%x00%ae%x01",
         "--reverse",
     ]
-    output = TOOL.text(args, cwd=None, timeout=Timeout.NORMAL)
+    output = TOOL.text(args, timeout=Timeout.NORMAL)
     if not output:
         return []
 
