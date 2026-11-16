@@ -42,7 +42,8 @@ User action → Svelte component → invoke("command_name", args)
 | `backend/src/common/entity/`  | Rust structs with `#[ts(export)]` for type generation                 |
 | `backend/src/common/enums/`   | Result enums for complex operations                                   |
 | `backend/src/database/`       | DB pool singleton + migration bootstrap                               |
-| `backend/src/config/`         | App paths, YAML config, logger                                        |
+| `backend/src/config/`         | App paths, build info                                                 |
+| `backend/src/logger/`         | Log assembly, line format, retention                                  |
 | `backend/src/util/`           | Serde helpers, YAML flatten, time utils                               |
 | `backend/capabilities/`       | Tauri permission model                                                |
 | `backend/resources/`          | Bundled configs, DB migrations                                        |

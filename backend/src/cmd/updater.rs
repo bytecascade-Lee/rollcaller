@@ -9,6 +9,7 @@
 //! - [`UPDATE_VIEW_EVENT`]（view 通道）：状态迁移帧，与各命令终态；
 //! - [`DOWNLOAD_PROGRESS_EVENT`]（download 通道）：进度窄帧。
 
+use crate::cmd::ipc_refuse;
 use crate::updater;
 use crate::updater::model::UpdateView;
 use crate::updater::state::UpdaterState;
@@ -30,7 +31,9 @@ fn broadcast<T: Serialize>(event: &str, app: &AppHandle, payload: &T) {
 #[tauri::command]
 pub async fn updater_check(app: AppHandle, state: State<'_, UpdaterState>) -> Result<UpdateView, String> {
     let current_version = app.package_info().version.clone();
-    let view = updater::check(state.inner(), &current_version, |v| broadcast(UPDATE_VIEW_EVENT, &app, v)).await?;
+    let view = updater::check(state.inner(), &current_version, |v| broadcast(UPDATE_VIEW_EVENT, &app, v))
+        .await
+        .map_err(|e| ipc_refuse("updater_check", e))?;
     broadcast(UPDATE_VIEW_EVENT, &app, &view);
     Ok(view)
 }
@@ -45,7 +48,8 @@ pub async fn updater_download(app: AppHandle, state: State<'_, UpdaterState>) ->
         |v| broadcast(UPDATE_VIEW_EVENT, &app, v),
         |p| broadcast(DOWNLOAD_PROGRESS_EVENT, &app, p),
     )
-    .await?;
+    .await
+    .map_err(|e| ipc_refuse("updater_download", e))?;
     broadcast(UPDATE_VIEW_EVENT, &app, &view);
     Ok(view)
 }
@@ -53,7 +57,7 @@ pub async fn updater_download(app: AppHandle, state: State<'_, UpdaterState>) ->
 /// 取消下载 / 放弃已下载产物
 #[tauri::command]
 pub async fn updater_cancel(app: AppHandle, state: State<'_, UpdaterState>) -> Result<UpdateView, String> {
-    let view = updater::cancel(state.inner())?;
+    let view = updater::cancel(state.inner()).map_err(|e| ipc_refuse("updater_cancel", e))?;
     broadcast(UPDATE_VIEW_EVENT, &app, &view);
     Ok(view)
 }
@@ -62,7 +66,9 @@ pub async fn updater_cancel(app: AppHandle, state: State<'_, UpdaterState>) -> R
 #[tauri::command]
 pub async fn updater_install(app: AppHandle, state: State<'_, UpdaterState>) -> Result<UpdateView, String> {
     let current_version = app.package_info().version.clone();
-    let view = updater::install(state.inner(), &current_version).await?;
+    let view = updater::install(state.inner(), &current_version)
+        .await
+        .map_err(|e| ipc_refuse("updater_install", e))?;
     broadcast(UPDATE_VIEW_EVENT, &app, &view);
     Ok(view)
 }

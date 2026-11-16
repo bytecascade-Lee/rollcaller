@@ -1,28 +1,22 @@
-use crate::config::app_paths as AppPaths;
+//! 日志行格式：时间戳、级别、线程名、目标与位置
+
 use crate::util::time_utils::ISO8601;
 use std::fmt;
-use tracing::metadata::LevelFilter;
-use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_core::{Event, Subscriber};
-use tracing_log::LogTracer;
-#[cfg(not(debug_assertions))]
-use tracing_subscriber::layer::Filter;
 use tracing_subscriber::{
     fmt::format::{FormatEvent, FormatFields, Writer},
     fmt::time::FormatTime,
-    fmt::{layer, FmtContext},
-    layer::SubscriberExt,
+    fmt::FmtContext,
     registry::LookupSpan,
-    Layer,
 };
 
 /// ANSI 复位
 const RESET: &str = "\x1b[0m";
-/// 元信息（时间、线程名、位置）的灰暗色
+/// 元信息的灰暗色
 const DIM: &str = "\x1b[2m";
 
 /// 日志时间戳
-struct Timer;
+pub struct Timer;
 
 impl FormatTime for Timer {
     fn format_time(&self, w: &mut Writer<'_>) -> fmt::Result {
@@ -31,7 +25,7 @@ impl FormatTime for Timer {
 }
 
 /// 一行日志
-struct LogFormat;
+pub struct LogFormat;
 
 impl<S, N> FormatEvent<S, N> for LogFormat
 where
@@ -48,7 +42,7 @@ where
         styled(&mut writer, level_color(meta.level()), &format!("{tag:<10}"))?;
         writer.write_str(" ")?;
 
-        // 只写线程名（`main` / `tokio-rt-worker`），足以区分线程；不带 ThreadId
+        // 只写线程名足以区分线程
         if let Some(thread) = std::thread::current().name() {
             styled(&mut writer, DIM, thread)?;
             writer.write_str(" ")?;
@@ -106,7 +100,7 @@ fn level_color(level: &tracing::Level) -> &'static str {
     }
 }
 
-/// `rollcaller_lib::config::logger` -> `rollcaller_lib`
+/// `rollcaller_lib::logger::format` -> `rollcaller_lib`
 fn crate_name(target: &str) -> &str {
     target.split("::").next().unwrap_or_default()
 }
@@ -125,110 +119,12 @@ fn format_file(file: &str) -> String {
     }
 }
 
-#[cfg(not(debug_assertions))]
-struct TelemetryFilter;
-
-#[cfg(not(debug_assertions))]
-impl<S> Filter<S> for TelemetryFilter {
-    fn enabled(&self, metadata: &tracing_core::Metadata<'_>, _: &tracing_subscriber::layer::Context<'_, S>) -> bool {
-        metadata.level() >= &tracing::Level::ERROR
-    }
-
-    fn event_enabled(&self, _event: &Event<'_>, _: &tracing_subscriber::layer::Context<'_, S>) -> bool {
-        false
-    }
-}
-
-/// 构建全局日志订阅器
-pub fn build() -> impl Subscriber {
-    // 开发/生产环境控制台日志级别
-    #[cfg(debug_assertions)]
-    let console_level = LevelFilter::DEBUG;
-    #[cfg(not(debug_assertions))]
-    let console_level = LevelFilter::INFO;
-
-    let console_layer = crate::console::has_output().then(|| {
-        layer()
-            .event_format(LogFormat)
-            .with_ansi(crate::console::ansi_enabled())
-            .with_writer(std::io::stdout)
-            .with_filter(console_level)
-    });
-
-    let file_log_dir = AppPaths::logs_dir().join("f");
-    let _ = std::fs::create_dir_all(&file_log_dir);
-    let file_layer = match RollingFileAppender::builder()
-        .filename_suffix("log")
-        .rotation(Rotation::WEEKLY)
-        .build(&file_log_dir)
-    {
-        Ok(appender) => Some(
-            layer()
-                .event_format(LogFormat)
-                .with_ansi(false)
-                .with_writer(appender)
-                .with_filter(LevelFilter::WARN),
-        ),
-        Err(e) => {
-            eprintln!(
-                "[warn] 文件日志初始化失败：{e}，本次运行只输出到控制台：{}",
-                file_log_dir.display()
-            );
-            None
-        }
-    };
-
-    // JSON 层
-    #[cfg(not(debug_assertions))]
-    let json_layer = {
-        let json_log_dir = AppPaths::logs_dir().join("telemetry");
-        let _ = std::fs::create_dir_all(&json_log_dir);
-
-        match RollingFileAppender::builder()
-            .filename_suffix("jsonl")
-            .rotation(Rotation::DAILY)
-            .build(&json_log_dir)
-        {
-            Ok(appender) => Some(
-                layer()
-                    .json()
-                    .with_ansi(false)
-                    .with_line_number(true)
-                    .with_file(true)
-                    .with_target(true)
-                    .with_thread_ids(true)
-                    .with_thread_names(true)
-                    .with_timer(Timer)
-                    .with_writer(appender)
-                    .with_filter(TelemetryFilter),
-            ),
-            Err(e) => {
-                eprintln!("[warn] 日志初始化失败：{e}");
-                None
-            }
-        }
-    };
-
-    let subscriber = tracing_subscriber::registry().with(console_layer).with(file_layer);
-
-    #[cfg(not(debug_assertions))]
-    let subscriber = subscriber.with(json_layer);
-
-    subscriber
-}
-
-pub fn init() {
-    let subscriber = build();
-    tracing::subscriber::set_global_default(subscriber).expect("Failed to set up global log subscriber.");
-
-    LogTracer::init().expect("Failed to bridge log to tracing.");
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
     use tracing_subscriber::fmt::MakeWriter;
+    use tracing_subscriber::layer::SubscriberExt;
 
     #[derive(Clone, Default)]
     struct Sink(Arc<Mutex<Vec<u8>>>);
@@ -255,9 +151,13 @@ mod tests {
     /// 在 `LogFormat` 下渲染一条事件，返回整行
     fn render(ansi: bool, event: impl FnOnce()) -> String {
         let sink = Sink::default();
-        // 与 `build()` 里的层用同一套配置，只把 writer 换成内存缓冲
-        let subscriber =
-            tracing_subscriber::registry().with(layer().event_format(LogFormat).with_ansi(ansi).with_writer(sink.clone()));
+        // 与 `logger::build` 里的层用同一套配置，只把 writer 换成内存缓冲
+        let subscriber = tracing_subscriber::registry().with(
+            tracing_subscriber::fmt::layer()
+                .event_format(LogFormat)
+                .with_ansi(ansi)
+                .with_writer(sink.clone()),
+        );
         tracing::subscriber::with_default(subscriber, event);
         let bytes = sink.0.lock().unwrap().clone();
         String::from_utf8(bytes).unwrap()
@@ -291,7 +191,7 @@ mod tests {
         assert!(line.contains(&thread), "应标明线程名：{line}");
         assert!(!line.contains("ThreadId"), "只要线程名，不要 ThreadId：{line}");
         assert!(line.contains(" rollcaller_lib "), "target 应只留 crate 段：{line}");
-        assert!(line.contains("src/config/logger.rs:"), "位置应为正斜杠相对路径：{line}");
+        assert!(line.contains("src/logger/format.rs:"), "位置应为正斜杠相对路径：{line}");
         assert!(line.contains("already exists"), "正文应完整：{line}");
         assert!(line.contains("student=1"), "字段应保留：{line}");
         assert!(line.ends_with('\n'), "每行以换行收尾：{line:?}");
@@ -330,14 +230,14 @@ mod tests {
 
     #[test]
     fn target_is_reduced_to_crate() {
-        assert_eq!(crate_name("rollcaller_lib::config::logger"), "rollcaller_lib");
+        assert_eq!(crate_name("rollcaller_lib::logger::format"), "rollcaller_lib");
         assert_eq!(crate_name("tauri_plugin_updater::updater"), "tauri_plugin_updater");
         assert_eq!(crate_name(""), "");
     }
 
     #[test]
     fn file_paths_are_normalized_and_trimmed() {
-        assert_eq!(format_file("src\\config\\logger.rs"), "src/config/logger.rs");
+        assert_eq!(format_file("src\\logger\\format.rs"), "src/logger/format.rs");
 
         assert_eq!(
             format_file("/home/x/.config/.cargo/registry/src/index.crates.io-19491001/lib_name/src/rust_file.rs"),

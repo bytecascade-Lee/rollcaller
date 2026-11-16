@@ -63,12 +63,16 @@ async fn run_all() {
 
 /// 唯一的退出出口，跑完清理钩子后 `exit(code)`
 pub async fn finish_and_exit(code: i32) -> ! {
+    tracing::info!(code, "退出流程开始");
+
     std::thread::spawn(move || {
         std::thread::sleep(EXIT_WATCHDOG);
+        // 看门狗：钩子卡死时也会走到这里，此时没有「退出完成」
         std::process::exit(code);
     });
 
     run_all().await;
+    tracing::info!("退出完成");
     std::process::exit(code);
 }
 

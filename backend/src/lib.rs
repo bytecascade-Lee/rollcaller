@@ -11,6 +11,7 @@ mod common;
 mod config;
 pub mod console;
 mod database;
+mod logger;
 mod repo;
 mod service;
 mod shutdown_hooks;
