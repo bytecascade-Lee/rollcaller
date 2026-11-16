@@ -24,17 +24,13 @@
     html: true,
     linkify: true,
     typographer: true,
+    // 只有显式标注且已注册的语言才高亮。未标注语言的围栏按纯文本输出：
+    // 返回空串时 markdown-it 会自己转义正文，不要走 highlightAuto —— 本组件只注册了
+    // bash，自动识别必然选中它，会把许可证正文里的 "Software"、in 之类染成字符串/关键字。
     highlight: (str, lang) => {
-      if (lang && hljs.getLanguage(lang)) {
-        try {
-          return hljs.highlight(str, {language: lang}).value;
-        } catch (e) {
-          error(e instanceof Error ? e.message : String(e));
-          return "";
-        }
-      }
+      if (!lang || !hljs.getLanguage(lang)) return "";
       try {
-        return hljs.highlightAuto(str).value;
+        return hljs.highlight(str, {language: lang}).value;
       } catch (e) {
         error(e instanceof Error ? e.message : String(e));
         return "";
@@ -85,7 +81,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="markdown-body" onclick={handleClick} style="background: transparent;">
+<div class="markdown-body" onclick={handleClick}>
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
   {@html safeHtml}
 </div>
@@ -97,30 +93,46 @@
     line-height: 1.5;
     color: var(--text-color-primary);
     padding-right: var(--space-sm);
-    background: var(--color-page);
     overflow-wrap: break-word;
     user-select: none;
   }
 
-  .markdown-body :global(h1) {
-    font-size: 1.6rem;
-    padding-top: 0;
+  /* 六个标题共用同一套垂直节奏；h5/h6 此前没有样式，落到浏览器默认（反而比正文小） */
+  .markdown-body :global(h1),
+  .markdown-body :global(h2),
+  .markdown-body :global(h3),
+  .markdown-body :global(h4),
+  .markdown-body :global(h5),
+  .markdown-body :global(h6) {
+    margin: 1.75rem 0 0.75rem;
+    line-height: 1.35;
     font-weight: var(--font-weight-bold);
+  }
+
+  .markdown-body :global(h1) {
+    margin-top: 0;
+    font-size: 1.6rem;
   }
 
   .markdown-body :global(h2) {
     font-size: 1.35rem;
-    font-weight: var(--font-weight-bold);
   }
 
   .markdown-body :global(h3) {
     font-size: 1.15rem;
-    font-weight: var(--font-weight-bold);
   }
 
   .markdown-body :global(h4) {
     font-size: 1rem;
-    font-weight: var(--font-weight-bold);
+  }
+
+  .markdown-body :global(h5) {
+    font-size: 0.9rem;
+  }
+
+  .markdown-body :global(h6) {
+    font-size: 0.85rem;
+    color: var(--text-color-secondary);
   }
 
   .markdown-body :global(p) {
@@ -158,13 +170,21 @@
     color: var(--text-color-secondary);
   }
 
+  /*
+   * 代码块强制软换行：许可证正文里有 755 字符的单行段落，不换行会横向溢出。
+   * `word-break: normal` 与 `overflow-wrap: break-word` 配合 —— 只断开确实放不下的长
+   * 单词（URL、哈希），不按任意字符切分。`tab-size` 让缩进保持源码原意。
+   */
   .markdown-body :global(pre) {
+    margin: 0 0 1rem;
     padding: var(--space-xs);
     border-radius: var(--radius-md);
     background: var(--color-card);
     white-space: pre-wrap;
-    word-break: break-word;
     overflow-wrap: break-word;
+    word-break: normal;
+    tab-size: 4;
+    user-select: text;
   }
 
   .markdown-body :global(pre code) {
@@ -172,44 +192,57 @@
     font-size: 0.8rem;
     line-height: 1.6;
     padding: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
+    white-space: inherit;
+    overflow-wrap: inherit;
+    word-break: inherit;
+    user-select: inherit;
   }
 
+  /* 内联码用 em 而非 rem：跟着所在文本缩放，放进 h2 里不会突然缩水 */
   .markdown-body :global(p code),
-  .markdown-body :global(li code) {
-    padding: 0.15rem 0.4rem;
+  .markdown-body :global(li code),
+  .markdown-body :global(th code),
+  .markdown-body :global(td code) {
+    padding: 0.1rem 0.3rem;
     border-radius: var(--radius-md);
     background: var(--color-card);
     font-family: var(--font-family-mono);
-    font-size: 0.8rem;
+    font-size: 0.9em;
+    user-select: text;
   }
 
+  /*
+   * 表格：
+   * - `width: auto` + `max-width: 100%` —— 宽表照样吃满，短表按内容宽收拢。
+   *   若写成 `width: 100%`，两列表会被拉满，「组件数」这种数字列会空出半屏，
+   *   而浏览器把多余宽度按比例摊给各列，短列（版本号）也就跟着虚胖。
+   * - `th` 不折行 —— CJK 默认按字断开，窄列会把「序号」竖排成两行
+   * - `break-word` 只影响放不下的长单词，不参与 min-content 计算，因此不会把短列压成一字宽
+   * - `vertical-align: top` 让多行的版权列与短值单元格顶部对齐
+   */
   .markdown-body :global(table) {
     border-collapse: collapse;
     margin: 0 0 1rem;
-    border-radius: var(--radius-md);
-    width: 100%;
+    width: auto;
+    max-width: 100%;
   }
 
   .markdown-body :global(th),
   .markdown-body :global(td) {
-    padding: 0.5rem 1rem;
+    padding: 0.45rem 0.7rem;
     border: 1px solid var(--border-color-4);
     text-align: left;
-  }
-
-  .markdown-body :global(th li code),
-  .markdown-body :global(td li code) {
-    font-family: var(--font-family-mono);
+    vertical-align: top;
   }
 
   .markdown-body :global(th) {
     font-weight: var(--font-weight-bold);
+    white-space: nowrap;
   }
 
+  /* 斑马纹：底色与页面同色（#f5f5f5）时整条规则是隐形的，故取 gray-2 */
   .markdown-body :global(tr:nth-child(even)) {
-    background: var(--color-page);
+    background: var(--color-background);
   }
 
   .markdown-body :global(hr) {
