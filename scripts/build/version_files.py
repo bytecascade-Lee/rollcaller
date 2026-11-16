@@ -18,7 +18,7 @@ from common.constant.paths import (
     VERSION_TRACKED_FILES,
 )
 from common.entity.version import Version
-from common.logger import info, success
+from common.logger import info, success, warning
 
 
 class VersionFileError(Exception):
@@ -48,7 +48,10 @@ def sync(version: Version) -> None:
         cargo.lock()
     except cargo.CargoError as error:
         raise VersionFileError(f"刷新 Cargo.lock 失败：{error}") from error
-    uv.lock()
+    try:
+        uv.lock()
+    except uv.UvError as error:
+        warning(f"uv lock 未完成，uv.lock 可能滞后: {error}")
     info("已同步版本号并刷新锁文件")
 
 

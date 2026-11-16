@@ -7,7 +7,6 @@ uv 命令封装
 
 from cli.tool import Timeout, Tool
 from common.constant.paths import PROJECT_BASE_DIR
-from common.logger import warning
 
 
 class UvError(Exception):
@@ -26,11 +25,8 @@ TOOL = Tool(
 
 
 def lock() -> None:
-    """执行 `uv lock` 刷新 uv.lock，失败只警告，锁文件滞后不该阻断构建"""
-    try:
-        _ = TOOL.run(["lock"])
-    except UvError as error:
-        warning(f"uv lock 未完成，uv.lock 可能滞后: {error}")
+    """执行 `uv lock` 刷新 uv.lock"""
+    _ = TOOL.run(["lock"])
 
 
 def lock_check() -> bool:
