@@ -2,13 +2,13 @@ use crate::cmd::ipc_err;
 use crate::common::entity::student::{Student, StudentTable};
 use crate::common::enums::student::{StudentSingleCreateResult, StudentSingleUpdate};
 use crate::database::database_pool;
-use crate::service::student_service;
+use crate::service::student;
 
 /// 列出所有活跃学生
 #[tauri::command]
 pub async fn student_list() -> Result<Vec<StudentTable>, String> {
     let rb = database_pool::database().await.map_err(|e| ipc_err("student_list", e))?;
-    student_service::get_all(&*rb).await.map_err(|e| ipc_err("student_list", e))
+    student::get_all(&*rb).await.map_err(|e| ipc_err("student_list", e))
 }
 
 /// 创建单个学生
@@ -22,7 +22,7 @@ pub async fn student_single_create(student: Student, overwrite: Option<bool>) ->
     let rb = database_pool::database()
         .await
         .map_err(|e| ipc_err("student_single_create", e))?;
-    student_service::create(&rb, student, overwrite)
+    student::create(&rb, student, overwrite)
         .await
         .map_err(|e| ipc_err("student_single_create", e))
 }
@@ -35,7 +35,7 @@ pub async fn student_single_update(student: Student) -> Result<StudentSingleUpda
     let rb = database_pool::database()
         .await
         .map_err(|e| ipc_err("student_single_update", e))?;
-    student_service::update(&rb, student)
+    student::update(&rb, student)
         .await
         .map_err(|e| ipc_err("student_single_update", e))
 }
@@ -46,7 +46,7 @@ pub async fn student_batch_delete(ids: Vec<i64>) -> Result<(), String> {
     let rb = database_pool::database()
         .await
         .map_err(|e| ipc_err("student_batch_delete", e))?;
-    student_service::delete(&rb, ids)
+    student::delete(&rb, ids)
         .await
         .map_err(|e| ipc_err("student_batch_delete", e))
 }
@@ -58,7 +58,7 @@ pub async fn student_batch_restore(ids: Vec<i64>) -> Result<(), String> {
         .await
         .map_err(|e| ipc_err("student_batch_restore", e))?;
     //~ 恢复后不必再次查询，直接修改 is_deleted 为 0、deleted_at 为 None 即可
-    student_service::restore(&rb, ids)
+    student::restore(&rb, ids)
         .await
         .map_err(|e| ipc_err("student_batch_restore", e))
 }

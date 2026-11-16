@@ -152,9 +152,9 @@ cd ./backend && cargo tauri build
 | `backend/src/common/entity/student.rs`                      | Student + StudentTable                |
 | `backend/src/common/entity/record.rs`                       | Record + RecordTable + RollcallRecord |
 | `backend/src/common/enums/student.rs`                       | Create/update result enums            |
-| `backend/src/service/student_service.rs`                    | Core student CRUD + conflict logic    |
-| `backend/src/service/rollcall_service.rs`                   | Random pick + save                    |
-| `backend/src/service/import_service.rs`                     | Excel import (calamine)               |
+| `backend/src/service/student.rs`                    | Core student CRUD + conflict logic    |
+| `backend/src/service/rollcall.rs`                   | Random pick + save                    |
+| `backend/src/service/import.rs`                     | Excel import (calamine)               |
 | `backend/src/repo/student_repo.rs`                          | py_sql for update/delete/restore      |
 | `backend/src/repo/record_repo.rs`                           | py_sql JOIN queries                   |
 | `backend/src/cmd/import.rs`                                 | preview_excel + import_excel commands |
