@@ -4,6 +4,7 @@ pub mod attendance_status;
 pub mod export;
 pub mod help;
 pub mod import;
+pub mod logger;
 pub mod nav;
 pub mod record;
 pub mod rollcall;
