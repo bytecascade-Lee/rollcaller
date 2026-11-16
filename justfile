@@ -37,8 +37,8 @@ build ver target:
     {{ uv }} run python {{ scripts_dir }}/build.py -v {{ ver }} -t {{ target }} -m local
 
 # 本地出包后驻留更新服务，需先 build 同一版本
-release ver:
-    {{ uv }} run python {{ scripts_dir }}/release.py -v {{ ver }} -m local
+release ver severity:
+    {{ uv }} run python {{ scripts_dir }}/release.py -v {{ ver }} -s {{ severity }} -m local
 
 # 仅构建前端
 build-fe:
