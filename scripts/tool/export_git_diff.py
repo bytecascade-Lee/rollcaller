@@ -195,7 +195,7 @@ def _list_changes(diff_args: Sequence[str], selectors: Sequence[str]) -> list[Ch
     args = ["diff", *diff_args, "--name-status", "-z", "-M"]
     if selectors:
         args += ["--", *selectors]
-    out = TOOL.text(args, cwd=PROJECT_BASE_DIR, timeout=Timeout.NORMAL)
+    out = TOOL.text(args, timeout=Timeout.NORMAL)
     if not out:
         return []
 
@@ -258,14 +258,14 @@ def _normalize_selectors(raw: Sequence[str]) -> list[str]:
 def _patch_of(diff_args: Sequence[str], paths: Sequence[str], context: int) -> str:
     """取本文件的 unified diff；重命名要同时传新旧路径，否则 git 会退化成「新增+删除」"""
     args = ["diff", *diff_args, f"-U{context}", "--no-color", "-M", "--", *paths]
-    return TOOL.text(args, cwd=PROJECT_BASE_DIR, timeout=Timeout.NORMAL)
+    return TOOL.text(args, timeout=Timeout.NORMAL)
 
 
 def _count_untracked() -> int:
     """未跟踪文件数（只用于日志说明它们被忽略了）"""
     try:
         args = ["ls-files", "--others", "--exclude-standard", "-z"]
-        out = TOOL.text(args, cwd=PROJECT_BASE_DIR, timeout=Timeout.NORMAL)
+        out = TOOL.text(args, timeout=Timeout.NORMAL)
     except git.GitError:
         return 0
     return len([f for f in out.split("\0") if f]) if out else 0

@@ -56,7 +56,7 @@ class Tool:
     :param program: 可执行文件名，如 "git"
     :param error: 本工具的错误类型，构造签名是 (message)
     :param hint: 找不到可执行文件时的可操作提示，如安装方式或链接；空串则用 ProcessError 原文
-    :param cwd: 缺省工作目录；None 表示继承调用方
+    :param cwd: 本工具唯一的工作目录；None 表示继承调用方
     :param timeout: 缺省超时档位
     :param capture: 缺省是否捕获输出；长任务设 False 让输出直接进控制台
     :param search_dir: 只在指定目录里找可执行文件
@@ -91,7 +91,7 @@ class Tool:
         执行一条命令
 
         :param args: 子命令与参数，如 ["fetch", "--locked"]
-        :param cwd: 工作目录
+        :param cwd: 覆盖描述符里的工作目录；机制层专用，域函数不要把它再暴露出去
         :param timeout: 覆盖描述符里的档位；None 表示沿用描述符默认值
         :param capture: 覆盖描述符里的捕获策略；None 表示沿用描述符
         :param allow: 额外允许的退出码，0 恒允许

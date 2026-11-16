@@ -24,7 +24,7 @@ from pathlib import Path
 from build import hasher, metadata, signer
 from cli import cnb as cnb_cli
 from cli import gh, git, tauri
-from common.constant.paths import ASSETS_DIR, PROJECT_BASE_DIR, VERSIONS_INDEX_SOURCE_PATH
+from common.constant.paths import ASSETS_DIR, VERSIONS_INDEX_SOURCE_PATH
 from common.constant.repo import CNB_REPO, GITHUB_REPO
 from common.entity.version import Version, VersionError
 from common.entity.version_index import ManifestDigest
@@ -123,7 +123,7 @@ def release_ci(version: Version, draft: bool) -> None:
     index_path = versions_index.write(ASSETS_DIR / versions_index.FILENAME, after)
 
     binaries = [asset.path for asset in discovered]
-    sha = git.head_hash(cwd=PROJECT_BASE_DIR)
+    sha = git.head_hash()
     tag = version.to_tag()
 
     github_release.ensure_tag(GITHUB_REPO, tag, sha)
