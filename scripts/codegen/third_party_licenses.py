@@ -279,7 +279,7 @@ def load_rust() -> list[Component]:
     """按发布目标收集静态链接进可执行文件的 crate"""
     packages: dict[tuple[str, str], dict[str, Any]] = {}
     for supported in support.entries(Action.RELEASE):
-        metadata = json.loads(cargo.metadata(supported.target))
+        metadata = json.loads(cargo.licenses(supported.target))
         for package in metadata["packages"]:
             if _is_local(str(package["manifest_path"])):
                 continue

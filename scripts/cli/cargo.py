@@ -73,7 +73,7 @@ def format(*, check: bool = False) -> None:
     _ = TOOL.run(args)
 
 
-def metadata(target: Target) -> str:
+def licenses(target: Target) -> str:
     """
     导出依赖元数据，JSON 格式：`cargo metadata --format-version 1 --offline --locked --filter-platform <triple>`
 
