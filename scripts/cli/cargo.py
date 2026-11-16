@@ -29,6 +29,12 @@ TOOL = Tool(
 )
 
 
+def lock() -> None:
+    """刷新工作区成员在 Cargo.lock 里的版本：`cargo update --workspace --offline`"""
+    args = ["update", "--workspace", "--offline"]
+    _ = TOOL.run(args)
+
+
 def fetch() -> None:
     """下载后端依赖：`cargo fetch --locked`"""
     args = ["fetch", "--locked"]
