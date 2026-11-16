@@ -7,6 +7,7 @@ use serde_json::json;
 use std::env;
 use std::fs::File;
 use std::io::Write;
+use std::time::Instant;
 use tracing::{debug, info};
 
 const API_KEY: &str = env!("MIMO_TTS_API_KEY");
@@ -17,6 +18,7 @@ pub async fn generate_by_cloud_model(name: String) -> anyhow::Result<String> {
         return Ok(base64::engine::general_purpose::STANDARD.encode(get_audio_bytes(&name)?));
     }
     debug!(name = %name, "TTS 未命中缓存，调用云端合成");
+    let started = Instant::now();
 
     let response = http_client::client()
         .post("https://api.xiaomimimo.com/v1/chat/completions")
@@ -61,6 +63,7 @@ pub async fn generate_by_cloud_model(name: String) -> anyhow::Result<String> {
     info!(
         name = %name,
         bytes = audio_bytes.len(),
+        elapsed_ms = started.elapsed().as_millis(),
         path = %cache_path.display(),
         "云端 TTS 合成完成"
     );

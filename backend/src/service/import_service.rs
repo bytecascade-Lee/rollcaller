@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+use tracing::info;
 
 /// 单张工作表预览的行数上限
 pub const PREVIEW_ROWS: usize = 5;
@@ -53,6 +54,7 @@ pub fn preview(path: &Path) -> anyhow::Result<Vec<SheetPreview>> {
         });
     }
 
+    info!(path = %path.display(), sheets = sheets.len(), "预览工作簿");
     Ok(sheets)
 }
 
@@ -89,5 +91,6 @@ pub async fn import(
         students.push(Student::new(&student_no, &name));
     }
 
+    info!(sheet = %sheet_name, parsed = students.len(), "解析工作表");
     student_service::batch_create(rb, students, decisions).await
 }
