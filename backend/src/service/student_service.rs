@@ -7,7 +7,7 @@ use rbatis::executor::Executor;
 use rbatis::RBatis;
 use rbs::value;
 use std::collections::HashMap;
-use tracing::warn;
+use tracing::debug;
 
 /// 创建单个学生
 ///
@@ -62,7 +62,8 @@ pub async fn create(rb: &RBatis, student: Student, decision: Option<bool>) -> an
         Some(exist) => {
             //* 3.1.1 未删除
             if !exist.is_deleted {
-                warn!("Student:[{}] already exists.", exist.student_no);
+                // 正常业务分支：前端会展示"学号被占用"，不是异常，不该占 WARN
+                debug!(student_no = %exist.student_no, "学号已被活跃记录占用，等待用户处理");
                 tx.rollback().await?;
                 return Ok(StudentSingleCreateResult::ActiveExists(exist.clone()));
             }
@@ -94,9 +95,11 @@ pub async fn create(rb: &RBatis, student: Student, decision: Option<bool>) -> an
                 }
                 //* 3.1.5 未明确传递是否覆写
                 None => {
-                    warn!(
-                        "The student:[student_no: {}, name: {}] already exists, but we don't know if we want to cover TA.",
-                        student.student_no, student.name
+                    // 正常业务分支：要弹出冲突面板让教师决策，不是异常
+                    debug!(
+                        student_no = %student.student_no,
+                        name = %student.name,
+                        "已删除记录与新记录姓名不同，等待用户决策"
                     );
                     tx.rollback().await?;
                     Ok(StudentSingleCreateResult::Conflict(exist.clone()))
