@@ -275,6 +275,10 @@ def _undeclared_error(name: str) -> NoticesError:
     )
 
 
+def _normalize_anchor(anchor: str) -> str:
+    return anchor.lower().replace(".", "")
+
+
 def load_rust() -> list[Component]:
     """按发布目标收集静态链接进可执行文件的 crate"""
     packages: dict[tuple[str, str], dict[str, Any]] = {}
@@ -354,7 +358,7 @@ def _table(components: Sequence[Component]) -> list[str]:
     """渲染一张组件表（按组件名排序，版本随之稳定）"""
     rows = ["| 序号 | 组件 | 版本 | 许可证 | 版权 |", "| --- | --- | --- | --- | --- |"]
     for index, component in enumerate(sorted(components, key=lambda item: (item.name, item.version)), start=1):
-        licenses = [f"[{license}](#{license.lower()})" for license in component.licenses]
+        licenses = [f"[{license}](#{_normalize_anchor(license)})" for license in component.licenses]
         licenses_line = " + ".join(licenses)
         rows.append(
             f"| {index} | {_cell(component.name)} | {_cell(component.version)} "
@@ -423,7 +427,7 @@ def render(rust: Sequence[Component], frontend: Sequence[Component], texts: dict
             raise NoticesError(
                 f"许可证 {license_id!r} 的正文没能在任何依赖里找到；请按照 SPDX 补一条 `_SIGNATURES` 特征串，再重新生成"
             )
-        lines.extend([f"### {license_id} {{#{license_id.lower()}}}", "", "```text", text, "```", ""])
+        lines.extend([f"### {license_id} {{#{_normalize_anchor(license_id)}}}", "", "```text", text, "```", ""])
 
     return "\n".join(lines).rstrip("\n") + "\n"
 
