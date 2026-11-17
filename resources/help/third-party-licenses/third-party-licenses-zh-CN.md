@@ -43,8 +43,8 @@
 | 12 | atomic | 0.6.1 | [MIT](#mit) | Copyright (c) 2016 The Rust Project Developers |
 | 13 | atomic-waker | 1.1.2 | [MIT](#mit) | Copyright (c) 2016 Alex Crichton; Copyright (c) 2017 The Tokio Authors |
 | 14 | autocfg | 1.5.1 | [MIT](#mit) | Copyright (c) 2018 Josh Stone |
-| 15 | aws-lc-rs | 1.18.2 | [ISC](#isc) + [Apache-2.0](#apache-2.0) | Copyright Amazon.com, Inc. or its affiliates. |
-| 16 | aws-lc-sys | 0.46.0 | [ISC](#isc) + [Apache-2.0](#apache-2.0) + [MIT](#mit) + [BSD-3-Clause](#bsd-3-clause) + [MIT-0](#mit-0) | Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.; Copyright (c) 2014-2024 Google Inc. |
+| 15 | aws-lc-rs | 1.18.2 | [ISC](#isc) + [Apache-2.0](#apache-20) | Copyright Amazon.com, Inc. or its affiliates. |
+| 16 | aws-lc-sys | 0.46.0 | [ISC](#isc) + [Apache-2.0](#apache-20) + [MIT](#mit) + [BSD-3-Clause](#bsd-3-clause) + [MIT-0](#mit-0) | Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.; Copyright (c) 2014-2024 Google Inc. |
 | 17 | base64 | 0.23.1 | [MIT](#mit) | Copyright (c) 2025 Alice Maz, Marshall Pierce |
 | 18 | bigdecimal | 0.4.11 | [MIT](#mit) | Copyright 2023 The BigDecimal-rs Contributors; Copyright (c) 2023 The BigDecimal-rs Contributors |
 | 19 | bit-set | 0.8.0 | [MIT](#mit) | Copyright (c) 2023 The Rust Project Developers |
@@ -79,7 +79,7 @@
 | 48 | cmov | 0.5.4 | [MIT](#mit) | Copyright (c) 2022-2026 The RustCrypto Project Developers |
 | 49 | codepage | 0.1.3 | [MIT](#mit) | Copyright Mozilla Foundation |
 | 50 | const-oid | 0.10.2 | [MIT](#mit) | Copyright (c) 2020-2026 The RustCrypto Project Developers |
-| 51 | constant_time_eq | 0.6.1 | [Apache-2.0](#apache-2.0) | Cesar Eduardo Barros <cesarb@cesarb.eti.br> |
+| 51 | constant_time_eq | 0.6.1 | [Apache-2.0](#apache-20) | Cesar Eduardo Barros <cesarb@cesarb.eti.br> |
 | 52 | cookie | 0.18.2 | [MIT](#mit) | Copyright 2017 Sergio Benitez; Copyright 2014 Alex Chricton |
 | 53 | core_detect | 1.0.0 | [MIT](#mit) | Copyright (c) 2017-2020 The Rust Project Developers |
 | 54 | cpubits | 0.1.1 | [MIT](#mit) | Copyright (c) 2023-2026 The RustCrypto Project Developers |
@@ -88,12 +88,12 @@
 | 57 | crc32fast | 1.5.3 | [MIT](#mit) | Copyright (c) 2018 Sam Rijs, Alex Crichton and contributors |
 | 58 | crossbeam-channel | 0.5.17 | [MIT](#mit) | Copyright (c) 2019 The Crossbeam Project Developers; Copyright (c) 2009 The Go Authors. All rights reserved. |
 | 59 | crossbeam-utils | 0.8.23 | [MIT](#mit) | Copyright (c) 2019 The Crossbeam Project Developers |
-| 60 | crossfire | 3.1.22 | [Apache-2.0](#apache-2.0) | Copyright (C) 2023-2025 The Crossfire Project Developers; Copyright (C) 2016-2023 Yunify Inc. |
-| 61 | crossfire-utils | 0.1.1 | [Apache-2.0](#apache-2.0) | （未声明） |
+| 60 | crossfire | 3.1.22 | [Apache-2.0](#apache-20) | Copyright (C) 2023-2025 The Crossfire Project Developers; Copyright (C) 2016-2023 Yunify Inc. |
+| 61 | crossfire-utils | 0.1.1 | [Apache-2.0](#apache-20) | （未声明） |
 | 62 | crypto-common | 0.1.7 | [MIT](#mit) | Copyright (c) 2021 RustCrypto Developers |
 | 63 | crypto-common | 0.2.2 | [MIT](#mit) | Copyright (c) 2021-2026 RustCrypto Developers |
-| 64 | cssparser | 0.37.0 | [MPL-2.0](#mpl-2.0) | Simon Sapin <simon.sapin@exyr.org> |
-| 65 | cssparser-macros | 0.7.1 | [MPL-2.0](#mpl-2.0) | Simon Sapin <simon.sapin@exyr.org> |
+| 64 | cssparser | 0.37.0 | [MPL-2.0](#mpl-20) | Simon Sapin <simon.sapin@exyr.org> |
+| 65 | cssparser-macros | 0.7.1 | [MPL-2.0](#mpl-20) | Simon Sapin <simon.sapin@exyr.org> |
 | 66 | ct-codecs | 1.1.8 | [MIT](#mit) | Copyright (c) 2020-2026 Frank Denis |
 | 67 | ctor | 1.0.13 | [MIT](#mit) | Matt Mastracci <matthew@mastracci.com> |
 | 68 | ctutils | 0.4.5 | [MIT](#mit) | Copyright (c) 2025-2026 The RustCrypto Project Developers |
@@ -116,21 +116,21 @@
 | 85 | dirs-sys | 0.5.0 | [MIT](#mit) | Copyright (c) 2018-2019 dirs-rs contributors |
 | 86 | displaydoc | 0.2.7 | [MIT](#mit) | Jane Lusby <jlusby@yaah.dev> |
 | 87 | dom_query | 0.28.0 | [MIT](#mit) | Copyright (c) 2023 Mykola Humanov |
-| 88 | dpi | 0.1.2 | [Apache-2.0](#apache-2.0) + [MIT](#mit) | Copyright (c) 2018 Jorge Aparicio; Copyright © 2005-2020 Rich Felker, et al. |
+| 88 | dpi | 0.1.2 | [Apache-2.0](#apache-20) + [MIT](#mit) | Copyright (c) 2018 Jorge Aparicio; Copyright © 2005-2020 Rich Felker, et al. |
 | 89 | dtoa | 1.0.11 | [MIT](#mit) | David Tolnay <dtolnay@gmail.com> |
-| 90 | dtoa-short | 0.3.5 | [MPL-2.0](#mpl-2.0) | Xidorn Quan <me@upsuper.org> |
-| 91 | dunce | 1.0.5 | [Apache-2.0](#apache-2.0) | Kornel <kornel@geekhood.net> |
+| 90 | dtoa-short | 0.3.5 | [MPL-2.0](#mpl-20) | Xidorn Quan <me@upsuper.org> |
+| 91 | dunce | 1.0.5 | [Apache-2.0](#apache-20) | Kornel <kornel@geekhood.net> |
 | 92 | dyn-clone | 1.0.20 | [MIT](#mit) | David Tolnay <dtolnay@gmail.com> |
 | 93 | ego-tree | 0.11.1 | [ISC](#isc) | Copyright © 2016, June McEnroe <june@causal.agency>; Copyright © 2024-2025, rust-scraper Contributors |
 | 94 | either | 1.19.0 | [MIT](#mit) | Copyright (c) 2015 |
 | 95 | embed-resource | 3.0.12 | [MIT](#mit) | Copyright (c) 2017 nabijaczleweli |
-| 96 | encoding_rs | 0.8.42 | [Apache-2.0](#apache-2.0) + [MIT](#mit) + [BSD-3-Clause](#bsd-3-clause) | Copyright Mozilla Foundation; Copyright © WHATWG (Apple, Google, Mozilla, Microsoft). |
+| 96 | encoding_rs | 0.8.42 | [Apache-2.0](#apache-20) + [MIT](#mit) + [BSD-3-Clause](#bsd-3-clause) | Copyright Mozilla Foundation; Copyright © WHATWG (Apple, Google, Mozilla, Microsoft). |
 | 97 | enigo | 0.1.3 | [MIT](#mit) | Copyright (c) 2017 pythoneer |
 | 98 | equivalent | 1.0.3 | [MIT](#mit) | Copyright (c) 2016--2023 |
 | 99 | erased-serde | 0.4.10 | [MIT](#mit) | David Tolnay <dtolnay@gmail.com> |
 | 100 | fast-float2 | 0.2.4 | [MIT](#mit) | Copyright 2021 Ivan Smirnov |
-| 101 | fast_pool | 1.0.4 | [Apache-2.0](#apache-2.0) | ce <zhuxiujia@qq.com> |
-| 102 | fastdate | 0.3.36 | [Apache-2.0](#apache-2.0) | ce <zhuxiujia@qq.com> |
+| 101 | fast_pool | 1.0.4 | [Apache-2.0](#apache-20) | ce <zhuxiujia@qq.com> |
+| 102 | fastdate | 0.3.36 | [Apache-2.0](#apache-20) | ce <zhuxiujia@qq.com> |
 | 103 | fastrand | 2.5.0 | [MIT](#mit) | Stjepan Glavina <stjepang@gmail.com> |
 | 104 | fdeflate | 0.3.7 | [MIT](#mit) | The image-rs Developers |
 | 105 | find-msvc-tools | 0.1.15 | [MIT](#mit) | Copyright (c) 2014 Alex Crichton |
@@ -176,13 +176,13 @@
 | 145 | hyper-rustls | 0.27.10 | [MIT](#mit) | Copyright (c) 2016, Joseph Birr-Pixton <jpixton@gmail.com>; Copyright (c) 2016 Joseph Birr-Pixton <jpixton@gmail.com> |
 | 146 | hyper-util | 0.1.21 | [MIT](#mit) | Copyright (c) 2023-2025 Sean McArthur |
 | 147 | ico | 0.6.0 | [MIT](#mit) | Copyright (c) 2018 Matthew D. Steele |
-| 148 | icu_collections | 2.4.0 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
-| 149 | icu_locale_core | 2.4.0 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
-| 150 | icu_normalizer | 2.4.0 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
-| 151 | icu_normalizer_data | 2.4.0 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
-| 152 | icu_properties | 2.4.0 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
-| 153 | icu_properties_data | 2.4.0 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
-| 154 | icu_provider | 2.4.0 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
+| 148 | icu_collections | 2.4.0 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
+| 149 | icu_locale_core | 2.4.0 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
+| 150 | icu_normalizer | 2.4.0 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
+| 151 | icu_normalizer_data | 2.4.0 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
+| 152 | icu_properties | 2.4.0 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
+| 153 | icu_properties_data | 2.4.0 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
+| 154 | icu_provider | 2.4.0 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
 | 155 | ident_case | 1.0.1 | [MIT](#mit) | Ted Driggs <ted.driggs@outlook.com> |
 | 156 | idna | 1.1.0 | [MIT](#mit) | Copyright (c) 2013-2025 The rust-url developers |
 | 157 | idna_adapter | 1.2.2 | [MIT](#mit) | Copyright (c) The rust-url developers |
@@ -205,17 +205,17 @@
 | 174 | jsonptr | 0.7.1 | [MIT](#mit) | Copyright 2024 Chance Dinkins; Copyright (c) 2022 Chance Dinkins |
 | 175 | keyboard-types | 0.8.3 | [MIT](#mit) | Copyright (c) 2017 Pyfisch |
 | 176 | lazy_static | 1.5.1 | [MIT](#mit) | Marvin Löbel <loebel.marvin@gmail.com> |
-| 177 | libbz2-rs-sys | 0.2.5 | [bzip2-1.0.6](#bzip2-1.0.6) | Copyright (C) 1996-2021 Julian R Seward.; Copyright (C) 2019-2020 Federico Mena Quintero |
+| 177 | libbz2-rs-sys | 0.2.5 | [bzip2-1.0.6](#bzip2-106) | Copyright (C) 1996-2021 Julian R Seward.; Copyright (C) 2019-2020 Federico Mena Quintero |
 | 178 | libc | 0.2.191 | [MIT](#mit) | Copyright (c) The Rust Project Developers |
 | 179 | libm | 0.2.16 | [MIT](#mit) | Copyright (c) 2018 Jorge Aparicio; Copyright © 2005-2020 Rich Felker, et al. |
 | 180 | libsqlite3-sys | 0.36.0 | [MIT](#mit) | Copyright (c) 2014 The rusqlite developers |
-| 181 | litemap | 0.8.3 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
+| 181 | litemap | 0.8.3 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
 | 182 | lock_api | 0.4.14 | [MIT](#mit) | Copyright (c) 2016 The Rust Project Developers |
 | 183 | lock_api | 0.5.0 | [MIT](#mit) | Copyright (c) 2016 The Rust Project Developers |
 | 184 | log | 0.4.34 | [MIT](#mit) | Copyright (c) 2014 The Rust Project Developers |
 | 185 | lru | 0.14.0 | [MIT](#mit) | Copyright (c) 2016 Jerome Froelich |
 | 186 | lru-slab | 0.1.3 | [MIT](#mit) | Copyright (c) 2024 The lru-slab Developers |
-| 187 | lzma-rust2 | 0.22.0 | [Apache-2.0](#apache-2.0) | （未声明） |
+| 187 | lzma-rust2 | 0.22.0 | [Apache-2.0](#apache-20) | （未声明） |
 | 188 | markup5ever | 0.39.0 | [MIT](#mit) | Copyright (c) 2014 The html5ever Project Developers |
 | 189 | matchers | 0.2.0 | [MIT](#mit) | Copyright (c) 2019 Eliza Weisman |
 | 190 | memchr | 2.8.3 | [MIT](#mit) | Copyright (c) 2015 Andrew Gallant |
@@ -235,7 +235,7 @@
 | 204 | num-traits | 0.2.19 | [MIT](#mit) | Copyright (c) 2014 The Rust Project Developers |
 | 205 | once_cell | 1.21.4 | [MIT](#mit) | Aleksey Kladov <aleksey.kladov@gmail.com> |
 | 206 | open | 5.4.5 | [MIT](#mit) | Copyright © `2015` `Sebastian Thiel` |
-| 207 | option-ext | 0.2.0 | [MPL-2.0](#mpl-2.0) | Simon Ochsenreither <simon@ochsenreither.de> |
+| 207 | option-ext | 0.2.0 | [MPL-2.0](#mpl-20) | Simon Ochsenreither <simon@ochsenreither.de> |
 | 208 | parking_lot | 0.12.5 | [MIT](#mit) | Copyright (c) 2016 The Rust Project Developers |
 | 209 | parking_lot | 0.13.0 | [MIT](#mit) | Copyright (c) 2016 The Rust Project Developers |
 | 210 | parking_lot_core | 0.10.0 | [MIT](#mit) | Copyright (c) 2016 The Rust Project Developers |
@@ -257,7 +257,7 @@
 | 226 | plist | 1.10.3 | [MIT](#mit) | Copyright (c) 2015 Edward Barnard |
 | 227 | png | 0.18.1 | [MIT](#mit) | Copyright (c) 2015 nwin |
 | 228 | pointers | 0.3.1 | [MIT](#mit) | Copyright (c) 2025 naturalio.dev |
-| 229 | potential_utf | 0.1.6 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
+| 229 | potential_utf | 0.1.6 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
 | 230 | powerfmt | 0.2.1 | [MIT](#mit) | Copyright 2023 Jacob Pratt et al.; Copyright (c) 2023 Jacob Pratt et al. |
 | 231 | ppmd-rust | 1.5.2 | [MIT-0](#mit-0) | Copyright 2026 The ppmd-rust authors |
 | 232 | precomputed-hash | 0.1.1 | [MIT](#mit) | Copyright (c) 2017 Emilio Cobos Álvarez |
@@ -273,13 +273,13 @@
 | 242 | rand_core | 0.10.1 | [MIT](#mit) | Copyright (c) 2018-2026 The Rand Project Developers |
 | 243 | rand_pcg | 0.10.2 | [MIT](#mit) | Copyright (c) 2014-2017 Melissa O'Neill and PCG Project contributors; Copyright 2018 Developers of the Rand project |
 | 244 | raw-window-handle | 0.6.2 | [MIT](#mit) | Copyright (c) 2019 Osspial; Copyright (c) 2020 Osspial |
-| 245 | rbatis | 4.9.8 | [Apache-2.0](#apache-2.0) | ce <zhuxiujia@qq.com> |
-| 246 | rbatis-codegen | 4.9.3 | [Apache-2.0](#apache-2.0) | ce <zhuxiujia@qq.com> |
-| 247 | rbatis-macro-driver | 4.9.4 | [Apache-2.0](#apache-2.0) | ce <zhuxiujia@qq.com> |
-| 248 | rbdc | 4.9.10 | [Apache-2.0](#apache-2.0) | ce <zhuxiujia@qq.com> |
-| 249 | rbdc-pool-fast | 4.9.5 | [Apache-2.0](#apache-2.0) | ce <zhuxiujia@qq.com> |
-| 250 | rbdc-sqlite | 4.9.5 | [Apache-2.0](#apache-2.0) | ce <zhuxiujia@qq.com> |
-| 251 | rbs | 4.8.4 | [Apache-2.0](#apache-2.0) | Copyright (c) 2025 rbatis |
+| 245 | rbatis | 4.9.8 | [Apache-2.0](#apache-20) | ce <zhuxiujia@qq.com> |
+| 246 | rbatis-codegen | 4.9.3 | [Apache-2.0](#apache-20) | ce <zhuxiujia@qq.com> |
+| 247 | rbatis-macro-driver | 4.9.4 | [Apache-2.0](#apache-20) | ce <zhuxiujia@qq.com> |
+| 248 | rbdc | 4.9.10 | [Apache-2.0](#apache-20) | ce <zhuxiujia@qq.com> |
+| 249 | rbdc-pool-fast | 4.9.5 | [Apache-2.0](#apache-20) | ce <zhuxiujia@qq.com> |
+| 250 | rbdc-sqlite | 4.9.5 | [Apache-2.0](#apache-20) | ce <zhuxiujia@qq.com> |
+| 251 | rbs | 4.8.4 | [Apache-2.0](#apache-20) | Copyright (c) 2025 rbatis |
 | 252 | ref-cast | 1.0.27 | [MIT](#mit) | David Tolnay <dtolnay@gmail.com> |
 | 253 | ref-cast-impl | 1.0.27 | [MIT](#mit) | David Tolnay <dtolnay@gmail.com> |
 | 254 | regex | 1.13.1 | [MIT](#mit) | Copyright (c) 2014 The Rust Project Developers |
@@ -287,10 +287,10 @@
 | 256 | regex-syntax | 0.8.11 | [MIT](#mit) | Copyright (c) 2014 The Rust Project Developers |
 | 257 | reqwest | 0.13.5 | [MIT](#mit) | Copyright 2016 Sean McArthur; Copyright (c) 2016-2026 Sean McArthur |
 | 258 | rfd | 0.16.1 | [MIT](#mit) | Copyright (c) 2022 Bartłomiej Maryńczak |
-| 259 | ring | 0.17.14 | [Apache-2.0](#apache-2.0) + [ISC](#isc) | Copyright (c) 2009 The Go Authors. All rights reserved.; Copyright 2015 The Chromium Authors. All rights reserved. |
+| 259 | ring | 0.17.14 | [Apache-2.0](#apache-20) + [ISC](#isc) | Copyright (c) 2009 The Go Authors. All rights reserved.; Copyright 2015 The Chromium Authors. All rights reserved. |
 | 260 | rolling-file | 0.2.0 | [MIT](#mit) | Copyright (c) 2021 eFolder Inc dba Axcient and contributors.; Copyright (c) 2021, eFolder Inc dba Axcient. |
-| 261 | rpassword | 7.5.4 | [Apache-2.0](#apache-2.0) | Conrad Kleinespel <conradk@conradk.com> |
-| 262 | rtoolbox | 0.0.6 | [Apache-2.0](#apache-2.0) | Conrad Kleinespel <conradk@conradk.com> |
+| 261 | rpassword | 7.5.4 | [Apache-2.0](#apache-20) | Conrad Kleinespel <conradk@conradk.com> |
+| 262 | rtoolbox | 0.0.6 | [Apache-2.0](#apache-20) | Conrad Kleinespel <conradk@conradk.com> |
 | 263 | rust_xlsxwriter | 0.99.1 | [MIT](#mit) | Copyright 2022-2026 John McNamara <jmcnamara@cpan.org> |
 | 264 | rustc-hash | 2.1.3 | [MIT](#mit) | The Rust Project Developers |
 | 265 | rustc_version | 0.4.1 | [MIT](#mit) | Copyright (c) 2016 The Rust Project Developers |
@@ -300,7 +300,7 @@
 | 269 | rustls-platform-verifier | 0.7.1 | [MIT](#mit) | Copyright (c) 2022 1Password |
 | 270 | rustls-webpki | 0.103.16 | [ISC](#isc) | Copyright 2015 Brian Smith. |
 | 271 | rustversion | 1.0.23 | [MIT](#mit) | David Tolnay <dtolnay@gmail.com> |
-| 272 | ryu | 1.0.23 | [Apache-2.0](#apache-2.0) | David Tolnay <dtolnay@gmail.com> |
+| 272 | ryu | 1.0.23 | [Apache-2.0](#apache-20) | David Tolnay <dtolnay@gmail.com> |
 | 273 | salsa20 | 0.10.2 | [MIT](#mit) | Copyright (c) 2019 Eric McCorkle |
 | 274 | same-file | 1.0.6 | [MIT](#mit) | Copyright (c) 2017 Andrew Gallant |
 | 275 | schemars | 0.8.22 | [MIT](#mit) | Copyright (c) 2019 Graham Esau |
@@ -310,7 +310,7 @@
 | 279 | scopeguard | 1.2.0 | [MIT](#mit) | Copyright (c) 2016-2019 Ulrik Sverdrup "bluss" and scopeguard developers |
 | 280 | scraper | 0.27.0 | [ISC](#isc) | Copyright © 2016, June McEnroe <june@causal.agency>; Copyright © 2017, Vivek Kushwaha <yoursvivek@gmail.com> |
 | 281 | scrypt | 0.11.0 | [MIT](#mit) | Copyright (c) 2021-2023 The RustCrypto Project Developers |
-| 282 | selectors | 0.38.0 | [MPL-2.0](#mpl-2.0) | The Servo Project Developers |
+| 282 | selectors | 0.38.0 | [MPL-2.0](#mpl-20) | The Servo Project Developers |
 | 283 | semver | 1.0.28 | [MIT](#mit) | David Tolnay <dtolnay@gmail.com> |
 | 284 | serde | 1.0.229 | [MIT](#mit) | Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com> |
 | 285 | serde-untagged | 0.1.9 | [MIT](#mit) | David Tolnay <dtolnay@gmail.com> |
@@ -352,9 +352,9 @@
 | 321 | symlink | 0.1.0 | [MIT](#mit) | Copyright (c) 2014 Chris Morgan and the Teepee project developers |
 | 322 | syn | 2.0.119 | [MIT](#mit) | David Tolnay <dtolnay@gmail.com> |
 | 323 | syn | 3.0.9 | [MIT](#mit) | David Tolnay <dtolnay@gmail.com> |
-| 324 | sync_wrapper | 1.0.2 | [Apache-2.0](#apache-2.0) | Actyx AG <developer@actyx.io> |
+| 324 | sync_wrapper | 1.0.2 | [Apache-2.0](#apache-20) | Actyx AG <developer@actyx.io> |
 | 325 | synstructure | 0.14.0 | [MIT](#mit) | Copyright 2016 Nika Layzell |
-| 326 | tao | 0.37.2 | [Apache-2.0](#apache-2.0) | Tauri Programme within The Commons Conservancy, The winit contributors |
+| 326 | tao | 0.37.2 | [Apache-2.0](#apache-20) | Tauri Programme within The Commons Conservancy, The winit contributors |
 | 327 | tauri | 2.12.5 | [MIT](#mit) | Copyright (c) 2017 - Present Tauri Apps Contributors |
 | 328 | tauri-build | 2.7.4 | [MIT](#mit) | Copyright (c) 2017 - Present Tauri Apps Contributors |
 | 329 | tauri-codegen | 2.7.4 | [MIT](#mit) | Copyright (c) 2017 - Present Tauri Apps Contributors |
@@ -380,7 +380,7 @@
 | 349 | time-core | 0.1.9 | [MIT](#mit) | Copyright (c) Jacob Pratt et al. |
 | 350 | time-macros | 0.2.32 | [MIT](#mit) | Copyright (c) Jacob Pratt et al. |
 | 351 | tiny_http | 0.12.0 | [MIT](#mit) | Copyright (c) 2014-2019 The tiny-http contributors |
-| 352 | tinystr | 0.8.5 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
+| 352 | tinystr | 0.8.5 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
 | 353 | tinyvec | 1.13.3 | [MIT](#mit) | Copyright (c) 2019 Daniel "Lokathor" Gee. |
 | 354 | tokio | 1.54.1 | [MIT](#mit) | Copyright (c) Tokio Contributors |
 | 355 | tokio-macros | 2.7.2 | [MIT](#mit) | Copyright (c) 2019 Yoshua Wuyts; Copyright (c) Tokio Contributors |
@@ -409,7 +409,7 @@
 | 378 | typeid | 1.0.3 | [MIT](#mit) | David Tolnay <dtolnay@gmail.com> |
 | 379 | typenum | 1.20.1 | [MIT](#mit) | Copyright 2014 Paho Lurie-Gregg; Copyright (c) 2014 Paho Lurie-Gregg |
 | 380 | ucd-trie | 0.1.7 | [MIT](#mit) | Copyright (c) 2015 Andrew Gallant |
-| 381 | unicode-ident | 1.0.27 | [MIT](#mit) + [Apache-2.0](#apache-2.0) + [Unicode-3.0](#unicode-3.0) | Copyright © 1991-2023 Unicode, Inc. |
+| 381 | unicode-ident | 1.0.27 | [MIT](#mit) + [Apache-2.0](#apache-20) + [Unicode-3.0](#unicode-30) | Copyright © 1991-2023 Unicode, Inc. |
 | 382 | unicode-segmentation | 1.13.3 | [MIT](#mit) | Copyright (c) 2015 The Rust Project Developers |
 | 383 | unicode-width | 0.2.2 | [MIT](#mit) | Copyright (c) 2015 The Rust Project Developers |
 | 384 | unsafe-libyaml | 0.2.11 | [MIT](#mit) | David Tolnay <dtolnay@gmail.com> |
@@ -426,8 +426,8 @@
 | 395 | want | 0.3.2 | [MIT](#mit) | Copyright (c) 2018-2019 Sean McArthur |
 | 396 | web-time | 1.1.0 | [MIT](#mit) | Copyright 2023 dAxpeDDa; Copyright (c) 2023 dAxpeDDa |
 | 397 | web_atoms | 0.2.6 | [MIT](#mit) | Copyright (c) 2014 The html5ever Project Developers |
-| 398 | webpki-roots | 0.26.11 | [CDLA-Permissive-2.0](#cdla-permissive-2.0) | （未声明） |
-| 399 | webpki-roots | 1.0.11 | [CDLA-Permissive-2.0](#cdla-permissive-2.0) | （未声明） |
+| 398 | webpki-roots | 0.26.11 | [CDLA-Permissive-2.0](#cdla-permissive-20) | （未声明） |
+| 399 | webpki-roots | 1.0.11 | [CDLA-Permissive-2.0](#cdla-permissive-20) | （未声明） |
 | 400 | webview2-com | 0.39.1 | [MIT](#mit) | （未声明） |
 | 401 | webview2-com-macros | 0.8.1 | [MIT](#mit) | （未声明） |
 | 402 | webview2-com-sys | 0.39.1 | [MIT](#mit) | （未声明） |
@@ -462,21 +462,21 @@
 | 431 | windows_x86_64_msvc | 0.53.1 | [MIT](#mit) | Copyright (c) Microsoft Corporation. |
 | 432 | winnow | 1.0.4 | [MIT](#mit) | （未声明） |
 | 433 | winreg | 0.56.0 | [MIT](#mit) | Copyright (c) 2015 Igor Shaula |
-| 434 | writeable | 0.6.4 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
+| 434 | writeable | 0.6.4 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
 | 435 | wry | 0.57.1 | [MIT](#mit) | Copyright (c) 2020-2023 Ngo Iok Ui & Tauri Programme within The Commons Conservancy |
-| 436 | yoke | 0.8.4 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
-| 437 | yoke-derive | 0.8.4 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
-| 438 | zerofrom | 0.1.8 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
-| 439 | zerofrom-derive | 0.1.8 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
+| 436 | yoke | 0.8.4 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
+| 437 | yoke-derive | 0.8.4 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
+| 438 | zerofrom | 0.1.8 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
+| 439 | zerofrom-derive | 0.1.8 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
 | 440 | zeroize | 1.9.1 | [MIT](#mit) | Copyright (c) 2018-2026 The RustCrypto Project Developers |
-| 441 | zerotrie | 0.2.5 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
-| 442 | zerovec | 0.11.9 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
-| 443 | zerovec-derive | 0.11.7 | [Unicode-3.0](#unicode-3.0) | Copyright © 2020-2024 Unicode, Inc. |
+| 441 | zerotrie | 0.2.5 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
+| 442 | zerovec | 0.11.9 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
+| 443 | zerovec-derive | 0.11.7 | [Unicode-3.0](#unicode-30) | Copyright © 2020-2024 Unicode, Inc. |
 | 444 | zip | 8.6.0 | [MIT](#mit) | Copyright (c) 2014 Mathijs van de Nes |
 | 445 | zip | 9.0.5 | [MIT](#mit) | Copyright (c) 2014 Mathijs van de Nes |
 | 446 | zlib-rs | 0.6.8 | [Zlib](#zlib) | (C) 2024 Trifecta Tech Foundation |
 | 447 | zmij | 1.0.23 | [MIT](#mit) | David Tolnay <dtolnay@gmail.com> |
-| 448 | zopfli | 0.8.4 | [Apache-2.0](#apache-2.0) | Copyright 2011 Google Inc. |
+| 448 | zopfli | 0.8.4 | [Apache-2.0](#apache-20) | Copyright 2011 Google Inc. |
 | 449 | zstd | 0.14.3 | [BSD-3-Clause](#bsd-3-clause) | Copyright (c) 2026, Alexandre Bury |
 | 450 | zstd-safe | 8.2.0 | [BSD-3-Clause](#bsd-3-clause) | Copyright (c) 2026, Alexandre Bury |
 | 451 | zstd-sys | 2.1.2+zstd.1.5.7 | [BSD-3-Clause](#bsd-3-clause) | Copyright (c) 2026, Alexandre Bury; Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved. |
@@ -491,8 +491,8 @@
 | 4 | @tauri-apps/plugin-dialog | 2.8.3 | [MIT](#mit) | （未声明） |
 | 5 | @tauri-apps/plugin-opener | 2.7.2 | [MIT](#mit) | （未声明） |
 | 6 | @types/trusted-types | 2.0.7 | [MIT](#mit) | Copyright (c) Microsoft Corporation. |
-| 7 | argparse | 3.0.4 | [PSF-2.0](#psf-2.0) | （未声明） |
-| 8 | dompurify | 3.4.17 | [Apache-2.0](#apache-2.0) | Dr.-Ing. Mario Heiderich, Cure53 |
+| 7 | argparse | 3.0.4 | [PSF-2.0](#psf-20) | （未声明） |
+| 8 | dompurify | 3.4.17 | [Apache-2.0](#apache-20) | Dr.-Ing. Mario Heiderich, Cure53 |
 | 9 | entities | 8.1.0 | [BSD-2-Clause](#bsd-2-clause) | Copyright (c) Felix Böhm |
 | 10 | highlight.js | 11.12.0 | [BSD-3-Clause](#bsd-3-clause) | Copyright (c) 2006, Ivan Sagalaev. |
 | 11 | linkify-it | 6.1.0 | [MIT](#mit) | Copyright (c) 2015 Vitaly Puzrin. |
@@ -534,7 +534,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Apache-2.0 {#apache-2.0}
+### Apache-2.0 {#apache-20}
 
 ```text
 Apache License
@@ -821,7 +821,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Unicode-3.0 {#unicode-3.0}
+### Unicode-3.0 {#unicode-30}
 
 ```text
 UNICODE LICENSE V3
@@ -872,7 +872,7 @@ Portions of ICU4X may have been adapted from ICU4C and/or ICU4J.
 ICU 1.8.1 to ICU 57.1 © 1995-2016 International Business Machines Corporation and others.
 ```
 
-### CDLA-Permissive-2.0 {#cdla-permissive-2.0}
+### CDLA-Permissive-2.0 {#cdla-permissive-20}
 
 ```text
 # Community Data License Agreement - Permissive - Version 2.0
@@ -938,7 +938,7 @@ of Data, including for example machine learning models and models'
 insights.
 ```
 
-### PSF-2.0 {#psf-2.0}
+### PSF-2.0 {#psf-20}
 
 ```text
 PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
@@ -990,7 +990,7 @@ agrees to be bound by the terms and conditions of this License
 Agreement.
 ```
 
-### MPL-2.0 {#mpl-2.0}
+### MPL-2.0 {#mpl-20}
 
 ```text
 Mozilla Public License Version 2.0
@@ -1368,7 +1368,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-### bzip2-1.0.6 {#bzip2-1.0.6}
+### bzip2-1.0.6 {#bzip2-106}
 
 ```text
 --------------------------------------------------------------------------
