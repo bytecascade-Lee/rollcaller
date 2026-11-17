@@ -3,11 +3,14 @@
 
 """
 uv 默认源守卫
+
+冲突判定要先归一（大小写、结尾斜杠）再比较，与 `Expectation` 的原值相等不同，所以这句文案保持手写。
 """
 
 import os
 import tomllib
 from pathlib import Path
+from typing import Any
 
 from cli import uv
 from common.constant.paths import PROJECT_BASE_DIR, PYPROJECT_PATH
@@ -15,6 +18,7 @@ from common.enums.os import OS
 from common.logger import info, warning
 from util.fs import relative_path
 from util.str_format import join_repr
+
 from .errors import EnvError
 
 # uv 的默认源只允许声明在 pyproject.toml
@@ -88,7 +92,7 @@ def _conflicting_indexes(project_index: str) -> list[tuple[str, str]]:
     return conflicts
 
 
-def _declared_defaults(data: dict) -> list[str]:
+def _declared_defaults(data: dict[str, Any]) -> list[str]:
     """从一份 uv 配置里取出「默认源」的地址"""
     values: list[str] = []
     for key in ("default-index", "index-url"):

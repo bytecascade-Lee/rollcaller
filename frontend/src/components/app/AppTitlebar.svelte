@@ -7,7 +7,7 @@
   import "$styles/titlebar.css";
   import "$styles/icon-button.css";
   import logo from "$assets/icon.ico";
-  import Updater from "$components/app/Updater.svelte";
+  import UpdaterButton from "$components/app/updater/UpdaterButton.svelte";
   import {openUrl} from "@tauri-apps/plugin-opener";
 
   let {window}: {window: WebviewWindow} = $props();
@@ -61,7 +61,7 @@
         <PushPinIcon size="16" weight="bold" />
       {/if}
     </button>
-    <Updater />
+    <UpdaterButton />
     <button
       aria-label="项目主页"
       class="icon-button"

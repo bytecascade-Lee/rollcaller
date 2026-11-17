@@ -14,7 +14,7 @@
 
 import argparse
 import sys
-from typing import Callable
+from collections.abc import Callable
 
 from cli import cargo, git, pnpm, rustc
 from codegen import (
@@ -24,7 +24,7 @@ from codegen import (
     generate_all,
 )
 from common import gate
-from common.constant.paths import FRONTEND_ROUTING_ENTRIES_PATHS, TS_RS_PATHS
+from common.constant.paths import FRONTEND_ROUTING_ENTRIES_PATHS, THIRD_PARTY_NOTICES_PATH, TS_RS_PATHS
 from common.entity.target import Target, UnsupportedTargetError
 from common.enums.action import Action
 from common.logger import error, info, success
@@ -33,7 +33,8 @@ from util.sigint import graceful_sigint, never_interrupted
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="测试入口：刷新生成物后依次执行后端与前端测试")
-    parser.add_argument("-t", "--target", required=True, metavar="TRIPLE", help="完整 Rust 目标三元组")
+
+    _ = parser.add_argument("-t", "--target", required=True, metavar="TRIPLE", help="完整 Rust 目标三元组")
 
     return parser.parse_args()
 
@@ -44,7 +45,7 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
     target = Target(rustc.resolve_triple(args.target))
     info(f"当前目标三元组为 {target.triple!r}")
 
-    gate.ensure(target, Action.TEST, host=rustc.host_target())
+    _ = gate.ensure(target, Action.TEST, host=rustc.host_target())
 
     generate_all()
 
@@ -53,6 +54,7 @@ def main(*, is_interrupted: Callable[[], bool] = never_interrupted) -> int:
         return 0
 
     ensure_committed(FRONTEND_ROUTING_ENTRIES_PATHS, label="代码生成的入口表")
+    ensure_committed((THIRD_PARTY_NOTICES_PATH,), label="第三方许可证清单，依赖变动后需要重新生成")
 
     info(f"运行后端测试（{target.triple}）")
     # lib 测试会顺带执行 ts-rs 的导出测试，把类型写回 frontend/src/lib/types
@@ -74,14 +76,14 @@ if __name__ == "__main__":
         try:
             sys.exit(main(is_interrupted=is_interrupted))
         except (
-                CodegenError,
-                GeneratedNotCommittedError,
-                gate.GateError,
-                git.GitError,
-                pnpm.PnpmError,
-                rustc.RustcError,
-                cargo.CargoError,
-                UnsupportedTargetError,
+            CodegenError,
+            GeneratedNotCommittedError,
+            gate.GateError,
+            git.GitError,
+            pnpm.PnpmError,
+            rustc.RustcError,
+            cargo.CargoError,
+            UnsupportedTargetError,
         ) as e:
             if not is_interrupted():
                 error(f"测试失败: {e}")

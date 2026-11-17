@@ -26,7 +26,9 @@ class AssetDiscoveryError(Exception):
 _IGNORED_SUFFIXES = frozenset({".sig", ".sha256", ".json", ".md"})
 
 
-def _expected(entry: SupportedTarget, version: Version, kinds: frozenset[Kind], directory: Path) -> list[tuple[Kind, Path]]:
+def _expected(
+    entry: SupportedTarget, version: Version, kinds: frozenset[Kind], directory: Path
+) -> list[tuple[Kind, Path]]:
     """按 Kind 声明顺序给出该 target 在指定模式下应产出的文件"""
     result = []
     for kind in Kind:
@@ -47,8 +49,7 @@ def _require_no_unknown(directory: Path, expected_names: set[str]) -> None:
             unknown.append(path.name)
     if unknown:
         raise AssetDiscoveryError(
-            f"{str(directory)!r} 中存在无法识别的文件: {sorted(unknown)!r}；"
-            f"请确认产物命名，或清理与发布无关的文件"
+            f"{str(directory)!r} 中存在无法识别的文件: {sorted(unknown)!r}；请确认产物命名，或清理与发布无关的文件"
         )
 
 
@@ -105,14 +106,17 @@ def _discover_local(directory: Path, version: Version) -> list[Asset]:
     if not candidates:
         raise AssetDiscoveryError(f"在 {str(directory)!r} 中未找到任何可识别的符合版本号 {version} 的本地构建产物")
     if len(candidates) > 1:
-        raise AssetDiscoveryError(f"在 {str(directory)!r} 中同时出现多个目标的产物: {sorted(candidates)!r}；"
-                                  f"本地发布目录应只包含一个目标")
+        raise AssetDiscoveryError(
+            f"在 {str(directory)!r} 中同时出现多个目标的产物: {sorted(candidates)!r}；本地发布目录应只包含一个目标"
+        )
 
     entry, expected = next(iter(candidates.values()))
     missing = [path.name for _kind, path in expected if not path.is_file()]
     if missing:
-        raise AssetDiscoveryError(f"在 {str(directory)!r} 中对于目标三元组 {entry.target.triple!r} "
-                                  f"缺少 {len(missing)} 个期望产物: {join_repr(missing)}")
+        raise AssetDiscoveryError(
+            f"在 {str(directory)!r} 中对于目标三元组 {entry.target.triple!r} "
+            f"缺少 {len(missing)} 个期望产物: {join_repr(missing)}"
+        )
 
     _require_no_unknown(directory, {path.name for _kind, path in expected})
     return [Asset(entry.target, kind, path) for kind, path in expected]

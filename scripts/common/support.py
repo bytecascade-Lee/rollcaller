@@ -55,9 +55,7 @@ SUPPORTED_TARGETS: tuple[SupportedTarget, ...] = (
     # ),
 )
 
-_BY_TRIPLE: dict[str, SupportedTarget] = {
-    entry.target.triple: entry for entry in SUPPORTED_TARGETS
-}
+_BY_TRIPLE: dict[str, SupportedTarget] = {entry.target.triple: entry for entry in SUPPORTED_TARGETS}
 
 # 各模式期望产出的载荷；target 自身不支持某个 kind 时，取交集后自然忽略
 RELEASE_KINDS: frozenset[Kind] = frozenset(kind for kind in Kind if not kind.local_only)
@@ -97,8 +95,10 @@ def validate() -> None:
 
         prefix = _RUNNER_PREFIXES[entry.target.os]
         if not entry.runner.startswith(prefix):
-            raise SupportTableError(f"{triple!r} 的 runner {entry.runner!r} 与目标系统 "
-                                    f"{entry.target.os.value!r} 不匹配，应以 {prefix!r} 开头")
+            raise SupportTableError(
+                f"{triple!r} 的 runner {entry.runner!r} 与目标系统 "
+                f"{entry.target.os.value!r} 不匹配，应以 {prefix!r} 开头"
+            )
 
 
 def get(target: Target) -> SupportedTarget | None:

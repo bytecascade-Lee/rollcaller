@@ -70,14 +70,17 @@ def publish(repo: str, version: Version, tag: str, notes_file: Path, files: Sequ
     prerelease = version.is_prerelease()
     make_latest = not (draft or prerelease)
     name = str(version)
-    info(f"repo: {repo!r} | version: {str(version)!r} | tag: {tag!r} | name: {name!r} | "
-         f"draft: {draft!r} | prerelease: {prerelease!r} | latest: {make_latest}")
+    info(
+        f"repo: {repo!r} | version: {str(version)!r} | tag: {tag!r} | name: {name!r} | "
+        f"draft: {draft!r} | prerelease: {prerelease!r} | latest: {make_latest}"
+    )
 
     try:
         release_id = cnb.release_id_by_tag(repo, tag)
         if release_id:
             cnb.update_release(
-                repo, release_id,
+                repo,
+                release_id,
                 name=name,
                 body_file=notes_file,
                 make_latest=make_latest,
@@ -87,7 +90,8 @@ def publish(repo: str, version: Version, tag: str, notes_file: Path, files: Sequ
             info(f"已更新 CNB Release {release_id}，对应 tag 为 {tag!r}")
         else:
             release_id = cnb.create_release(
-                repo, tag,
+                repo,
+                tag,
                 name=name,
                 body_file=notes_file,
                 make_latest=make_latest,

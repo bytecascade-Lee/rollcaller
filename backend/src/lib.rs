@@ -1,8 +1,8 @@
 use crate::state::nav::NavState;
-use crate::state::update::UpdaterState;
 use crate::windows::app_window;
 use crate::windows::common::WindowKind;
 use tauri::Manager;
+use updater::state::UpdaterState;
 
 mod bootstrap;
 pub mod cli;
@@ -11,10 +11,12 @@ mod common;
 mod config;
 pub mod console;
 mod database;
+mod logger;
 mod repo;
 mod service;
 mod shutdown_hooks;
 mod state;
+pub mod updater;
 mod util;
 mod windows;
 
@@ -73,6 +75,7 @@ pub async fn run() {
             crate::cmd::rollcall::pick,
             crate::cmd::import::preview_excel,
             crate::cmd::import::import_excel,
+            crate::cmd::logger::logger_set_level,
             crate::cmd::export::student_export,
             crate::cmd::export::record_export,
             crate::cmd::tts::tts_cloud_model,
@@ -80,11 +83,11 @@ pub async fn run() {
             crate::cmd::windows::windows_help_open,
             crate::cmd::nav::nav_open,
             crate::cmd::nav::nav_take_pending,
-            crate::cmd::update::check,
-            crate::cmd::update::download,
-            crate::cmd::update::cancel,
-            crate::cmd::update::install,
-            crate::cmd::update::state,
+            crate::cmd::updater::updater_check,
+            crate::cmd::updater::updater_download,
+            crate::cmd::updater::updater_cancel,
+            crate::cmd::updater::updater_install,
+            crate::cmd::updater::updater_current_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

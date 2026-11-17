@@ -8,7 +8,7 @@
 import re
 from pathlib import Path
 
-from cli import git, uv
+from cli import cargo, git, uv
 from common.constant.paths import (
     CARGO_TOML_PATH,
     PACKAGE_JSON_PATH,
@@ -18,7 +18,7 @@ from common.constant.paths import (
     VERSION_TRACKED_FILES,
 )
 from common.entity.version import Version
-from common.logger import info, success
+from common.logger import info, success, warning
 
 
 class VersionFileError(Exception):
@@ -41,17 +41,24 @@ def check_git_status() -> bool:
 
 
 def sync(version: Version) -> None:
-    """把版本号写入各版本文件，并刷新 uv 锁文件"""
+    """把版本号写入各版本文件，并刷新锁文件"""
     for path, pattern in _REWRITE_RULES:
         _rewrite(path, pattern, version)
-    uv.lock()
-    info("已同步版本号并刷新 uv 锁文件")
+    try:
+        cargo.lock()
+    except cargo.CargoError as error:
+        raise VersionFileError(f"刷新 Cargo.lock 失败：{error}") from error
+    try:
+        uv.lock()
+    except uv.UvError as error:
+        warning(f"uv lock 未完成，uv.lock 可能滞后: {error}")
+    info("已同步版本号并刷新锁文件")
 
 
 def restore() -> None:
     """用 git 把版本文件与锁文件还原到 HEAD，丢弃 sync 的临时改动"""
     git.checkout_paths(VERSION_TRACKED_FILES)
-    info("已还原版本文件与 uv 锁文件")
+    info("已还原版本文件与锁文件")
 
 
 def _rewrite(path: Path, pattern: re.Pattern[str], version: Version) -> None:

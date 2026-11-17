@@ -1,8 +1,7 @@
-pub mod attendance_status_service;
-pub mod export_service;
-pub mod import_service;
-pub mod record_service;
-pub mod rollcall_service;
-pub mod student_service;
-pub mod tts_service;
-pub mod update;
+pub mod attendance_status;
+pub mod export;
+pub mod import;
+pub mod record;
+pub mod rollcall;
+pub mod student;
+pub mod tts;

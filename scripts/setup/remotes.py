@@ -5,15 +5,17 @@
 远端拓扑
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 from cli import git
 from common.constant.repo import GITHUB_REPO, LONG_LIVED_BRANCHES, MIRROR, REMOTE
 from common.enums.remote import RemoteRole
 from common.logger import info, success, warning
 from common.remote import is_github, owner_repo, role_of
+
 from .errors import EnvError
+from .expectation import Expectation
 
 # fork 的约定名
 FORK_REMOTE = "origin"
@@ -157,8 +159,10 @@ def _solve(observed: Observed) -> Solution:
     # 判断不了是不是同一个仓库的 GitHub 远端（例如 fork 改过名）也算 fork，但要说清楚
     loose = [name for name, url in state.items() if role_of(url) is RemoteRole.UNRELATED and is_github(url)]
     for name in loose:
-        notes.append(f"远端 {name} 指向 GitHub 上的 {owner_repo(state[name])}，已按你的 fork 处理；"
-                     f"若它不是，请 `git remote rename {name} <名字>`")
+        notes.append(
+            f"远端 {name} 指向 GitHub 上的 {owner_repo(state[name])}，已按你的 fork 处理；"
+            f"若它不是，请 `git remote rename {name} <名字>`"
+        )
 
     candidates = forks + loose
     push = REMOTE
@@ -183,8 +187,11 @@ def _solve(observed: Observed) -> Solution:
     )
 
 
-def _config_changes(observed: Observed, push: str, renames: Mapping[str, str],
-                    ) -> list[tuple[str, str | None, str | None, str | None]]:
+def _config_changes(
+    observed: Observed,
+    push: str,
+    renames: Mapping[str, str],
+) -> list[tuple[str, str | None, str | None, str | None]]:
     """长期分支的上游一律指向 github；`remote.pushDefault` 只在分叉工作流时存在"""
     changes: list[tuple[str, str | None, str | None, str | None]] = []
     for branch in observed.branches:
@@ -224,15 +231,17 @@ def _canonical_url(remotes: Mapping[str, str]) -> str:
 
 
 def _describe(solution: Solution) -> list[str]:
-    """把待施工项翻成 doctor 的一句话"""
+    """把待施工项翻成 doctor 的一句话；建议由 `problems()` 统一追加，这里不带"""
     items = [f"远端 {old} 应改名为 {new}" for old, new in solution.renames]
     items += [f"远端 {name} 缺失，应新增 {name} → {url}" for name, url in solution.additions]
     for key, value, current, projected in solution.configs:
-        expected = "未设置" if value is None else repr(value)
-        if projected == current:
-            items.append(f"git 配置 {key} 期望 {expected}，实际 {current!r}")
-        else:
-            items.append(f"git 配置 {key} 期望 {expected}，随远端改名将变成 {projected!r}")
+        expectation = Expectation(key, f"git 配置 {key}", value, advice="")
+        problem = expectation.judge(current)
+        if projected != current:
+            # 远端改名会顺手改写这个键，所以要连"改完变成什么"一起说
+            problem = f"{expectation.label} 期望 {value!r}，随远端改名将变成 {projected!r}"
+        if problem is not None:
+            items.append(problem)
     return items
 
 

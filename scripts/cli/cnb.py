@@ -7,18 +7,19 @@ CNB CLI 操作模块，封装常用 cnb 命令，返回结构化数据
 
 import json
 import re
-import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from cli import _process
+from cli.tool import Timeout, Tool
 from common.logger import info, warning
 
-DEFAULT_TIMEOUT = 120
-UPLOAD_TIMEOUT = 1800
+# 预签名 PUT 用 urllib 的 socket 读超时，与子进程的总时长不是一回事
+UPLOAD_SOCKET_TIMEOUT = 1800
 # 各接口表示「不存在」的 errcode 并不统一：
 #   git get-tag                 -> 2004002
 #   releases get-release-by-tag -> 404
@@ -29,6 +30,7 @@ _JSON_OBJECT_RE = re.compile(r"\{.*}", re.S)
 
 class CnbError(Exception):
     """cnb 操作失败的基类"""
+
     pass
 
 
@@ -49,42 +51,27 @@ def _redact(text: str) -> str:
     return _URL_RE.sub("<redacted-url>", text)
 
 
-def _run(args: list[str], *, timeout: float | int, text: bool = True) -> subprocess.CompletedProcess:
-    """
-    执行 cnb 命令并返回 CompletedProcess
-
-    :param args: cnb 子命令及其参数，如 ["auth", "status"]
-    :param timeout: 超时秒数
-    :param text: True 返回 str，False 返回原始 bytes
-    """
-    try:
-        return _process.run(["cnb", *args], timeout=timeout, text=text)
-    except _process.ProcessError as error:
-        if error.not_found:
-            raise CnbError("未找到 cnb 命令，请先安装 @cnbcool/cnb-cli 并加入 PATH") from error
-        if error.timed_out:
-            reason = f"超时（{timeout}s）"
-        elif error.returncode is None:
-            reason = "无法启动"
-        else:
-            reason = f"退出码 {error.returncode}"
-        detail = _redact(error.detail)
-        raise CnbError(f"cnb {' '.join(args)} 失败（{reason}）" + (f": {detail}" if detail else "")) from error
+def _translate(args: Sequence[str], failure: _process.ProcessError) -> Exception | None:
+    """cnb 会把上传凭据写进 URL 的 path 段，错误消息里的链接必须整条打码"""
+    if failure.not_found:
+        return None  # 交给默认的缺失提示
+    return CnbError(_redact(str(failure)))
 
 
-def stdout(args: list[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> str:
-    result = _run(args, timeout=timeout)
-    return str(result.stdout).strip()
-
-
-def stdout_byts(args: list[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> bytes:
-    return _run(args, timeout=timeout, text=False).stdout
+TOOL = Tool(
+    "cnb",
+    CnbError,
+    timeout=Timeout.NETWORK,
+    hint="请安装 @cnbcool/cnb-cli 并加入 PATH",
+    translate=_translate,
+)
 
 
 def auth() -> None:
     """检查 cnb 登录状态"""
     try:
-        stdout(["status"])
+        args = ["status"]
+        _ = TOOL.text(args, timeout=Timeout.NETWORK)
     except CnbError as e:
         raise CnbAuthError(f"cnb 未通过鉴权: {e}，请先 cnb login，或在环境中注入 CNB_TOKEN。") from e
 
@@ -99,18 +86,19 @@ def call(args: list[str]) -> Any:
         CnbApiError: data 含 errcode（标签 / 版本不存在等）
         CnbError: 命令失败或输出无法解析为 JSON
     """
-    raw = stdout([*args, "--verbose"])
+    args = [*args, "--verbose"]
+    raw = TOOL.text(args, timeout=Timeout.NETWORK)
     try:
         body = json.loads(raw)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as error:
         # 容错：个别版本会在 JSON 前后夹带提示文本，取最外层 {...} 再试一次
         match = _JSON_OBJECT_RE.search(raw)
         if not match:
-            raise CnbError(f"cnb {' '.join(args)} 输出无法解析为 JSON: {_redact(raw)[:500]}")
+            raise CnbError(f"cnb {' '.join(args)} 输出无法解析为 JSON: {_redact(raw)[:500]}") from error
         try:
             body = json.loads(match.group(0))
-        except json.JSONDecodeError as error:
-            raise CnbError(f"cnb {' '.join(args)} 输出无法解析为 JSON: {_redact(raw)[:500]}") from error
+        except json.JSONDecodeError as retry_error:
+            raise CnbError(f"cnb {' '.join(args)} 输出无法解析为 JSON: {_redact(raw)[:500]}") from retry_error
 
     data = body.get("data") if isinstance(body, dict) else None
     if isinstance(data, dict) and "errcode" in data:
@@ -191,16 +179,24 @@ def create_release(
     Raises:
         CnbError: 创建失败，或成功但未返回 id
     """
-    data = call([
-        "releases", "post-release",
-        "--repo", repo,
-        "--tag-name", tag,
-        "--name", name,
-        "--body-file", str(body_file),
-        "--make-latest", "true" if make_latest else "false",
-        *(["--draft"] if draft else []),
-        *(["--prerelease"] if prerelease else []),
-    ])
+    data = call(
+        [
+            "releases",
+            "post-release",
+            "--repo",
+            repo,
+            "--tag-name",
+            tag,
+            "--name",
+            name,
+            "--body-file",
+            str(body_file),
+            "--make-latest",
+            "true" if make_latest else "false",
+            *(["--draft"] if draft else []),
+            *(["--prerelease"] if prerelease else []),
+        ]
+    )
     release_id = data.get("id") if isinstance(data, dict) else None
     if not release_id:
         raise CnbError(f"创建 CNB Release 后未获取到 id: {json.dumps(data, ensure_ascii=False)[:300]}")
@@ -223,16 +219,24 @@ def update_release(
     ⚠️ `--draft` / `--prerelease` 只能置真（CLI 无 `=false`），所以这里只在 True 时传参：
         草稿转正必须手动改，或改用 `--data <json>`（见模块 docstring 已知限制）。
     """
-    call([
-        "releases", "patch-release",
-        "--repo", repo,
-        "--release-id", release_id,
-        "--name", name,
-        "--body-file", str(body_file),
-        "--make-latest", "true" if make_latest else "false",
-        *(["--draft"] if draft else []),
-        *(["--prerelease"] if prerelease else []),
-    ])
+    call(
+        [
+            "releases",
+            "patch-release",
+            "--repo",
+            repo,
+            "--release-id",
+            release_id,
+            "--name",
+            name,
+            "--body-file",
+            str(body_file),
+            "--make-latest",
+            "true" if make_latest else "false",
+            *(["--draft"] if draft else []),
+            *(["--prerelease"] if prerelease else []),
+        ]
+    )
 
 
 def _redact_object(value: Any) -> Any:
@@ -296,36 +300,53 @@ def _put_file(url: str, path: Path, size: int, *, timeout: float) -> None:
 
 def _confirm_upload(repo: str, release_id: str, verify_url: str) -> None:
     """从 verify_url 提取 upload_token / asset_path 并确认（URL 本身含凭据，不进日志）"""
-    segments = [urllib.parse.unquote(segment) for segment in urllib.parse.urlparse(verify_url).path.split("/") if segment]
+    path = urllib.parse.urlparse(verify_url).path
+    segments = [urllib.parse.unquote(segment) for segment in path.split("/") if segment]
     if len(segments) < 2:
         raise CnbError(f"verify_url 无法解析，无法提取上传凭据（共 {len(segments)} 段）")
     upload_token, asset_path = segments[-2], segments[-1]
-    call([
-        "releases", "post-release-asset-upload-confirmation",
-        "--repo", repo,
-        "--release-id", release_id,
-        "--upload-token", upload_token,
-        "--asset-path", asset_path,
-        "--ttl", "0",
-    ])
+    call(
+        [
+            "releases",
+            "post-release-asset-upload-confirmation",
+            "--repo",
+            repo,
+            "--release-id",
+            release_id,
+            "--upload-token",
+            upload_token,
+            "--asset-path",
+            asset_path,
+            "--ttl",
+            "0",
+        ]
+    )
 
 
-def upload_release_asset(repo: str, release_id: str, path: Path, *, timeout: float = UPLOAD_TIMEOUT) -> None:
+def upload_release_asset(repo: str, release_id: str, path: Path, *, timeout: float = UPLOAD_SOCKET_TIMEOUT) -> None:
     """
     上传附件到版本：申请预签名 URL → PUT 文件 → 确认上传。
 
     三步缺一不可：只 PUT 不确认的附件不会出现在版本页。
     """
     size = path.stat().st_size
-    data = call([
-        "releases", "post-release-asset-upload-url",
-        "--repo", repo,
-        "--release-id", release_id,
-        "--asset-name", path.name,
-        "--size", str(size),
-        "--overwrite",
-        "--ttl", "0",
-    ])
+    data = call(
+        [
+            "releases",
+            "post-release-asset-upload-url",
+            "--repo",
+            repo,
+            "--release-id",
+            release_id,
+            "--asset-name",
+            path.name,
+            "--size",
+            str(size),
+            "--overwrite",
+            "--ttl",
+            "0",
+        ]
+    )
     if not isinstance(data, dict):
         raise CnbError(f"获取附件上传地址失败: {_safe_payload(data)}")
     upload_url = data.get("upload_url")

@@ -4,15 +4,17 @@
 """
 自动更新清单实体
 """
+
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from common.entity.version import Version
 from common.enums.arch import Arch
 from common.enums.kind import Kind
 from common.enums.os import OS
 from common.enums.severity import Severity
+from common.enums.source import Source
 
 
 class ManifestError(Exception):
@@ -80,7 +82,7 @@ class Manifest:
         # publish_date
         if (not isinstance(self.publish_date, datetime)) or (self.publish_date.tzinfo is None):
             raise ManifestError("publish_date 必须是带时区的 datetime")
-        object.__setattr__(self, "publish_date", self.publish_date.astimezone(timezone.utc))
+        object.__setattr__(self, "publish_date", self.publish_date.astimezone(UTC))
 
         # severity
         if not isinstance(self.severity, Severity):
@@ -110,3 +112,8 @@ class Manifest:
                     # payload
                     if not isinstance(payload, Payload):
                         raise ManifestError(f"'platforms.{os.value}.{arch.value}.{kind}' 必须是 Payload: {payload!r}")
+
+    @staticmethod
+    def name(source: Source) -> str:
+        """清单文件名：latest-github.json / latest-cnb.json / latest-develop.json"""
+        return f"latest-{source.value}.json"

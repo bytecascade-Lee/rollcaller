@@ -15,9 +15,10 @@ import logging
 import os
 import re
 import sys
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from functools import cache
 from pathlib import Path
+from typing import override
 
 from common.constant.paths import DEVELOP_DATA_DIR, SCRIPTS_DIR
 from util.fs import relative_path
@@ -39,8 +40,7 @@ _SECRET_ENV_VARS = (
 _URL_USERINFO_RE = re.compile(r"(?<=://)([^/@:\s]+):([^@\s/]+)@")
 # 查询串中名字带敏感词的参数值，如 ?signature=...&upload_token=...
 _SENSITIVE_QUERY_RE = re.compile(
-    r"([?&][^&\s=]*(?:token|key|secret|password|signature|credential|sig)[^&\s=]*=)[^&\s]+",
-    re.IGNORECASE
+    r"([?&][^&\s=]*(?:token|key|secret|password|signature|credential|sig)[^&\s=]*=)[^&\s]+", re.IGNORECASE
 )
 # 形如 <含 TOKEN/KEY/SECRET/PASSWORD/CREDENTIAL 的变量名> 值 或 ": 值" 的赋值样式，值一律打码
 _ASSIGNMENT_RE = re.compile(
@@ -115,10 +115,12 @@ class LogFormatter(logging.Formatter):
         super().__init__()
         self.color = color
 
+    @override
     def formatTime(self, record, datefmt: str | None = None) -> str:
         """UTC、ISO 8601、毫秒、以 Z 结尾，不随机器时区漂移"""
         return format_to_iso_8601(datetime.fromtimestamp(record.created))
 
+    @override
     def format(self, record: logging.LogRecord) -> str:
         stamp = self.formatTime(record)
         tag = f"[{record.levelname}]".ljust(TAG_WIDTH)
@@ -147,7 +149,7 @@ class DailyFileHandler(logging.FileHandler):
 
     def __init__(self, log_root: Path, encoding: str = "UTF-8") -> None:
         self._log_root = log_root
-        self._current_date = datetime.now(tz=timezone.utc).date()
+        self._current_date = datetime.now(tz=UTC).date()
         # 全新克隆里 data/logs 不存在，而 delay=True 会把建文件拖到第一次 emit 之后
         self._path_for(self._current_date).parent.mkdir(parents=True, exist_ok=True)
         super().__init__(self._path_for(self._current_date), encoding=encoding, delay=True)
@@ -155,10 +157,11 @@ class DailyFileHandler(logging.FileHandler):
     def _path_for(self, d: date) -> Path:
         return self._log_root / f"{d.year}-{d.month:02}" / f"{d.isoformat()}.log"
 
+    @override
     def emit(self, record: logging.LogRecord) -> None:
         # 用记录自身的 created 时间，保证异步/队列场景正确
         try:
-            d = datetime.fromtimestamp(record.created, tz=timezone.utc).date()
+            d = datetime.fromtimestamp(record.created, tz=UTC).date()
             if d != self._current_date:
                 self._current_date = d
                 self.close()

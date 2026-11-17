@@ -10,15 +10,14 @@ GitHub CLI 操作模块，封装常用 gh 命令 / REST 请求，返回结构化
 
 import json
 import re
-import subprocess
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, Any
+from typing import Any
 from urllib.parse import urlencode
 
 from cli import _process
+from cli.tool import Timeout, Tool
 
-DEFAULT_TIMEOUT = 120
-UPLOAD_TIMEOUT = 1800
 PAGE_SIZE = 100
 MAX_PAGES = 100
 _HTTP_STATUS_RE = re.compile(r"HTTP\s+(\d{3})")
@@ -26,49 +25,37 @@ _HTTP_STATUS_RE = re.compile(r"HTTP\s+(\d{3})")
 
 class GhError(Exception):
     """gh 操作失败的基类"""
+
     pass
 
 
 class GhAuthError(GhError):
     """gh 未登录或缺少凭据"""
+
     pass
 
 
-def _run(args: list[str], *, timeout: float | int, text: bool = True) -> subprocess.CompletedProcess:
-    """
-    执行 gh 命令并返回 CompletedProcess
-
-    :param args: gh 子命令及其参数，如 ["auth", "status"]
-    :param timeout: 超时秒数
-    :param text: True 返回 str，False 返回原始 bytes
-
-    :raise GhError: 未找到 gh 命令，或命令超时，或命令执行失败
-    :raise GhAuthError: HTTP 401，或 auth 子命令本身失败
-    """
-    try:
-        return _process.run(["gh", *args], timeout=timeout, text=text)
-    except _process.ProcessError as error:
-        # 401 是凭据问题，任何调用点都应立刻可见；403 可能是限流，不并进来
-        if args[:2] == ["auth", "status"] or http_status_from_text(error.detail) == 401:
-            raise GhAuthError(f"gh 鉴权失败: {error.detail or error}") from error
-        raise GhError(str(error)) from error
+def _translate(args: Sequence[str], failure: _process.ProcessError) -> Exception | None:
+    """401 是凭据问题，任何调用点都应立刻可见；403 可能是限流，不并进来"""
+    if args[:2] == ["auth", "status"] or http_status_from_text(failure.detail) == 401:
+        return GhAuthError(f"gh 鉴权失败: {failure.detail or failure}")
+    return None
 
 
-def stdout(args: list[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> str:
-    """执行 gh 命令，返回 utf-8 解码并 strip 后的 stdout"""
-    result = _run(args, timeout=timeout)
-    return str(result.stdout).strip()
-
-
-def stdout_bytes(args: list[str], *, timeout: float | int = DEFAULT_TIMEOUT) -> bytes:
-    """执行 gh 命令，返回原始字节 stdout"""
-    return _run(args, timeout=timeout, text=False).stdout
+TOOL = Tool(
+    "gh",
+    GhError,
+    timeout=Timeout.NETWORK,
+    hint="请安装 GitHub CLI 并加入 PATH：https://cli.github.com/",
+    translate=_translate,
+)
 
 
 def auth() -> None:
     """检查 gh 登录状态"""
     try:
-        stdout(["auth", "status"])
+        args = ["auth", "status"]
+        _ = TOOL.text(args, timeout=Timeout.NETWORK)
     except GhError as e:
         raise GhAuthError(f"gh 未通过鉴权：{e}，请先运行 gh auth login，或在环境中导出 GH_TOKEN") from e
 
@@ -89,7 +76,8 @@ def api_get(repo: str, endpoint: str, params: dict[str, Any] | None = None) -> A
     """
     query = f"?{urlencode(params)}" if params else ""
     url = f"{api_path(repo, endpoint)}{query}"
-    output = stdout(["api", url])
+    args = ["api", url]
+    output = TOOL.text(args, timeout=Timeout.NETWORK)
     if not output:
         raise GhError(f"gh api {url} 返回空响应")
     try:
@@ -108,7 +96,7 @@ def api_get_or_none(repo: str, endpoint: str, params: dict[str, Any] | None = No
         raise
 
 
-def api_pages(repo: str, endpoint: str, list_key: str, params: dict[str, Any] | None = None) -> list[dict]:
+def api_pages(repo: str, endpoint: str, list_key: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """
     自动翻页拉取列表型响应中的数组字段
 
@@ -119,7 +107,7 @@ def api_pages(repo: str, endpoint: str, list_key: str, params: dict[str, Any] | 
 
     :raise GhError: 分页超过 MAX_PAGES，表表明接口语义变化或服务端异常
     """
-    items: list[dict] = []
+    items: list[dict[str, Any]] = []
     for page in range(1, MAX_PAGES + 1):
         body = api_get(repo, endpoint, {**(params or {}), "per_page": PAGE_SIZE, "page": page})
         chunk = body.get(list_key) if isinstance(body, dict) else None
@@ -151,7 +139,8 @@ def ref_commit_sha(repo: str, ref: str) -> str | None:
 
 def create_tag(repo: str, tag: str, sha: str) -> None:
     """创建轻量标签 refs/tags/<tag> 指向 sha（API 建 ref 不会触发 push 事件）"""
-    stdout(["api", api_path(repo, "git/refs"), "-f", f"ref=refs/tags/{tag}", "-f", f"sha={sha}"])
+    args = ["api", api_path(repo, "git/refs"), "-f", f"ref=refs/tags/{tag}", "-f", f"sha={sha}"]
+    _ = TOOL.text(args, timeout=Timeout.NETWORK)
 
 
 def release_exists(repo: str, tag: str) -> bool:
@@ -171,17 +160,22 @@ def create_release(
 ) -> None:
     """创建 Release，附件随创建一并上传（tag 须已存在）"""
     args = [
-        "release", "create", tag,
-        "--repo", repo,
-        "--title", title,
-        "--notes-file", str(notes_file),
+        "release",
+        "create",
+        tag,
+        "--repo",
+        repo,
+        "--title",
+        title,
+        "--notes-file",
+        str(notes_file),
     ]
     if draft:
         args.append("--draft")
     if prerelease:
         args.append("--prerelease")
     args += [str(path) for path in files]
-    stdout(args, timeout=UPLOAD_TIMEOUT)
+    _ = TOOL.text(args, timeout=Timeout.EXTENDED)
 
 
 def edit_release(
@@ -199,22 +193,73 @@ def edit_release(
     draft / prerelease 都显式传布尔值：重跑时若上一轮是草稿 / 预发布、本轮要转正，
     需要 `--draft=false` / `--prerelease=false` 把状态改回来（两个方向都幂等）。
     """
-    stdout([
-        "release", "edit", tag,
-        "--repo", repo,
-        "--title", title,
-        "--notes-file", str(notes_file),
+    args = [
+        "release",
+        "edit",
+        tag,
+        "--repo",
+        repo,
+        "--title",
+        title,
+        "--notes-file",
+        str(notes_file),
         "--draft" if draft else "--draft=false",
         "--prerelease" if prerelease else "--prerelease=false",
-    ])
+    ]
+    _ = TOOL.text(args, timeout=Timeout.NETWORK)
 
 
 def upload_release_assets(repo: str, tag: str, files: Iterable[Path]) -> None:
     """上传附件到既有 Release，同名附件覆盖（--clobber）"""
-    stdout(
-        ["release", "upload", tag, "--repo", repo, "--clobber", *[str(path) for path in files]],
-        timeout=UPLOAD_TIMEOUT,
-    )
+    args = ["release", "upload", tag, "--repo", repo, "--clobber", *[str(path) for path in files]]
+    _ = TOOL.text(args, timeout=Timeout.EXTENDED)
+
+
+def pr_open_numbers(repo: str, head: str) -> list[int]:
+    """该 head 分支上处于打开状态的 PR 编号；没有则返回空列表"""
+    args = [
+        "pr",
+        "list",
+        "--repo",
+        repo,
+        "--head",
+        head,
+        "--state",
+        "open",
+        "--json",
+        "number",
+        "--limit",
+        str(PAGE_SIZE),
+    ]
+    output = TOOL.text(args, timeout=Timeout.NETWORK)
+    if not output:
+        return []
+    try:
+        data = json.loads(output)
+    except json.JSONDecodeError as error:
+        raise GhError(f"gh pr list 返回非 JSON: {error}") from error
+    if not isinstance(data, list):
+        raise GhError(f"gh pr list 返回的不是数组: {output[:120]!r}")
+    return [int(item["number"]) for item in data if isinstance(item, dict) and "number" in item]
+
+
+def pr_create(repo: str, head: str, base: str, title: str, body: str) -> str:
+    """创建 PR，返回 gh 打印的 PR 地址；同 head/base 已有打开 PR 时 gh 会报错"""
+    args = [
+        "pr",
+        "create",
+        "--repo",
+        repo,
+        "--head",
+        head,
+        "--base",
+        base,
+        "--title",
+        title,
+        "--body",
+        body,
+    ]
+    return TOOL.text(args, timeout=Timeout.NETWORK)
 
 
 def http_status(error: GhError) -> int | None:

@@ -4,6 +4,11 @@ packages:
 allowBuilds:
     esbuild: true
 
+# eslint / @typescript-eslint 仍把 minimatch 钉在 ^10，而 advisory 要求 >= 11.0.1；
+# 只改 minimatch 本身拉不动父包，故在解析期统一抬到 11.0.8（另有 GHSA 覆盖到 11.0.7）
+overrides:
+    minimatch@>=10 <11: ^11.0.8
+
 minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:

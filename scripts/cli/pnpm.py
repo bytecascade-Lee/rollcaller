@@ -5,58 +5,53 @@
 pnpm 命令封装
 """
 
-import subprocess
-from pathlib import Path
-
-from cli import _process
-from cli._version import version_string
+from cli.tool import Timeout, Tool
 from common.constant.paths import FRONTEND_DIR
-
-# 单条 pnpm 命令的最大超时时长（秒）
-RUN_TIMEOUT = 900
 
 
 class PnpmError(Exception):
     """pnpm 命令无法启动或执行失败"""
 
 
-def _run(args: list[str], *, cwd: Path | None = None, timeout: float | int = RUN_TIMEOUT,
-         capture: bool = True) -> subprocess.CompletedProcess:
-    """执行 pnpm 命令，失败统一包成 PnpmError"""
-    cwd = cwd or FRONTEND_DIR
-    try:
-        return _process.run(["pnpm", *args], cwd=cwd, timeout=timeout, capture=capture)
-    except _process.ProcessError as error:
-        if error.not_found:
-            raise PnpmError("未找到 'pnpm'，请安装后加入 PATH") from error
-        raise PnpmError(str(error)) from error
+# 工作目录由描述符固定：cwd 是执行环境而不是命令输入，故下面的函数一律不再暴露该参数。
+TOOL = Tool(
+    "pnpm",
+    PnpmError,
+    cwd=FRONTEND_DIR,
+    timeout=Timeout.NORMAL,
+    hint="请安装 pnpm 并加入 PATH：https://pnpm.io/installation",
+)
 
 
-def version() -> str | None:
-    """`pnpm --version` 里的版本号；输出认不出时返回 None"""
-    return version_string(str(_run(["--version"]).stdout))
-
-
-def install(*, cwd: Path | None = None) -> None:
+def install() -> None:
     """按 lockfile 安装前端依赖"""
-    _run(["install", "--frozen-lockfile"], cwd=cwd, capture=False)
+    _ = TOOL.run(["install", "--frozen-lockfile"], timeout=Timeout.EXTENDED, capture=False)
 
 
-def test(*, cwd: Path | None = None) -> None:
+def test() -> None:
     """运行前端单元测试（`package.json` 的 test 脚本），输出直接进控制台"""
-    _run(["test"], cwd=cwd, capture=False)
+    _ = TOOL.run(["test"], capture=False)
 
 
-def lint(*, cwd: Path | None = None) -> None:
+def lint() -> None:
     """运行 ESLint（`package.json` 的 lint 脚本），输出直接进控制台"""
-    _run(["lint"], cwd=cwd, capture=False)
+    _ = TOOL.run(["lint"], capture=False)
 
 
-def check(*, cwd: Path | None = None) -> None:
+def typecheck() -> None:
     """运行 svelte-check 类型检查（`package.json` 的 check 脚本），输出直接进控制台"""
-    _run(["check"], cwd=cwd, capture=False)
+    _ = TOOL.run(["check"], capture=False)
 
 
-def format_check(*, cwd: Path | None = None) -> None:
-    """检查格式是否符合 Prettier（`format:check` 脚本），不写文件"""
-    _run(["format:check"], cwd=cwd, capture=False)
+def licenses() -> str:
+    """生产依赖的许可证清单，JSON 格式：`pnpm licenses list --prod --json`"""
+    return TOOL.text(["licenses", "list", "--prod", "--json"])
+
+
+def format(*, check: bool = False) -> None:
+    """
+    格式化前端：写文件走 `format` 脚本，只检查走 `format:check` 脚本
+
+    :param check: True 时只检查不写文件
+    """
+    _ = TOOL.run(["format:check" if check else "format"], capture=False)

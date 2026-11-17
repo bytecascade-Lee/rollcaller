@@ -28,19 +28,21 @@ class KindStyle(StrEnum):
 class Kind(Enum):
     """更新载荷类型"""
 
+    MSI = (KindStyle.SETUP, ((OS.WINDOWS, ".msi"),))
     NSIS = (KindStyle.SETUP, ((OS.WINDOWS, ".exe"),))
 
     DMG = (KindStyle.SETUP, ((OS.MACOS, ".dmg"),))
 
+    RPM = (KindStyle.SETUP, ((OS.LINUX, ".rpm"),))
     DEB = (KindStyle.SETUP, ((OS.LINUX, ".deb"),))
     APPIMAGE = (KindStyle.SETUP, ((OS.LINUX, ".AppImage"),))
 
-    PORTABLE = (KindStyle.PORTABLE, ((OS.WINDOWS, ".zip"),))
-    DEVELOP = (KindStyle.DEVELOP, ((OS.WINDOWS, ".zip"), (OS.LINUX, ".tar.gz")))
+    PORTABLE = (KindStyle.PORTABLE, ((OS.WINDOWS, ".zip"), (OS.LINUX, ".tar.gz")))
+
+    DEVELOP = (KindStyle.DEVELOP, ((OS.WINDOWS, ".zip"), (OS.MACOS, ".tar.gz"), (OS.LINUX, ".tar.gz")))
 
     def __init__(self, style: KindStyle, extensions: tuple[tuple[OS, str], ...]) -> None:
         self.key = self.name.lower()
-        self.role = style.value.lower()
         self.style = style
         self.bundle = self.name.lower() if style is KindStyle.SETUP else None
         self.extensions: Mapping[OS, str] = MappingProxyType(dict(extensions))
@@ -55,7 +57,8 @@ class Kind(Enum):
         """该载荷在指定系统上的扩展名，系统不匹配时抛 KindOSError"""
         if os not in self.oses:
             raise KindOSError(
-                f"载荷 {self.key!r} 不支持 {os.value!r}，当前仅支持 {join_repr(o.value for o in self.oses)}")
+                f"载荷 {self.key!r} 不支持 {os.value!r}，当前仅支持 {join_repr(o.value for o in self.oses)}"
+            )
         return self.extensions[os]
 
     def __str__(self) -> str:

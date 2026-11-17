@@ -14,7 +14,7 @@ JSON 契约符合 Rust 侧的 `crate::common::entity::update::UpdateManifest`，
 import json
 import re
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from common.entity.asset import Asset
@@ -63,9 +63,15 @@ def payload(source: Source, version: Version, asset: Asset) -> Payload:
     )
 
 
-def build(version: Version, notes: str, severity: Severity,
-          assets: Sequence[Asset], source: Source, *,
-          publish_date: datetime | None = None) -> Manifest:
+def build(
+    version: Version,
+    notes: str,
+    severity: Severity,
+    assets: Sequence[Asset],
+    source: Source,
+    *,
+    publish_date: datetime | None = None,
+) -> Manifest:
     """把同一版本的产物按 os / arch / kind 聚合成清单实体"""
     if not assets:
         raise ManifestError("没有可写入清单的产物")
@@ -85,7 +91,7 @@ def build(version: Version, notes: str, severity: Severity,
     return Manifest(
         version=version,
         release_notes=notes,
-        publish_date=publish_date or datetime.now(timezone.utc),
+        publish_date=publish_date or datetime.now(UTC),
         severity=severity,
         platforms=platforms,
     )
@@ -133,8 +139,8 @@ def to_dict(manifest: Manifest) -> dict[str, object]:
 
 
 def write(manifest: Manifest, path: Path) -> Path:
-    """写入 latest-*.json，2 空格缩进、UTF-8"""
+    """写入 latest-*.json，2 空格缩进、UTF-8、LF 行尾"""
     path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(to_dict(manifest), ensure_ascii=False, indent=2)
-    path.write_text(text, encoding="UTF-8")
+    path.write_text(text, encoding="UTF-8", newline="\n")
     return path

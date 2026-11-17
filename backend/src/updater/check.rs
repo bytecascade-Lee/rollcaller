@@ -1,0 +1,84 @@
+//! 更新检查：拉版本索引挑"最高可安装版本" -> 拉该版本清单（缓存优先）-> 一致性复判 -> 组装命中结果
+
+use crate::common::constant::sys::{ARCH, OS};
+use crate::config::app_paths::AppMode;
+use crate::updater::model::{
+    FoundUpdate, Policy, UpdateCandidate, UpdateDecision, UpdateInfo, UpdateManifest, UpdateSource,
+};
+use crate::updater::remote::{fetch, index, manifest};
+use crate::updater::urls::{manifest_url, versions_index_url};
+use crate::updater::{decide, paths};
+use anyhow::anyhow;
+use reqwest::Client;
+use semver::Version;
+use tracing::{debug, warn};
+
+/// 检查是否有可用更新（`Ok(None)` = 无更新）
+pub async fn check(
+    client: &Client,
+    source: UpdateSource,
+    current: &Version,
+    policy: &Policy,
+    mode: AppMode,
+) -> anyhow::Result<Option<FoundUpdate>> {
+    let index_text = fetch::fetch_json_text(client, &versions_index_url(source)).await?;
+    let candidates = index::parse_index(&index_text)?;
+    debug!(count = candidates.len(), source = ?source, "已拉取版本索引");
+
+    let Some(target) = index::pick_target(current, &candidates, policy)? else {
+        debug!("索引里没有满足渠道与门槛的版本");
+        return Ok(None);
+    };
+
+    let url = manifest_url(source, &target.version);
+    let cache_path = paths::manifest(&source, &target.version);
+    let bytes = manifest::load(client, &url, &cache_path, target.manifests.get(source)).await?;
+    let manifest = manifest::parse_manifest(&bytes)?;
+
+    validate(current, policy, &target.version, &manifest, mode)
+}
+
+/// 一致性复判 + 取当前形态产物 + 组装命中结果
+fn validate(
+    current: &Version,
+    policy: &Policy,
+    expected: &Version,
+    manifest: &UpdateManifest,
+    mode: AppMode,
+) -> anyhow::Result<Option<FoundUpdate>> {
+    if manifest.version != *expected {
+        return Err(anyhow!(
+            "版本索引与清单不一致：索引指向 {expected}，清单返回 {}",
+            manifest.version
+        ));
+    }
+    let reason = match decide::decide(current, &manifest.version, policy, manifest.severity) {
+        // 索引按同一套判定筛过，这里被拦说明两侧结论不一致（多半是发布端 severity 写错）
+        UpdateDecision::Skip(reason) => {
+            return Err(anyhow!(
+                "版本索引与清单不一致：{} 被最终判定拦下（{reason:?}）",
+                manifest.version
+            ))
+        }
+        UpdateDecision::Update(reason) => reason,
+    };
+    let Some(artifact) = manifest.get_artifact(OS, ARCH, mode) else {
+        warn!("更新清单 {} 未提供当前平台的产物（{OS} / {ARCH} / {mode}）", manifest.version);
+        return Ok(None);
+    };
+
+    Ok(Some(FoundUpdate {
+        candidate: UpdateCandidate {
+            info: UpdateInfo {
+                version: manifest.version.clone(),
+                notes: manifest.release_notes.clone(),
+                date: manifest
+                    .publish_date
+                    .map(|d| crate::util::time_utils::ISO8601(&d).to_string()),
+            },
+            severity: manifest.severity,
+            reason,
+        },
+        artifact,
+    }))
+}

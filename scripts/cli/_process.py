@@ -8,9 +8,9 @@
 import os
 import shutil
 import subprocess
-from collections.abc import Collection
+from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, override
 
 from common.logger import debug
 
@@ -20,10 +20,17 @@ _ALL_WINDOWS_SUFFIXES = _WINDOWS_SUFFIXES + (".com",)
 
 
 class ProcessError(Exception):
-
-    def __init__(self, argv: Sequence[str], *, return_code: int | None = None,
-                 stdout: str = "", stderr: str = "",
-                 timed_out: bool = False, not_found: bool = False) -> None:
+    def __init__(
+        self,
+        argv: Sequence[str],
+        *,
+        return_code: int | None = None,
+        stdout: str = "",
+        stderr: str = "",
+        timed_out: bool = False,
+        not_found: bool = False,
+        timeout: float | int | None = None,
+    ) -> None:
         """
         外部进程无法启动、超时，或退出码不在允许集合内。
 
@@ -33,6 +40,7 @@ class ProcessError(Exception):
         :param stderr: 捕获到的标准错误；capture=False 时为空串
         :param timed_out: 是否因超时被终止
         :param not_found: 是否连可执行文件都没找到
+        :param timeout: 本次的超时秒数，仅用于把「等了多久」写进超时消息
         """
         if not argv:
             raise ValueError("argv 不能为空")
@@ -42,6 +50,7 @@ class ProcessError(Exception):
         self.stderr = stderr
         self.timed_out = timed_out
         self.not_found = not_found
+        self.timeout = timeout
         super().__init__(self._describe())
 
     @property
@@ -54,12 +63,15 @@ class ProcessError(Exception):
         if self.not_found:
             return f"未找到可执行文件 {self.argv[0]!r}，请确认已安装并加入 PATH"
         if self.timed_out:
-            return f"{command!r} 执行超时{detail}"
+            waited = f"{self.timeout:g}s" if self.timeout is not None else ""
+            return f"{command!r} 执行超时{waited}{detail}"
         return f"{command!r} 失败，退出码为 {self.returncode}{detail}"
 
+    @override
     def __reduce__(self):
         return self.__class__, (self.argv,), self.__dict__
 
+    @override
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.args = (self._describe(),)
@@ -105,17 +117,26 @@ def _candidate_names(program: str) -> tuple[str, ...]:
     return *[program + suffix for suffix in _WINDOWS_SUFFIXES], program
 
 
-def build_argv(argv: Sequence[str]) -> list[str]:
+def build_argv(argv: Sequence[str], *, search_dir: Path | None = None) -> list[str]:
     """把逻辑 argv 中的 program 解析成真实路径"""
     if not argv:
         raise ValueError("argv 不能为空")
     program, *rest = argv
-    return [resolve(program), *rest]
+    return [resolve(program, search_dir=search_dir), *rest]
 
 
-def run(argv: Sequence[str], *, cwd: Path | None = None, timeout: float | int | None = None,
-        env: Mapping[str, str] | None = None, capture: bool = True, text: bool = True,
-        stdin: int | None = None, allow: Collection[int] = ()) -> subprocess.CompletedProcess[Any]:
+def run(
+    argv: Sequence[str],
+    *,
+    cwd: Path | None = None,
+    timeout: float | int | None = None,
+    env: Mapping[str, str] | None = None,
+    capture: bool = True,
+    text: bool = True,
+    stdin: int | None = None,
+    allow: Collection[int] = (),
+    search_dir: Path | None = None,
+) -> subprocess.CompletedProcess[Any]:
     """执行外部命令
 
     :param argv:    逻辑 argv，如 ["git", "rev-parse", "HEAD"]
@@ -126,11 +147,12 @@ def run(argv: Sequence[str], *, cwd: Path | None = None, timeout: float | int | 
     :param text:    True 按 utf-8 解码为 str，False 返回原始 bytes
     :param stdin: 默认继承；CI 传 subprocess.DEVNULL
     :param allow:   **额外**允许的退出码；0 恒允许（"对象不存在"这类约定俗成的非零码放这里）
+    :param search_dir: 只在指定目录里解析 program；None 表示走系统 PATH
 
     :raise ProcessError: 无法启动、超时，或退出码既不是 0 也不在 allow 内
     """
     debug(f"执行: {' '.join(argv)}（cwd={cwd or 'INHERIT'}）")
-    exec_argv = build_argv(argv)
+    exec_argv = build_argv(argv, search_dir=search_dir)
 
     kwargs: dict[str, Any] = {"cwd": cwd, "env": env, "check": False, "stdin": stdin}
     if text:
@@ -150,6 +172,7 @@ def run(argv: Sequence[str], *, cwd: Path | None = None, timeout: float | int | 
         raise ProcessError(
             argv,
             timed_out=True,
+            timeout=timeout,
             stdout=_as_text(error.stdout),
             stderr=_as_text(error.stderr),
         ) from error

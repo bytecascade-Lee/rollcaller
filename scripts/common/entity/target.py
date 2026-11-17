@@ -1,14 +1,16 @@
 from dataclasses import dataclass, field
+from typing import override
 
 from common.enums.action import Action, UnsupportedActionError
-from common.enums.arch import ArchTypeError, Arch
+from common.enums.arch import Arch, ArchTypeError
 from common.enums.kind import Kind
-from common.enums.os import OSTypeError, OS
+from common.enums.os import OS, OSTypeError
 from util.str_format import join_repr
 
 
 class UnsupportedTargetError(Exception):
     """不支持的 rust 目标三元组"""
+
     pass
 
 
@@ -42,6 +44,7 @@ class Target:
             raise ArchTypeError(f"无法从目标三元组 {triple!r} 识别出 CPU 架构")
         return arch
 
+    @override
     def __str__(self) -> str:
         return self.triple
 

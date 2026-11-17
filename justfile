@@ -36,9 +36,13 @@ dev-fe:
 build ver target:
     {{ uv }} run python {{ scripts_dir }}/build.py -v {{ ver }} -t {{ target }} -m local
 
-# 本地出包后驻留更新服务，需先 build 同一版本
-release ver:
-    {{ uv }} run python {{ scripts_dir }}/release.py -v {{ ver }} -m local
+# 本地出包：构建目录 → 清单 + 版本索引（不驻留），需先 build 同一版本
+release ver severity:
+    {{ uv }} run python {{ scripts_dir }}/release.py -v {{ ver }} -s {{ severity }} -m local
+
+# 本地更新源：把一个构建目录 serve 成 Develop 源，用法: just serve [目录名] [-r KBPS]；无参取最新且完整的构建
+serve *args:
+    {{ uv }} run python {{ scripts_dir }}/serve.py {{ args }}
 
 # 仅构建前端
 build-fe:
@@ -72,15 +76,27 @@ check-fe:
 check-be target:
     cd {{ backend_dir }} && cargo check --target {{ target }}
 
-# 后端格式化
-fmt:
-    cd {{ backend_dir }} && cargo fmt
+# 格式化全部代码：前端 Prettier、后端 rustfmt、脚本 ruff format
+format:
+    {{ uv }} run python {{ scripts_dir }}/format.py
 
 # 脚本工具
 
-# 打发布 tag，用法: just bump patch / just bump prerelease --serial
+# 打发布 tag（只校验版本索引，不跑检查与测试），用法: just bump patch / just bump prerelease --serial
 bump *args:
     {{ uv }} run python {{ scripts_dir }}/bump.py {{ args }}
+
+# 把线上清单的 sha256 回填进仓库版本索引，用法: just backfill-versions / just backfill-versions -v 0.8.6
+backfill-versions *args:
+    {{ uv }} run python {{ scripts_dir }}/backfill_versions.py {{ args }}
+
+# 发布后自检：逐源逐版本核对线上清单 / 版本索引，用法: just verify-release / just verify-release -v 0.8.5
+verify-release *args:
+    {{ uv }} run python {{ scripts_dir }}/verify_release.py {{ args }}
+
+# 重新生成代码（开发时手动刷新，流水线不走这里）
+generate:
+    {{ uv }} run python {{ scripts_dir }}/generate.py
 
 # 生成提交信息
 gen-msg *args:

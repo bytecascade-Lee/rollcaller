@@ -1,5 +1,6 @@
-use crate::config::{app_paths, logger};
+use crate::config::{app_info, app_paths};
 use crate::database::{database_bootstrap, database_pool};
+use crate::logger;
 use anyhow::{anyhow, Context, Result};
 use std::fs;
 use std::io;
@@ -10,16 +11,18 @@ use tracing::{debug, info};
 ///
 /// 执行顺序：
 /// 1. 初始化日志系统——最先，之后每一步的输出与失败原因都能落进日志；也可先于
-///    目录准备调用（`logger::build` 建不出文件层时降级，不 panic）
-/// 2. 回显应用路径（与 `--app-paths` 同形的单行 JSON，debug 级）
-/// 3. 创建应用运行所需的全部目录（config / data / cache / temp / logs / webview）
-/// 4. 校验数据目录可读可写（打包后的常见失败点：安装目录不可写）
-/// 5. 初始化数据库连接池并执行迁移
+///    目录准备调用（`crate::logger::build` 建不出文件层时降级，不 panic）
+/// 2. 打印启动身份行（版本 / 形态 / 构建提交）
+/// 3. 回显应用路径（与 `--app-paths` 同形的单行 JSON，debug 级）
+/// 4. 创建应用运行所需的全部目录（config / data / cache / temp / logs / webview）
+/// 5. 校验数据目录可读可写（打包后的常见失败点：安装目录不可写）
+/// 6. 初始化数据库连接池并执行迁移
 ///
 /// 任一步骤失败都会返回错误，由调用方（Tauri setup 钩子）弹出原生对话框提示，
 /// 避免打包后应用启动失败却无任何报错输出。
 pub async fn init() -> Result<()> {
     logger::init();
+    log_identity();
     debug!("应用路径：{}", serde_json::to_string(app_paths::paths()).unwrap_or_default());
 
     ensure_directories()?;
@@ -27,6 +30,20 @@ pub async fn init() -> Result<()> {
     database_bootstrap::init().await?;
     register_exit_hooks();
     Ok(())
+}
+
+/// 启动身份行：版本 / 形态 / 构建提交
+///
+/// 排障时用户能给的第一份材料，也是「换了个版本以后就不对」这类反馈唯一的判断依据。
+fn log_identity() {
+    let meta = app_info::app_info();
+    info!(
+        version = %meta.version,
+        mode = %app_paths::current_mode().slug(),
+        target = %meta.target,
+        commit = %meta.build_info.abbreviated_hash,
+        "启动"
+    );
 }
 
 /// 注册进程退出前的清理钩子（供更新安装链路 spawn 成功后统一执行）

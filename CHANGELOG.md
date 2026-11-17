@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ## Table of Contents
 
+- [0.8.6](#0-8-6) — Pinned manifest digests for auto-update, logger package with retention, third-party license page, updater decision rewrite.
 - [0.8.5](#0-8-5) — ISO 8601 timestamps (V40 migration), export status-code fix, routing and toolchain rework.
 - [0.8.4](#0-8-4) — Republish of 0.8.3 content, release job dependency fix.
 - [0.8.3](#0-8-3) — Embedded migrations with pre-upgrade snapshots, CLI diagnostics, unified shutdown flow, 78% smaller frontend bundle.
@@ -25,6 +26,66 @@ All notable changes to this project will be documented in this file.
 - [0.2.0](#0-2-0) — Click-outside/positioning utils, export modes/feedback, UI polish.
 - [0.1.0](#0-1-0) — First stable: CSS design system, components, rollcall engine.
 - [0.1.0-rc.1](#0-1-0-rc1) — Initial RC: core architecture, CRUD, import/export, SQLite, Svelte.
+
+## 0.8.6 {#0-8-6}
+
+### Added
+
+- 新增 `updater` 顶层模块：check / download / cancel / install 编排收敛为不依赖 `AppHandle` 的纯 Rust，拆出 `model` / `decide` / `urls` / `verify` / `paths` / `state` / `remote` / `install/windows`；原 `service/update`、`state/update.rs`、`common/{entity,enums,constant}/update*` 一并迁入
+- 新增清单摘要体系：`ManifestDigest` / `ManifestDigests` 与 `HistoryVersion.manifests`，按源记录 `latest-<slug>.json` 的 sha256 与 minisign 签名；`remote/manifest.rs::load` 以「能解析 + 签名成立 + 摘要逐字匹配」判定缓存可信，不符即删缓存回源，回源摘要不符时本次可用但不写缓存（`tmp + rename` 原子写）
+- 新增 `verify_manifest`：清单签名 fail closed（空签名直接拒绝），sha256 由 `manifest::load` 单独比对；`release_local` 与 CI 共用 `sign_and_digest`，`develop` 清单同样签名
+- 新增 `UpdateCandidate{info, severity, reason}` 与三态视图（available / downloading / downloaded）统一的候选投影，`UpdateReason` 导出到前端
+- 新增清单三平台并列模型：`ManifestPlatforms{windows, macos, linux}` 与 `ManifestArches::get(arch)`，`Payloads` 补齐 msi / dmg / rpm / deb / appimage 槽位，槽名与 `AppMode::slug()`、发布端 `Kind.key` 对齐
+- 新增 `logger` 包：`logger.rs`（装配与装配顺序）、`format.rs`（行格式）、`retention.rs`（空文件 / 超龄 / 超量回收）、`policy.rs`（`LogLevel` + `LoggerPolicy`）；文件层改用 `reload::Layer`，新增 `logger_set_level` 命令支持运行期切换
+- 新增 IPC 错误出口 `cmd::ipc_err`（记 ERROR 并展开 anyhow 的 `Caused by` 链）与 `cmd::ipc_refuse`（入口拒绝记 WARN），命令层不再自行 `e.to_string()`
+- 新增启动身份行（版本 / 形态 / 目标三元组 / 构建短哈希）与 `shutdown_hooks` 的退出起止日志
+- 新增第三方许可证清单生成器 `codegen/third_party_licenses.py`：数据源为 `cargo licenses`（`cargo metadata --offline --locked --filter-platform`）与 `pnpm licenses list --prod --json`，含 SPDX 表达式解析、许可正文特征识别与 `LICENSE_OVERRIDES` 兜底，产出 `resources/help/third-party-licenses/third-party-licenses-zh-CN.md`
+- 新增帮助窗口「第三方许可证」页与对应 `entries.generated.ts` 路由（许可类型汇总 + 各许可锚点）
+- 新增发布工具：`release/fetch.py`、`release/audit.py`（逐源逐版本核对索引 / 摘要 / 签名 / 版本 / severity / 产物 HEAD 200）、`release/backfill.py`（按线上清单字节回填摘要）、`verify_release.py` 与 `backfill_versions.py` 两个入口，以及 `just verify-release` / `backfill-versions` / `generate` / `serve`
+- 新增本地更新源独立服务 `scripts/serve.py` + `serve/` 包（FastAPI、产物限速、首页自检、`/-/releases/` 兼容路径），`just serve` 可单独起停，`release_local` 只写清单与索引
+- 新增 `common/constant/updater.py` 契约常量（`DEVELOP_HOST` / `DEVELOP_PORT` / `DEVELOP_BASE` / `VERSIONS_INDEX_FILENAME`）与 `Manifest.name(source)`，发布端与本地服务共用一份
+- 新增脚本基座：`cli/tool.py` 的 `Tool` 描述符与 `Timeout` 四档（QUERY / NORMAL / NETWORK / EXTENDED）、`setup/expectation.py` 的 `Expectation` + `Relation`、`scripts/format.py`、`scripts/generate.py`；`check.py` 增加脚本入口 / 格式 / lint / 类型四步
+- 新增 `cargo.lock()`（`cargo update --workspace --offline`）并与 `version_files.sync` 联动，改写版本号后立即刷新锁文件
+- 前端新增更新三件套：`UpdaterButton`（标题栏图标）、`UpdaterDialog`（挂 shell 根）、`UpdateUiStore`（只有 `open`，不镜像后端阶段），以及纯函数 `utils/updateOpen.ts::shouldAutoOpen` / `isForced`
+- 依赖新增 `ruff` / `basedpyright`（`dependency-groups.dev`）与 `pnpm-workspace.yaml` 的 `minimatch ^11.0.8` override
+
+### Changed
+
+- 更新判定重写为 `decide = verdict(版本 × 策略) + fuse(severity)`：通道与方向是硬门禁（critical 不能推预发布、不能降级），severity 只解 `Disabled`（critical → `Force`）与 `BelowFloor`（important → `Exempt`，critical → `Force`），本来能过的一律 `Newer`；`NumericChange` 增 `Identical`
+- 更新命令改用 `State<'_, UpdaterState>` 注入，`cmd::update` 重命名为 `cmd::updater` 并给命令加 `updater_` 前缀，前端 `commands/update.ts` 迁为 `updater.ts`
+- 清单签名口径统一为「签名必填」：删除 `UpdateSource::requires_manifest_signature` 与 `load` 的 `require_signature`，本地联调源不再豁免
+- 发布链路调整：清单落盘后签名 + 算摘要，摘要经 `merge` 写入索引 `manifests`，上传顺序固定为「产物 → 当前平台清单 → 版本索引」；`release_ci` 剔除高于本次版本的未发布条目并告警
+- 打 tag 闸门收紧：目标版本必须在 `resources/update/versions.json` 标定 severity，且所有更早版本的 GitHub 与 CNB 摘要 + 签名齐全，否则直接失败并指向 `just backfill-versions`
+- CNB 发布路径统一带 `/-` 段（产物、清单、索引三条路径），与客户端 `CNB_REPO` 常量一致
+- 清单 schema、`docs/schema/latest-manifest.schema.json` 与架构文档同步到三平台 / 八槽；`Kind.MSI` 扩展名由 `.exe` 改为 `.msi`
+- 日志模块从 `config` 迁到 crate 根；遥测 JSON 层改为 `cfg(any())` 默认不编译、`telemetry` feature 才挂载；正常业务分支与缓存命中降为 debug 并改用结构化字段
+- `service/` 下文件名去掉 `_service` 后缀；`updater/download.rs` 的 `ready` 等条目移到 `mod tests` 之前
+- 脚本 CLI 收敛为 `format` / `lint` / `typecheck` / `test` 四动词，`cwd` 只保留在 `Tool` 描述符上，`cargo.check` 与 `_version` 模块删除，`uv.lock` 失败改为向上抛出
+- `MarkdownView`：只对显式标注且已注册的语言高亮，代码块强制软换行，表格改 `width: auto` 且表头不折行，标题统一垂直节奏并补 h5 / h6
+- 依赖：移除 `@quantco/pnpm-licenses`（能力由 pnpm 12 内置 `pnpm licenses list --json` 覆盖），`minimatch` 统一抬到 `^11.0.8`（GHSA-c859）
+
+### Fixed
+
+- 修复 CNB 更新链接缺失 `/-/` 路径段：`asset_url` / `versions_index_url` / `manifest_url` 拼出的直链此前指向不存在的地址，客户端补回归用例，`audit.py` 对 CNB 直链强制校验 `/-/releases/`
+- 修复版本索引漏记 0.8.5
+- 修复考勤状态更新开启事务后漏 `tx.commit()`，导致改动不落库
+- 修复历史记录导出查询后漏 `tx.commit()`，事务不结束会一直占用连接
+- 修复点名空名单时索引越界 panic：改用 `IndexedRandom::choose` 并返回带上下文的错误
+- 修复「内容合法但事实错误的旧清单缓存无法被覆盖上传纠正」：缓存可信判定下沉到 `manifest::load`，摘要不符即回源自愈
+- 修复 basedpyright 门禁把 warning 计进退出码（recommended 下 `failOnWarnings = true`，且 `GITHUB_ACTIONS` 环境会让 `--level` 完全失效）：改为读 `--outputjson` 的 `summary.errorCount`
+- 修复第三方许可证锚点含 `.` 导致前端无法定位（`apache-2.0` → `apache-20` 等），新增 `_normalize_anchor`
+- 修复 `git commit` 的 `env` 按替换语义覆盖 `os.environ`、丢失 `HOME` 等用户环境的问题
+- 修复版本号改写后 `Cargo.lock` 过期，使 `cargo metadata --locked` 在代码生成第一步即失败
+- 修复未标注语言的代码围栏被 `highlightAuto` 误染成关键字（许可证正文尤甚）
+
+### Removed
+
+- 移除 `config/app_config.rs` 与 `util/yaml_flatten_utils.rs`（未接入实际调用）及 `util/target_utils.rs`
+- 移除 `cli/just` 模块与 setup 体检中的 just 项（`CLI_ERRORS` / `REQUIREMENTS`）
+- 移除 `release/serve.py`，职责并入 `scripts/serve.py` 与 `serve/` 包
+- 移除 `scripts/tool/sitecustomize.py`，模板迁到 `scripts/setup/template/sitecustomize.py`
+
+---
 
 ## 0.8.5 {#0-8-5}
 

@@ -179,5 +179,5 @@ Page 中。
 | `frontend/src/lib/commands/record.ts`                | `create` / `list` / `update` 命令封装 |
 | `backend/src/cmd/rollcall.rs`                        | `pick` Tauri 命令                     |
 | `backend/src/cmd/record.rs`                          | `record_single_create` Tauri 命令     |
-| `backend/src/service/record_service.rs`              | `create`（含 last_insert_id 获取）    |
-| `backend/src/service/rollcall_service.rs`            | `pick` 纯随机实现                     |
+| `../../backend/src/service/record.rs`              | `create`（含 last_insert_id 获取）    |
+| `../../backend/src/service/rollcall.rs`            | `pick` 纯随机实现                     |

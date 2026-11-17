@@ -35,7 +35,7 @@ def extract(version: Version) -> str:
     if not matches:
         raise ReleaseNotesSectionEmpty(f"在 {str(RELEASE_NOTES_PATH)!r} 中未找到标题 '## {version}'")
     body = []
-    for line in lines[matches[0] + 1:]:
+    for line in lines[matches[0] + 1 :]:
         if re.match(r"^##\s", line):
             break
         body.append(line)

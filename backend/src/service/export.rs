@@ -1,0 +1,136 @@
+use crate::common::entity::student::Student;
+use crate::repo::record_repo;
+use anyhow::{anyhow, Context};
+use jiff::tz::TimeZone;
+use rbatis::RBatis;
+use rbs::value;
+use rust_xlsxwriter::{Format, FormatAlign, Workbook};
+use std::fs;
+use std::path::Path;
+use std::time::Instant;
+use tracing::info;
+
+pub async fn export_students(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow::Result<()> {
+    if ids.is_empty() {
+        return Err(anyhow!("长度为0，没有待导出的学生。"));
+    }
+    let started = Instant::now();
+    let students = Student::select_by_map(rb, value! {"id": ids}).await?;
+    let mut workbook = Workbook::new();
+    let header_format = Format::new()
+        .set_align(FormatAlign::Center)
+        .set_font_name("微软雅黑")
+        .set_font_size(14)
+        .set_bold();
+    let content_format = Format::new()
+        .set_align(FormatAlign::Center)
+        .set_font_name("微软雅黑")
+        .set_font_size(12);
+    let worksheet = workbook.add_worksheet();
+
+    worksheet.write_with_format(0, 0, "序号", &header_format)?;
+    worksheet.write_with_format(0, 1, "学号", &header_format)?;
+    worksheet.write_with_format(0, 2, "姓名", &header_format)?;
+
+    for (index, student) in students.iter().enumerate() {
+        let row = index as u32 + 1;
+        worksheet.write_with_format(row, 0, row, &content_format)?;
+        worksheet.write_with_format(row, 1, &student.student_no, &content_format)?;
+        worksheet.write_with_format(row, 2, &student.name, &content_format)?;
+    }
+
+    worksheet.set_column_width(0, 6)?;
+    worksheet.set_column_width(1, 16)?;
+    worksheet.set_column_width(2, 10)?;
+    workbook.save(path).context("保存失败")?;
+    info!(
+        kind = "students",
+        rows = students.len(),
+        path = %path.display(),
+        size_B = %path.metadata().map_or_else(|_| "获取失败".to_string(), |m| m.len().to_string()) ,
+        elapsed_ms = started.elapsed().as_millis(),
+        "学生数据导出完成"
+    );
+
+    Ok(())
+}
+
+pub async fn export_records(rb: &RBatis, path: &Path, ids: Vec<i64>) -> anyhow::Result<()> {
+    if ids.is_empty() {
+        return Err(anyhow!("长度为0，没有待导出的历史记录。"));
+    }
+    let started = Instant::now();
+
+    let mut tx = rb.acquire_begin().await?;
+    let records = record_repo::select_by_ids(&mut tx, ids).await?;
+    tx.commit().await?;
+
+    let mut workbook = Workbook::new();
+    let header_format = Format::new()
+        .set_align(FormatAlign::Center)
+        .set_font_name("微软雅黑")
+        .set_font_size(14)
+        .set_bold();
+    let content_format = Format::new()
+        .set_align(FormatAlign::Center)
+        .set_font_name("微软雅黑")
+        .set_font_size(12);
+    let worksheet = workbook.add_worksheet();
+
+    worksheet.write_with_format(0, 0, "序号", &header_format)?;
+    worksheet.write_with_format(0, 1, "学号", &header_format)?;
+    worksheet.write_with_format(0, 2, "姓名", &header_format)?;
+    worksheet.write_with_format(0, 3, "状态", &header_format)?;
+    worksheet.write_with_format(0, 4, "备注", &header_format)?;
+    worksheet.write_with_format(0, 5, "点名时间", &header_format)?;
+
+    for (index, record) in records.iter().enumerate() {
+        let row = index as u32 + 1;
+        worksheet.write_with_format(row, 0, row, &content_format)?;
+        worksheet.write_with_format(row, 1, &record.student_no, &content_format)?;
+        worksheet.write_with_format(row, 2, &record.name, &content_format)?;
+        worksheet.write_with_format(row, 3, get_status_from_code(record.attendance_status), &content_format)?;
+        worksheet.write_with_format(row, 4, record.remark.clone().unwrap_or_default(), &content_format)?;
+        worksheet.write_with_format(
+            row,
+            5,
+            record
+                .rollcall_at
+                .to_zoned(TimeZone::system())
+                .strftime("%Y-%m-%dT%H:%M:%S%.3f%:z")
+                .to_string(),
+            &content_format,
+        )?;
+    }
+
+    worksheet.set_column_width(0, 4)?;
+    worksheet.set_column_width(1, 16)?;
+    worksheet.set_column_width(2, 10)?;
+    worksheet.set_column_width(3, 6)?;
+    worksheet.set_column_width(4, 36)?;
+    worksheet.set_column_width(5, 48)?;
+    workbook.save(path).context("保存失败")?;
+    // 导出是唯一带本地时区转换的路径
+    info!(
+        kind = "records",
+        rows = records.len(),
+        path = %path.display(),
+        size_B = %path.metadata().map_or_else(|_| "获取失败".to_string(), |m| m.len().to_string()) ,
+        elapsed_ms = started.elapsed().as_millis(),
+        "历史记录导出完成"
+    );
+
+    Ok(())
+}
+
+fn get_status_from_code(code: i8) -> String {
+    match code {
+        0 => String::from("回滚"),
+        1 => String::from("缺勤"),
+        2 => String::from("出勤"),
+        3 => String::from("迟到"),
+        4 => String::from("早退"),
+        5 => String::from("请假"),
+        _ => String::from("未知"),
+    }
+}

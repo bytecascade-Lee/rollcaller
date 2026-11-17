@@ -2,11 +2,39 @@
 name = "rollcaller"
 version = "0.1.0-dev"
 requires-python = ">=3.14"
-dependencies = [
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.40.2",
     "fastapi>=0.115",
+    "ruff>=0.17.5",
     "semver>=3.1.0",
     "uvicorn>=0.30",
 ]
+
+[tool.ruff]
+# 文件模式列表
+include = ["scripts/**/*.py"]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+# UP037 会删掉类内自引用注解的引号，这依赖 PEP 649 的延迟求值
+# 但 pyright 不建模该语义，报错 6 条「未定义」，因此必须忽略
+ignore = ["UP037"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["build", "cli", "codegen", "common", "prepare", "release", "serve", "setup", "util"]
+
+[tool.basedpyright]
+include = ["scripts"]
+extraPaths = ["scripts"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.15.1"
+typeCheckingMode = "recommended"
+
 [[tool.uv.index]]
 name = "tsinghua"
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"

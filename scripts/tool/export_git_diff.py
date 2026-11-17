@@ -33,13 +33,15 @@ import os
 import re
 import sys
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path, PurePosixPath
-from typing import Sequence
 
 from cli import git
-from common.constant.paths import PROJECT_BASE_DIR, DOCS_DIR
+from cli.git import TOOL
+from cli.tool import Timeout
+from common.constant.paths import DOCS_DIR, PROJECT_BASE_DIR
 from common.logger import debug, error, info, success, warning
 from util.fs import sanitize_filename
 from util.str_format import display_width, padding
@@ -170,7 +172,7 @@ def _read_worktree(path: str) -> bytes | None:
     except FileNotFoundError:
         return None
     except OSError as e:
-        raise SkipError(f"读取工作区文件失败: {e}")
+        raise SkipError(f"读取工作区文件失败: {e}") from e
 
 
 def _as_text(data: bytes, where: str) -> str:
@@ -180,7 +182,7 @@ def _as_text(data: bytes, where: str) -> str:
     try:
         return data.decode("utf-8")
     except UnicodeDecodeError as e:
-        raise SkipError(f"{where} 不是合法 UTF-8（{e}）")
+        raise SkipError(f"{where} 不是合法 UTF-8（{e}）") from e
 
 
 def _same_content(before: str, after: str) -> bool:
@@ -193,7 +195,7 @@ def _list_changes(diff_args: Sequence[str], selectors: Sequence[str]) -> list[Ch
     args = ["diff", *diff_args, "--name-status", "-z", "-M"]
     if selectors:
         args += ["--", *selectors]
-    out = git.stdout(args, cwd=PROJECT_BASE_DIR)
+    out = TOOL.text(args, timeout=Timeout.NORMAL)
     if not out:
         return []
 
@@ -255,16 +257,15 @@ def _normalize_selectors(raw: Sequence[str]) -> list[str]:
 
 def _patch_of(diff_args: Sequence[str], paths: Sequence[str], context: int) -> str:
     """取本文件的 unified diff；重命名要同时传新旧路径，否则 git 会退化成「新增+删除」"""
-    return git.stdout(
-        ["diff", *diff_args, f"-U{context}", "--no-color", "-M", "--", *paths],
-        cwd=PROJECT_BASE_DIR,
-    )
+    args = ["diff", *diff_args, f"-U{context}", "--no-color", "-M", "--", *paths]
+    return TOOL.text(args, timeout=Timeout.NORMAL)
 
 
 def _count_untracked() -> int:
     """未跟踪文件数（只用于日志说明它们被忽略了）"""
     try:
-        out = git.stdout(["ls-files", "--others", "--exclude-standard", "-z"], cwd=PROJECT_BASE_DIR)
+        args = ["ls-files", "--others", "--exclude-standard", "-z"]
+        out = TOOL.text(args, timeout=Timeout.NORMAL)
     except git.GitError:
         return 0
     return len([f for f in out.split("\0") if f]) if out else 0
@@ -273,7 +274,7 @@ def _count_untracked() -> int:
 def _before_bytes(change: Change, before_ref: str) -> bytes | None:
     if change.code == "A":
         return None  # 新增：该版本本来就没有
-    path = change.old_path if change.is_rename else change.new_path
+    path = change.old_path or change.new_path
     return _blob_or_warn(before_ref, path)
 
 
@@ -381,6 +382,7 @@ def _out_name(change: Change) -> str:
 
 # 输出目录
 
+
 def _clean_out_dir(out_dir: Path) -> int:
     """清掉上一轮结果：只删本目录下直接的产物文件，不递归、不删目录、不跟随符号链接"""
     if not out_dir.is_dir():
@@ -401,6 +403,7 @@ def _clean_out_dir(out_dir: Path) -> int:
 
 
 # 入口
+
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -516,20 +519,11 @@ def _export_one(
         return Outcome.SKIPPED
 
     # 内容口径过滤：仅行尾不同（CRLF ↔ LF）的修改不导出。重命名/复制不适用。
-    if (
-        change.code == "M"
-        and before is not None
-        and after is not None
-        and _same_content(before, after)
-    ):
+    if change.code == "M" and before is not None and after is not None and _same_content(before, after):
         info(f"跳过: {change.new_path}（仅行尾差异，内容无实质变化）")
         return Outcome.EOL_ONLY
 
-    paths = (
-        [p for p in (change.old_path, change.new_path) if p]
-        if change.is_rename
-        else [change.new_path]
-    )
+    paths = [p for p in (change.old_path, change.new_path) if p] if change.is_rename else [change.new_path]
     try:
         patch = _patch_of(scope.diff_args, paths, context)
     except git.GitError as e:

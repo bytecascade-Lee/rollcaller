@@ -142,7 +142,7 @@ cp backend/.cargo/config.toml.example backend/.cargo/config.toml
 uv sync
 
 # 5. Script import hook
-cp scripts/tool/sitecustomize.py .venv/sitecustomize.py
+cp scripts/setup/template/sitecustomize.py .venv/sitecustomize.py
 
 # 6. Frontend dependencies
 cd frontend && pnpm install --frozen-lockfile && cd ..
@@ -162,7 +162,7 @@ environment** (`just setup` does it for you).
 | Start dev server    | `just dev x86_64-pc-windows-msvc`         | `uv run scripts/dev.py -t x86_64-pc-windows-msvc`                                        |
 | Frontend dev only   | `just dev-fe`                             | `cd frontend && pnpm dev`                                                                |
 | Type check          | `just check x86_64-pc-windows-msvc`       | `cd frontend && pnpm check`, `cd backend && cargo check --target x86_64-pc-windows-msvc` |
-| Format              | `just fmt`                                | `cd backend && cargo fmt`                                                                |
+| Format              | `just format`                             | `uv run scripts/format.py`                                                               |
 | Test                | `just test x86_64-pc-windows-msvc`        | `uv run scripts/test.py -t x86_64-pc-windows-msvc`                                       |
 | Frontend tests only | `just test-fe`                            | `cd frontend && pnpm test`                                                               |
 | Export changes      | `just export`                             | `uv run scripts/tool/export_git_diff.py`                                                 |

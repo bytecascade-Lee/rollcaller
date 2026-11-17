@@ -12,7 +12,8 @@ from types import ModuleType
 from cli import git
 from common.logger import info
 from util.str_format import join_repr
-from . import build_info, routing_entries
+
+from . import build_info, routing_entries, third_party_licenses
 
 
 class CodegenError(Exception):
@@ -23,8 +24,8 @@ class GeneratedNotCommittedError(Exception):
     """生成物与 HEAD 不一致：quality-gate 跑 test.py 时就会失败"""
 
 
-# 顺序即执行顺序
-GENERATORS: tuple[ModuleType, ...] = (build_info, routing_entries)
+# 顺序即执行顺序：许可证清单要先落盘，routing_entries 才知道有这篇文档
+GENERATORS: tuple[ModuleType, ...] = (build_info, third_party_licenses, routing_entries)
 
 
 def generate_all() -> None:
@@ -40,7 +41,7 @@ def generate_all() -> None:
             module.generate()
         except Exception as error:
             raise CodegenError(f"{name} 失败: {error}") from error
-    info(f"代码生成完成")
+    info("代码生成完成")
 
 
 def ensure_committed(paths: Sequence[Path], *, label: str) -> None:
@@ -48,6 +49,4 @@ def ensure_committed(paths: Sequence[Path], *, label: str) -> None:
     names = [*git.diff_names(paths), *git.untracked_names(paths)]
     if not names:
         return
-    raise GeneratedNotCommittedError(
-        f"{label} 有 {len(names)} 个文件未提交: {join_repr(names)}；先提交再继续"
-    )
+    raise GeneratedNotCommittedError(f"{label} 有 {len(names)} 个文件未提交: {join_repr(names)}；先提交再继续")

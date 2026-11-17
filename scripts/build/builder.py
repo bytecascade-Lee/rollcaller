@@ -8,6 +8,7 @@ tauri build 封装
 import os
 import shutil
 from pathlib import Path
+from typing import Any
 
 from cli import tauri
 from common.constant.paths import BACKEND_TARGET_DIR
@@ -26,8 +27,14 @@ def clean_dir(target: Target, *, profile: Profile = Profile.RELEASE) -> None:
     shutil.rmtree(release_dir(target, profile=profile) / "bundle", ignore_errors=True)
 
 
-def build(target: Target, *, profile: Profile = Profile.RELEASE,
-          bundle: bool = True, config: dict | None = None, env: dict[str, str] | None) -> Path:
+def build(
+    target: Target,
+    *,
+    profile: Profile = Profile.RELEASE,
+    bundle: bool = True,
+    config: dict[str, Any] | None = None,
+    env: dict[str, str] | None,
+) -> Path:
     """执行 tauri build，返回输出目录
 
     :param target: 待构建的 Target 目标
