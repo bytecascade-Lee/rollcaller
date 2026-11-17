@@ -1,5 +1,9 @@
 [
     {
+        "version": "0.8.6",
+        "severity": "normal"
+    },
+    {
         "version": "0.8.5",
         "severity": "normal",
         "manifests": {
