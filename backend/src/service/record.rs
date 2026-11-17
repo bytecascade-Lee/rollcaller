@@ -61,7 +61,7 @@ pub async fn update_attendance_status(
         return Err(anyhow!("影响行不正确：应为{count}，实为{0}，已回滚", result.rows_affected));
     }
     tx.commit().await?;
-    info!(count, status = attendance_status, "批量更新考勤状态");
+    info!(count, ?ids, status = attendance_status, "批量更新考勤状态");
     let mut select_tx = rb.acquire_begin().await?;
     let records = record_repo::select_by_ids(&mut select_tx, ids).await?;
     select_tx.commit().await?;
@@ -77,7 +77,7 @@ pub async fn update_remark(rb: &RBatis, ids: Vec<i64>, remark: String) -> anyhow
         return Err(anyhow!("影响行不正确：应为{count}，实为{0}，已回滚", result.rows_affected));
     }
     tx.commit().await?;
-    info!(count, length = remark.chars().count(), "批量更新备注");
+    info!(count, ?ids, length = remark.chars().count(), "批量更新备注");
     let mut select_tx = rb.acquire_begin().await?;
     let records = record_repo::select_by_ids(&mut select_tx, ids).await?;
     select_tx.commit().await?;
